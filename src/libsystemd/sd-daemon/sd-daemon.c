@@ -513,16 +513,6 @@ static int pid_notify_with_fds_internal(
         }
 
         if (address.sockaddr.sa.sa_family == AF_VSOCK) {
-                /* If we shut down a virtual machine the kernel might not flush the buffers of the vsock
-                 * socket before shutting down. Set SO_LINGER so that we wait until the buffers are flushed
-                 * when the socket is closed. */
-                struct linger l = {
-                        .l_onoff = true,
-                        .l_linger = 10,
-                };
-                if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) < 0)
-                        log_debug_errno(errno, "Failed to set SO_LINGER on vsock notify socket, ignoring: %m");
-
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                         return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
