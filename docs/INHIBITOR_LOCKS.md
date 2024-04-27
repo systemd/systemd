@@ -87,7 +87,7 @@ A delay lock taken this way should be released ASAP on reception of PrepareForSh
 
 **ListInhibitors()** lists all currently active inhibitor locks. It returns an array of structs, each consisting of What, Who, Why, Mode as above, plus the PID and UID of the process that requested the lock.
 
-The **PrepareForShutdown()** and **PrepareForSleep()** signals are emitted when a system suspend or shutdown has been requested and is about to be executed, as well as after the the suspend/shutdown was completed (or failed).
+The **PrepareForShutdown()** and **PrepareForSleep()** signals are emitted when a system suspend or shutdown has been requested and is about to be executed, as well as after the suspend/shutdown was completed (or failed).
 
 The signals carry a boolean argument.
 If _True_ the shutdown/sleep has been requested, and the preparation phase for it begins, if _False_ the operation has finished completion (or failed).

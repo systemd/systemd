@@ -1396,7 +1396,7 @@ int remount_idmap_fd(
 
         assert(userns_fd >= 0);
 
-        /* This remounts all specified paths with the specified userns as idmap. It will do so in in the
+        /* This remounts all specified paths with the specified userns as idmap. It will do so in the
          * order specified in the strv: the expectation is that the top-level directories are at the
          * beginning, and nested directories in the right, so that the tree can be built correctly from left
          * to right. */

@@ -92,7 +92,7 @@
       specific key.</para></listitem>
 
       <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
-      signature data in the the <literal>.pcrsig</literal> section.</para></listitem>
+      signature data in the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
     <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed
@@ -167,7 +167,7 @@
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
 
-      <!-- Note: the actual suffix we look for for sysexts is just *.raw (not *.sysext.raw), for
+      <!-- Note: the actual suffix we look for sysexts is just *.raw (not *.sysext.raw), for
            compatibility reasons with old versions. But we want people to name their system extensions
            properly, hence we document the *.sysext.raw suffix only. -->
 
