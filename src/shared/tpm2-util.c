@@ -7205,7 +7205,7 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
         /* Load the PIN (which we have stored in the "auth" TPM2B_AUTH) into the TPM as an HMAC key so that
          * we can use it in a TPM2_PolicySigned() to write to the nvindex. For that we'll prep a pair of
          * TPM2B_PUBLIC and TPM2B_SENSITIVE that defines an HMAC-SHA256 keyed hash function, and initialize
-         * it based on on the provided PIN data. */
+         * it based on the provided PIN data. */
 
         TPM2B_PUBLIC auth_hmac_public = {
                 .publicArea = {
