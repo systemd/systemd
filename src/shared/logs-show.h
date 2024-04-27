@@ -49,8 +49,7 @@ int add_matches_for_unit(
 
 int add_matches_for_user_unit(
                 sd_journal *j,
-                const char *unit,
-                uid_t uid);
+                const char *unit);
 
 int show_journal_by_unit(
                 FILE *f,
@@ -60,7 +59,6 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                uid_t uid,
                 OutputFlags flags,
                 int journal_open_flags,
                 bool system_unit,
@@ -72,6 +70,10 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
-int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id);
-int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret);
-int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots);
+int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
+int journal_get_boots(
+                sd_journal *j,
+                bool advance_older,
+                size_t max_ids,
+                BootId **ret_boots,
+                size_t *ret_n_boots);
