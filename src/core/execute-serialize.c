@@ -1597,7 +1597,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->stdin_fd = fd;
+                        close_and_replace(p->stdin_fd, fd);
 
                 } else if ((val = startswith(l, "exec-parameters-stdout-fd="))) {
                         int fd;
@@ -1606,7 +1606,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->stdout_fd = fd;
+                        close_and_replace(p->stdout_fd, fd);
 
                 } else if ((val = startswith(l, "exec-parameters-stderr-fd="))) {
                         int fd;
@@ -1615,7 +1615,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->stderr_fd = fd;
+                        close_and_replace(p->stderr_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
                         int fd;
 
@@ -1623,7 +1623,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->exec_fd = fd;
+                        close_and_replace(p->exec_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-handoff-timestamp-fd="))) {
                         int fd;
 
@@ -1639,13 +1639,13 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->bpf_restrict_fs_map_fd = fd;
+                        close_and_replace(p->bpf_restrict_fs_map_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
                         r = free_and_strdup(&p->notify_socket, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-open-file="))) {
-                        OpenFile *of = NULL;
+                        OpenFile *of;
 
                         r = open_file_parse(val, &of);
                         if (r < 0)
@@ -1663,7 +1663,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->user_lookup_fd = fd;
+                        close_and_replace(p->user_lookup_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
                         r = deserialize_strv(val, &p->files_env);
                         if (r < 0)
