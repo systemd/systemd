@@ -457,38 +457,72 @@ TEST(skip) {
         test_skip_one(setup_interleaved);
 }
 
-static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
+static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         char t[] = "/var/tmp/journal-boot-id-XXXXXX";
-        sd_journal *j;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
 
         mkdtemp_chdir_chattr(t);
 
         setup();
 
         assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-        assert_se(journal_get_boots(j, &boots, &n_boots) >= 0);
-        assert_se(boots);
-        assert_se(n_boots == n_boots_expected);
-        sd_journal_close(j);
+        assert_se(journal_get_ids(
+                                j, JOURNAL_BOOT_ID,
+                                /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                /* advance_older = */ false, /* max_ids = */ SIZE_MAX,
+                                &ids, &n_ids) >= 0);
+        assert_se(ids);
+        assert_se(n_ids == n_ids_expected);
 
-        FOREACH_ARRAY(b, boots, n_boots) {
-                assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-                assert_se(journal_find_boot_by_id(j, b->id) == 1);
-                sd_journal_close(j);
-        }
-
-        for (int i = - (int) n_boots + 1; i <= (int) n_boots; i++) {
+        for (size_t i = 0; i < n_ids; i++) {
                 sd_id128_t id;
 
-                assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-                assert_se(journal_find_boot_by_offset(j, i, &id) == 1);
-                if (i <= 0)
-                        assert_se(sd_id128_equal(id, boots[n_boots + i - 1].id));
-                else
-                        assert_se(sd_id128_equal(id, boots[i - 1].id));
-                sd_journal_close(j);
+                /* positive offset */
+                assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, SD_ID128_NULL, (int) (i + 1), &id) == 1);
+                assert_se(sd_id128_equal(id, ids[i].id));
+
+                /* negative offset */
+                assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, SD_ID128_NULL, (int) (i + 1) - (int) n_ids, &id) == 1);
+                assert_se(sd_id128_equal(id, ids[i].id));
+
+                for (size_t k = 0; k < n_ids; k++) {
+                        int offset = (int) k - (int) i;
+
+                        /* relative offset */
+                        assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, ids[i].id, offset, &id) == 1);
+                        assert_se(sd_id128_equal(id, ids[k].id));
+                }
+        }
+
+        for (size_t i = 0; i <= n_ids_expected + 1; i++) {
+                _cleanup_free_ JournalId *ids_limited = NULL;
+                size_t n_ids_limited;
+
+                assert_se(journal_get_ids(
+                                        j, JOURNAL_BOOT_ID,
+                                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                        /* advance_older = */ false, /* max_ids = */ i,
+                                        &ids_limited, &n_ids_limited) >= 0);
+                assert_se(ids_limited || i == 0);
+                assert_se(n_ids_limited == MIN(i, n_ids_expected));
+                assert_se(memcmp_safe(ids, ids_limited, n_ids_limited * sizeof(JournalId)) == 0);
+        }
+
+        for (size_t i = 0; i <= n_ids_expected + 1; i++) {
+                _cleanup_free_ JournalId *ids_limited = NULL;
+                size_t n_ids_limited;
+
+                assert_se(journal_get_ids(
+                                        j, JOURNAL_BOOT_ID,
+                                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                        /* advance_older = */ true, /* max_ids = */ i,
+                                        &ids_limited, &n_ids_limited) >= 0);
+                assert_se(ids_limited || i == 0);
+                assert_se(n_ids_limited == MIN(i, n_ids_expected));
+                for (size_t k = 0; k < n_ids_limited; k++)
+                        assert_se(memcmp(&ids[n_ids - k - 1], &ids_limited[k], sizeof(JournalId)) == 0);
         }
 
         test_done(t);

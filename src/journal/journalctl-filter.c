@@ -9,11 +9,29 @@
 #include "journal-internal.h"
 #include "journalctl.h"
 #include "journalctl-filter.h"
+#include "journalctl-util.h"
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "unit-name.h"
+
+static int add_invocation(sd_journal *j) {
+        int r;
+
+        assert(j);
+
+        if (!arg_invocation)
+                return 0;
+
+        assert(!sd_id128_is_null(arg_invocation_id));
+
+        r = add_matches_for_invocation_id(j, arg_invocation_id);
+        if (r < 0)
+                return r;
+
+        return sd_journal_add_conjunction(j);
+}
 
 static int add_boot(sd_journal *j) {
         int r;
@@ -23,42 +41,13 @@ static int add_boot(sd_journal *j) {
         if (!arg_boot)
                 return 0;
 
-        /* Take a shortcut and use the current boot_id, which we can do very quickly.
-         * We can do this only when we logs are coming from the current machine,
-         * so take the slow path if log location is specified. */
-        if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
-            !arg_directory && !arg_file && !arg_root)
-                return add_match_this_boot(j, arg_machine);
-
-        if (sd_id128_is_null(arg_boot_id)) {
-                r = journal_find_boot_by_offset(j, arg_boot_offset, &arg_boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to find journal entry from the specified boot offset (%+i): %m",
-                                               arg_boot_offset);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "No journal boot entry found from the specified boot offset (%+i).",
-                                               arg_boot_offset);
-        } else {
-                r = journal_find_boot_by_id(j, arg_boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to find journal entry from the specified boot ID (%s): %m",
-                                               SD_ID128_TO_STRING(arg_boot_id));
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "No journal boot entry found from the specified boot ID (%s).",
-                                               SD_ID128_TO_STRING(arg_boot_id));
-        }
+        assert(!sd_id128_is_null(arg_boot_id));
 
         r = add_match_boot_id(j, arg_boot_id);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match: %m");
+                return r;
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add conjunction: %m");
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_dmesg(sd_journal *j) {
@@ -208,7 +197,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_user_unit(j, u, getuid());
+                        r = add_matches_for_user_unit(j, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -227,7 +216,7 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_user_unit(j, u, getuid());
+                        r = add_matches_for_user_unit(j, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -457,19 +446,37 @@ int add_filters(sd_journal *j, char **matches) {
 
         assert(j);
 
-        /* add_boot() must be called first!
-         * It may need to seek the journal to find parent boot IDs. */
-        r = add_boot(j);
+        /* First, search boot or invocation ID, as that may set and flush matches and seek journal. */
+        r = journal_acquire_boot(j);
         if (r < 0)
                 return r;
+
+        r = journal_acquire_invocation(j);
+        if (r < 0)
+                return r;
+
+        /* Clear unexpected matches for safety. */
+        sd_journal_flush_matches(j);
+
+        /* Then, add filters in the below. */
+        if (arg_invocation) {
+                /* If an invocation ID is found, then it is not necessary to add matches for boot and units. */
+                r = add_invocation(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for invocation: %m");
+        } else {
+                r = add_boot(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for boot: %m");
+
+                r = add_units(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for units: %m");
+        }
 
         r = add_dmesg(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to add filter for dmesg: %m");
-
-        r = add_units(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add filter for units: %m");
 
         r = add_syslog_identifier(j);
         if (r < 0)

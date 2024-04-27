@@ -2,9 +2,11 @@
 
 #include <unistd.h>
 
+#include "id128-util.h"
 #include "journal-util.h"
 #include "journalctl.h"
 #include "journalctl-util.h"
+#include "logs-show.h"
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "terminal-util.h"
@@ -69,4 +71,125 @@ bool journal_boot_has_effect(sd_journal *j) {
         }
 
         return true;
+}
+
+int journal_acquire_boot(sd_journal *j) {
+        int r;
+
+        assert(j);
+
+        if (!arg_boot) {
+                /* Clear relevant field for safety. */
+                arg_boot_id = SD_ID128_NULL;
+                arg_boot_offset = 0;
+                return 0;
+        }
+
+        /* Take a shortcut and use the current boot_id, which we can do very quickly.
+         * We can do this only when we logs are coming from the current machine,
+         * so take the slow path if log location is specified. */
+        if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
+            !arg_directory && !arg_file && !arg_file_stdin && !arg_root) {
+                r = id128_get_boot_for_machine(arg_machine, &arg_boot_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot ID%s%s: %m",
+                                               isempty(arg_machine) ? "" : " of container ", strempty(arg_machine));
+        } else {
+                sd_id128_t boot_id;
+
+                r = journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, arg_boot_id, arg_boot_offset, &boot_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find journal entry from the specified boot (%s%+i): %m",
+                                               sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                                               arg_boot_offset);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "No journal boot entry found from the specified boot (%s%+i).",
+                                               sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                                               arg_boot_offset);
+
+                log_debug("Found boot %s for %s%+i",
+                          SD_ID128_TO_STRING(boot_id),
+                          sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                          arg_boot_offset);
+
+                arg_boot_id = boot_id;
+        }
+
+        return 1;
+}
+
+int acquire_unit(const char *option_name, const char **ret_unit, JournalIdType *ret_type) {
+        size_t n;
+
+        assert(option_name);
+        assert(ret_unit);
+        assert(ret_type);
+
+        n = strv_length(arg_system_units) + strv_length(arg_user_units);
+        if (n <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using %s requires a unit. Please specify a unit name with -u/--unit=/--user-unit=.",
+                                       option_name);
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using %s with multiple units is not supported.",
+                                       option_name);
+
+        if (!strv_isempty(arg_system_units)) {
+                *ret_type = JOURNAL_SYSTEM_UNIT_INVOCATION_ID;
+                *ret_unit = arg_system_units[0];
+        } else {
+                assert(!strv_isempty(arg_user_units));
+                *ret_type = JOURNAL_USER_UNIT_INVOCATION_ID;
+                *ret_unit = arg_user_units[0];
+        }
+
+        return 0;
+}
+
+int journal_acquire_invocation(sd_journal *j) {
+        JournalIdType type = JOURNAL_SYSTEM_UNIT_INVOCATION_ID;
+        const char *unit = NULL;
+        sd_id128_t id;
+        int r;
+
+        assert(j);
+
+        /* journal_acquire_boot() must be called before this. */
+
+        if (!arg_invocation) {
+                /* Clear relevant field for safety. */
+                arg_invocation_id = SD_ID128_NULL;
+                arg_invocation_offset = 0;
+                return 0;
+        }
+
+        /* When an invocation ID is explicitly specified without an offset, we do not care the ID is about
+         * system unit or user unit, and calling without unit name is allowed. Otherwise, a unit name must
+         * be specified. */
+        if (arg_invocation_offset != 0 || sd_id128_is_null(arg_invocation_id)) {
+                r = acquire_unit("-I/--invocation= with an offset", &unit, &type);
+                if (r < 0)
+                        return r;
+        }
+
+        r = journal_find_id(j, type, arg_boot_id, unit, arg_invocation_id, arg_invocation_offset, &id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find journal entry for the invocation (%s%+i): %m",
+                                       sd_id128_is_null(arg_invocation_id) ? "" : SD_ID128_TO_STRING(arg_invocation_id),
+                                       arg_invocation_offset);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "No journal entry found from the invocation (%s%+i).",
+                                       sd_id128_is_null(arg_invocation_id) ? "" : SD_ID128_TO_STRING(arg_invocation_id),
+                                       arg_invocation_offset);
+
+        log_debug("Found invocation ID %s for %s%+i",
+                  SD_ID128_TO_STRING(id),
+                  sd_id128_is_null(arg_invocation_id) ? "" : SD_ID128_TO_STRING(arg_invocation_id),
+                  arg_invocation_offset);
+
+        arg_invocation_id = id;
+        return 1;
 }
