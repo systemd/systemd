@@ -976,7 +976,20 @@ add_symlink:
         return 0;
 }
 
-static char *settle_runtime_dir(RuntimeScope scope) {
+static int bind_mount_device_dir(const char *dir, const char *temporary_mount) {
+        const char *t;
+
+        assert(dir);
+        assert(path_is_absolute(dir));
+        assert(temporary_mount);
+
+        t = strjoina(temporary_mount, dir);
+
+        (void) mkdir(t, 0755);
+        return mount_nofollow_verbose(LOG_DEBUG, dir, t, NULL, MS_BIND, NULL);
+}
+
+static char* settle_runtime_dir(RuntimeScope scope) {
         char *runtime_dir;
 
         if (scope != RUNTIME_SCOPE_USER)
@@ -1017,8 +1030,8 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        _cleanup_free_ char *temporary_mount = NULL;
-        const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
+        _cleanup_(rmdir_and_freep) char *temporary_mount = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *dev = NULL;
         bool can_mknod = true;
         int r;
 
@@ -1028,67 +1041,56 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        dev = strjoina(temporary_mount, "/dev");
+        dev = path_join(temporary_mount, "dev");
+        if (!dev)
+                return -ENOMEM;
+
         (void) mkdir(dev, 0755);
         r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=0755" TMPFS_LIMITS_PRIVATE_DEV);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to fix label of '%s' as /dev: %m", dev);
-                goto fail;
-        }
-
-        devpts = strjoina(temporary_mount, "/dev/pts");
-        (void) mkdir(devpts, 0755);
-        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/pts", devpts, NULL, MS_BIND, NULL);
         if (r < 0)
-                goto fail;
+                return log_debug_errno(r, "Failed to fix label of '%s' as /dev/: %m", dev);
+
+        r = bind_mount_device_dir("/dev/pts", temporary_mount);
+        if (r < 0)
+                return r;
 
         /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx.
          * When /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible.
          * Thus, in that case make a clone.
          * In nspawn and other containers it will be a symlink, in that case make it a symlink. */
         r = is_symlink("/dev/ptmx");
-        if (r < 0) {
-                log_debug_errno(r, "Failed to detect whether /dev/ptmx is a symlink or not: %m");
-                goto fail;
-        } else if (r > 0) {
-                devptmx = strjoina(temporary_mount, "/dev/ptmx");
-                if (symlink("pts/ptmx", devptmx) < 0) {
-                        r = log_debug_errno(errno, "Failed to create a symlink '%s' to pts/ptmx: %m", devptmx);
-                        goto fail;
-                }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to detect whether /dev/ptmx is a symlink or not: %m");
+        if (r > 0) {
+                const char *devptmx = strjoina(temporary_mount, "/dev/ptmx");
+                if (symlink("pts/ptmx", devptmx) < 0)
+                        return log_debug_errno(errno, "Failed to create symlink '%s' to pts/ptmx: %m", devptmx);
         } else {
                 r = clone_device_node("/dev/ptmx", temporary_mount, &can_mknod);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        devshm = strjoina(temporary_mount, "/dev/shm");
-        (void) mkdir(devshm, 0755);
-        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/shm", devshm, NULL, MS_BIND, NULL);
+        r = bind_mount_device_dir("/dev/shm", temporary_mount);
         if (r < 0)
-                goto fail;
+                return r;
 
-        devmqueue = strjoina(temporary_mount, "/dev/mqueue");
-        (void) mkdir(devmqueue, 0755);
-        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
+        FOREACH_STRING(d, "/dev/mqueue", "/dev/hugepages")
+                (void) bind_mount_device_dir(d, temporary_mount);
 
-        devhugepages = strjoina(temporary_mount, "/dev/hugepages");
-        (void) mkdir(devhugepages, 0755);
-        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
-
-        devlog = strjoina(temporary_mount, "/dev/log");
+        const char *devlog = strjoina(temporary_mount, "/dev/log");
         if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
-                log_debug_errno(errno, "Failed to create a symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m", devlog);
+                log_debug_errno(errno, "Failed to create symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
                 /* ENXIO means the *source* is not a device file, skip creation in that case */
                 if (r < 0 && r != -ENXIO)
-                        goto fail;
+                        return r;
         }
 
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
@@ -1106,31 +1108,10 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
 
         r = mount_nofollow_verbose(LOG_DEBUG, dev, mount_entry_path(m), NULL, MS_MOVE, NULL);
         if (r < 0)
-                goto fail;
-
-        (void) rmdir(dev);
-        (void) rmdir(temporary_mount);
+                return r;
+        dev = rmdir_and_free(dev); /* Mount is moved, no need to umount() */
 
         return 1;
-
-fail:
-        if (devpts)
-                (void) umount_verbose(LOG_DEBUG, devpts, UMOUNT_NOFOLLOW);
-
-        if (devshm)
-                (void) umount_verbose(LOG_DEBUG, devshm, UMOUNT_NOFOLLOW);
-
-        if (devhugepages)
-                (void) umount_verbose(LOG_DEBUG, devhugepages, UMOUNT_NOFOLLOW);
-
-        if (devmqueue)
-                (void) umount_verbose(LOG_DEBUG, devmqueue, UMOUNT_NOFOLLOW);
-
-        (void) umount_verbose(LOG_DEBUG, dev, UMOUNT_NOFOLLOW);
-        (void) rmdir(dev);
-        (void) rmdir(temporary_mount);
-
-        return r;
 }
 
 static int mount_bind_dev(const MountEntry *m) {
