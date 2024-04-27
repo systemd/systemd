@@ -1717,6 +1717,15 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-c',
         ]
 
+        # If c_args contains prefix maps copy them along with the values, in order to avoid breaking
+        # reproducible builds
+        foreach opt : c_args
+                if opt.contains('-ffile-prefix-map=') or opt.contains('-fdebug-prefix-map=') or opt.contains('-fmacro-prefix-map=')
+                        bpf_clang_flags += [opt]
+                        bpf_gcc_flags += [opt]
+                endif
+        endforeach
+
         # Generate defines that are appropriate to tell the compiler what architecture
         # we're compiling for. By default we just map meson's cpu_family to __<cpu_family>__.
         # This dictionary contains the exceptions where this doesn't work.
