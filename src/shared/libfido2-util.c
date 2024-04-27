@@ -779,7 +779,7 @@ int fido2_generate_hmac_hash(
                 return log_oom();
 
         int extensions = FIDO_EXT_HMAC_SECRET;
-        if (FLAGS_SET(lock_with, FIDO2ENROLL_PIN) || FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
+        if (FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
                 /* Attempt to use the "cred protect" extension, requiring user verification (UV) for this
                  * credential. If the authenticator doesn't support the extension, it will be ignored. */
                 extensions |= FIDO_EXT_CRED_PROTECT;
