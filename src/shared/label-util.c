@@ -99,6 +99,24 @@ int mknod_label(const char *pathname, mode_t mode, dev_t dev) {
         return mac_smack_fix(pathname, 0);
 }
 
+int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev) {
+        int r;
+
+        assert(pathname);
+
+        r = mac_selinux_create_file_prepare_at(dirfd, pathname, mode);
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(mknodat(dirfd, pathname, mode, dev));
+        mac_selinux_create_file_clear();
+
+        if (r < 0)
+                return r;
+
+        return mac_smack_fix_full(dirfd, pathname, NULL, 0);
+}
+
 int btrfs_subvol_make_label(const char *path) {
         int r;
 
