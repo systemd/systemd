@@ -482,6 +482,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse user-lookup fds: \"%s\", ignoring: %m", val);
 
+                } else if ((val = startswith(l, "handoff-timestamp-fds="))) {
+
+                        m->handoff_timestamp_event_source = sd_event_source_disable_unref(m->handoff_timestamp_event_source);
+                        safe_close_pair(m->handoff_timestamp_fds);
+
+                        r = deserialize_fd_many(fds, val, 2, m->handoff_timestamp_fds);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse handoff-timestamp fds: \"%s\", ignoring: %m", val);
+
                 } else if ((val = startswith(l, "dynamic-user=")))
                         dynamic_user_deserialize_one(m, val, fds, NULL);
                 else if ((val = startswith(l, "destroy-ipc-uid=")))
