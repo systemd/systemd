@@ -508,7 +508,7 @@
           <listitem><para>Naming was changed for SR-IOV virtual device representors, optionally settable at
           compilation time. The <literal>r<replaceable>slot</replaceable></literal> suffix was added to
           differentiate SR-IOV virtual device representors attached to a single physical device interface.
-          Because of a mistake, this scheme was <emphasis>not the the default scheme for systemd version
+          Because of a mistake, this scheme was <emphasis>not the default scheme for systemd version
           254</emphasis>.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>

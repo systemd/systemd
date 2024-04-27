@@ -62,7 +62,7 @@
       <filename>*.pcrlock.d/*.pcrlock</filename>, see
       <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
       that each define expected measurements for one component of the boot process, permitting alternative
-      variants for each. (Variants may be used used to bless multiple kernel versions or boot loader versions
+      variants for each. (Variants may be used to bless multiple kernel versions or boot loader versions
       at the same time.)</para></listitem>
     </itemizedlist>
 
