@@ -456,6 +456,7 @@ static int pid_notify_with_fds_internal(
                 const char *state,
                 const int *fds,
                 unsigned n_fds) {
+
         SocketAddress address;
         struct iovec iovec;
         struct msghdr msghdr = {
@@ -464,19 +465,12 @@ static int pid_notify_with_fds_internal(
                 .msg_name = &address.sockaddr,
         };
         _cleanup_close_ int fd = -EBADF;
-        struct cmsghdr *cmsg = NULL;
-        const char *e;
-        bool send_ucred;
-        ssize_t n;
         int type, r;
 
-        if (!state)
-                return -EINVAL;
+        assert_return(state, -EINVAL);
+        assert_return(fds || n_fds == 0, -EINVAL);
 
-        if (n_fds > 0 && !fds)
-                return -EINVAL;
-
-        e = getenv("NOTIFY_SOCKET");
+        const char *e = getenv("NOTIFY_SOCKET");
         if (!e)
                 return 0;
 
@@ -530,12 +524,14 @@ static int pid_notify_with_fds_internal(
 
         iovec = IOVEC_MAKE_STRING(state);
 
-        send_ucred =
+        bool send_ucred =
                 (pid != 0 && pid != getpid_cached()) ||
                 getuid() != geteuid() ||
                 getgid() != getegid();
 
         if (n_fds > 0 || send_ucred) {
+                struct cmsghdr *cmsg;
+
                 /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
                 msghdr.msg_controllen =
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
@@ -569,6 +565,8 @@ static int pid_notify_with_fds_internal(
                 }
         }
 
+        ssize_t n;
+
         do {
                 /* First try with fake ucred data, as requested */
                 n = sendmsg(fd, &msghdr, MSG_NOSIGNAL);
@@ -597,14 +595,14 @@ static int pid_notify_with_fds_internal(
         if (address.sockaddr.sa.sa_family == AF_VSOCK && IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 /* For AF_VSOCK, we need to close the socket to signal the end of the message. */
                 if (shutdown(fd, SHUT_WR) < 0)
-                        return log_error_errno(errno, "Failed to shutdown notify socket: %m");
+                        return log_debug_errno(errno, "Failed to shutdown notify socket: %m");
 
-                char buf[1];
-                n = recv(fd, buf, sizeof(buf), MSG_NOSIGNAL);
-                if (n > 0)
-                        return log_error_errno(errno, "Unexpectedly received data on notify socket: %m");
+                char c;
+                n = recv(fd, &c, sizeof(c), MSG_NOSIGNAL);
                 if (n < 0)
-                        return log_error_errno(errno, "Failed to wait for EOF on notify socket: %m");
+                        return log_debug_errno(errno, "Failed to wait for EOF on notify socket: %m");
+                if (n > 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Unexpectedly received data on notify socket.");
         }
 
         return 1;
