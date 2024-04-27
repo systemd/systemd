@@ -1663,7 +1663,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
         r = id128_get_boot_for_machine(machine, &boot_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to get boot ID%s%s: %m",
-                                       isempty(machine) ? "" : " of container ", machine);
+                                       isempty(machine) ? "" : " of container ", strempty(machine));
 
         r = add_match_boot_id(j, boot_id);
         if (r < 0)
