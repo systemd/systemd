@@ -1018,7 +1018,7 @@ int parse_cifs_service(
         return 0;
 }
 
-int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
+int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
@@ -1054,7 +1054,7 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
+        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)
