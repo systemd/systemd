@@ -2311,7 +2311,7 @@ static int setup_exec_directory(
                          * doesn't exist, then we likely are upgrading from an older systemd version that
                          * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
                          * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
-                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
+                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME it is now
                          * separated. If a service has both dirs configured but only the configuration dir
                          * exists and the state dir does not, we assume we are looking at an update
                          * situation. Hence, create a compatibility symlink, so that all expectations are

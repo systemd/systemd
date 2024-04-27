@@ -1261,7 +1261,7 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
 
         assert(m);
 
-        /* Set up the socket pair used for for passing timestamps back when the executor processes we fork
+        /* Set up the socket pair used for passing timestamps back when the executor processes we fork
          * off invokes execve(), i.e. when we hand off control to our payload processes. */
 
         if (m->handoff_timestamp_fds[0] < 0) {

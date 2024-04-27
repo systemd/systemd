@@ -2341,7 +2341,7 @@ static int event_determine_primary_algorithm(EventLog *el) {
         }
 
         FOREACH_ARRAY(alg, el->algorithms, el->n_algorithms) {
-                /* If we have SHA256, focus on that that */
+                /* If we have SHA256, focus on that */
 
                 if (*alg == TPM2_ALG_SHA256) {
                         el->primary_algorithm = *alg;
