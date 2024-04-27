@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-04 16:32+0000\n"
+"PO-Revision-Date: 2024-04-27 09:23+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
@@ -1043,12 +1043,16 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available."
 msgstr ""
+"Określenie, czy dostępne są trwałe urządzenia do przechowywania danych dla "
+"systemd-networkd."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Wymagane jest uwierzytelnienie, aby określić, czy dostępne są trwałe "
+"urządzenia do przechowywania danych dla systemd-networkd."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
