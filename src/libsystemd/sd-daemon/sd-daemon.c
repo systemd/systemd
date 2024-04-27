@@ -455,6 +455,7 @@ static int pid_notify_with_fds_internal(
                 const char *state,
                 const int *fds,
                 unsigned n_fds) {
+
         SocketAddress address;
         struct iovec iovec;
         struct msghdr msghdr = {
@@ -463,19 +464,12 @@ static int pid_notify_with_fds_internal(
                 .msg_name = &address.sockaddr,
         };
         _cleanup_close_ int fd = -EBADF;
-        struct cmsghdr *cmsg = NULL;
-        const char *e;
-        bool send_ucred;
-        ssize_t n;
         int type, r;
 
-        if (!state)
-                return -EINVAL;
+        assert_return(state, -EINVAL);
+        assert_return(fds || n_fds == 0, -EINVAL);
 
-        if (n_fds > 0 && !fds)
-                return -EINVAL;
-
-        e = getenv("NOTIFY_SOCKET");
+        const char *e = getenv("NOTIFY_SOCKET");
         if (!e)
                 return 0;
 
@@ -529,12 +523,14 @@ static int pid_notify_with_fds_internal(
 
         iovec = IOVEC_MAKE_STRING(state);
 
-        send_ucred =
+        bool send_ucred =
                 (pid != 0 && pid != getpid_cached()) ||
                 getuid() != geteuid() ||
                 getgid() != getegid();
 
         if (n_fds > 0 || send_ucred) {
+                struct cmsghdr *cmsg;
+
                 /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
                 msghdr.msg_controllen =
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
@@ -567,6 +563,8 @@ static int pid_notify_with_fds_internal(
                         ucred->gid = getgid();
                 }
         }
+
+        ssize_t n;
 
         do {
                 /* First try with fake ucred data, as requested */
