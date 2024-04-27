@@ -595,14 +595,14 @@ static int pid_notify_with_fds_internal(
         if (address.sockaddr.sa.sa_family == AF_VSOCK && IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 /* For AF_VSOCK, we need to close the socket to signal the end of the message. */
                 if (shutdown(fd, SHUT_WR) < 0)
-                        return log_error_errno(errno, "Failed to shutdown notify socket: %m");
+                        return log_debug_errno(errno, "Failed to shutdown notify socket: %m");
 
-                char buf[1];
-                n = recv(fd, buf, sizeof(buf), MSG_NOSIGNAL);
-                if (n > 0)
-                        return log_error_errno(errno, "Unexpectedly received data on notify socket: %m");
+                char c;
+                n = recv(fd, &c, sizeof(c), MSG_NOSIGNAL);
                 if (n < 0)
-                        return log_error_errno(errno, "Failed to wait for EOF on notify socket: %m");
+                        return log_debug_errno(errno, "Failed to wait for EOF on notify socket: %m");
+                if (n > 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Unexpectedly received data on notify socket.");
         }
 
         return 1;
