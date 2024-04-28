@@ -898,6 +898,75 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
         return out - buffer;
 }
 
+/* Decode a domain name according to RFC 1035 Section 3.1, without compression */
+int dns_name_from_wire_format(const uint8_t **data, size_t *len, char **ret) {
+        _cleanup_free_ char *domain = NULL;
+        const uint8_t *optval;
+        size_t optlen, n = 0;
+        int r;
+
+        assert(data);
+        assert(len);
+        assert(*data || *len == 0);
+        assert(ret);
+
+        optval = *data;
+        optlen = *len;
+
+        for (;;) {
+                const char *label;
+                uint8_t c;
+
+                /* Unterminated name */
+                if (optlen == 0)
+                        return -EBADMSG;
+
+                /* RFC 1035 § 3.1 total length of encoded name is limited to 255 octets */
+                if (*len - optlen > 255)
+                        return -EMSGSIZE;
+
+                c = *optval;
+                optval++;
+                optlen--;
+
+                if (c == 0)
+                        /* End label */
+                        break;
+                if (c > DNS_LABEL_MAX)
+                        return -EBADMSG;
+                if (c > optlen)
+                        return -EMSGSIZE;
+
+                /* Literal label */
+                label = (const char*) optval;
+                optval += c;
+                optlen -= c;
+
+                if (!GREEDY_REALLOC(domain, n + (n != 0) + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                if (n != 0)
+                        domain[n++] = '.';
+
+                r = dns_label_escape(label, c, domain + n, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        if (!GREEDY_REALLOC(domain, n + 1))
+                return -ENOMEM;
+
+        domain[n] = '\0';
+
+        *ret = TAKE_PTR(domain);
+        *data = optval;
+        *len = optlen;
+
+        return n;
+}
+
 static bool srv_type_label_is_valid(const char *label, size_t n) {
         assert(label);
 
