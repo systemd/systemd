@@ -108,7 +108,7 @@ static int show_cgroup_one_by_path(
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
                  * the subtree and is not readable in the subtree proper. */
-                r = cg_read_pid(f, &pid);
+                r = cg_read_pid(f, &pid, /* flags = */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
