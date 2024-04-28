@@ -1084,9 +1084,7 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
                 return -EBUSY;
 
         va_start(ap, format);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = vasprintf(&title, format, ap);
-        REENABLE_WARNING;
         va_end(ap);
         if (r < 0)
                 return -ENOMEM;
