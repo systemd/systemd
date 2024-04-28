@@ -103,19 +103,22 @@ int cg_read_pid(FILE *f, pid_t *ret) {
         assert(f);
         assert(ret);
 
-        errno = 0;
-        if (fscanf(f, "%lu", &ul) != 1) {
+        /* In some environments(WSL), the pid list contains a bunch of zeros.
+         * Maybe the kernel is hiding pids from other containerized instances.
+         * Just skip over those and move on. */
+        do {
+                errno = 0;
+                if (fscanf(f, "%lu", &ul) != 1) {
 
-                if (feof(f)) {
-                        *ret = 0;
-                        return 0;
+                        if (feof(f)) {
+                                *ret = 0;
+                                return 0;
+                        }
+
+                        return errno_or_else(EIO);
                 }
+        } while (ul == 0);
 
-                return errno_or_else(EIO);
-        }
-
-        if (ul <= 0)
-                return -EIO;
         if (ul > PID_T_MAX)
                 return -EIO;
 
