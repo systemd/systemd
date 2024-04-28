@@ -109,6 +109,7 @@ def main():
             'systemd.hostname=H',
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
             f"systemd.unit={test_unit}",
+            'systemd.mask=systemd-networkd-wait-online.service',
             *(
                 [
                     "systemd.mask=serial-getty@.service",
