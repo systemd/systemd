@@ -102,6 +102,7 @@ def main():
         '--credential',
         f"systemd.unit-dropin.{test_unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
+        '--runtime-scratch=no',
         '--append',
         '--kernel-command-line-extra',
         ' '.join([
