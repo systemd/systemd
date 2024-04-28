@@ -2538,7 +2538,7 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (link->dhcp6_client) {
                 r = sd_dhcp6_client_set_ifname(link->dhcp6_client, link->ifname);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP6 client: %m");
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCPv6 client: %m");
         }
 
         if (link->ndisc) {
