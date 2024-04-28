@@ -21,13 +21,10 @@ run_service_and_fetch_logs() {
     local start end
 
     start="$(date '+%Y-%m-%d %T.%6N')"
-    systemctl restart "$unit"
-    sleep .5
+    systemctl start "$unit"
+    sleep 1
     journalctl --sync
-    end="$(date '+%Y-%m-%d %T.%6N')"
-
-    journalctl -q -u "$unit" -S "$start" -U "$end" -p notice
-    systemctl stop "$unit"
+    journalctl -q -u "$unit" -S "$start" -p notice
 }
 
 if cgroupfs_supports_user_xattrs; then
