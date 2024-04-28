@@ -614,7 +614,11 @@ int cg_migrate(
                 if (r < 0)
                         return RET_GATHER(ret, r);
 
-                while ((r = cg_read_pid(f, &pid)) > 0) {
+                while ((r = cg_read_pid(f, &pid, flags)) > 0) {
+                        /* Throw an error if unmappable PIDs are in output, we can't migrate those. */
+                        if (pid == 0)
+                                return -EREMOTE;
+
                         /* This might do weird stuff if we aren't a single-threaded program. However, we
                          * luckily know we are. */
                         if (FLAGS_SET(flags, CGROUP_IGNORE_SELF) && pid == getpid_cached())
