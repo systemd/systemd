@@ -17,7 +17,7 @@ fi
 # We get depends and optdepends from .SRCINFO as getting them from the PKGBUILD is rather complex.
 sed --expression 's/^[ \t]*//' "pkg/$ID/.SRCINFO" |
     grep --regexp '^depends =' --regexp '^optdepends =' |
-    sed --expression 's/^depends = //' --expression 's/^optdepends = //' --expression 's/:.*//' |
+    sed --expression 's/^depends = //' --expression 's/^optdepends = //' --expression 's/:.*//' --expression 's/=.*//' |
     xargs --delimiter '\n' mkosi-install
 
 # We get makedepends from the PKGBUILD as .SRCINFO can't encode conditional dependencies depending on
