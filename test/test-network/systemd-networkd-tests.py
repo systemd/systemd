@@ -1268,7 +1268,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
             self.wait_online('veth99:routable', 'veth-peer:routable')
             output = networkctl_status('veth99')
             print(output)
-            self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+            self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCPv4 via 192.168.5.1\)')
             self.assertIn('Gateway: 192.168.5.3', output)
             self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
             self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
@@ -5862,7 +5862,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def check_dhcp_server(self, persist_leases=True):
         output = networkctl_status('veth99')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCPv4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.3', output)
         self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
@@ -5926,7 +5926,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertRegex(output, rf'Address: {client_address} \(DHCPv4 via {server_address}\)')
         self.assertIn(f'Gateway: {server_address}', output)
         self.assertIn(f'DNS: {server_address}', output)
         self.assertIn(f'NTP: {server_address}', output)
@@ -5948,7 +5948,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertRegex(output, rf'Address: {client_address} \(DHCPv4 via {server_address}\)')
         self.assertIn(f'Gateway: {server_address}', output)
         self.assertIn(f'DNS: {server_address}', output)
         self.assertIn(f'NTP: {server_address}', output)
@@ -5964,7 +5964,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCPv4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.3', output)
         self.assertIn('DNS: 192.168.5.1', output)
         self.assertIn('NTP: 192.168.5.1', output)
@@ -5976,7 +5976,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCPv4 via 192.168.5.1\)')
         self.assertIn('Gateway: 192.168.5.1', output)
         self.assertIn('Time Zone: Europe/Berlin', output)
 
@@ -5987,8 +5987,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertIn('Address: 10.1.1.200 (DHCP4 via 10.1.1.1)', output)
-        self.assertIn('DHCP4 Client ID: 12:34:56:78:9a:bc', output)
+        self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
 
     def test_dhcp_server_static_lease_default_client_id(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
@@ -5997,8 +5997,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('veth99')
         print(output)
-        self.assertIn('Address: 10.1.1.200 (DHCP4 via 10.1.1.1)', output)
-        self.assertRegex(output, 'DHCP4 Client ID: IAID:[0-9a-z]*/DUID')
+        self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
@@ -6021,7 +6021,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('client')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCPv4 via 192.168.5.1\)')
 
     def test_relay_agent_on_bridge(self):
         copy_network_unit('25-agent-bridge.netdev',
