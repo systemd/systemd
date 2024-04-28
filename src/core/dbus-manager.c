@@ -1405,11 +1405,11 @@ static int dump_impl(
                  * operations, and can cause PID1 to stall. So it seems similar enough in terms of security
                  * considerations and impact, and thus use the same access check for dumps which, given the
                  * large amount of data to fetch, can stall PID1 for quite some time. */
-                r = mac_selinux_access_check(message, "reload", error);
+                r = mac_selinux_access_check(message, "reload", /* error = */ NULL);
                 if (r < 0)
                         goto ratelimited;
 
-                r = bus_verify_bypass_dump_ratelimit_async(m, message, error);
+                r = bus_verify_bypass_dump_ratelimit_async(m, message, /* error = */ NULL);
                 if (r < 0)
                         goto ratelimited;
                 if (r == 0)
