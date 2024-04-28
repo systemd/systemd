@@ -1793,9 +1793,7 @@ void unit_status_printf(Unit *u, StatusType status_type, const char *status, con
                         ident = strjoina(ANSI_HIGHLIGHT, ident, ANSI_NORMAL);
         }
 
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         manager_status_printf(u->manager, status_type, status, format, ident);
-        REENABLE_WARNING;
 }
 
 int unit_test_start_limit(Unit *u) {
