@@ -93,7 +93,6 @@ def main():
                 f"systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}",
                 '--credential',
                 f"systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}",
-                '--kernel-command-line-extra=systemd.mask=serial-getty@.service systemd.show_status=no systemd.crash_shell=0 systemd.crash_reboot',
                 # Custom firmware variables allow bypassing the EFI auto-enrollment reboot so we only reboot on crash
                 '--qemu-firmware-variables=custom',
             ]
@@ -109,6 +108,16 @@ def main():
             'systemd.hostname=H',
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
             f"systemd.unit={test_unit}",
+            *(
+                [
+                    "systemd.mask=serial-getty@.service",
+                    "systemd.show_status=no",
+                    "systemd.crash_shell=0",
+                    "systemd.crash_reboot",
+                ]
+                if not sys.stderr.isatty()
+                else []
+            ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else 'runtime'}" ,
         *args.mkosi_args,
