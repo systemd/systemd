@@ -183,9 +183,13 @@ typedef enum CGroupUnified {
 int cg_path_open(const char *controller, const char *path);
 int cg_cgroupid_open(int fsfd, uint64_t id);
 
+typedef enum CGroupPidFlags {
+        CGROUP_PID_RETURN_UNMAPPED = 1 << 0,
+} CGroupPidFlags;
+
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
-int cg_read_pid(FILE *f, pid_t *ret);
-int cg_read_pidref(FILE *f, PidRef *ret);
+int cg_read_pid(FILE *f, pid_t *ret, CGroupPidFlags flags);
+int cg_read_pidref(FILE *f, PidRef *ret, CGroupPidFlags flags);
 int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
