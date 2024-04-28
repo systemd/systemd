@@ -432,6 +432,7 @@ mouse:usb:v046dp4079:name:Logitech G Pro:*
 
 # Logitech Wireless Mouse M185
 mouse:usb:v046dp4008:name:Logitech M185:*
+mouse:usb:v046dp4008:name:Logitech M185/M225:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:*
  MOUSE_DPI=1000@125
 
