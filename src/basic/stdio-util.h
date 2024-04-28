@@ -9,14 +9,12 @@
 #include "macro.h"
 
 _printf_(3, 4)
-static inline char *snprintf_ok(char *buf, size_t len, const char *format, ...) {
+static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) {
         va_list ap;
         int r;
 
         va_start(ap, format);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = vsnprintf(buf, len, format, ap);
-        REENABLE_WARNING;
         va_end(ap);
 
         return r >= 0 && (size_t) r < len ? buf : NULL;
