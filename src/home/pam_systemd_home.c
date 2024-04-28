@@ -750,6 +750,8 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         AcquireHomeFlags flags = 0;
         bool debug = false;
 
+        pam_log_setup();
+
         if (parse_env(handle, &flags) < 0)
                 return PAM_AUTH_ERR;
 
@@ -811,6 +813,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false;
         int r;
 
+        pam_log_setup();
+
         if (parse_env(handle, &flags) < 0)
                 return PAM_SESSION_ERR;
 
@@ -861,6 +865,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *username = NULL;
         bool debug = false;
         int r;
+
+        pam_log_setup();
 
         if (parse_argv(handle,
                        argc, argv,
@@ -921,6 +927,8 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         bool debug = false;
         usec_t t;
         int r;
+
+        pam_log_setup();
 
         if (parse_env(handle, &flags) < 0)
                 return PAM_AUTH_ERR;
@@ -1038,6 +1046,8 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         unsigned n_attempts = 0;
         bool debug = false;
         int r;
+
+        pam_log_setup();
 
         if (parse_argv(handle,
                        argc, argv,
