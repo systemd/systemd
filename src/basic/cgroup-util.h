@@ -183,19 +183,20 @@ typedef enum CGroupUnified {
 int cg_path_open(const char *controller, const char *path);
 int cg_cgroupid_open(int fsfd, uint64_t id);
 
+typedef enum CGroupFlags {
+        CGROUP_SIGCONT            = 1 << 0,
+        CGROUP_IGNORE_SELF        = 1 << 1,
+        CGROUP_REMOVE             = 1 << 2,
+        CGROUP_DONT_SKIP_UNMAPPED = 1 << 3,
+} CGroupFlags;
+
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
-int cg_read_pid(FILE *f, pid_t *ret);
-int cg_read_pidref(FILE *f, PidRef *ret);
+int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
+int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
 int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
 int cg_read_subgroup(DIR *d, char **ret);
-
-typedef enum CGroupFlags {
-        CGROUP_SIGCONT     = 1 << 0,
-        CGROUP_IGNORE_SELF = 1 << 1,
-        CGROUP_REMOVE      = 1 << 2,
-} CGroupFlags;
 
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
 
