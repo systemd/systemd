@@ -93,8 +93,6 @@ def main():
                 f"systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}",
                 '--credential',
                 f"systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}",
-                # Custom firmware variables allow bypassing the EFI auto-enrollment reboot so we only reboot on crash
-                '--qemu-firmware-variables=custom',
             ]
             if not sys.stderr.isatty()
             else []
@@ -115,7 +113,7 @@ def main():
                     "systemd.mask=serial-getty@.service",
                     "systemd.show_status=no",
                     "systemd.crash_shell=0",
-                    "systemd.crash_reboot",
+                    "systemd.crash_action=poweroff",
                 ]
                 if not sys.stderr.isatty()
                 else []
@@ -124,7 +122,6 @@ def main():
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else 'runtime'}" ,
         *args.mkosi_args,
         'qemu',
-        *(['-no-reboot'] if not sys.stderr.isatty() else [])
     ]
 
     result = subprocess.run(cmd)
