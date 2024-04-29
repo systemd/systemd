@@ -84,7 +84,7 @@ verify_seqnum() {
 
     journalctl --system --header
 
-    (! journalctl --system -q -o short-monotonic -u systemd-journald.service --grep 'rotating')
+    (! journalctl --system -q -o short-monotonic -u systemd-journald.service --grep 'Journal file uses a different sequence number ID, rotating')
 
     set +x
     previous_seqnum=0
