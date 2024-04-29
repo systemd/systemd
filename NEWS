@@ -251,6 +251,10 @@ CHANGES WITH 256-rc1:
           that have /usr/bin/ and /usr/sbin/ separate. It's generally
           recommended to make the latter a symlink to the former these days.
 
+        * A new systemd.crash_action= kernel command line option has been added
+          that configures what to do after the system manager (PID 1) crashes.
+          This can also be configured through CrashAction= in systemd.conf.
+
         Journal:
 
         * systemd-journald can now forward journal entries to a socket
