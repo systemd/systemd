@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-22 10:36+0000\n"
+"PO-Revision-Date: 2024-04-29 08:36+0000\n"
 "Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1055,12 +1055,16 @@ msgstr "Authentification requise pour reconfigurer une interface réseau."
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available."
 msgstr ""
+"Spécifier si un espace de stockage persistent pour systemd-networkd est "
+"disponible."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Authentification requise pour spécifier si un espace de stockage persistent "
+"pour systemd-networkd est disponible."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
