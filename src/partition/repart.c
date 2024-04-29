@@ -4775,6 +4775,18 @@ static int make_subvolumes_set(
         return 0;
 }
 
+static usec_t epoch_or_utime_omit(void) {
+        uint64_t epoch;
+
+        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
+                if (epoch > UINT64_MAX / USEC_PER_SEC) /* Overflow check */
+                        return USEC_INFINITY;
+                return (usec_t) epoch * USEC_PER_SEC;
+        }
+
+        return (usec_t) UTIME_OMIT;
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         int r;
 
