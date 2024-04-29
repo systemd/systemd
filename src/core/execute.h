@@ -360,6 +360,7 @@ struct ExecContext {
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
         usec_t timeout_clean_usec;
+        usec_t timeout_mount_usec;
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
         Hashmap *load_credentials; /* output id → ExecLoadCredential */

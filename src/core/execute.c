@@ -529,6 +529,7 @@ void exec_context_init(ExecContext *c) {
                 .timer_slack_nsec = NSEC_INFINITY,
                 .personality = PERSONALITY_INVALID,
                 .timeout_clean_usec = USEC_INFINITY,
+                .timeout_mount_usec = USEC_INFINITY,
                 .capability_bounding_set = CAP_MASK_UNSET,
                 .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .log_level_max = -1,
@@ -1077,6 +1078,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         fprintf(f, "%sTimeoutCleanSec: %s\n", prefix, FORMAT_TIMESPAN(c->timeout_clean_usec, USEC_PER_SEC));
+        fprintf(f, "%sTimeoutMountSec: %s\n", prefix, FORMAT_TIMESPAN(c->timeout_mount_usec, USEC_PER_SEC));
 
         if (c->memory_ksm >= 0)
                 fprintf(f, "%sMemoryKSM: %s\n", prefix, yes_no(c->memory_ksm > 0));
