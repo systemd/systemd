@@ -4775,6 +4775,18 @@ static int make_subvolumes_set(
         return 0;
 }
 
+static usec_t epoch_or_utime_omit(void) {
+        uint64_t epoch;
+
+        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
+                if (epoch > UINT64_MAX / USEC_PER_SEC) /* Overflow check */
+                        return USEC_INFINITY;
+                return (usec_t) epoch * USEC_PER_SEC;
+        }
+
+        return (usec_t) UTIME_OMIT;
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         int r;
 
@@ -4848,7 +4860,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                                r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
+                                r = mkdir_p_root_full(root, dn, UID_INVALID, GID_INVALID, 0755, epoch_or_utime_omit(), p->subvolumes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
@@ -4874,6 +4886,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                        strempty(arg_copy_source), *source, strempty(root), *target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
+                        struct timespec ts[2];
 
                         /* We are looking at a regular file */
 
@@ -4888,7 +4901,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                        r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
+                        r = mkdir_p_root_full(root, dn, UID_INVALID, GID_INVALID, 0755, epoch_or_utime_omit(), p->subvolumes);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
@@ -4907,6 +4920,11 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
+
+                        timespec_store_nsec(ts+0, UTIME_OMIT);
+                        timespec_store_nsec(ts+1, epoch_or_utime_omit());
+                        if (futimens(pfd, ts) < 0)
+                                return -errno;
                 }
         }
 
@@ -4920,7 +4938,7 @@ static int do_make_directories(Partition *p, const char *root) {
         assert(root);
 
         STRV_FOREACH(d, p->make_directories) {
-                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
+                r = mkdir_p_root_full(root, *d, UID_INVALID, GID_INVALID, 0755, epoch_or_utime_omit(), p->subvolumes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
