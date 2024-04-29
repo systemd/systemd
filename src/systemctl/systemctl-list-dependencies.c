@@ -22,6 +22,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                 switch (state) {
                 case UNIT_ACTIVE:
                 case UNIT_RELOADING:
+                case UNIT_REFRESHING:
                 case UNIT_ACTIVATING:
                         on = ansi_highlight_green();
                         break;
