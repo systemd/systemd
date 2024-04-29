@@ -2360,6 +2360,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                               "TimeoutStartSec",
                               "TimeoutStopSec",
                               "TimeoutAbortSec",
+                              "TimeoutMountSec",
                               "RuntimeMaxSec",
                               "RuntimeRandomizedExtraSec",
                               "WatchdogSec"))
