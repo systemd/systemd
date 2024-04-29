@@ -27,6 +27,7 @@
 #CrashChangeVT=no
 #CrashShell=no
 #CrashReboot=no
+#CrashAction=freeze
 #CtrlAltDelBurstAction=reboot-force
 #CPUAffinity=
 #NUMAPolicy=default
