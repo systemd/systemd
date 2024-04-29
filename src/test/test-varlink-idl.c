@@ -117,12 +117,27 @@ static void test_parse_format_one(const VarlinkInterface *iface) {
 
         assert_se(iface);
 
-        assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, iface) >= 0);
+        assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, /* cols= */ SIZE_MAX, iface) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
         assert_se(varlink_idl_format(iface, &text) >= 0);
         assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
         assert_se(varlink_idl_format(parsed, &text2) >= 0);
+
+        ASSERT_STREQ(text, text2);
+
+        text = mfree(text);
+        text2 = mfree(text2);
+        parsed = varlink_interface_free(parsed);
+
+        /* Do the same thing, but aggressively line break, and make sure this is roundtrippable as well */
+        assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, 23, iface) >= 0);
+        assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
+        assert_se(varlink_idl_format_full(iface, 23, &text) >= 0);
+        assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
+        assert_se(varlink_idl_format_full(parsed, 23, &text2) >= 0);
+
         ASSERT_STREQ(text, text2);
 }
 

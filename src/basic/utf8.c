@@ -179,13 +179,16 @@ char *utf8_escape_invalid(const char *str) {
         return str_realloc(p);
 }
 
-static int utf8_char_console_width(const char *str) {
+int utf8_char_console_width(const char *str) {
         char32_t c;
         int r;
 
         r = utf8_encoded_to_unichar(str, &c);
         if (r < 0)
                 return r;
+
+        if (c == '\t')
+                return 8; /* Assume a tab width of 8 */
 
         /* TODO: we should detect combining characters */
 
@@ -594,11 +597,14 @@ size_t utf8_n_codepoints(const char *str) {
 }
 
 size_t utf8_console_width(const char *str) {
-        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
 
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
+        size_t n = 0;
         while (*str) {
                 int w;
 

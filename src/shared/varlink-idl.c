@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "memstream-util.h"
+#include "set.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 #include "varlink-idl.h"
-#include "set.h"
 
 #define DEPTH_MAX 64U
 
@@ -14,13 +15,63 @@ enum {
         COLOR_IDENTIFIER,
         COLOR_MARKS,         /* [], ->, ?, … */
         COLOR_RESET,
+        COLOR_COMMENT,
         _COLOR_MAX,
 };
 
 #define varlink_idl_log(error, format, ...) log_debug_errno(error, "Varlink-IDL: " format, ##__VA_ARGS__)
 #define varlink_idl_log_full(level, error, format, ...) log_full_errno(level, error, "Varlink-IDL: " format, ##__VA_ARGS__)
 
-static int varlink_idl_format_all_fields(FILE *f, const VarlinkSymbol *symbol, VarlinkFieldDirection direction, const char *indent, const char *const colors[static _COLOR_MAX]);
+static int varlink_idl_format_all_fields(FILE *f, const VarlinkSymbol *symbol, VarlinkFieldDirection direction, const char *indent, const char *const colors[static _COLOR_MAX], size_t cols);
+
+static int varlink_idl_format_comment(
+                FILE *f,
+                const char *text,
+                const char *indent,
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
+
+        int r;
+
+        assert(f);
+        assert(colors);
+
+        if (!text) {
+                /* If text is NULL, output an empty but commented line */
+                fputs(strempty(indent), f);
+                fputs(colors[COLOR_COMMENT], f);
+                fputs("#", f);
+                fputs(colors[COLOR_RESET], f);
+                fputs("\n", f);
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **l = NULL;
+        r = strv_split_full(&l, text, NEWLINE, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to split comment string: %m");
+
+        size_t indent_width = utf8_console_width(indent);
+        size_t max_width = indent_width < cols ? cols - indent_width : 0;
+        if (max_width < 10)
+                max_width = 10;
+
+        _cleanup_strv_free_ char **broken = NULL;
+        r = strv_rebreak_lines(l, max_width, &broken);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rebreak lines in comment: %m");
+
+        STRV_FOREACH(i, broken) {
+                fputs(strempty(indent), f);
+                fputs(colors[COLOR_COMMENT], f);
+                fputs("# ", f);
+                fputs(*i, f);
+                fputs(colors[COLOR_RESET], f);
+                fputs("\n", f);
+        }
+
+        return 0;
+}
 
 static int varlink_idl_format_enum_values(
                 FILE *f,
@@ -64,10 +115,12 @@ static int varlink_idl_format_field(
                 FILE *f,
                 const VarlinkField *field,
                 const char *indent,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
 
         assert(f);
         assert(field);
+        assert(field->field_type != _VARLINK_FIELD_COMMENT);
 
         fputs(strempty(indent), f);
         fputs(colors[COLOR_IDENTIFIER], f);
@@ -145,7 +198,7 @@ static int varlink_idl_format_field(
                 break;
 
         case VARLINK_STRUCT:
-                return varlink_idl_format_all_fields(f, ASSERT_PTR(field->symbol), VARLINK_REGULAR, indent, colors);
+                return varlink_idl_format_all_fields(f, ASSERT_PTR(field->symbol), VARLINK_REGULAR, indent, colors, cols);
 
         case VARLINK_ENUM:
                 return varlink_idl_format_enum_values(f, ASSERT_PTR(field->symbol), indent, colors);
@@ -162,7 +215,8 @@ static int varlink_idl_format_all_fields(
                 const VarlinkSymbol *symbol,
                 VarlinkFieldDirection filter_direction,
                 const char *indent,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
 
         _cleanup_free_ char *indent2 = NULL;
         bool first = true;
@@ -178,6 +232,9 @@ static int varlink_idl_format_all_fields(
 
         for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
+                if (field->field_type == _VARLINK_FIELD_COMMENT) /* skip comments at first */
+                        continue;
+
                 if (field->field_direction != filter_direction)
                         continue;
 
@@ -187,7 +244,27 @@ static int varlink_idl_format_all_fields(
                 } else
                         fputs(",\n", f);
 
-                r = varlink_idl_format_field(f, field, indent2, colors);
+                /* We found a field we want to output. In this case, output all immediately preceeding
+                 * comments first. First, find the first comment in the series before. */
+                const VarlinkField *start_comment = NULL;
+                for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
+                        const VarlinkField *c0 = c1 - 1;
+
+                        if (c0->field_type != _VARLINK_FIELD_COMMENT)
+                                break;
+
+                        start_comment = c0;
+                }
+
+                if (start_comment) {
+                        for (const VarlinkField *c = start_comment; c < field; c++) {
+                                r = varlink_idl_format_comment(f, ASSERT_PTR(c->name), indent2, colors, cols);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                r = varlink_idl_format_field(f, field, indent2, colors, cols);
                 if (r < 0)
                         return r;
         }
@@ -206,7 +283,8 @@ static int varlink_idl_format_all_fields(
 static int varlink_idl_format_symbol(
                 FILE *f,
                 const VarlinkSymbol *symbol,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
         int r;
 
         assert(f);
@@ -231,7 +309,7 @@ static int varlink_idl_format_symbol(
                 fputs(symbol->name, f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_all_fields(f, symbol, VARLINK_REGULAR, /* indent= */ NULL, colors);
+                r = varlink_idl_format_all_fields(f, symbol, VARLINK_REGULAR, /* indent= */ NULL, colors, cols);
                 break;
 
         case VARLINK_METHOD:
@@ -241,7 +319,7 @@ static int varlink_idl_format_symbol(
                 fputs(symbol->name, f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_all_fields(f, symbol, VARLINK_INPUT, /* indent= */ NULL, colors);
+                r = varlink_idl_format_all_fields(f, symbol, VARLINK_INPUT, /* indent= */ NULL, colors, cols);
                 if (r < 0)
                         return r;
 
@@ -249,7 +327,7 @@ static int varlink_idl_format_symbol(
                 fputs(" -> ", f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_all_fields(f, symbol, VARLINK_OUTPUT, /* indent= */ NULL, colors);
+                r = varlink_idl_format_all_fields(f, symbol, VARLINK_OUTPUT, /* indent= */ NULL, colors, cols);
                 break;
 
         case VARLINK_ERROR:
@@ -259,7 +337,7 @@ static int varlink_idl_format_symbol(
                 fputs(symbol->name, f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_all_fields(f, symbol, VARLINK_REGULAR, /* indent= */ NULL, colors);
+                r = varlink_idl_format_all_fields(f, symbol, VARLINK_REGULAR, /* indent= */ NULL, colors, cols);
                 break;
 
         default:
@@ -276,7 +354,8 @@ static int varlink_idl_format_all_symbols(
                 FILE *f,
                 const VarlinkInterface *interface,
                 VarlinkSymbolType filter_type,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
 
         int r;
 
@@ -288,9 +367,38 @@ static int varlink_idl_format_all_symbols(
                 if ((*symbol)->symbol_type != filter_type)
                         continue;
 
+                if ((*symbol)->symbol_type == _VARLINK_INTERFACE_COMMENT) {
+                        /* Interface comments we'll output directly. */
+                        r = varlink_idl_format_comment(f, ASSERT_PTR((*symbol)->name), /* indent= */ NULL, colors, cols);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
                 fputs("\n", f);
 
-                r = varlink_idl_format_symbol(f, *symbol, colors);
+                /* Symbol comments we'll only output if we are outputing the symbol they belong to. Scan
+                 * backwards for symbol comments. */
+                const VarlinkSymbol *const*start_comment = NULL;
+                for (const VarlinkSymbol *const*c1 = symbol; c1 > interface->symbols; c1--) {
+                        const VarlinkSymbol *const *c0 = c1 - 1;
+
+                        if ((*c0)->symbol_type != _VARLINK_SYMBOL_COMMENT)
+                                break;
+
+                        start_comment = c0;
+                }
+
+                /* Found one or more comments, output them now */
+                if (start_comment)
+                        for (const VarlinkSymbol *const*c = start_comment; c < symbol; c++) {
+                                r = varlink_idl_format_comment(f, ASSERT_PTR((*c)->name), /* indent= */ NULL, colors, cols);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                r = varlink_idl_format_symbol(f, *symbol, colors, cols);
                 if (r < 0)
                         return r;
         }
@@ -298,17 +406,18 @@ static int varlink_idl_format_all_symbols(
         return 0;
 }
 
-int varlink_idl_dump(FILE *f, int use_colors, const VarlinkInterface *interface) {
+int varlink_idl_dump(FILE *f, int use_colors, size_t cols, const VarlinkInterface *interface) {
         static const char* const color_table[_COLOR_MAX] = {
                 [COLOR_SYMBOL_TYPE] = ANSI_HIGHLIGHT_GREEN,
                 [COLOR_FIELD_TYPE]  = ANSI_HIGHLIGHT_BLUE,
                 [COLOR_IDENTIFIER]  = ANSI_NORMAL,
                 [COLOR_MARKS]       = ANSI_HIGHLIGHT_MAGENTA,
                 [COLOR_RESET]       = ANSI_NORMAL,
+                [COLOR_COMMENT]     = ANSI_GREY,
         };
 
         static const char* const color_off[_COLOR_MAX] = {
-                "", "", "", "", "",
+                "", "", "", "", "", "",
         };
 
         int r;
@@ -323,6 +432,11 @@ int varlink_idl_dump(FILE *f, int use_colors, const VarlinkInterface *interface)
 
         const char *const *colors = use_colors ? color_table : color_off;
 
+        /* First output interface comments */
+        r = varlink_idl_format_all_symbols(f, interface, _VARLINK_INTERFACE_COMMENT, colors, cols);
+        if (r < 0)
+                return r;
+
         fputs(colors[COLOR_SYMBOL_TYPE], f);
         fputs("interface ", f);
         fputs(colors[COLOR_IDENTIFIER], f);
@@ -330,8 +444,15 @@ int varlink_idl_dump(FILE *f, int use_colors, const VarlinkInterface *interface)
         fputs(colors[COLOR_RESET], f);
         fputs("\n", f);
 
+        /* Then output all symbols, ordered by symbol type */
         for (VarlinkSymbolType t = 0; t < _VARLINK_SYMBOL_TYPE_MAX; t++) {
-                r = varlink_idl_format_all_symbols(f, interface, t, colors);
+
+                /* Interface comments we already have output above. Symbol comments are output when the
+                 * symbol they belong to are output, hence filter both here. */
+                if (IN_SET(t, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT))
+                        continue;
+
+                r = varlink_idl_format_all_symbols(f, interface, t, colors, cols);
                 if (r < 0)
                         return r;
         }
@@ -339,14 +460,14 @@ int varlink_idl_dump(FILE *f, int use_colors, const VarlinkInterface *interface)
         return 0;
 }
 
-int varlink_idl_format(const VarlinkInterface *interface, char **ret) {
+int varlink_idl_format_full(const VarlinkInterface *interface, size_t cols, char **ret) {
         _cleanup_(memstream_done) MemStream memstream = {};
         int r;
 
         if (!memstream_init(&memstream))
                 return -errno;
 
-        r = varlink_idl_dump(memstream.f, /* use_colors= */ false, interface);
+        r = varlink_idl_dump(memstream.f, /* use_colors= */ false, cols, interface);
         if (r < 0)
                 return r;
 
@@ -532,8 +653,10 @@ static int varlink_idl_subparse_token(
 static int varlink_idl_subparse_comment(
                 const char **p,
                 unsigned *line,
-                unsigned *column) {
+                unsigned *column,
+                char **ret) {
 
+        _cleanup_free_ char *comment = NULL;
         size_t l;
 
         assert(p);
@@ -542,8 +665,26 @@ static int varlink_idl_subparse_comment(
         assert(column);
 
         l = strcspn(*p, NEWLINE);
+
+        if (ret) {
+                /* Remove a single space as prefix of a comment, if one is specified. This is because we
+                 * generally expect comments to be formatted as "# foobar" rather than "#foobar", and will
+                 * ourselves format them that way. We accept the comments without the space too however. We
+                 * will not strip more than one space, to allow indented comment blocks. */
+
+                if (**p == ' ')
+                        comment = strndup(*p + 1, l - 1);
+                else
+                        comment = strndup(*p, l);
+                if (!comment)
+                        return -ENOMEM;
+        }
+
         advance_line_column(*p, l + 1, line, column);
         *p += l;
+
+        if (ret)
+                *ret = TAKE_PTR(comment);
 
         return 1;
 }
@@ -731,7 +872,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         state = STATE_NAME;
-                        allowed_delimiters = ")";
+                        allowed_delimiters = ")#";
                         allowed_chars = VALID_CHARS_IDENTIFIER;
                         break;
 
@@ -740,7 +881,23 @@ static int varlink_idl_subparse_struct_or_enum(
 
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
-                        if (streq(token, ")"))
+                        else if (streq(token, "#")) {
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(p, line, column, &comment);
+                                if (r < 0)
+                                        return r;
+
+                                r = varlink_symbol_realloc(symbol, *n_fields + 1);
+                                if (r < 0)
+                                        return r;
+
+                                VarlinkField *field = (*symbol)->fields + (*n_fields)++;
+                                *field = (VarlinkField) {
+                                        .name = TAKE_PTR(comment),
+                                        .field_type = _VARLINK_FIELD_COMMENT,
+                                };
+                        } else if (streq(token, ")"))
                                 state = STATE_DONE;
                         else {
                                 field_name = TAKE_PTR(token);
@@ -804,7 +961,7 @@ static int varlink_idl_subparse_struct_or_enum(
 
                                 if (streq(token, ",")) {
                                         state = STATE_NAME;
-                                        allowed_delimiters = NULL;
+                                        allowed_delimiters = "#";
                                         allowed_chars = VALID_CHARS_IDENTIFIER;
                                 } else {
                                         assert(streq(token, ")"));
@@ -822,7 +979,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, ",")) {
                                 state = STATE_NAME;
-                                allowed_delimiters = NULL;
+                                allowed_delimiters = "#";
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
                         } else if (streq(token, ")"))
                                 state = STATE_DONE;
@@ -937,9 +1094,24 @@ int varlink_idl_parse(
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(&text, line, column);
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
                                 if (r < 0)
                                         return r;
+
+                                r = varlink_interface_realloc(&interface, n_symbols + 1);
+                                if (r < 0)
+                                        return r;
+
+                                r = varlink_symbol_realloc(&symbol, 0);
+                                if (r < 0)
+                                        return r;
+
+                                symbol->symbol_type = _VARLINK_INTERFACE_COMMENT;
+                                symbol->name = TAKE_PTR(comment);
+
+                                interface->symbols[n_symbols++] = TAKE_PTR(symbol);
                         } else if (streq(token, "interface")) {
                                 state = STATE_INTERFACE;
                                 allowed_delimiters = NULL;
@@ -949,9 +1121,6 @@ int varlink_idl_parse(
                         break;
 
                 case STATE_INTERFACE:
-                        assert(!interface);
-                        assert(n_symbols == 0);
-
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
@@ -959,7 +1128,9 @@ int varlink_idl_parse(
                         if (r < 0)
                                 return r;
 
+                        assert(!interface->name);
                         interface->name = TAKE_PTR(token);
+
                         state = STATE_PRE_SYMBOL;
                         allowed_delimiters = "#";
                         allowed_chars = VALID_CHARS_RESERVED;
@@ -972,9 +1143,25 @@ int varlink_idl_parse(
                         }
 
                         if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(&text, line, column);
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
                                 if (r < 0)
                                         return r;
+
+                                r = varlink_interface_realloc(&interface, n_symbols + 1);
+                                if (r < 0)
+                                        return r;
+
+                                assert(!symbol);
+                                r = varlink_symbol_realloc(&symbol, 0);
+                                if (r < 0)
+                                        return r;
+
+                                symbol->symbol_type = _VARLINK_SYMBOL_COMMENT;
+                                symbol->name = TAKE_PTR(comment);
+
+                                interface->symbols[n_symbols++] = TAKE_PTR(symbol);
                         } else if (streq(token, "method")) {
                                 state = STATE_METHOD;
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
@@ -1289,6 +1476,9 @@ static int varlink_idl_field_consistent(
 static bool varlink_symbol_is_empty(const VarlinkSymbol *symbol) {
         assert(symbol);
 
+        if (IN_SET(symbol->symbol_type, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT))
+                return true;
+
         return symbol->fields[0].field_type == _VARLINK_FIELD_TYPE_END_MARKER;
 }
 
@@ -1312,7 +1502,14 @@ static int varlink_idl_symbol_consistent(
         if (IN_SET(symbol->symbol_type, VARLINK_STRUCT_TYPE, VARLINK_ENUM_TYPE) && varlink_symbol_is_empty(symbol))
                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol '%s' is empty, refusing.", symbol_name);
 
+        if (IN_SET(symbol->symbol_type, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT))
+                return 0;
+
         for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+
+                if (field->field_type == _VARLINK_FIELD_COMMENT)
+                        continue;
+
                 Set **name_set = field->field_direction == VARLINK_OUTPUT ? &output_set : &input_set; /* for the method case we need two separate sets, otherwise we use the same */
 
                 if (!varlink_idl_field_name_is_valid(field->name))
@@ -1342,6 +1539,9 @@ int varlink_idl_consistent(const VarlinkInterface *interface, int level) {
                 return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Interface name '%s' is not valid, refusing.", interface->name);
 
         for (const VarlinkSymbol *const *symbol = interface->symbols; *symbol; symbol++) {
+
+                if (IN_SET((*symbol)->symbol_type, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT))
+                        continue;
 
                 if (!varlink_idl_symbol_name_is_valid((*symbol)->name))
                         return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol name '%s' is not valid, refusing.", strempty((*symbol)->name));
@@ -1403,6 +1603,9 @@ static int varlink_idl_validate_field_element_type(const VarlinkField *field, Js
 
                 break;
 
+        case _VARLINK_FIELD_COMMENT:
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -1414,6 +1617,7 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
         int r;
 
         assert(field);
+        assert(field->field_type != _VARLINK_FIELD_COMMENT);
 
         if (!v || json_variant_is_null(v)) {
 
@@ -1445,7 +1649,6 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
                                 return r;
                 }
         } else {
-
                 r = varlink_idl_validate_field_element_type(field, v);
                 if (r < 0)
                         return r;
@@ -1458,6 +1661,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
         int r;
 
         assert(symbol);
+        assert(!IN_SET(symbol->symbol_type, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT));
 
         if (!v) {
                 if (bad_field)
@@ -1533,6 +1737,10 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                 break;
         }
 
+        case _VARLINK_SYMBOL_COMMENT:
+        case _VARLINK_INTERFACE_COMMENT:
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -1575,6 +1783,7 @@ const VarlinkSymbol* varlink_idl_find_symbol(
 
         assert(interface);
         assert(type < _VARLINK_SYMBOL_TYPE_MAX);
+        assert(!IN_SET(type, _VARLINK_SYMBOL_COMMENT, _VARLINK_INTERFACE_COMMENT));
 
         if (isempty(name))
                 return NULL;
@@ -1599,9 +1808,13 @@ const VarlinkField* varlink_idl_find_field(
         if (isempty(name))
                 return NULL;
 
-        for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++)
+        for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+                if (field->field_type == _VARLINK_FIELD_COMMENT)
+                        continue;
+
                 if (streq_ptr(field->name, name))
                         return field;
+        }
 
         return NULL;
 }
