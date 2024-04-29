@@ -265,13 +265,13 @@ static int server_process_entry(
                 if (r <= 0)
                         goto finish;
 
-                if (s->forward_to_syslog)
+                if (s->forward_to_syslog || stdout_stream_forward_to_syslog(context->stream))
                         server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
-                if (s->forward_to_kmsg)
+                if (s->forward_to_kmsg || stdout_stream_forward_to_kmsg(context->stream))
                         server_forward_kmsg(s, priority, identifier, message, ucred);
 
-                if (s->forward_to_console)
+                if (s->forward_to_console || stdout_stream_forward_to_console(context->stream))
                         server_forward_console(s, priority, identifier, message, ucred);
 
                 if (s->forward_to_wall)

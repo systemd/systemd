@@ -11,6 +11,7 @@
 #include "time-util.h"
 
 typedef struct ClientContext ClientContext;
+typedef struct StdoutStream StdoutStream;
 
 #include "journald-server.h"
 
@@ -59,6 +60,8 @@ struct ClientContext {
 
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
+
+        StdoutStream *stream;
 };
 
 int client_context_get(
