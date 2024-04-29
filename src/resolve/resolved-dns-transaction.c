@@ -2618,6 +2618,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                         return r;
                                 if (r == 0)
                                         continue;
+
+                                /* If we were looking for the DS RR, don't request it again. */
+                                if (dns_transaction_key(t)->type == DNS_TYPE_DS)
+                                        continue;
                         }
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
