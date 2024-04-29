@@ -116,9 +116,9 @@ CHANGES WITH 256-rc1:
           analogous to the unit setting, but applies to the whole system. It is
           enabled by default in the initrd.
 
-          Note that this means that code executed in the initrd cannot naïvely
+          Note that this means that code executed in the initrd cannot naively
           expect to be able to write to /usr/ during boot. This affects
-          dracut <= 60, which wrote "hooks" to /lib/dracut/hooks/. See
+          dracut <= 101, which wrote "hooks" to /lib/dracut/hooks/. See
           https://github.com/dracut-ng/dracut-ng/commit/a45048b80c27ee5a45a380.
 
         * New unit setting WantsMountsFor= has been added. It is analogous to
@@ -714,7 +714,7 @@ CHANGES WITH 256-rc1:
 
           Note that this means that those libraries might not be automatically
           pulled in when ELF dependencies are resolved. In particular lack of
-          libkmod might cause problems with boot. This affects dracut <= 60,
+          libkmod might cause problems with boot. This affects dracut <= 101,
           see https://github.com/dracut-ng/dracut-ng/commit/04b362d713235459cf.
 
         * The sd-journal API gained a new call
