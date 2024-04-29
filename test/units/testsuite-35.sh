@@ -522,15 +522,19 @@ EOF
     # session active again and next we slept for another 35s so sessions have
     # become idle again. 'Lock' signal is sent out for each session, we have at
     # least one session, so minimum of 2 "Lock" signals must have been sent.
-    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt 1 ]]; do sleep 1; done"
+    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts --grep 'Sent message type=signal .* member=Lock' | wc -l)\" -lt 1 ]]; do sleep 1; done"
+
+    # We need to know that a new message was sent after waking up,
+    # so we must track how many happened before sleeping to check we have extra.
+    locks="$(journalctl -b -u systemd-logind.service --since="$ts" --grep 'Sent message type=signal .* member=Lock' | wc -l)"
 
     # Wakeup
     touch /dev/tty2
 
     # Wait again
-    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt 2 ]]; do sleep 1; done"
+    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts --grep 'Sent message type=signal .* member=Lock' | wc -l)\" -lt $((locks + 1)) ]]; do sleep 1; done"
 
-    if [[ "$(journalctl -b -u systemd-logind.service --since="$ts" | grep -c 'System idle. Will be locked now.')" -lt 2 ]]; then
+    if [[ "$(journalctl -b -u systemd-logind.service --since="$ts" --grep 'System idle. Will be locked now.' | wc -l)" -lt 2 ]]; then
         echo >&2 "System haven't entered idle state at least 2 times."
         exit 1
     fi
