@@ -193,7 +193,6 @@ int mac_selinux_access_check_internal(
         assert(message);
         assert(permission);
         assert(function);
-        assert(error);
 
         r = access_init(error);
         if (r <= 0)

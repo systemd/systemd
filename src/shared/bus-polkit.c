@@ -529,14 +529,13 @@ int bus_verify_polkit_async_full(
                 uid_t good_user,
                 PolkitFlags flags,
                 Hashmap **registry,
-                sd_bus_error *ret_error) {
+                sd_bus_error *error) {
 
         int r;
 
         assert(call);
         assert(action);
         assert(registry);
-        assert(ret_error);
 
         log_debug("Trying to acquire polkit authentication for '%s'.", action);
 
@@ -551,7 +550,7 @@ int bus_verify_polkit_async_full(
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                r = async_polkit_query_check_action(q, action, details, flags, ret_error);
+                r = async_polkit_query_check_action(q, action, details, flags, error);
                 if (r != 0) {
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
