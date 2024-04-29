@@ -942,7 +942,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_boot_offset = 0;
         }
 
-        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
+        if (!!arg_directory + !!arg_file + arg_file_stdin + !!arg_machine + !!arg_root + !!arg_image > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
 
