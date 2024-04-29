@@ -1056,7 +1056,7 @@ bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
                     required : bpf_framework,
-                    version : bpf_compiler == 'gcc' ? '>= 1.0.0' : '>= 0.1.0')
+                    version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if not libbpf.found()
