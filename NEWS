@@ -251,6 +251,10 @@ CHANGES WITH 256-rc1:
           that have /usr/bin/ and /usr/sbin/ separate. It's generally
           recommended to make the latter a symlink to the former these days.
 
+        * A new systemd.crash_exit=1 kernel command line option has been added
+          that triggers a reboot after crashing. This can also be set through
+          CrashExit= in systemd.conf.
+
         Journal:
 
         * systemd-journald can now forward journal entries to a socket

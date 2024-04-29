@@ -866,6 +866,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.crash_exit</varname></term>
+
+        <listitem><para>Takes a boolean argument or enables the option if specified without an argument. If
+        enabled, the system manager (PID 1) will power off the machine automatically when it crashes.
+        Otherwise, the system will hang indefinitely. Defaults to disabled. If combined with
+        <varname>systemd.crash_shell</varname>, the system is rebooted after the shell exits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.confirm_spawn</varname></term>
 
         <listitem><para>Takes a boolean argument or a path to the virtual console
@@ -1396,6 +1407,15 @@
           user instance. See <varname>systemd.crash_reboot</varname> above.</para>
 
           <xi:include href="version-info.xml" xpointer="v227"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--crash-exit</option></term>
+
+          <listitem><para>Automatically power off the system on crash. This switch has no effect when running
+          as user instance. See <varname>systemd.crash_exit</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
 
         <varlistentry>
