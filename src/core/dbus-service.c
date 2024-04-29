@@ -19,7 +19,6 @@
 #include "fileio.h"
 #include "locale-util.h"
 #include "missing_fcntl.h"
-#include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -130,6 +129,7 @@ static int property_get_exit_status_set(
 }
 
 static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
+        MountInNamespaceFlags flags = 0;
         Unit *u = ASSERT_PTR(userdata);
         int r;
 
@@ -137,9 +137,6 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
-
-        if (u->type != UNIT_SERVICE)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not of type .service");
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
@@ -167,6 +164,10 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                         return r;
         }
 
+        r = unit_can_live_mount(u, src, dest, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_manage_units_async_full(
                         u,
                         is_image ? "mount-image" : "bind-mount",
@@ -178,50 +179,18 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        const PidRef *unit_pid = unit_main_pid(u);
-        if (!pidref_is_set(unit_pid) || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is not running");
-
-        /* The context should always be available, but there's an assert in exec_needs_mount_namespace,
-         * so double-check just in case. */
-        ExecContext *c = unit_get_exec_context(u);
-        if (!c)
-                return -ENXIO;
-
-        /* Ensure that the unit was started in a private mount namespace */
-        if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
-
-        if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to bind mount over credential mounts");
-
-        /* If it would be dropped at startup time, return an error. */
-        if (path_startswith_strv(dest, c->inaccessible_paths))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "%s is not accessible to this unit", dest);
-
-        const char *propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
-                r = mount_image_in_namespace(
-                                unit_pid,
-                                propagate_directory,
-                                "/run/systemd/incoming/",
-                                src, dest,
-                                read_only,
-                                make_file_or_directory,
-                                options,
-                                c->mount_image_policy ?: &image_policy_service);
-        else
-                r = bind_mount_in_namespace(
-                                unit_pid,
-                                propagate_directory,
-                                "/run/systemd/incoming/",
-                                src, dest,
-                                read_only,
-                                make_file_or_directory);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to mount '%s' on '%s' in unit's namespace: %m", src, dest);
+                flags |= MOUNT_IN_NAMESPACE_IS_IMAGE;
+        if (read_only)
+                flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (make_file_or_directory)
+                flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
 
-        return sd_bus_reply_method_return(message, NULL);
+        r = unit_live_mount(u, src, dest, message, flags, options, error);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -362,6 +331,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("ReloadResult", "s", property_get_result, offsetof(Service, reload_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CleanResult", "s", property_get_result, offsetof(Service, clean_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("MountResult", "s", property_get_result, offsetof(Service, mount_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("USBFunctionDescriptors", "s", NULL, offsetof(Service, usb_function_descriptors), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("USBFunctionStrings", "s", NULL, offsetof(Service, usb_function_strings), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
