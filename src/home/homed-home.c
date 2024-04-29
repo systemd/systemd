@@ -3042,7 +3042,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         /* Note that we don't call operation_fail() or operation_success() here, because this kind of
          * operation has no message associated with it, and thus there's no need to propagate success. */
 
-        assert(!o->message);
+        assert(!o->message && !o->varlink);
         return 1;
 }
 
@@ -3083,7 +3083,7 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         /* Note that we don't call operation_fail() or operation_success() here, because this kind of
          * operation has no message associated with it, and thus there's no need to propagate success. */
 
-        assert(!o->message);
+        assert(!o->message && !o->varlink);
         return 1;
 }
 
