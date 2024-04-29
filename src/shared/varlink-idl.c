@@ -653,8 +653,10 @@ static int varlink_idl_subparse_token(
 static int varlink_idl_subparse_comment(
                 const char **p,
                 unsigned *line,
-                unsigned *column) {
+                unsigned *column,
+                char **ret) {
 
+        _cleanup_free_ char *comment = NULL;
         size_t l;
 
         assert(p);
@@ -663,8 +665,26 @@ static int varlink_idl_subparse_comment(
         assert(column);
 
         l = strcspn(*p, NEWLINE);
+
+        if (ret) {
+                /* Remove a single space as prefix of a comment, if one is specified. This is because we
+                 * generally expect comments to be formatted as "# foobar" rather than "#foobar", and will
+                 * ourselves format them that way. We accept the comments without the space too however. We
+                 * will not strip more than one space, to allow indented comment blocks. */
+
+                if (**p == ' ')
+                        comment = strndup(*p + 1, l - 1);
+                else
+                        comment = strndup(*p, l);
+                if (!comment)
+                        return -ENOMEM;
+        }
+
         advance_line_column(*p, l + 1, line, column);
         *p += l;
+
+        if (ret)
+                *ret = TAKE_PTR(comment);
 
         return 1;
 }
@@ -852,7 +872,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         state = STATE_NAME;
-                        allowed_delimiters = ")";
+                        allowed_delimiters = ")#";
                         allowed_chars = VALID_CHARS_IDENTIFIER;
                         break;
 
@@ -861,7 +881,23 @@ static int varlink_idl_subparse_struct_or_enum(
 
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
-                        if (streq(token, ")"))
+                        else if (streq(token, "#")) {
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(p, line, column, &comment);
+                                if (r < 0)
+                                        return r;
+
+                                r = varlink_symbol_realloc(symbol, *n_fields + 1);
+                                if (r < 0)
+                                        return r;
+
+                                VarlinkField *field = (*symbol)->fields + (*n_fields)++;
+                                *field = (VarlinkField) {
+                                        .name = TAKE_PTR(comment),
+                                        .field_type = _VARLINK_FIELD_COMMENT,
+                                };
+                        } else if (streq(token, ")"))
                                 state = STATE_DONE;
                         else {
                                 field_name = TAKE_PTR(token);
@@ -925,7 +961,7 @@ static int varlink_idl_subparse_struct_or_enum(
 
                                 if (streq(token, ",")) {
                                         state = STATE_NAME;
-                                        allowed_delimiters = NULL;
+                                        allowed_delimiters = "#";
                                         allowed_chars = VALID_CHARS_IDENTIFIER;
                                 } else {
                                         assert(streq(token, ")"));
@@ -943,7 +979,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, ",")) {
                                 state = STATE_NAME;
-                                allowed_delimiters = NULL;
+                                allowed_delimiters = "#";
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
                         } else if (streq(token, ")"))
                                 state = STATE_DONE;
@@ -1058,9 +1094,24 @@ int varlink_idl_parse(
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(&text, line, column);
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
                                 if (r < 0)
                                         return r;
+
+                                r = varlink_interface_realloc(&interface, n_symbols + 1);
+                                if (r < 0)
+                                        return r;
+
+                                r = varlink_symbol_realloc(&symbol, 0);
+                                if (r < 0)
+                                        return r;
+
+                                symbol->symbol_type = _VARLINK_INTERFACE_COMMENT;
+                                symbol->name = TAKE_PTR(comment);
+
+                                interface->symbols[n_symbols++] = TAKE_PTR(symbol);
                         } else if (streq(token, "interface")) {
                                 state = STATE_INTERFACE;
                                 allowed_delimiters = NULL;
@@ -1070,9 +1121,6 @@ int varlink_idl_parse(
                         break;
 
                 case STATE_INTERFACE:
-                        assert(!interface);
-                        assert(n_symbols == 0);
-
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
@@ -1080,7 +1128,9 @@ int varlink_idl_parse(
                         if (r < 0)
                                 return r;
 
+                        assert(!interface->name);
                         interface->name = TAKE_PTR(token);
+
                         state = STATE_PRE_SYMBOL;
                         allowed_delimiters = "#";
                         allowed_chars = VALID_CHARS_RESERVED;
@@ -1093,9 +1143,25 @@ int varlink_idl_parse(
                         }
 
                         if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(&text, line, column);
+                                _cleanup_free_ char *comment = NULL;
+
+                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
                                 if (r < 0)
                                         return r;
+
+                                r = varlink_interface_realloc(&interface, n_symbols + 1);
+                                if (r < 0)
+                                        return r;
+
+                                assert(!symbol);
+                                r = varlink_symbol_realloc(&symbol, 0);
+                                if (r < 0)
+                                        return r;
+
+                                symbol->symbol_type = _VARLINK_SYMBOL_COMMENT;
+                                symbol->name = TAKE_PTR(comment);
+
+                                interface->symbols[n_symbols++] = TAKE_PTR(symbol);
                         } else if (streq(token, "method")) {
                                 state = STATE_METHOD;
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
