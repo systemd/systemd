@@ -24,6 +24,7 @@ typedef struct WaitForItem {
         char *active_state;
         uint32_t job_id;
         char *clean_result;
+        char *live_mount_result;
 } WaitForItem;
 
 typedef struct BusWaitForUnits {
@@ -67,6 +68,7 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
         free(item->bus_path);
         free(item->active_state);
         free(item->clean_result);
+        free(item->live_mount_result);
 
         return mfree(item);
 }
@@ -178,6 +180,9 @@ static void wait_for_item_check_ready(WaitForItem *item) {
                 if (item->clean_result && !streq(item->clean_result, "success"))
                         d->has_failed = true;
 
+                if (item->live_mount_result && !streq(item->live_mount_result, "success"))
+                        d->has_failed = true;
+
                 if (!item->active_state || streq(item->active_state, "maintenance"))
                         return;
         }
@@ -214,9 +219,10 @@ static int property_map_job_id(
 static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState", "s",    NULL,                offsetof(WaitForItem, active_state) },
-                { "Job",         "(uo)", property_map_job_id, offsetof(WaitForItem, job_id)       },
-                { "CleanResult", "s",    NULL,                offsetof(WaitForItem, clean_result) },
+                { "ActiveState",     "s",    NULL,                offsetof(WaitForItem, active_state)      },
+                { "Job",             "(uo)", property_map_job_id, offsetof(WaitForItem, job_id)            },
+                { "CleanResult",     "s",    NULL,                offsetof(WaitForItem, clean_result)      },
+                { "LiveMountResult", "s",    NULL,                offsetof(WaitForItem, live_mount_result) },
                 {}
         };
 

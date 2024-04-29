@@ -356,7 +356,7 @@ static int scope_enter_start_chown(Scope *s) {
         if (r < 0)
                 return r;
 
-        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pidref);
+        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", /* into_cgroup= */ true, &pidref);
         if (r < 0)
                 goto fail;
 
