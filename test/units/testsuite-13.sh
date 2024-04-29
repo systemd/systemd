@@ -3,6 +3,13 @@
 set -eux
 set -o pipefail
 
+FSTYPE="$(stat --file-system --format "%T" /)"
+
+if [[ "$FSTYPE" == "fuseblk" ]]; then
+    echo "Root filesystem is virtiofs, skipping"
+    exit 77
+fi
+
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
