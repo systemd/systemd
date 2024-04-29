@@ -390,7 +390,7 @@ testcase_sanity_check() {
 
     # We're not in the same session scope, so in this case we need to specify
     # the session ID explicitly
-    session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; exit; }')
+    session=$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1; exit; }')
     loginctl kill-session --signal=SIGCONT "$session"
     # FIXME(?)
     #loginctl kill-session --signal=SIGCONT --kill-whom=leader "$session"
