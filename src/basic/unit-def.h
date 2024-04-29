@@ -152,6 +152,7 @@ typedef enum ServiceState {
         SERVICE_AUTO_RESTART,
         SERVICE_AUTO_RESTART_QUEUED,
         SERVICE_CLEANING,
+        SERVICE_MOUNTING,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -EINVAL,
 } ServiceState;
