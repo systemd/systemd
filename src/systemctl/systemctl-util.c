@@ -361,7 +361,7 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
                 if (r < 0)
                         return r;
 
-                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
+                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING))
                         continue;
 
                 r = strv_extend(&active, *i);
