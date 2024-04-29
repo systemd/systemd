@@ -25,6 +25,8 @@ _public_ int pam_sm_authenticate(
 
         assert(handle);
 
+        pam_log_setup();
+
         /* Parse argv. */
 
         assert(argc >= 0);
