@@ -219,4 +219,4 @@ fi
 systemd-analyze log-level info
 
 touch /testok
-systemctl --no-block poweroff
+systemctl --no-block exit 123
