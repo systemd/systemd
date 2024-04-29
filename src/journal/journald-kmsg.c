@@ -19,6 +19,7 @@
 #include "journal-internal.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
+#include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
 #include "parse-util.h"

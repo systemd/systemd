@@ -13,3 +13,7 @@ StdoutStream* stdout_stream_free(StdoutStream *s);
 int stdout_stream_install(Server *s, int fd, StdoutStream **ret);
 void stdout_stream_destroy(StdoutStream *s);
 void stdout_stream_send_notify(StdoutStream *s);
+
+bool stdout_stream_forward_to_console(StdoutStream *s);
+bool stdout_stream_forward_to_kmsg(StdoutStream *s);
+bool stdout_stream_forward_to_syslog(StdoutStream *s);
