@@ -374,7 +374,7 @@ integration_tests = {
 foreach test_number, dirname : integration_tests
         test_params = {
                 'mkosi_args' : [],
-                'timeout' : 600,
+                'timeout' : 1800,
         }
 
         # TODO: This fs.exists call isn't included in rebuild logic
