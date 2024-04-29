@@ -112,6 +112,7 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVATING]   = "activating",
         [UNIT_DEACTIVATING] = "deactivating",
         [UNIT_MAINTENANCE]  = "maintenance",
+        [UNIT_REFRESHING]   = "refreshing",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
@@ -234,6 +235,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART]               = "auto-restart",
         [SERVICE_AUTO_RESTART_QUEUED]        = "auto-restart-queued",
         [SERVICE_CLEANING]                   = "cleaning",
+        [SERVICE_MOUNTING]                   = "mounting",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
@@ -344,6 +346,7 @@ SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
         static const SpecialGlyph map[_UNIT_ACTIVE_STATE_MAX] = {
                 [UNIT_ACTIVE]       = SPECIAL_GLYPH_BLACK_CIRCLE,
                 [UNIT_RELOADING]    = SPECIAL_GLYPH_CIRCLE_ARROW,
+                [UNIT_REFRESHING]   = SPECIAL_GLYPH_CIRCLE_ARROW,
                 [UNIT_INACTIVE]     = SPECIAL_GLYPH_WHITE_CIRCLE,
                 [UNIT_FAILED]       = SPECIAL_GLYPH_MULTIPLICATION_SIGN,
                 [UNIT_ACTIVATING]   = SPECIAL_GLYPH_BLACK_CIRCLE,
