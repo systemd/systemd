@@ -2,6 +2,7 @@
 
 #include <sys/reboot.h>
 
+#include "sd-daemon.h"
 #include "sd-messages.h"
 
 #include "crash-handler.h"
@@ -21,13 +22,21 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
         /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
          * the container manager, and thus inform it that something went wrong. */
         if (detect_container() > 0) {
+                (void) sd_notify(/* unset_environment= */ false, "EXIT_STATUS=1\n");
                 log_struct(LOG_EMERG,
                            LOG_MESSAGE("Exiting PID 1..."),
                            "MESSAGE_ID=" SD_MESSAGE_CRASH_EXIT_STR);
                 _exit(EXIT_EXCEPTION);
         }
 
-        if (arg_crash_reboot) {
+        if (arg_crash_exit) {
+                (void) sd_notify(/* unset_environment= */ false, "EXIT_STATUS=1\n");
+                log_notice("Shutting down");
+                (void) reboot(RB_POWER_OFF);
+                log_struct_errno(LOG_EMERG, errno,
+                                 LOG_MESSAGE("Failed to power off: %m"),
+                                 "MESSAGE_ID=" SD_MESSAGE_CRASH_FAILED_STR);
+        } else if (arg_crash_reboot) {
                 log_notice("Rebooting in 10s...");
                 (void) sleep(10);
 
