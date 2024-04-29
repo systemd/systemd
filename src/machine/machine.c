@@ -345,10 +345,12 @@ int machine_load(Machine *m) {
 
 static int machine_start_scope(
                 Machine *machine,
+                bool allow_pidfd,
                 sd_bus_message *more_properties,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *escaped = NULL, *unit = NULL;
         const char *description;
         int r;
@@ -390,7 +392,7 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = bus_append_scope_pidref(m, &machine->leader, /* allow_pidfd = */ true);
+        r = bus_append_scope_pidref(m, &machine->leader, allow_pidfd);
         if (r < 0)
                 return r;
 
@@ -416,9 +418,16 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(NULL, m, 0, error, &reply);
-        if (r < 0)
-                return r;
+        r = sd_bus_call(NULL, m, 0, &e, &reply);
+        if (r < 0) {
+                /* If this failed with a property we couldn't write, this is quite likely because the server
+                 * doesn't support PIDFDs yet, let's try without. */
+                if (allow_pidfd &&
+                    sd_bus_error_has_names(&e, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                        return machine_start_scope(machine, /* allow_pidfd = */ false, more_properties, error);
+
+                return sd_bus_error_move(error, &e);
+        }
 
         machine->unit = TAKE_PTR(unit);
         machine->referenced = true;
@@ -438,7 +447,7 @@ static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_e
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                r = machine_start_scope(m, properties, error);
+                r = machine_start_scope(m, /* allow_pidfd = */ true, properties, error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
         }
