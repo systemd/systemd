@@ -18,7 +18,7 @@
  * This can be overridden by the keyname= parameter. */
 static const char DEFAULT_KEYNAME[] = "cryptsetup";
 
-_public_ int pam_sm_authenticate(
+_public_ PAM_EXTERN int pam_sm_authenticate(
                 pam_handle_t *handle,
                 int flags,
                 int argc, const char **argv) {
@@ -91,7 +91,7 @@ _public_ int pam_sm_authenticate(
         return PAM_SUCCESS;
 }
 
-_public_ int pam_sm_setcred(
+_public_ PAM_EXTERN int pam_sm_setcred(
                 pam_handle_t *handle,
                 int flags,
                 int argc, const char **argv) {
