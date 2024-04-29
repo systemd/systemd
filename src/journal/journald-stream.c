@@ -106,6 +106,18 @@ struct StdoutStream {
         char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 };
 
+bool stdout_stream_forward_to_console(StdoutStream *s) {
+        return s && s->forward_to_console;
+}
+
+bool stdout_stream_forward_to_kmsg(StdoutStream *s) {
+        return s && s->forward_to_kmsg;
+}
+
+bool stdout_stream_forward_to_syslog(StdoutStream *s) {
+        return s && s->forward_to_syslog;
+}
+
 StdoutStream* stdout_stream_free(StdoutStream *s) {
         if (!s)
                 return NULL;
@@ -272,6 +284,9 @@ static int stdout_stream_log(
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire client context, ignoring: %m");
+
+                if (s->context)
+                        s->context->stream = s;
         }
 
         priority = s->priority;

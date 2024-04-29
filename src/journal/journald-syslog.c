@@ -386,13 +386,13 @@ void server_process_syslog_message(
 
         syslog_parse_identifier(&msg, &identifier, &pid);
 
-        if (s->forward_to_syslog)
+        if (s->forward_to_syslog || stdout_stream_forward_to_syslog(context->stream))
                 forward_syslog_raw(s, priority, buf, raw_len, ucred, tv);
 
-        if (s->forward_to_kmsg)
+        if (s->forward_to_kmsg || stdout_stream_forward_to_kmsg(context->stream))
                 server_forward_kmsg(s, priority, identifier, msg, ucred);
 
-        if (s->forward_to_console)
+        if (s->forward_to_console || stdout_stream_forward_to_console(context->stream))
                 server_forward_console(s, priority, identifier, msg, ucred);
 
         if (s->forward_to_wall)
