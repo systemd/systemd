@@ -123,6 +123,7 @@ bool arg_dump_core;
 int arg_crash_chvt;
 bool arg_crash_shell;
 bool arg_crash_reboot;
+bool arg_crash_exit;
 static char *arg_confirm_spawn;
 static ShowStatus arg_show_status;
 static StatusUnitFormat arg_status_unit_format;
@@ -280,6 +281,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_warning_errno(r, "Failed to parse crash reboot switch %s, ignoring: %m", value);
                 else
                         arg_crash_reboot = r;
+
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_exit")) {
+
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse crash exit switch %s, ignoring: %m", value);
+                else
+                        arg_crash_exit = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.confirm_spawn")) {
                 char *s;
@@ -665,6 +674,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashChangeVT",                config_parse_crash_chvt,            0,                        &arg_crash_chvt                   },
                 { "Manager", "CrashShell",                   config_parse_bool,                  0,                        &arg_crash_shell                  },
                 { "Manager", "CrashReboot",                  config_parse_bool,                  0,                        &arg_crash_reboot                 },
+                { "Manager", "CrashExit",                    config_parse_bool,                  0,                        &arg_crash_exit                   },
                 { "Manager", "ShowStatus",                   config_parse_show_status,           0,                        &arg_show_status                  },
                 { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0,                        &arg_status_unit_format           },
                 { "Manager", "CPUAffinity",                  config_parse_cpu_affinity2,         0,                        &arg_cpu_affinity                 },
@@ -985,6 +995,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_CRASH_EXIT:
+                        r = parse_boolean_argument("--crash-exit", optarg, &arg_crash_exit);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_CONFIRM_SPAWN:
                         arg_confirm_spawn = mfree(arg_confirm_spawn);
 
@@ -1099,6 +1115,7 @@ static int help(void) {
                "     --dump-core[=BOOL]          Dump core on crash\n"
                "     --crash-vt=NR               Change to specified VT on crash\n"
                "     --crash-reboot[=BOOL]       Reboot on crash\n"
+               "     --crash-exit[=BOOL]         Power off on crash\n"
                "     --crash-shell[=BOOL]        Run shell on crash\n"
                "     --confirm-spawn[=BOOL]      Ask for confirmation when spawning processes\n"
                "     --show-status[=BOOL]        Show status updates on the console during boot\n"
@@ -2591,6 +2608,7 @@ static void reset_arguments(void) {
         arg_crash_chvt = -1;
         arg_crash_shell = false;
         arg_crash_reboot = false;
+        arg_crash_exit = false;
         arg_confirm_spawn = mfree(arg_confirm_spawn);
         arg_show_status = _SHOW_STATUS_INVALID;
         arg_status_unit_format = STATUS_UNIT_FORMAT_DEFAULT;
