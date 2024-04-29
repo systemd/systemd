@@ -415,17 +415,14 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         ret = fchmod_and_chown(fd, mode, uid, gid);
 
         if (stamp != USEC_INFINITY) {
-                struct timespec ts[2];
+                struct timespec ts;
+                timespec_store(&ts, stamp);
 
-                timespec_store(&ts[0], stamp);
-                ts[1] = ts[0];
-                r = futimens_opath(fd, ts);
+                r = futimens_opath(fd, (const struct timespec[2]) { ts, ts });
         } else
-                r = futimens_opath(fd, NULL);
-        if (r < 0 && ret >= 0)
-                return r;
+                r = futimens_opath(fd, /* ts = */ NULL);
 
-        return ret;
+        return RET_GATHER(ret, r);
 }
 
 int symlink_idempotent(const char *from, const char *to, bool make_relative) {
