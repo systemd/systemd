@@ -4,6 +4,7 @@
 #include <sd-bus.h>
 
 #include "user-record.h"
+#include "varlink.h"
 
 typedef enum OperationType {
         OPERATION_ACQUIRE,           /* enqueued on AcquireHome() */
@@ -29,14 +30,16 @@ typedef enum OperationType {
  * operation applies to multiple homes the reference counter is increased once for each, and thus the
  * operation is fully completed only after it reached zero again.
  *
- * The object (optionally) contains a reference of the D-Bus message triggering the operation, which is
+ * The object (optionally) contains a reference of the D-Bus/Varlink message triggering the operation, which is
  * replied to when the operation is fully completed, i.e. when n_ref reaches zero.
  */
 
 typedef struct Operation {
         unsigned n_ref;
         OperationType type;
+
         sd_bus_message *message;
+        Varlink *varlink;
 
         UserRecord *secret;
         uint64_t call_flags; /* flags passed into UpdateEx() or CreateHomeEx() */
@@ -48,6 +51,7 @@ typedef struct Operation {
 } Operation;
 
 Operation *operation_new(OperationType type, sd_bus_message *m);
+Operation *operation_new_varlink(OperationType type, Varlink *v);
 Operation *operation_ref(Operation *operation);
 Operation *operation_unref(Operation *operation);
 
