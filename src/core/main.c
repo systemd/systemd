@@ -88,6 +88,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "sysctl-util.h"
@@ -122,7 +123,7 @@ static RuntimeScope arg_runtime_scope;
 bool arg_dump_core;
 int arg_crash_chvt;
 bool arg_crash_shell;
-bool arg_crash_reboot;
+CrashAction arg_crash_action;
 static char *arg_confirm_spawn;
 static ShowStatus arg_show_status;
 static StatusUnitFormat arg_status_unit_format;
@@ -160,6 +161,16 @@ static char **saved_env = NULL;
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
+
+static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
+        [CRASH_FREEZE]   = "freeze",
+        [CRASH_REBOOT]   = "reboot",
+        [CRASH_POWEROFF] = "poweroff",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
+
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE, "Invalid crash action");
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
@@ -279,7 +290,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse crash reboot switch %s, ignoring: %m", value);
                 else
-                        arg_crash_reboot = r;
+                        arg_crash_action = r ? CRASH_REBOOT : CRASH_FREEZE;
+
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_action")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = crash_action_from_string(value);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse crash action switch %s, ignoring: %m", value);
+                else
+                        arg_crash_action = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.confirm_spawn")) {
                 char *s;
@@ -653,6 +675,36 @@ static int config_parse_protect_system_pid1(
         return 0;
 }
 
+static int config_parse_crash_reboot(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CrashAction *v = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                *v = CRASH_REBOOT;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse CrashReboot= argument '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        *v = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
+        return 0;
+}
+
 static int parse_config_file(void) {
         const ConfigTableItem items[] = {
                 { "Manager", "LogLevel",                     config_parse_level2,                0,                        NULL                              },
@@ -664,7 +716,8 @@ static int parse_config_file(void) {
                 { "Manager", "CrashChVT", /* legacy */       config_parse_crash_chvt,            0,                        &arg_crash_chvt                   },
                 { "Manager", "CrashChangeVT",                config_parse_crash_chvt,            0,                        &arg_crash_chvt                   },
                 { "Manager", "CrashShell",                   config_parse_bool,                  0,                        &arg_crash_shell                  },
-                { "Manager", "CrashReboot",                  config_parse_bool,                  0,                        &arg_crash_reboot                 },
+                { "Manager", "CrashReboot",                  config_parse_crash_reboot,          0,                        &arg_crash_action                 },
+                { "Manager", "CrashAction",                  config_parse_crash_action,          0,                        &arg_crash_action                 },
                 { "Manager", "ShowStatus",                   config_parse_show_status,           0,                        &arg_show_status                  },
                 { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0,                        &arg_status_unit_format           },
                 { "Manager", "CPUAffinity",                  config_parse_cpu_affinity2,         0,                        &arg_cpu_affinity                 },
@@ -980,9 +1033,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CRASH_REBOOT:
-                        r = parse_boolean_argument("--crash-reboot", optarg, &arg_crash_reboot);
+                        r = parse_boolean_argument("--crash-reboot", optarg, NULL);
                         if (r < 0)
                                 return r;
+                        arg_crash_action = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
+                        break;
+
+                case ARG_CRASH_ACTION:
+                        r = crash_action_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse crash action \"%s\": %m", optarg);
+                        arg_crash_action = r;
                         break;
 
                 case ARG_CONFIRM_SPAWN:
@@ -1098,7 +1159,7 @@ static int help(void) {
                "     --unit=UNIT                 Set default unit\n"
                "     --dump-core[=BOOL]          Dump core on crash\n"
                "     --crash-vt=NR               Change to specified VT on crash\n"
-               "     --crash-reboot[=BOOL]       Reboot on crash\n"
+               "     --crash-action=ACTION       Specify what to do on crash\n"
                "     --crash-shell[=BOOL]        Run shell on crash\n"
                "     --confirm-spawn[=BOOL]      Ask for confirmation when spawning processes\n"
                "     --show-status[=BOOL]        Show status updates on the console during boot\n"
@@ -2590,7 +2651,7 @@ static void reset_arguments(void) {
         arg_dump_core = true;
         arg_crash_chvt = -1;
         arg_crash_shell = false;
-        arg_crash_reboot = false;
+        arg_crash_action = CRASH_FREEZE;
         arg_confirm_spawn = mfree(arg_confirm_spawn);
         arg_show_status = _SHOW_STATUS_INVALID;
         arg_status_unit_format = STATUS_UNIT_FORMAT_DEFAULT;
