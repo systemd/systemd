@@ -15,6 +15,7 @@
 #include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 int mkdirat_safe_internal(
@@ -204,10 +205,12 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, char **subvolumes) {
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
+        _cleanup_close_ int nfd = -EBADF;
         int r;
+        struct timespec tspec;
 
         r = path_extract_directory(p, &pp);
         if (r == -EDESTADDRREQ) {
@@ -222,7 +225,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 return r;
         else {
                 /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
-                r = mkdir_p_root(root, pp, uid, gid, m, subvolumes);
+                r = mkdir_p_root_full(root, pp, uid, gid, m, ts, subvolumes);
                 if (r < 0)
                         return r;
 
@@ -248,16 +251,25 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 return r;
         }
 
-        if (uid_is_valid(uid) || gid_is_valid(gid)) {
-                _cleanup_close_ int nfd = -EBADF;
+        if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid)) {
+                return 1;
+        }
 
+        if (ts != USEC_INFINITY) {
                 nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (nfd < 0)
                         return -errno;
 
-                if (fchown(nfd, uid, gid) < 0)
+                timespec_store_nsec(&tspec, ts);
+                if (futimens(dfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
+                        return -errno;
+
+                if (futimens(nfd, (const struct timespec[2]) { tspec, tspec }) < 0)
                         return -errno;
         }
+
+        if ((uid_is_valid(uid) || gid_is_valid(gid)) && (fchown(nfd, uid, gid) < 0))
+                return -errno;
 
         return 1;
 }
