@@ -1054,7 +1054,7 @@ static int manager_bind_varlink(Manager *m) {
 
         /* Avoid recursion */
         if (setenv("SYSTEMD_BYPASS_USERDB", m->userdb_service, 1) < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
+                return log_error_errno(errno, "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
 
         return 0;
 }

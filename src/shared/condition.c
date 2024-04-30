@@ -260,13 +260,13 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 /* The os-release spec mandates env-var-like key names */
                 if (r == 0 || isempty(word) || !env_name_is_valid(key))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Failed to parse parameter, key/value format expected: %m");
+                                        "Failed to parse parameter, key/value format expected.");
 
                 /* Do not allow whitespace after the separator, as that's not a valid os-release format */
                 operator = parse_compare_operator(&word, COMPARE_ALLOW_FNMATCH|COMPARE_EQUAL_BY_STRING);
                 if (operator < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Failed to parse parameter, key/value format expected: %m");
+                                        "Failed to parse parameter, key/value format expected.");
 
                 r = parse_os_release(NULL, key, &actual_value);
                 if (r < 0)
@@ -543,7 +543,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
 
         /* Read actual value from sysfs */
         if (!filename_is_valid(field))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid SMBIOS field name");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid SMBIOS field name.");
 
         const char *p = strjoina("/sys/class/dmi/id/", field);
         r = read_virtual_file(p, SIZE_MAX, &actual_value, NULL);
@@ -599,7 +599,7 @@ static int condition_test_firmware(Condition *c, char **env) {
 
                 end = strrchr(arg, ')');
                 if (!end || *(end + 1) != '\0')
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed ConditionFirmware=%s: %m", c->parameter);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed ConditionFirmware=%s.", c->parameter);
 
                 smbios_arg = strndup(arg, end - arg);
                 if (!smbios_arg)
@@ -1046,7 +1046,7 @@ static int condition_test_psi(Condition *c, char **env) {
 
                 slice = strstrip(first);
                 if (!slice)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
 
                 r = cg_all_unified();
                 if (r < 0)
@@ -1109,7 +1109,7 @@ static int condition_test_psi(Condition *c, char **env) {
 
                 timespan = skip_leading_chars(fourth, NULL);
                 if (!timespan)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
 
                 if (startswith(timespan, "10sec"))
                         current = &pressure.avg10;
@@ -1118,12 +1118,12 @@ static int condition_test_psi(Condition *c, char **env) {
                 else if (startswith(timespan, "5min"))
                         current = &pressure.avg300;
                 else
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
         }
 
         value = strstrip(third);
         if (!value)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
 
         r = parse_permyriad(value);
         if (r < 0)

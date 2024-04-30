@@ -863,7 +863,7 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
 
                         if (node->major == UINT_MAX || node->minor == UINT_MAX) {
                                 r = json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                             "Major/minor required when device node is device node");
+                                             "Major/minor required when device node is device node.");
                                 goto fail_element;
                         }
 
@@ -1148,7 +1148,7 @@ static int oci_cgroup_memory_limit(const char *name, JsonVariant *v, JsonDispatc
 
         if (!json_variant_is_unsigned(v))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Memory limit is not an unsigned integer");
+                                "Memory limit is not an unsigned integer.");
 
         k = json_variant_unsigned(v);
         if (k >= UINT64_MAX)
@@ -1716,7 +1716,7 @@ static int oci_seccomp_archs(const char *name, JsonVariant *v, JsonDispatchFlags
 
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Architecture entry is not a string");
+                                        "Architecture entry is not a string.");
 
                 r = oci_seccomp_arch_from_string(json_variant_string(e), &a);
                 if (r < 0)

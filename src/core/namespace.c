@@ -1360,7 +1360,7 @@ static int mount_image(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(host_os_release_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
         }
 
         r = verity_dissect_and_mount(
@@ -1532,7 +1532,7 @@ static int apply_one_mount(
                 r = mode_to_inaccessible_node(runtime_dir, target.st_mode, &inaccessible);
                 if (r < 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
-                                               "File type not supported for inaccessible mounts. Note that symlinks are not allowed");
+                                               "File type not supported for inaccessible mounts. Note that symlinks are not allowed.");
                 what = inaccessible;
                 break;
         }
@@ -1583,7 +1583,7 @@ static int apply_one_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(host_os_release_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
 
                 r = load_extension_release_pairs(mount_entry_source(m), class, extension_name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r == -ENOENT && m->ignore)
@@ -1602,7 +1602,7 @@ static int apply_one_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to compare directory %s extension-release metadata with the root's os-release: %m", extension_name);
                 if (r == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's.", extension_name);
 
                 _fallthrough_;
         }
