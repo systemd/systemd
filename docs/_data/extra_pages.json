@@ -401,16 +401,6 @@
   },
   {
     "category": "Documentation for Developers - external links",
-    "title": "On /etc/os-release",
-    "url": "http://0pointer.de/blog/projects/os-release.html"
-  },
-  {
-    "category": "Documentation for Developers - external links",
-    "title": "Control Groups vs. Control Groups",
-    "url": "http://0pointer.de/blog/projects/cgroups-vs-cgroups.html"
-  },
-  {
-    "category": "Documentation for Developers - external links",
     "title": "The 30 Biggest Myths about systemd",
     "url": "http://0pointer.de/blog/projects/the-biggest-myths.html"
   },
