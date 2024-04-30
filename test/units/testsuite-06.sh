@@ -3,6 +3,12 @@
 set -eux
 set -o pipefail
 
+. /etc/os-release
+if ! [[ "$ID" =~ centos|fedora ]]; then
+    echo "Skipping because only CentOS and Fedora support SELinux tests" >>/skipped
+    exit 77
+fi
+
 # Note: ATTOW the following checks should work with both Fedora and upstream reference policy
 #       (with or without MCS/MLS)
 
