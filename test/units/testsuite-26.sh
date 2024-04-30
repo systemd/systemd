@@ -141,7 +141,7 @@ systemctl reload -T "$UNIT_NAME"
 systemctl restart -T "$UNIT_NAME"
 systemctl try-restart --show-transaction "$UNIT_NAME"
 systemctl try-reload-or-restart --show-transaction "$UNIT_NAME"
-systemctl kill "$UNIT_NAME"
+timeout 10 systemctl kill --wait "$UNIT_NAME"
 (! systemctl is-active "$UNIT_NAME")
 systemctl restart "$UNIT_NAME"
 systemctl is-active "$UNIT_NAME"
