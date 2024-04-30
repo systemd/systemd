@@ -564,15 +564,29 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Możliwe są następujące „etykiety”:
-• „cgroups-missing” — jądro zostało skompilowane bez obsługi cgroups
-  lub dostęp do oczekiwanych plików interfejsu jest ograniczony,
-• „var-run-bad” — /var/run nie jest dowiązaniem symbolicznym do /run,
+• „unmerged-usr” — /bin, /sbin, /lib* nie są dowiązaniami symbolicznymi
+  do swoich odpowiedników pod /usr/,
+• „unmerged-bin” — /usr/sbin nie jest dowiązaniem symbolicznym do /usr/bin/,
+• „var-run-bad” — /var/run nie jest dowiązaniem symbolicznym do /run/,
+• „cgroupsv1” — system używa przestarzałej hierarchii cgroup v1,
+• „local-hwclock” — lokalny zegar sprzętowy (RTC) jest skonfigurowany
+  do działania w czasie lokalnym zamiast w uniwersalnym czasie
+  koordynowanym (UTC),
+• „support-ended” — system działa po końcu wsparcia zadeklarowanym
+  przez producenta,
+• „old-kernel” — system działa na wersji jądra starszej niż minimalna
+  obsługiwana przez tę wersję systemd,
 • „overflowuid-not-65534” — identyfikator użytkownika dla „nieznanych”
   użytkowników (przy wykorzystaniu przestrzeni nazw użytkowników lub NFS)
   nie wynosi 65534,
 • „overflowgid-not-65534” — identyfikator grupy dla „nieznanych”
   użytkowników (przy wykorzystaniu przestrzeni nazw użytkowników lub NFS)
-  nie wynosi 65534.
+  nie wynosi 65534,
+• „short-uid-range” — zakres UID przydzielony do działającego wystąpienia
+  systemd pokrywa mniej niż 0…65534,
+• „short-gid-range” — zakres GID przydzielony do działającego wystąpienia
+  systemd pokrywa mniej niż 0…65534.
+
 Obecny system ma etykietę „@TAINT@”.
 
 -- fe6faa94e7774663a0da52717891d8ef
