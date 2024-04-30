@@ -11,7 +11,7 @@ if ! test -f /firstphase ; then
     systemd-run --wait -p SuccessAction=reboot true
 else
     echo OK >/testok
-    systemd-run --wait -p FailureAction=poweroff false
+    systemd-run --wait -p FailureAction=exit -p FailureActionExitStatus=123 false
 fi
 
 sleep infinity
