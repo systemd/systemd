@@ -65,15 +65,6 @@ fi
 mountpoint -q /etc/resolv.conf && umount /etc/resolv.conf
 rm -f /etc/resolv.conf
 
-# sbsign is not available on CentOS Stream
-if command -v sbsign &>/dev/null; then
-    # Ensure that side-loaded PE addons are loaded if signed, and ignored if not
-    addons_dir=/efi/loader/addons
-    mkdir -p "$addons_dir"
-    ukify build --secureboot-private-key mkosi.key --secureboot-certificate mkosi.crt --cmdline this_should_be_here -o "$addons_dir/good.addon.efi"
-    ukify build --cmdline this_should_not_be_here -o "$addons_dir/bad.addon.efi"
-fi
-
 for f in "$BUILDROOT"/usr/share/*.verity.sig; do
     jq --join-output '.rootHash' "$f" >"${f%.verity.sig}.roothash"
 done
