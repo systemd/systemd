@@ -10,12 +10,12 @@ if [ ! -f "pkg/$ID/PKGBUILD" ]; then
     exit 1
 fi
 
-# We can't configure the source or build directory so we use bind mounts instead to make sure they are in the
+# We can't configure the source or build directory so we use symlinks instead to make sure they are in the
 # expected locations.
-mount --mkdir --bind "$SRCDIR" "pkg/$ID/systemd-stable/"
-mount --mkdir --bind "$BUILDDIR" "pkg/$ID/build/"
+ln --symbolic "$SRCDIR" "pkg/$ID/systemd-stable"
+ln --symbolic "$BUILDDIR" "pkg/$ID/build"
 # Because we run with --noextract we are responsible for making sure the source files appear in src/.
-mount --mkdir --rbind "$PWD/pkg/$ID" "pkg/$ID/src/"
+ln --symbolic . "pkg/$ID/src"
 
 # shellcheck source=/dev/null
 . /etc/makepkg.conf

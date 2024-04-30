@@ -23,9 +23,9 @@ at_exit() {
 
 trap at_exit EXIT
 
-# Mount tmpfs over /var/lib/machines to not pollute the image
+# Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 # Setup a couple of dirs/devices for the OCI containers
 DEV="$(mktemp -u /dev/oci-dev-XXX)"
