@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "clean-ipc.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -61,7 +62,11 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
                 .user_record = user_record_ref(ur),
                 .last_session_timestamp = USEC_INFINITY,
                 .gc_mode = USER_GC_BY_ANY,
+                .inhibitors = hashmap_new(&inhibitor_hash_ops),
         };
+
+        if (!u->inhibitors)
+                return -ENOMEM;
 
         if (asprintf(&u->state_file, "/run/systemd/users/" UID_FMT, ur->uid) < 0)
                 return -ENOMEM;
@@ -307,6 +312,43 @@ int user_save(User *u) {
         return user_save_internal(u);
 }
 
+static int user_enumerate_inhibitors(User *u) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r = 0;
+
+        assert(u);
+
+        if (asprintf(&p, "/run/systemd/user-inhibit/" UID_FMT, u->user_record->uid) < 0)
+                return log_oom();
+
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open %s: %m", p);
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                Inhibitor *i;
+                int k;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                k = inhibitor_new_user(u, de->d_name, &i);
+                if (k < 0) {
+                        RET_GATHER(r, log_warning_errno(k, "Couldn't add inhibitor %s/%s, ignoring: %m", p, de->d_name));
+                        continue;
+                }
+
+                RET_GATHER(r, inhibitor_load(i));
+        }
+
+        return r;
+}
+
 int user_load(User *u) {
         _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL, *last_session_timestamp = NULL, *gc_mode = NULL;
         int r;
@@ -347,6 +389,8 @@ int user_load(User *u) {
         u->gc_mode = user_gc_mode_from_string(gc_mode);
         if (u->gc_mode < 0)
                 u->gc_mode = USER_GC_BY_PIN;
+
+        (void) user_enumerate_inhibitors(u);
 
         return 0;
 }
@@ -493,6 +537,7 @@ static int user_update_slice(User *u) {
 }
 
 int user_start(User *u) {
+        Inhibitor *inhibitor;
         int r;
 
         assert(u);
@@ -523,6 +568,14 @@ int user_start(User *u) {
                 (void) user_update_slice(u);
 
                 (void) user_start_runtime_dir(u);
+        }
+
+        HASHMAP_FOREACH(inhibitor, u->inhibitors) {
+                (void) inhibitor_start(inhibitor);
+                if (inhibitor_is_orphan(inhibitor)) {
+                        inhibitor_stop(inhibitor);
+                        inhibitor_free(inhibitor);
+                }
         }
 
         /* Start user@UID.service if needed. */
@@ -568,6 +621,7 @@ static void user_stop_service(User *u, bool force) {
 }
 
 int user_stop(User *u, bool force) {
+        Inhibitor *inhibitor;
         int r = 0;
 
         assert(u);
@@ -587,6 +641,11 @@ int user_stop(User *u, bool force) {
 
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 RET_GATHER(r, session_stop(s, force));
+
+        HASHMAP_FOREACH(inhibitor, u->inhibitors) {
+                inhibitor_stop(inhibitor);
+                inhibitor_free(inhibitor);
+        }
 
         user_stop_service(u, force);
 

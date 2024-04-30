@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "login-util.h"
 #include "pidref.h"
 
 typedef struct Inhibitor Inhibitor;
@@ -29,6 +30,7 @@ typedef enum InhibitMode {
 
 struct Inhibitor {
         Manager *manager;
+        User *user;
 
         sd_event_source *event_source;
 
@@ -38,6 +40,7 @@ struct Inhibitor {
         bool started;
 
         InhibitWhat what;
+        InhibitWhatUser what_user;
         char *who;
         char *why;
         InhibitMode mode;
@@ -51,7 +54,10 @@ struct Inhibitor {
         int fifo_fd;
 };
 
+extern const struct hash_ops inhibitor_hash_ops;
+
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret);
+int inhibitor_new_user(User *i, const char* id, Inhibitor **ret);
 Inhibitor* inhibitor_free(Inhibitor *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
@@ -68,12 +74,21 @@ bool inhibitor_is_orphan(Inhibitor *i);
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
+InhibitWhatUser user_inhibit_what(User *u, InhibitMode mm);
+
 static inline bool inhibit_what_is_valid(InhibitWhat w) {
         return w > 0 && w < _INHIBIT_WHAT_MAX;
 }
 
 const char *inhibit_what_to_string(InhibitWhat k);
 int inhibit_what_from_string(const char *s);
+
+static inline bool inhibit_what_user_is_valid(InhibitWhatUser w) {
+        return w > 0 && w < _INHIBIT_WHAT_USER_MAX;
+}
+
+const char *inhibit_what_user_to_string(InhibitWhatUser k);
+int inhibit_what_user_from_string(const char *s);
 
 const char *inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);
