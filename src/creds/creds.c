@@ -382,9 +382,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 int encrypted;
 
                 if (!credential_name_valid(*cn)) {
-                        log_error("Credential name '%s' is not valid.", *cn);
-                        if (ret >= 0)
-                                ret = -EINVAL;
+                        RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' is not valid.", *cn));
                         continue;
                 }
 
@@ -409,16 +407,11 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                         if (r >= 0) /* Found */
                                 break;
 
-                        log_error_errno(r, "Failed to read credential '%s': %m", *cn);
-                        if (ret >= 0)
-                                ret = r;
+                        RET_GATHER(ret, log_error_errno(r, "Failed to read credential '%s': %m", *cn));
                 }
 
                 if (encrypted >= 2) { /* Found nowhere */
-                        log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Credential '%s' not set.", *cn);
-                        if (ret >= 0)
-                                ret = -ENOENT;
-
+                        RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Credential '%s' not set.", *cn));
                         continue;
                 }
 

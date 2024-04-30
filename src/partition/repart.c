@@ -1803,12 +1803,12 @@ static int config_parse_mountpoint(
                 return 0;
         }
         if (r < 1) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
         if (!isempty(q)) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
@@ -1860,18 +1860,18 @@ static int config_parse_encrypted_volume(
                 return 0;
         }
         if (r < 1) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
         if (!isempty(q)) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (!filename_is_valid(volume)) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Volume name %s is not valid, ignoring", volume);
                 return 0;
         }
@@ -1997,20 +1997,20 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if (p->minimize != MINIMIZE_OFF && !p->format && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize= can only be enabled if Format= or Verity=hash are set");
+                                  "Minimize= can only be enabled if Format= or Verity=hash are set.");
 
         if (p->minimize == MINIMIZE_BEST && (p->format && !fstype_is_ro(p->format)) && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize=best can only be used with read-only filesystems or Verity=hash");
+                                  "Minimize=best can only be used with read-only filesystems or Verity=hash.");
 
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
-                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=",
+                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=.",
                                   p->format);
 
         if (p->format && fstype_is_ro(p->format) && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Cannot format %s filesystem without source files, refusing", p->format);
+                                  "Cannot format %s filesystem without source files, refusing.", p->format);
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
                 r = dlopen_cryptsetup();
@@ -2021,47 +2021,47 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if (p->verity != VERITY_OFF && !p->verity_match_key)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "VerityMatchKey= must be set if Verity=%s", verity_mode_to_string(p->verity));
+                                  "VerityMatchKey= must be set if Verity=%s.", verity_mode_to_string(p->verity));
 
         if (p->verity == VERITY_OFF && p->verity_match_key)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "VerityMatchKey= can only be set if Verity= is not \"%s\"",
+                                  "VerityMatchKey= can only be set if Verity= is not \"%s\".",
                                   verity_mode_to_string(p->verity));
 
         if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) &&
                 (p->copy_files || p->copy_blocks_path || p->copy_blocks_auto || p->format || p->make_directories))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s",
+                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Encrypting verity hash/data partitions is not supported");
+                                  "Encrypting verity hash/data partitions is not supported.");
 
         if (p->verity == VERITY_SIG && !arg_private_key)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Verity signature partition requested but no private key provided (--private-key=)");
+                                  "Verity signature partition requested but no private key provided (--private-key=).");
 
         if (p->verity == VERITY_SIG && !arg_certificate)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Verity signature partition requested but no PEM certificate provided (--certificate=)");
+                                  "Verity signature partition requested but no PEM certificate provided (--certificate=).");
 
         if (p->verity == VERITY_SIG && (p->size_min != UINT64_MAX || p->size_max != UINT64_MAX))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s",
+                                  "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
 
         if (!strv_isempty(p->subvolumes) && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "Subvolumes= cannot be used with --offline=yes");
+                                  "Subvolumes= cannot be used with --offline=yes.");
 
         if (p->default_subvolume && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "DefaultSubvolume= cannot be used with --offline=yes");
+                                  "DefaultSubvolume= cannot be used with --offline=yes.");
 
         if (p->default_subvolume && !path_strv_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "DefaultSubvolume= must be one of the paths in Subvolumes=");
+                                  "DefaultSubvolume= must be one of the paths in Subvolumes=.");
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((IN_SET(p->type.designator,
@@ -2165,7 +2165,7 @@ static int determine_current_padding(
         assert(ret);
 
         if (!fdisk_partition_has_end(p))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end.");
 
         offset = fdisk_partition_get_end(p);
         assert(offset < UINT64_MAX);
@@ -2180,7 +2180,7 @@ static int determine_current_padding(
 
                 q = fdisk_table_get_partition(t, i);
                 if (!q)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
                 if (fdisk_partition_is_used(q) <= 0)
                         continue;
@@ -2266,7 +2266,7 @@ static int context_copy_from_one(Context *context, const char *src) {
 
                 p = fdisk_table_get_partition(t, i);
                 if (!p)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
                 if (fdisk_partition_is_used(p) <= 0)
                         continue;
@@ -2416,21 +2416,21 @@ static int context_read_definitions(Context *context) {
                         if (r == -ENXIO) {
                                 if (mode != VERITY_SIG)
                                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                          "Missing verity %s partition for verity %s partition with VerityMatchKey=%s",
+                                                          "Missing verity %s partition for verity %s partition with VerityMatchKey=%s.",
                                                           verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
                         } else if (r == -ENOTUNIQ)
                                 return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Multiple verity %s partitions found for verity %s partition with VerityMatchKey=%s",
+                                                  "Multiple verity %s partitions found for verity %s partition with VerityMatchKey=%s.",
                                                   verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
                         else if (r < 0)
                                 return log_syntax(NULL, LOG_ERR, p->definition_path, 1, r,
-                                                  "Failed to find verity %s partition for verity %s partition with VerityMatchKey=%s",
+                                                  "Failed to find verity %s partition for verity %s partition with VerityMatchKey=%s.",
                                                   verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
 
                         if (q) {
                                 if (q->priority != p->priority)
                                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                          "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s",
+                                                          "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s.",
                                                           p->priority, q->priority, p->verity_match_key);
 
                                 p->siblings[mode] = q;
@@ -2451,8 +2451,7 @@ static int context_read_definitions(Context *context) {
 
                 if (dp->minimize == MINIMIZE_OFF && !(dp->copy_blocks_path || dp->copy_blocks_auto))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                          "Minimize= set for verity hash partition but data partition does "
-                                          "not set CopyBlocks= or Minimize=");
+                                          "Minimize= set for verity hash partition but data partition does not set CopyBlocks= or Minimize=.");
 
         }
 
@@ -2731,7 +2730,7 @@ static int context_load_partition_table(Context *context) {
 
                 p = fdisk_table_get_partition(t, i);
                 if (!p)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
                 if (fdisk_partition_is_used(p) <= 0)
                         continue;
@@ -3899,7 +3898,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 
                 if (st.st_size > (off_t) p->new_size)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s)",
+                                               "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
                 r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
@@ -4261,7 +4260,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "libcryptsetup is not supported or is missing required symbols, cannot encrypt: %m");
+                               "libcryptsetup is not supported or is missing required symbols, cannot encrypt.");
 #endif
 }
 
@@ -4382,7 +4381,7 @@ static int partition_format_verity_hash(
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes.");
 #endif
 }
 
@@ -4423,7 +4422,7 @@ static int sign_verity_roothash(
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot setup verity signature: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot setup verity signature.");
 #endif
 }
 
@@ -4478,7 +4477,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 return log_error_errno(r, "Failed to format verity signature JSON object: %m");
 
         if (strlen(text)+1 > p->new_size)
-                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Verity signature too long for partition: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Verity signature too long for partition.");
 
         r = strgrowpad0(&text, p->new_size);
         if (r < 0)
@@ -5721,7 +5720,7 @@ static int split_name_resolve(Context *context) {
                                 continue;
 
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                               "%s and %s have the same resolved split name \"%s\", refusing",
+                                               "%s and %s have the same resolved split name \"%s\", refusing.",
                                                p->definition_path, q->definition_path, p->split_path);
                 }
         }
@@ -6316,7 +6315,7 @@ static int context_open_copy_block_paths(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine size of block device to copy from: %m");
                 } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing: %m", opened);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing.", opened);
 
                 if (size <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", opened);
@@ -6635,7 +6634,7 @@ static int context_minimize(Context *context) {
                 if (!d || fstype_is_ro(p->format)) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
-                                                       "Loop device access is required to populate %s filesystems",
+                                                       "Loop device access is required to populate %s filesystems.",
                                                        p->format);
 
                         r = partition_populate_directory(context, p, &root);
@@ -7340,7 +7339,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ARCHITECTURE:
                         r = architecture_from_string(optarg);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", optarg);
 
                         arg_architecture = r;
                         break;
