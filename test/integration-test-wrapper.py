@@ -47,6 +47,7 @@ def main():
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--test-name', required=True)
     parser.add_argument('--test-number', required=True)
+    parser.add_argument('--storage', required=True)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
@@ -119,7 +120,7 @@ def main():
                 else []
             ),
         ]),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else 'runtime'}" ,
+        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}" ,
         *args.mkosi_args,
         'qemu',
     ]

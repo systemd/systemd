@@ -375,6 +375,7 @@ foreach test_number, dirname : integration_tests
         test_params = {
                 'mkosi_args' : [],
                 'timeout' : 600,
+                'storage': 'volatile',
         }
 
         # TODO: This fs.exists call isn't included in rebuild logic
@@ -389,6 +390,7 @@ foreach test_number, dirname : integration_tests
                 '--meson-build-dir', meson.project_build_root(),
                 '--test-name', dirname,
                 '--test-number', test_number,
+                '--storage', test_params['storage'],
                 '--',
         ] + test_params['mkosi_args']
 
