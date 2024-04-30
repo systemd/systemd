@@ -258,6 +258,9 @@ CHANGES WITH 256-rc1:
           that configures what to do after the system manager (PID 1) crashes.
           This can also be configured through CrashAction= in systemd.conf.
 
+        * "systemctl kill" now supports --wait which will make the command wait
+          until the signalled services terminate.
+
         Journal:
 
         * systemd-journald can now forward journal entries to a socket
