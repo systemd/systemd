@@ -23,9 +23,9 @@ trap at_exit EXIT
 systemctl service-log-level systemd-machined debug
 systemctl service-log-level systemd-importd debug
 
-# Mount tmpfs over /var/lib/machines to not pollute the image
+# Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 # Create a couple of containers we can refer to in tests
 for i in {0..4}; do
@@ -154,37 +154,37 @@ test ! -d /var/lib/machines/.hidden1
 
 # Prepare a simple raw container
 mkdir -p /tmp/mnt
-dd if=/dev/zero of=/tmp/container.raw bs=1M count=64
-mkfs.ext4 /tmp/container.raw
-mount -o loop /tmp/container.raw /tmp/mnt
+dd if=/dev/zero of=/var/tmp/container.raw bs=1M count=256
+mkfs.ext4 /var/tmp/container.raw
+mount -o loop /var/tmp/container.raw /tmp/mnt
 cp -r /var/lib/machines/container1/* /tmp/mnt
 umount /tmp/mnt
 # Try to import it, run it, export it, and re-import it
-machinectl import-raw /tmp/container.raw container-raw
+machinectl import-raw /var/tmp/container.raw container-raw
 [[ "$(machinectl show-image --property=Type --value container-raw)" == "raw" ]]
 machinectl start container-raw
-machinectl export-raw container-raw /tmp/container-export.raw
-machinectl import-raw /tmp/container-export.raw container-raw-reimport
+machinectl export-raw container-raw /var/tmp/container-export.raw
+machinectl import-raw /var/tmp/container-export.raw container-raw-reimport
 [[ "$(machinectl show-image --property=Type --value container-raw-reimport)" == "raw" ]]
-rm -f /tmp/container{,-export}.raw
+rm -f /var/tmp/container{,-export}.raw
 
 # Prepare a simple tar.gz container
-tar -pczf /tmp/container.tar.gz -C /var/lib/machines/container1 .
+tar -pczf /var/tmp/container.tar.gz -C /var/lib/machines/container1 .
 # Try to import it, run it, export it, and re-import it
-machinectl import-tar /tmp/container.tar.gz container-tar
-[[ "$(machinectl show-image --property=Type --value container-tar)" == "directory" ]]
+machinectl import-tar /var/tmp/container.tar.gz container-tar
+[[ "$(machinectl show-image --property=Type --value container-tar)" =~ directory|subvolume ]]
 machinectl start container-tar
-machinectl export-tar container-tar /tmp/container-export.tar.gz
-machinectl import-tar /tmp/container-export.tar.gz container-tar-reimport
-[[ "$(machinectl show-image --property=Type --value container-tar-reimport)" == "directory" ]]
-rm -f /tmp/container{,-export}.tar.gz
+machinectl export-tar container-tar /var/tmp/container-export.tar.gz
+machinectl import-tar /var/tmp/container-export.tar.gz container-tar-reimport
+[[ "$(machinectl show-image --property=Type --value container-tar-reimport)" =~ directory|subvolume ]]
+rm -f /var/tmp/container{,-export}.tar.gz
 
 # Try to import a container directory & run it
-cp -r /var/lib/machines/container1 /tmp/container.dir
-machinectl import-fs /tmp/container.dir container-dir
-[[ "$(machinectl show-image --property=Type --value container-dir)" == "directory" ]]
+cp -r /var/lib/machines/container1 /var/tmp/container.dir
+machinectl import-fs /var/tmp/container.dir container-dir
+[[ "$(machinectl show-image --property=Type --value container-dir)" =~ directory|subvolume ]]
 machinectl start container-dir
-rm -fr /tmp/container.dir
+rm -fr /var/tmp/container.dir
 
 timeout 10 bash -c "until machinectl clean --all; do sleep .5; done"
 

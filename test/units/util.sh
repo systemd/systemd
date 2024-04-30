@@ -156,13 +156,13 @@ coverage_create_nspawn_dropin() {
 create_dummy_container() {
     local root="${1:?}"
 
-    if [[ ! -d /testsuite-13-container-template ]]; then
+    if [[ ! -d /usr/share/testsuite-13-container-template ]]; then
         echo >&2 "Missing container template, probably not running in TEST-13-NSPAWN?"
         exit 1
     fi
 
     mkdir -p "$root"
-    cp -a /testsuite-13-container-template/* "$root"
+    cp -a /usr/share/testsuite-13-container-template/* "$root"
     coverage_create_nspawn_dropin "$root"
 }
 
@@ -224,22 +224,6 @@ kernel_supports_lsm() {
     done
 
     return 1
-}
-
-MOUNTED_USR_OVERLAY=false
-
-maybe_mount_usr_overlay() {
-    if [[ ! -w /usr ]]; then
-        mkdir -p /tmp/usr-overlay/{upperdir,workdir}
-        mount -t overlay -o lowerdir=/usr,upperdir=/tmp/usr-overlay/upperdir,workdir=/tmp/usr-overlay/workdir overlay /usr
-        MOUNTED_USR_OVERLAY=true
-    fi
-}
-
-maybe_umount_usr_overlay() {
-    if "$MOUNTED_USR_OVERLAY"; then
-        umount -l /usr
-    fi
 }
 
 install_extension_images() {

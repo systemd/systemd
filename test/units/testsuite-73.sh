@@ -9,10 +9,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# Needed to generate test locales in /usr/lib
-maybe_mount_usr_overlay
-trap 'maybe_umount_usr_overlay' EXIT
-
 enable_debug() {
     mkdir -p /run/systemd/system/systemd-localed.service.d
     cat >>/run/systemd/system/systemd-localed.service.d/override.conf <<EOF

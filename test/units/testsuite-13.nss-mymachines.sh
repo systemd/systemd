@@ -17,8 +17,9 @@ at_exit() {
 
 trap at_exit EXIT
 
+# Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 # Create a bunch of containers that:
 # 1) Have no IP addresses assigned
