@@ -2921,7 +2921,12 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (r == 0)
                                 continue;
 
-                        return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
+                        if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
+                                return false;
+
+                        /* We expect this to be signed when the DS record exists, and don't expect it to be
+                         * signed when the DS record is proven not to exist. */
+                        return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
                 }
 
                 return true;
