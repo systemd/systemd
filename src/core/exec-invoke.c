@@ -4204,7 +4204,7 @@ int exec_invoke(
 
                         *exit_status = EXIT_CONFIRM;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ECANCELED),
-                                                    "Execution cancelled by the user");
+                                                    "Execution cancelled by the user.");
                 }
         }
 
@@ -4246,12 +4246,12 @@ int exec_invoke(
 
                 if (!uid_is_valid(uid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\"", uid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\".", uid);
                 }
 
                 if (!gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\".", gid);
                 }
 
                 if (runtime->dynamic_creds->user)

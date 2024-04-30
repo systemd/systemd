@@ -21,10 +21,10 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
                 CK_ATTRIBUTE attribute = { CKA_CLASS, &class, sizeof(class) };
 
                 if (sym_p11_kit_uri_set_attribute(p11kit_uri, &attribute) != P11_KIT_URI_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set class for URI '%s': %m", uri);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set class for URI '%s'.", uri);
 
                 if (sym_p11_kit_uri_format(p11kit_uri, P11_KIT_URI_FOR_ANY, &private_uri) != P11_KIT_URI_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to format PKCS#11 URI: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to format PKCS#11 URI.");
         }
 
         *ret_uri = TAKE_PTR(private_uri);
