@@ -98,26 +98,15 @@ int action_disk_usage(void) {
         return 0;
 }
 
-int action_list_boots(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+static int show_ids(JournalId *ids, size_t n_ids, const char *name) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
         int r;
 
-        assert(arg_action == ACTION_LIST_BOOTS);
+        assert(ids);
+        assert(n_ids > 0);
+        assert(name);
 
-        r = acquire_journal(&j);
-        if (r < 0)
-                return r;
-
-        r = journal_get_boots(j, &boots, &n_boots);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine boots: %m");
-        if (r == 0)
-                return 0;
-
-        table = table_new("idx", "boot id", "first entry", "last entry");
+        table = table_new("idx", name, "first entry", "last entry");
         if (!table)
                 return log_oom();
 
@@ -131,13 +120,25 @@ int action_list_boots(void) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        FOREACH_ARRAY(i, boots, n_boots) {
+        for (int i = 0; i < (int) n_ids; i++) {
+                int index;
+
+                if (arg_lines_needs_seek_end())
+                        /* With --lines=N, we only know the negative index, and the older ID is located earlier. */
+                        index = -i;
+                else if (arg_lines >= 0)
+                        /* With --lines=+N, we only know the positive index, and the newer ID is located earlier. */
+                        index = i + 1;
+                else
+                        /* Otherwise, show negative index. Note, in this case, newer ID is located earlier. */
+                        index = i + 1 - (int) n_ids;
+
                 r = table_add_many(table,
-                                   TABLE_INT, (int)(i - boots) - (int) n_boots + 1,
+                                   TABLE_INT, index,
                                    TABLE_SET_ALIGN_PERCENT, 100,
-                                   TABLE_ID128, i->id,
-                                   TABLE_TIMESTAMP, i->first_usec,
-                                   TABLE_TIMESTAMP, i->last_usec);
+                                   TABLE_ID128, ids[i].id,
+                                   TABLE_TIMESTAMP, ids[i].first_usec,
+                                   TABLE_TIMESTAMP, ids[i].last_usec);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -147,6 +148,33 @@ int action_list_boots(void) {
                 return table_log_print_error(r);
 
         return 0;
+}
+
+int action_list_boots(void) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
+        int r;
+
+        assert(arg_action == ACTION_LIST_BOOTS);
+
+        r = acquire_journal(&j);
+        if (r < 0)
+                return r;
+
+        r = journal_get_ids(
+                        j, JOURNAL_BOOT_ID,
+                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                        /* advance_older = */ arg_lines_needs_seek_end(),
+                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        &ids, &n_ids);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine boots: %m");
+        if (r == 0)
+                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
+                                      "No boot found.");
+
+        return show_ids(ids, n_ids, "boot id");
 }
 
 int action_list_fields(void) {
@@ -206,6 +234,43 @@ int action_list_field_names(void) {
                 printf("%s\n", field);
 
         return 0;
+}
+
+int action_list_invocations(void) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
+        JournalIdType type;
+        const char *unit;
+        int r;
+
+        assert(arg_action == ACTION_LIST_INVOCATIONS);
+
+        r = acquire_unit("--list-invocations", &unit, &type);
+        if (r < 0)
+                return r;
+
+        r = acquire_journal(&j);
+        if (r < 0)
+                return r;
+
+        r = journal_acquire_boot(j);
+        if (r < 0)
+                return r;
+
+        r = journal_get_ids(
+                        j, type,
+                        /* boot_id = */ arg_boot_id, /* unit = */ unit,
+                        /* advance_older = */ arg_lines_needs_seek_end(),
+                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        &ids, &n_ids);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list invocation id for %s: %m", unit);
+        if (r == 0)
+                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
+                                      "No invocation ID for %s found.", unit);
+
+        return show_ids(ids, n_ids, "invocation id");
 }
 
 int action_list_namespaces(void) {
