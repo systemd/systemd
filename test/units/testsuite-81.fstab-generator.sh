@@ -295,12 +295,6 @@ check_fstab_mount_units() {
     done
 }
 
-# Drop usrhash on the command-line so fstab-generator doesn't add a /dev/mapper
-# mount for /usr, add a root= to emulate a more typical environment,
-# and remove any systemd.mount-extra=
-sed -r -e 's/usrhash=[^[:space:]+]/root=\/dev\/sda2/' -e 's/systemd.mount-extra=[^[:space:]+]//g' /proc/cmdline >/tmp/cmdline.tmp
-mount --bind /tmp/cmdline.tmp /proc/cmdline
-
 : "fstab-generator: regular"
 printf "%s\n" "${FSTAB_GENERAL_ROOT[@]}" >"$FSTAB"
 cat "$FSTAB"
@@ -332,7 +326,7 @@ SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB="$FSTAB" check
 
 # Check the default stuff that we (almost) always create in initrd
 : "fstab-generator: initrd default"
-SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+SYSTEMD_PROC_CMDLINE="root=/dev/sda2" SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 test -e "$OUT_DIR/normal/sysroot.mount"
 test -e "$OUT_DIR/normal/systemd-fsck-root.service"
 link_eq "$OUT_DIR/normal/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
@@ -354,7 +348,7 @@ cat "$FSTAB"
 printf "%s\n" "${FSTAB_INVALID[@]}" >"$FSTAB"
 cat "$FSTAB"
 # Don't care about the exit code here
-SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" || :
+SYSTEMD_PROC_CMDLINE="" SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" || :
 # No mounts should get created here
 [[ "$(find "$OUT_DIR" -name "*.mount" | wc -l)" -eq 0 ]]
 
