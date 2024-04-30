@@ -295,10 +295,8 @@ check_fstab_mount_units() {
     done
 }
 
-# Drop usrhash on the command-line so fstab-generator doesn't add a /dev/mapper
-# mount for /usr, add a root= to emulate a more typical environment,
-# and remove any systemd.mount-extra=
-sed -r -e 's/usrhash=[^[:space:]+]/root=\/dev\/sda2/' -e 's/systemd.mount-extra=[^[:space:]+]//g' /proc/cmdline >/tmp/cmdline.tmp
+# We ignore the actual /proc/cmdline and replace it with something we control to make the test more robust.
+echo "root=/dev/sda2" >/tmp/cmdline.tmp
 mount --bind /tmp/cmdline.tmp /proc/cmdline
 
 : "fstab-generator: regular"
