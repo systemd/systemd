@@ -851,10 +851,16 @@
       <varlistentry>
         <term><option>--list-boots</option></term>
 
-        <listitem><para>Show a tabular list of boot numbers (relative to the current boot), their IDs, and
-        the timestamps of the first and last message pertaining to the boot.</para>
+        <listitem>
+          <para>Show a tabular list of boot numbers (relative to the current boot), their IDs, and the
+          timestamps of the first and last message pertaining to the boot. When specified with
+          <option>-n/--lines=<optional>+</optional><replaceable>N</replaceable></option> option, only the
+          first (when the number prefixed with <literal>+</literal>) or the last (without prefix)
+          <replaceable>N</replaceable> entries will be shown. When specified with
+          <option>-r/--reverse</option>, the list will be shown in the reverse order.</para>
 
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
