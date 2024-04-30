@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "chattr-util.h"
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "dirent-util.h"
@@ -348,8 +349,10 @@ static int server_system_journal_open(
                  *
                  * If in persistent mode: create /var/log/journal and the machine path */
 
-                if (s->storage == STORAGE_PERSISTENT)
+                if (s->storage == STORAGE_PERSISTENT) {
                         (void) mkdir_parents(s->system_storage.path, 0755);
+                        (void) chattr_path("/var/log/journal", FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                }
 
                 (void) mkdir(s->system_storage.path, 0755);
 
