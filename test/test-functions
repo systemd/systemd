@@ -1691,7 +1691,7 @@ check_coverage_reports() {
 
     # Create a coverage report that will later be uploaded. Remove info about system
     # libraries/headers and generated files, as we don't really care about them.
-    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+    lcov --directory "${root}/${BUILD_DIR:?}" --capture --exclude "*.gperf" --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
         # merge it with the already present one - this usually happens when
@@ -3315,7 +3315,7 @@ test_setup() {
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
             # Do an initial coverage capture, to make sure the final report includes
             # files that the tests didn't touch at all
-            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --output-file "${TESTDIR:?}/coverage-base"
+            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --exclude "*.gperf" --output-file "${TESTDIR:?}/coverage-base"
         fi
 
         if get_bool "$hook_defined"; then
