@@ -338,7 +338,7 @@ static int open_watchdog(void) {
         }
 
         if (watchdog_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to open watchdog device %s: %m", watchdog_device ?: "auto");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to open watchdog device %s.", watchdog_device ?: "auto");
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
                 log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);

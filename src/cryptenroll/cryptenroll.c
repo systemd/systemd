@@ -143,7 +143,7 @@ static int determine_default_node(void) {
                 return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/: %m");
 
         if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
 
         _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
         r = block_device_get_originating(dev, &origin);

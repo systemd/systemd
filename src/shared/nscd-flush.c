@@ -93,7 +93,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
                         ssize_t m;
 
                         if (has_read >= sizeof(resp))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Response from nscd longer than expected: %m");
+                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Response from nscd longer than expected.");
 
                         m = recv(fd, (uint8_t*) &resp + has_read, sizeof(resp) - has_read, 0);
                         if (m < 0) {

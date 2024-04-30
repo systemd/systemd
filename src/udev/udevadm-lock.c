@@ -126,7 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_print) {
                 if (optind != argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected.");
         } else {
                 if (optind + 1 > argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments, command to execute.");
@@ -193,7 +193,7 @@ static int lock_device(
 
         /* Extra safety: check that the device still refers to what we think it refers to */
         if (!S_ISBLK(st.st_mode) || st.st_rdev != devno)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Path '%s' no longer refers to specified block device %u:%u: %m", path, major(devno), minor(devno));
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Path '%s' no longer refers to specified block device %u:%u.", path, major(devno), minor(devno));
 
         r = lock_generic(fd, LOCK_BSD, LOCK_EX|LOCK_NB);
         if (r < 0) {

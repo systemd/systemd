@@ -1073,9 +1073,7 @@ static int get_gateway_description(
                 }
 
                 if (type != RTM_NEWNEIGH) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Got unexpected netlink message type %u, ignoring",
-                                        type);
+                        log_error("Got unexpected netlink message type %u, ignoring.", type);
                         continue;
                 }
 
@@ -1086,7 +1084,7 @@ static int get_gateway_description(
                 }
 
                 if (fam != family) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got invalid rtnl family %d, ignoring", fam);
+                        log_error("Got invalid rtnl family %d, ignoring.", fam);
                         continue;
                 }
 

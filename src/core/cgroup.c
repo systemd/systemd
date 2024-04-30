@@ -1129,7 +1129,7 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
         assert(bpffs_path);
 
         if (!path_is_normalized(bpffs_path) || !path_is_absolute(bpffs_path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not normalized: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not normalized.");
 
         d = strdup(bpffs_path);
         if (!d)
@@ -1954,7 +1954,7 @@ static int cgroup_apply_devices(Unit *u) {
         }
 
         if (prog && !any) {
-                log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENODEV), "No devices matched by device filter.");
+                log_unit_warning(u, "No devices matched by device filter.");
 
                 /* The kernel verifier would reject a program we would build with the normal intro and outro
                    but no allow-listing rules (outro would contain an unreachable instruction for successful
@@ -5109,7 +5109,7 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
         else if (streq(val, "1"))
                 s = FREEZER_FROZEN;
         else {
-                log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "Unexpected cgroup frozen state: %s", val);
+                log_unit_debug(u, "Unexpected cgroup frozen state: %s", val);
                 s = _FREEZER_STATE_INVALID;
         }
 
