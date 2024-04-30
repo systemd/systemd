@@ -46,24 +46,21 @@ ANNOBIN="no-active-checks" rpmbuild \
     --build-in-place \
     --with upstream \
     $( ((WITH_TESTS)) || echo "--nocheck") \
-    $( ((WITH_DOCS))  || echo "--without docs") \
+    $( ((WITH_DOCS))  || echo "--without=docs") \
     --define "_topdir /var/tmp" \
     --define "_sourcedir pkg/$ID" \
     --define "_rpmdir $OUTPUTDIR" \
-    ${BUILDDIR:+--define} \
-    ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
+    ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
     --define "_binary_payload w.ufdio" \
-    $( ((WITH_DEBUG)) || echo --define) \
-    $( ((WITH_DEBUG)) || echo "debug_package %{nil}") \
+    $( ((WITH_DEBUG)) || echo "--define=debug_package %{nil}") \
     --define "version_override $VERSION" \
     --define "release_override $RELEASE" \
     --define "build_cflags $CFLAGS" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
     --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
-    $( ((WITH_DEBUG)) || echo --define) \
-    $( ((WITH_DEBUG)) || echo "__brp_strip %{nil}") \
+    $( ((WITH_DEBUG)) || echo "--define=__brp_strip %{nil}") \
     --define "__brp_compress %{nil}" \
     --define "__brp_mangle_shebangs %{nil}" \
     --define "__brp_strip_comment_note %{nil}" \
