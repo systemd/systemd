@@ -20,12 +20,12 @@ Note that some tests which check Debian specific behaviour are skipped in "test 
 
 # Infrastructure
 
-systemd's GitHub project has webhooks that trigger autopkgtests on Ubuntu 18.04 LTS on three architectures:
+systemd's GitHub project has webhooks that trigger autopkgtests on Ubuntu 24.04 LTS on three architectures:
 
 * i386: 32 bit x86, little endian, QEMU (OpenStack cloud instance)
 * amd64: 64 bit x86, little endian, QEMU (OpenStack cloud instance)
 * arm64: 64 bit ARM, little endian, QEMU (OpenStack cloud instance)
-* s390x: 64 bit IBM z/Series, big endian, LXC (this architecture is not yet available in Canonical's OpenStack and thus skips some tests)
+* s390x: 64 bit IBM z/Series, big endian, QEMU (OpenStack cloud instance)
 
 Please see the [Ubuntu CI infrastructure](https://wiki.ubuntu.com/ProposedMigration/AutopkgtestInfrastructure) documentation for details about how this works.
 
@@ -33,7 +33,7 @@ Please see the [Ubuntu CI infrastructure](https://wiki.ubuntu.com/ProposedMigrat
 
 The current tests are fairly solid by now, but rarely they fail on infrastructure/network issues or race conditions.
 
-If you encounter these, please notify @iainlane in the GitHub PR for debugging/fixing those -- transient infrastructure issues are supposed to be detected automatically, and tests auto-retry on those; and flaky tests should of course be fixed properly.
+If you encounter these, please notify `qa-help` on Libera.Chat `#ubuntu-quality` with the GitHub PR for debugging/fixing those -- transient infrastructure issues are supposed to be detected automatically, and tests auto-retry on those; and flaky tests should of course be fixed properly.
 But sometimes it is useful to trigger tests on a different Ubuntu release too, for example to test a PR on a newer kernel or against current build/binary dependencies (cgroup changes, util-linux, gcc, etc.).
 
 This can be done using the generic [retry-github-test](https://git.launchpad.net/autopkgtest-cloud/tree/charms/focal/autopkgtest-cloud-worker/autopkgtest-cloud/tools/retry-github-test) script from [Ubuntu's autopkgtest infrastructure](https://git.launchpad.net/autopkgtest-cloud): you need the parameterized URL from the [configured webhooks](https://github.com/systemd/systemd/settings/hooks) and the shared secret (Ubuntu's CI needs to restrict access to avoid DoSing and misuse).
@@ -75,10 +75,10 @@ Preparations:
 
 * Build a test image based on Ubuntu cloud images for the desired release/arch:
   ```sh
-    autopkgtest/tools/autopkgtest-buildvm-ubuntu-cloud -r bionic -a amd64
+    autopkgtest/tools/autopkgtest-buildvm-ubuntu-cloud -r noble -a amd64
   ```
 
-  This will build `autopkgtest-bionic-amd64.img`.
+  This will build `autopkgtest-noble-amd64.img`.
 
   This is normally being used through the `autopkgtest` command (see below), but you can boot this normally in QEMU (using `-snapshot` is highly recommended) to interactively poke around; this provides a easy throw-away test environment.
 
@@ -86,7 +86,7 @@ Preparations:
 The most basic mode of operation is to run the tests for the current distro packages:
 
 ```sh
-autopkgtest/runner/autopkgtest systemd -- qemu autopkgtest-bionic-amd64.img
+autopkgtest/runner/autopkgtest systemd -- qemu autopkgtest-noble-amd64.img
 ```
 
 But autopkgtest allows lots of [different modes](https://salsa.debian.org/ci-team/autopkgtest/-/blob/master/doc/README.running-tests.rst) and [options](http://manpages.ubuntu.com/autopkgtest), like running a shell on failure (`-s`), running a single test only (`--test-name`), running the tests from a local checkout of the Debian source tree (possibly with modifications to the test) instead of from the distribution source, or running QEMU with more than one CPU (check the [autopkgtest-virt-qemu manpage](http://manpages.ubuntu.com/autopkgtest-virt-qemu).
@@ -101,9 +101,9 @@ and running these against the binaries from a PR (see above), running only the `
 
 ```sh
 autopkgtest/runner/autopkgtest --test-name logind /tmp/binaries/*.deb /tmp/systemd-debian/ -s -- \
-  qemu --show-boot --cpus 2 /srv/vm/autopkgtest-bionic-amd64.img
+  qemu --show-boot --cpus 2 /srv/vm/autopkgtest-noble-amd64.img
 ```
 
 # Contact
 
-For troubles with the infrastructure, please notify [iainlane](https://github.com/iainlane) in the affected PR.
+For troubles with the infrastructure, please notify `qa-help` on Libera.Chat `#ubuntu-quality` with a link to the affected PR.
