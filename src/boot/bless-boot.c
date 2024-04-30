@@ -388,7 +388,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 /* We didn't find any of the three? If so, let's try the next directory, before we give up. */
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state.");
 }
 
 static int verb_set(int argc, char *argv[], void *userdata) {
@@ -479,8 +479,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Can't find boot counter source file for '%s': %m", target);
-        return 1;
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Can't find boot counter source file for '%s'.", target);
 
 exists:
         log_debug("Operation already executed before, not doing anything.");

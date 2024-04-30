@@ -131,7 +131,7 @@ static int fscrypt_slot_try_one(
                             salt, salt_size,
                             0xFFFF, EVP_sha512(),
                             sizeof(derived), derived) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed.");
 
         context = EVP_CIPHER_CTX_new();
         if (!context)
@@ -236,7 +236,7 @@ static int fscrypt_setup(
 
                 e = memchr(value, ':', n);
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator: %m", xa);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
                 r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
                 if (r < 0)

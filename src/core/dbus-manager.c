@@ -2932,7 +2932,7 @@ static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **re
 
                 unit = manager_get_unit_by_pidref(m, &p);
                 if (!unit) {
-                        log_unit_warning_errno(from, SYNTHETIC_ERRNO(ENOENT), "Failed to get unit from PIDFD, ignoring: %m");
+                        log_unit_warning(from, "Failed to get unit from PIDFD, ignoring.");
                         continue;
                 }
 

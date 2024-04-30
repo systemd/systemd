@@ -243,7 +243,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
                 if (!u->instance)
                         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                                    "instance is not set when adding name '%s': %m", text);
+                                                    "instance is not set when adding name '%s'.", text);
 
                 r = unit_name_replace_instance(text, u->instance, &name);
                 if (r < 0)
@@ -260,20 +260,20 @@ int unit_add_name(Unit *u, const char *text) {
 
         if (hashmap_contains(u->manager->units, name))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                            "unit already exist when adding name '%s': %m", name);
+                                            "unit already exist when adding name '%s'.", name);
 
         if (!unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "name '%s' is invalid: %m", name);
+                                            "name '%s' is invalid.", name);
 
         t = unit_name_to_type(name);
         if (t < 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "failed to derive unit type from name '%s': %m", name);
+                                            "failed to derive unit type from name '%s'.", name);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "unit type is illegal: u->type(%d) and t(%d) for name '%s': %m",
+                                            "unit type is illegal: u->type(%d) and t(%d) for name '%s'.",
                                             u->type, t, name);
 
         r = unit_name_to_instance(name, &instance);
@@ -281,7 +281,7 @@ int unit_add_name(Unit *u, const char *text) {
                 return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", name);
 
         if (instance && !unit_type_may_template(t))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", name);
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s'.", name);
 
         /* Ensure that this unit either has no instance, or that the instance matches. */
         if (u->type != _UNIT_TYPE_INVALID && !streq_ptr(u->instance, instance))
@@ -295,7 +295,7 @@ int unit_add_name(Unit *u, const char *text) {
                                             name, unit_type_to_string(t));
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
-                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(E2BIG), "cannot add name, manager has too many units: %m");
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(E2BIG), "cannot add name, manager has too many units.");
 
         /* Add name to the global hashmap first, because that's easier to undo */
         r = hashmap_put(u->manager->units, name, u);

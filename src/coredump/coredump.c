@@ -630,8 +630,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         if (n < 0)
                 return log_error_errno((int) n, "Failed to read core data: %m");
         if ((size_t) n < size)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Core data too short.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Core data too short.");
 
         *ret = TAKE_PTR(field);
         *ret_size = size + 9;
@@ -1550,7 +1549,7 @@ static int forward_coredump_to_container(Context *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child to terminate: %m");
         if (r != EXIT_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container.");
 
         return 0;
 }
