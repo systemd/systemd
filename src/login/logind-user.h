@@ -61,6 +61,8 @@ struct User {
                                  (tracked through user-runtime-dir@.service) */
         bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
+        Hashmap *inhibitors;
+
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
 };
