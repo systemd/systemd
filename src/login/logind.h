@@ -5,8 +5,15 @@
 
 #include "calendarspec.h"
 #include "list.h"
-#include "logind-action.h"
+
 #include "logind-forward.h"
+#include "logind-inhibit.h"
+#include "logind-action.h"
+
+#include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-user.h"
+#include "user-record.h"
 
 typedef struct Manager {
         sd_event *event;
