@@ -103,6 +103,10 @@
         <para>Note that per-user journal files are not supported unless persistent storage is enabled, thus
         making <command>journalctl --user</command> unavailable.</para>
 
+        <para>The storage to use can also be specified via the <literal>journal.storage</literal>
+        credential. Values configured via configuration files take priority over values configured via the
+        credential.</para>
+
         <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
