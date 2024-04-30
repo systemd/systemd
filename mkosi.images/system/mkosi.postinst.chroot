@@ -68,3 +68,7 @@ rm -f /etc/resolv.conf
 for f in "$BUILDROOT"/usr/share/*.verity.sig; do
     jq --join-output '.rootHash' "$f" >"${f%.verity.sig}.roothash"
 done
+
+# We want /var/log/journal to be created on first boot so it can be created with the right chattr settings by
+# systemd-journald.
+rm -r "$BUILDROOT/var/log/journal"
