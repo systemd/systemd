@@ -518,7 +518,11 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         rm -f /tmp/homed.id_ecdsa /run/systemd/system/mysshserver{@.service,.socket}
         systemctl daemon-reload
         homectl remove homedsshtest
-        mv /etc/pam.d/sshd.bak /etc/pam.d/sshd
+        for dir in /etc /usr/lib; do
+            if [[ -f "$dir/pam.d/sshd.bak" ]]; then
+                mv "$dir/pam.d/sshd.bak" "$dir/pam.d/sshd"
+            fi
+        done
 
         maybe_umount_usr_overlay
     }
@@ -547,8 +551,10 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
     # are aware of distros use
     mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
 
-    mv /etc/pam.d/sshd /etc/pam.d/sshd.bak
-    cat >/etc/pam.d/sshd <<EOF
+    for dir in /etc /usr/lib; do
+        if [[ -f "$dir/pam.d/sshd" ]]; then
+            mv "$dir/pam.d/sshd" "$dir/pam.d/sshd.bak"
+            cat >"$dir/pam.d/sshd" <<EOF
 auth    sufficient pam_unix.so nullok
 auth    sufficient pam_systemd_home.so debug
 auth    required   pam_deny.so
@@ -559,6 +565,9 @@ session optional   pam_systemd_home.so debug
 session optional   pam_systemd.so
 session required   pam_unix.so
 EOF
+            break
+        fi
+    done
 
     mkdir -p /etc/sshd/
     cat >/etc/ssh/sshd_config <<EOF
