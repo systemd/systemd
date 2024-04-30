@@ -110,6 +110,7 @@ def main():
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
             f"systemd.unit={test_unit}",
         ]),
+        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else 'runtime'}" ,
         *args.mkosi_args,
         'qemu',
         *(['-no-reboot'] if not sys.stderr.isatty() else [])
