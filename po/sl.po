@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:31+0100\n"
-"PO-Revision-Date: 2024-04-22 07:15+0000\n"
+"PO-Revision-Date: 2024-04-30 20:36+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -57,37 +57,31 @@ msgstr ""
 "storitev"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-#, fuzzy
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
 "Preverjanje pristnosti je potrebno za nastavitev ali izklop spremenljivk "
-"okolja sistemskega in upravitelja storitev."
+"okolja sistemskega upravitelja in upravitelja storitev."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
-#, fuzzy
 msgid "Reload the systemd state"
-msgstr "Vnovično nalaganje sistemskega stanja"
+msgstr "Vnovič naloži stanje systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
-#, fuzzy
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
-"Preverjanje pristnosti je potrebno za ponovno nalaganje sistemskega stanja."
+msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
-#, fuzzy
 msgid "Dump the systemd state without rate limits"
-msgstr "Odlaganje sistemskega stanja brez omejitev cen"
+msgstr "Odlaganje stanja system brez omejitev hitrosti"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
-"Preverjanje pristnosti je potrebno za odlaganje sistemskega stanja brez "
-"omejitev hitrosti."
+"Preverjanje pristnosti je potrebno za odlaganje stanja systemd brez omejitev "
+"hitrosti."
 
 #: src/home/org.freedesktop.home1.policy:13
 #, fuzzy
@@ -95,19 +89,16 @@ msgid "Create a home area"
 msgstr "Ustvarite domače območje"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
 msgid "Authentication is required to create a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za ustvarjanje uporabnikovega domačega "
 "območja."
 
 #: src/home/org.freedesktop.home1.policy:23
-#, fuzzy
 msgid "Remove a home area"
-msgstr "Odstranjevanje domačega območja"
+msgstr "Odstrani domače območje"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
 msgid "Authentication is required to remove a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za odstranitev uporabnikovega domačega "
@@ -157,13 +148,11 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:73
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Aktiviranje domačega območja"
+msgstr "Aktiviraj domače območje"
 
 #: src/home/org.freedesktop.home1.policy:74
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za aktiviranje uporabnikovega domačega "
