@@ -128,14 +128,17 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
 
-int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);
-
-int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
-
 typedef enum XOpenFlags {
         XO_LABEL     = 1 << 0,
         XO_SUBVOLUME = 1 << 1,
 } XOpenFlags;
+
+int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);
+static inline int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
+        return open_mkdir_at_full(dirfd, path, flags, 0, mode);
+}
+
+int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 
 int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
 static inline int xopenat(int dir_fd, const char *path, int open_flags) {
