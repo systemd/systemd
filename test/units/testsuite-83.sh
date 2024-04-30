@@ -3,6 +3,13 @@
 set -eux
 set -o pipefail
 
+FSTYPE="$(stat --file-system --format "%T" /)"
+
+if [[ "$FSTYPE" != "btrfs" ]]; then
+    echo "Root filesystem is $FSTYPE instead of btrfs, skipping"
+    exit 77
+fi
+
 TEST_BTRFS_OFFSET=/usr/lib/systemd/tests/unit-tests/manual/test-btrfs-physical-offset
 
 SWAPFILE=/var/tmp/swapfile

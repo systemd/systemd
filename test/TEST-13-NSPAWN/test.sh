@@ -11,7 +11,7 @@ TEST_NO_NSPAWN=1
 
 test_append_files() {
     local workspace="${1:?}"
-    local container="$workspace/testsuite-13-container-template"
+    local container="$workspace/usr/share/testsuite-13-container-template"
 
     # For virtual wlan interface.
     instmods mac80211_hwsim
