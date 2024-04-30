@@ -364,39 +364,37 @@ static int output_timestamp_realtime(
                 sd_journal *j,
                 OutputMode mode,
                 OutputFlags flags,
-                const dual_timestamp *display_ts) {
+                usec_t usec) {
 
         char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
-        int r;
 
         assert(f);
         assert(j);
-        assert(display_ts);
 
-        if (!VALID_REALTIME(display_ts->realtime))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
+        if (!VALID_REALTIME(usec))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available.");
 
         if (IN_SET(mode, OUTPUT_SHORT_FULL, OUTPUT_WITH_UNIT)) {
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
-                        k = format_timestamp_style(buf, sizeof(buf), display_ts->realtime, TIMESTAMP_UTC);
+                        k = format_timestamp_style(buf, sizeof(buf), usec, TIMESTAMP_UTC);
                 else
-                        k = format_timestamp(buf, sizeof(buf), display_ts->realtime);
+                        k = format_timestamp(buf, sizeof(buf), usec);
                 if (!k)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to format timestamp: %" PRIu64, display_ts->realtime);
+                                               "Failed to format timestamp: %" PRIu64, usec);
 
         } else {
                 struct tm tm;
                 time_t t;
 
-                t = (time_t) (display_ts->realtime / USEC_PER_SEC);
+                t = (time_t) (usec / USEC_PER_SEC);
 
                 switch (mode) {
 
                 case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, display_ts->realtime % USEC_PER_SEC);
+                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, usec % USEC_PER_SEC);
                         break;
 
                 case OUTPUT_SHORT_ISO:
@@ -404,13 +402,13 @@ static int output_timestamp_realtime(
                         size_t tail = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S",
                                                localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC));
                         if (tail == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format ISO time");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format ISO time.");
 
                         /* No usec in strftime, need to append */
                         if (mode == OUTPUT_SHORT_ISO_PRECISE) {
                                 assert(ELEMENTSOF(buf) - tail >= 7);
-                                snprintf(buf + tail, ELEMENTSOF(buf) - tail, ".%06"PRI_USEC, display_ts->realtime % USEC_PER_SEC);
+                                if (!snprintf(buf + tail, ELEMENTSOF(buf) - tail, ".%06"PRI_USEC, usec % USEC_PER_SEC))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format precise time.");
                                 tail += 7;
                         }
 
@@ -425,8 +423,7 @@ static int output_timestamp_realtime(
 
                         if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S",
                                      localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format syslog time");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format syslog time.");
 
                         if (mode == OUTPUT_SHORT_PRECISE) {
                                 size_t k;
@@ -434,10 +431,8 @@ static int output_timestamp_realtime(
                                 assert(sizeof(buf) > strlen(buf));
                                 k = sizeof(buf) - strlen(buf);
 
-                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, display_ts->realtime % USEC_PER_SEC);
-                                if (r <= 0 || (size_t) r >= k) /* too long? */
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to format precise time");
+                                if (!snprintf_ok(buf + strlen(buf), k, ".%06"PRIu64, usec % USEC_PER_SEC))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format precise time.");
                         }
                         break;
 
@@ -573,7 +568,7 @@ static int output_short(
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
                 r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
         else
-                r = output_timestamp_realtime(f, j, mode, flags, &display_ts);
+                r = output_timestamp_realtime(f, j, mode, flags, display_ts.realtime);
         if (r < 0)
                 return r;
         n += r;
