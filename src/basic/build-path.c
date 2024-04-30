@@ -12,7 +12,7 @@
 #include "process-util.h"
 #include "unistd.h"
 
-static int get_runpath_from_dynamic(const ElfW(Dyn) *d, const char **ret) {
+static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const char **ret) {
         size_t runpath_index = SIZE_MAX, rpath_index = SIZE_MAX;
         const char *strtab = NULL;
 
@@ -45,7 +45,13 @@ static int get_runpath_from_dynamic(const ElfW(Dyn) *d, const char **ret) {
         if (!strtab)
                 return -ENOTRECOVERABLE;
 
-        /* According to dl.so runpath wins of both runpath and rpath are defined. */
+        /* On MIPS and RISC-V DT_STRTAB records an offset, not a valid address, so it has to be adjusted
+         * using the bias calculated earlier. */
+#if defined(__mips__) || defined(__riscv)
+        strtab += bias;
+#endif
+
+        /* According to ld.so runpath wins if both runpath and rpath are defined. */
         if (runpath_index != SIZE_MAX) {
                 if (ret)
                         *ret = strtab + runpath_index;
@@ -111,7 +117,7 @@ static int get_runpath(const char **ret) {
         if (!found_dyn)
                 return -ENOTRECOVERABLE;
 
-        return get_runpath_from_dynamic((const ElfW(Dyn)*) (bias + dyn), ret);
+        return get_runpath_from_dynamic((const ElfW(Dyn)*) (bias + dyn), bias, ret);
 }
 
 int get_build_exec_dir(char **ret) {
