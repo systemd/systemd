@@ -7,6 +7,11 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if ! command -v importctl >/dev/null; then
+    echo "importctl is not installed, skipping" | tee --append /skipped
+    exit 77
+fi
+
 export PAGER=
 
 at_exit() {
