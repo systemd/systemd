@@ -71,9 +71,9 @@ if unshare -U bash -c :; then
     IS_USERNS_SUPPORTED=yes
 fi
 
-# Mount tmpfs over /var/lib/machines to not pollute the image
+# Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 testcase_sanity() {
     local template root image uuid tmpdir
@@ -83,7 +83,7 @@ testcase_sanity() {
     create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/testsuite-13.image-XXX.img)"
-    dd if=/dev/zero of="$image" bs=1M count=64
+    dd if=/dev/zero of="$image" bs=1M count=256
     mkfs.ext4 "$image"
     mkdir -p /mnt
     mount -o loop "$image" /mnt

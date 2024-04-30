@@ -476,8 +476,7 @@ run_qemu() {
 
     local CONSOLE=ttyS0
 
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
@@ -651,8 +650,7 @@ run_qemu() {
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "${initdir:?}"/{testok,failed,skipped}
 
     local nspawn_cmd=()
