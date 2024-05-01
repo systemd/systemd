@@ -2461,31 +2461,33 @@ int unit_file_link(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_hashmap_free_ Hashmap *todo = NULL;
         const char *config_path;
-        size_t n_todo = 0;
         int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(changes);
+        assert(n_changes);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
+        config_path = FLAG_SET(flags, UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
         STRV_FOREACH(file, files) {
-                _cleanup_free_ char *full = NULL;
-                struct stat st;
-                char *fn;
+                _cleanup_free_ char *fn = NULL, *path = NULL, *full = NULL;
 
                 if (!path_is_absolute(*file))
                         return install_changes_add(changes, n_changes, -EINVAL, *file, NULL);
 
-                fn = basename(*file);
+                r = path_extract_filename(*file, &fn);
+                if (r < 0)
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
+
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return install_changes_add(changes, n_changes, -EUCLEAN, *file, NULL);
 
@@ -2493,10 +2495,7 @@ int unit_file_link(
                 if (!full)
                         return -ENOMEM;
 
-                if (lstat(full, &st) < 0)
-                        return install_changes_add(changes, n_changes, -errno, *file, NULL);
-
-                r = stat_verify_regular(&st);
+                r = verify_regular_at(AT_FDCWD, full, /* follow = */ false);
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *file, NULL);
 
@@ -2510,27 +2509,30 @@ int unit_file_link(
                 if (underneath_search_path(&lp, *file))
                         return install_changes_add(changes, n_changes, -ETXTBSY, *file, NULL);
 
-                if (!GREEDY_REALLOC0(todo, n_todo + 2))
+                path = strdup(*file);
+                if (!path)
                         return -ENOMEM;
 
-                todo[n_todo] = strdup(*file);
-                if (!todo[n_todo])
-                        return -ENOMEM;
-
-                n_todo++;
+                r = hashmap_ensure_put(&todo, &path_hash_ops_free_free, path, fn);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        TAKE_PTR(path);
+                        TAKE_PTR(fn);
+                }
         }
 
-        strv_uniq(todo);
-
         r = 0;
-        STRV_FOREACH(i, todo) {
+
+        const char *path, *fn;
+        HASHMAP_FOREACH_KEY(path, fn, todo) {
                 _cleanup_free_ char *new_path = NULL;
 
-                new_path = path_make_absolute(basename(*i), config_path);
+                new_path = path_make_absolute(fn, config_path);
                 if (!new_path)
                         return -ENOMEM;
 
-                RET_GATHER(r, create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
+                RET_GATHER(r, create_symlink(&lp, path, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
