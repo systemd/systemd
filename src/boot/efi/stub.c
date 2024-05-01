@@ -341,6 +341,146 @@ static void dt_filenames_free(char16_t **dt_filenames, size_t n_dt) {
         free(dt_filenames);
 }
 
+static EFI_STATUS ucode_merge_and_measure_addons(
+                void **ucode_bases_addon_global,
+                size_t *ucode_sizes_addon_global,
+                size_t n_ucode_addons_global,
+                void **ucode_bases_addon_uki,
+                size_t *ucode_sizes_addon_uki,
+                size_t n_ucode_addons_uki,
+                void *ucode_section_base,
+                size_t ucode_section_size,
+                void **ret_ucode_base,
+                size_t *ret_ucode_size,
+                bool *ret_sections_measured) {
+
+        int sections_measured = -1;
+        EFI_STATUS err;
+
+        assert(ret_ucode_base);
+        assert(ret_ucode_size);
+        assert(ret_sections_measured);
+
+        _cleanup_pages_ Pages global_addons_combined_pages = {}, uki_addons_combined_pages = {}, all_ucode_combined_pages = {};
+        void *global_addons_combined_base = NULL, *uki_addons_combined_base = NULL;
+        size_t global_addons_combined_size = 0, uki_addons_combined_size = 0, all_ucode_combined_size = 0;
+
+        if (n_ucode_addons_global == 0 && n_ucode_addons_uki == 0 && ucode_section_size == 0) {
+                return EFI_SUCCESS;
+        }
+
+        /* Order of ucode merging (and measurements):
+         *  1. UKI embedded .ucode section
+         *  2. Global addons
+         *  3. UKI addons
+         */
+
+        /* .ucode section from UKI is already measured as part of the full UKI measurements */
+        /* Measure global addons */
+        for (size_t i = 0; i < n_ucode_addons_global; i++) {
+                bool m = false;
+                /* First measure the name of the section */
+                (void) tpm_log_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(unified_sections[UNIFIED_SECTION_UCODE]),
+                                strsize8(unified_sections[UNIFIED_SECTION_UCODE]), /* including NUL byte */
+                                unified_sections[UNIFIED_SECTION_UCODE],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+
+                /* Then measure the data of the section */
+                (void) tpm_log_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(ucode_bases_addon_global[i]),
+                                ucode_sizes_addon_global[i],
+                                unified_sections[UNIFIED_SECTION_UCODE],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+        }
+        /* Merge global addons */
+        if (n_ucode_addons_global == 1) {
+                global_addons_combined_base = ucode_bases_addon_global[0];
+                global_addons_combined_size = ucode_sizes_addon_global[0];
+        } else if (n_ucode_addons_global > 1) {
+                err = combine_initrds(*ucode_bases_addon_global, ucode_sizes_addon_global, n_ucode_addons_global, &global_addons_combined_pages, &global_addons_combined_size);
+                if (err != EFI_SUCCESS)
+                        return err;
+                global_addons_combined_base = PHYSICAL_ADDRESS_TO_POINTER(global_addons_combined_pages.addr);
+        }
+
+
+        /* Measure UKI addons */
+        for (size_t i = 0; i < n_ucode_addons_uki; i++) {
+                bool m = false;
+                /* First measure the name of the section */
+                (void) tpm_log_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(unified_sections[UNIFIED_SECTION_UCODE]),
+                                strsize8(unified_sections[UNIFIED_SECTION_UCODE]), /* including NUL byte */
+                                unified_sections[UNIFIED_SECTION_UCODE],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+
+                /* Then measure the data of the section */
+                (void) tpm_log_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(ucode_bases_addon_uki[i]),
+                                ucode_sizes_addon_uki[i],
+                                unified_sections[UNIFIED_SECTION_UCODE],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+        }
+        /* Merge UKI addons */
+        if (n_ucode_addons_uki == 1) {
+                uki_addons_combined_base = ucode_bases_addon_uki[0];
+                uki_addons_combined_size = ucode_sizes_addon_uki[0];
+        } else if (n_ucode_addons_uki > 1) {
+                err = combine_initrds(*ucode_bases_addon_uki, ucode_sizes_addon_uki, n_ucode_addons_uki, &uki_addons_combined_pages, &uki_addons_combined_size);
+                if (err != EFI_SUCCESS)
+                        return err;
+                uki_addons_combined_base = PHYSICAL_ADDRESS_TO_POINTER(uki_addons_combined_pages.addr);
+        }
+
+        /* Merge the combined global addons, combined UKI addons, and ucode section from UKI */
+        err = combine_initrds(
+                (const void*const[]) {
+                        ucode_section_base,
+                        global_addons_combined_base,
+                        uki_addons_combined_base,
+                },
+                (const size_t[]) {
+                        ucode_section_size,
+                        global_addons_combined_size,
+                        uki_addons_combined_size,
+                },
+                3,
+                &all_ucode_combined_pages,
+                &all_ucode_combined_size
+        );
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_ucode_base = PHYSICAL_ADDRESS_TO_POINTER(all_ucode_combined_pages.addr);
+        *ret_ucode_size = all_ucode_combined_size;
+        all_ucode_combined_pages.n_pages = 0;
+        *ret_sections_measured = sections_measured;
+
+        return EFI_SUCCESS;
+}
+
+static void ucode_bases_free(void **ucode_bases, size_t n_ucode) {
+        assert(ucode_bases || n_ucode == 0);
+
+        for (size_t i = 0; i < n_ucode; ++i)
+                free(ucode_bases[i]);
+
+        free(ucode_bases);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -350,15 +490,18 @@ static EFI_STATUS load_addons(
                 void ***ret_dt_bases,
                 size_t **ret_dt_sizes,
                 char16_t ***ret_dt_filenames,
-                size_t *ret_n_dt) {
+                size_t *ret_n_dt,
+                void ***ret_ucode_bases,
+                size_t **ret_ucode_sizes,
+                size_t *ret_n_ucode) {
 
-        _cleanup_free_ size_t *dt_sizes = NULL;
+        _cleanup_free_ size_t *dt_sizes = NULL, *ucode_sizes = NULL;
         _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_(file_closep) EFI_FILE *root = NULL;
         _cleanup_free_ char16_t *cmdline = NULL;
-        size_t n_items = 0, n_allocated = 0, n_dt = 0;
+        size_t n_items = 0, n_allocated = 0, n_dt = 0, n_ucode = 0;
         char16_t **dt_filenames = NULL;
-        void **dt_bases = NULL;
+        void **dt_bases = NULL, **ucode_bases = NULL;
         EFI_STATUS err;
 
         assert(stub_image);
@@ -367,12 +510,15 @@ static EFI_STATUS load_addons(
         assert(!!ret_dt_bases == !!ret_dt_sizes);
         assert(!!ret_dt_bases == !!ret_n_dt);
         assert(!!ret_dt_filenames == !!ret_n_dt);
+        assert(!!ret_ucode_bases == !!ret_ucode_sizes);
+        assert(!!ret_ucode_bases == !!ret_n_ucode);
 
         if (!loaded_image->DeviceHandle)
                 return EFI_SUCCESS;
 
         CLEANUP_ARRAY(dt_bases, n_dt, dt_bases_free);
         CLEANUP_ARRAY(dt_filenames, n_dt, dt_filenames_free);
+        CLEANUP_ARRAY(ucode_bases, n_ucode, ucode_bases_free);
 
         err = open_volume(loaded_image->DeviceHandle, &root);
         if (err == EFI_UNSUPPORTED)
@@ -424,11 +570,11 @@ static EFI_STATUS load_addons(
 
                 err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, addrs, szs);
                 if (err != EFI_SUCCESS ||
-                    (szs[UNIFIED_SECTION_CMDLINE] == 0 && szs[UNIFIED_SECTION_DTB] == 0)) {
+                    (szs[UNIFIED_SECTION_CMDLINE] == 0 && szs[UNIFIED_SECTION_DTB] == 0 && szs[UNIFIED_SECTION_UCODE] == 0)) {
                         if (err == EFI_SUCCESS)
                                 err = EFI_NOT_FOUND;
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
@@ -475,6 +621,21 @@ static EFI_STATUS load_addons(
 
                         ++n_dt;
                 }
+
+                if (ret_ucode_bases && szs[UNIFIED_SECTION_UCODE] > 0) {
+                        ucode_sizes = xrealloc(ucode_sizes,
+                                            n_ucode * sizeof(size_t),
+                                            (n_ucode + 1)  * sizeof(size_t));
+                        ucode_sizes[n_ucode] = szs[UNIFIED_SECTION_UCODE];
+
+                        ucode_bases = xrealloc(ucode_bases,
+                                            n_ucode * sizeof(void *),
+                                            (n_ucode + 1) * sizeof(void *));
+                        ucode_bases[n_ucode] = xmemdup((uint8_t*)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_UCODE],
+                                                 ucode_sizes[n_ucode]);
+
+                        ++n_ucode;
+                }
         }
 
         if (ret_cmdline && !isempty(cmdline))
@@ -486,6 +647,11 @@ static EFI_STATUS load_addons(
                 *ret_dt_sizes = TAKE_PTR(dt_sizes);
                 *ret_n_dt = n_dt;
         }
+        if (ret_ucode_bases && n_ucode > 0) {
+                *ret_ucode_bases = TAKE_PTR(ucode_bases);
+                *ret_ucode_sizes = TAKE_PTR(ucode_sizes);
+                *ret_n_ucode = n_ucode;
+        }
 
         return EFI_SUCCESS;
 }
@@ -496,8 +662,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
-        size_t linux_size, initrd_size, ucode_size, dt_size, n_dts_addons_global = 0, n_dts_addons_uki = 0;
-        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, ucode_base, dt_base;
+        void **ucode_bases_addons_global = NULL, **ucode_bases_addons_uki = NULL;
+        _cleanup_free_ size_t *ucode_sizes_addons_global = NULL, *ucode_sizes_addons_uki = NULL;
+        size_t linux_size, initrd_size, dt_size, n_dts_addons_global = 0, n_dts_addons_uki = 0, ucode_size = 0, n_ucode_addons_global = 0, n_ucode_addons_uki = 0;
+        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
+        void *ucode_base = NULL;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
@@ -533,6 +702,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_bases_addons_uki, n_dts_addons_uki, dt_bases_free);
         CLEANUP_ARRAY(dt_filenames_addons_global, n_dts_addons_global, dt_filenames_free);
         CLEANUP_ARRAY(dt_filenames_addons_uki, n_dts_addons_uki, dt_filenames_free);
+        CLEANUP_ARRAY(ucode_bases_addons_global, n_ucode_addons_global, ucode_bases_free);
+        CLEANUP_ARRAY(ucode_bases_addons_uki, n_ucode_addons_uki, ucode_bases_free);
 
         if (szs[UNIFIED_SECTION_UNAME] > 0)
                 uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
@@ -549,7 +720,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         &dt_bases_addons_global,
                         &dt_sizes_addons_global,
                         &dt_filenames_addons_global,
-                        &n_dts_addons_global);
+                        &n_dts_addons_global,
+                        &ucode_bases_addons_global,
+                        &ucode_sizes_addons_global,
+                        &n_ucode_addons_global);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
@@ -565,7 +739,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 &dt_bases_addons_uki,
                                 &dt_sizes_addons_uki,
                                 &dt_filenames_addons_uki,
-                                &n_dts_addons_uki);
+                                &n_dts_addons_uki,
+                                &ucode_bases_addons_uki,
+                                &ucode_sizes_addons_uki,
+                                &n_ucode_addons_uki);
                 if (err != EFI_SUCCESS)
                         log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
         }
@@ -735,6 +912,23 @@ static EFI_STATUS run(EFI_HANDLE image) {
                            &m);
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
+        /* Handle ucode */
+        err = ucode_merge_and_measure_addons(
+                ucode_bases_addons_global,
+                ucode_sizes_addons_global,
+                n_ucode_addons_global,
+                ucode_bases_addons_uki,
+                ucode_sizes_addons_uki,
+                n_ucode_addons_uki,
+                szs[UNIFIED_SECTION_UCODE] != 0 ? PHYSICAL_ADDRESS_TO_POINTER(POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_UCODE]) : NULL,
+                szs[UNIFIED_SECTION_UCODE],
+                &ucode_base,
+                &ucode_size,
+                &m);
+        if (err != EFI_SUCCESS)
+                return err;
+        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+
         if (parameters_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
         if (sysext_measured)
@@ -785,9 +979,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         initrd_size = szs[UNIFIED_SECTION_INITRD];
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
 
-        ucode_size = szs[UNIFIED_SECTION_UCODE];
-        ucode_base = ucode_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_UCODE] : 0;
-
         _cleanup_pages_ Pages initrd_pages = {};
         if (ucode_base || credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
                 /* If we have generated initrds dynamically or there is a microcode initrd, combine them with the built-in initrd. */
@@ -795,7 +986,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (const void*const[]) {
                                         /* Microcode must always be first as kernel only scans uncompressed cpios
                                          * and later initrds might be compressed. */
-                                        PHYSICAL_ADDRESS_TO_POINTER(ucode_base),
+                                        ucode_base,
                                         PHYSICAL_ADDRESS_TO_POINTER(initrd_base),
                                         credential_initrd,
                                         global_credential_initrd,
