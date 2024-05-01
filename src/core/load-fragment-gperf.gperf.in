@@ -327,7 +327,7 @@ Unit.IgnoreOnSnapshot,                   config_parse_warn_compat,              
 Unit.JobTimeoutSec,                      config_parse_job_timeout_sec,                0,                                  0
 Unit.JobRunningTimeoutSec,               config_parse_job_running_timeout_sec,        0,                                  0
 Unit.JobTimeoutAction,                   config_parse_emergency_action,               0,                                  offsetof(Unit, job_timeout_action)
-Unit.JobTimeoutRebootArgument,           config_parse_unit_string_printf,             0,                                  offsetof(Unit, job_timeout_reboot_arg)
+Unit.JobTimeoutRebootArgument,           config_parse_reboot_parameter,               0,                                  offsetof(Unit, job_timeout_reboot_arg)
 Unit.StartLimitIntervalSec,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
 {# The following is a legacy alias name for compatibility #}
 Unit.StartLimitInterval,                 config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
@@ -337,7 +337,7 @@ Unit.FailureAction,                      config_parse_emergency_action,         
 Unit.SuccessAction,                      config_parse_emergency_action,               0,                                  offsetof(Unit, success_action)
 Unit.FailureActionExitStatus,            config_parse_exit_status,                    0,                                  offsetof(Unit, failure_action_exit_status)
 Unit.SuccessActionExitStatus,            config_parse_exit_status,                    0,                                  offsetof(Unit, success_action_exit_status)
-Unit.RebootArgument,                     config_parse_unit_string_printf,             0,                                  offsetof(Unit, reboot_arg)
+Unit.RebootArgument,                     config_parse_reboot_parameter,               0,                                  offsetof(Unit, reboot_arg)
 Unit.ConditionPathExists,                config_parse_unit_condition_path,            CONDITION_PATH_EXISTS,              offsetof(Unit, conditions)
 Unit.ConditionPathExistsGlob,            config_parse_unit_condition_path,            CONDITION_PATH_EXISTS_GLOB,         offsetof(Unit, conditions)
 Unit.ConditionPathIsDirectory,           config_parse_unit_condition_path,            CONDITION_PATH_IS_DIRECTORY,        offsetof(Unit, conditions)
