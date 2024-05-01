@@ -156,7 +156,7 @@ int unit_file_link(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_revert(
