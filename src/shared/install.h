@@ -199,9 +199,7 @@ static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *paths,
         return unit_file_exists_full(scope, paths, name, NULL);
 }
 
-int unit_file_get_list(RuntimeScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
-
-extern const struct hash_ops unit_file_list_hash_ops_free;
+int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);
 
 InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
 void install_changes_free(InstallChange *changes, size_t n_changes);
