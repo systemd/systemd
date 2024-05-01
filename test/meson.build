@@ -4,6 +4,7 @@ if install_tests
         foreach subdir : [
                 'auxv',
                 'journal-data',
+                'knot-data',
                 'test-journals',
                 'units',
                 'test-execute',
