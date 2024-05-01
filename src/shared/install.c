@@ -1677,9 +1677,9 @@ static int install_info_traverse(
         unsigned k = 0;
         int r;
 
+        assert(ctx);
         assert(lp);
         assert(start);
-        assert(ctx);
 
         r = unit_file_search(ctx, start, lp, flags);
         if (r < 0)
@@ -1692,7 +1692,7 @@ static int install_info_traverse(
                 if (++k > UNIT_FILE_FOLLOW_SYMLINK_MAX)
                         return -ELOOP;
 
-                if (!(flags & SEARCH_FOLLOW_CONFIG_SYMLINKS)) {
+                if (!FLAGS_SET(flags, SEARCH_FOLLOW_CONFIG_SYMLINKS)) {
                         r = path_is_config(lp, i->path, true);
                         if (r < 0)
                                 return r;
@@ -1704,15 +1704,17 @@ static int install_info_traverse(
                                         /* If linked, don't look at the target name */
                                         /* ignore_different_name= */ i->install_mode == INSTALL_MODE_LINKED);
                 if (r == -EXDEV && i->symlink_target) {
-                        _cleanup_free_ char *buffer = NULL;
+                        _cleanup_free_ char *target_name = NULL, *unit_instance = NULL;
                         const char *bn;
 
                         /* Target is an alias, create a new install info object and continue with that. */
 
-                        bn = basename(i->symlink_target);
+                        r = path_extract_filename(i->symlink_target, &target_name);
+                        if (r < 0)
+                                return r;
 
                         if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) &&
-                            unit_name_is_valid(bn, UNIT_NAME_TEMPLATE)) {
+                            unit_name_is_valid(target_name, UNIT_NAME_TEMPLATE)) {
 
                                 _cleanup_free_ char *instance = NULL;
 
@@ -1720,12 +1722,11 @@ static int install_info_traverse(
                                 if (r < 0)
                                         return r;
 
-                                r = unit_name_replace_instance(bn, instance, &buffer);
+                                r = unit_name_replace_instance(target_name, instance, &unit_instance);
                                 if (r < 0)
                                         return r;
 
-                                if (streq(buffer, i->name)) {
-
+                                if (streq(unit_instance, i->name)) {
                                         /* We filled in the instance, and the target stayed the same? If so,
                                          * then let's honour the link as it is. */
 
@@ -1736,8 +1737,9 @@ static int install_info_traverse(
                                         continue;
                                 }
 
-                                bn = buffer;
-                        }
+                                bn = unit_instance;
+                        } else
+                                bn = target_name;
 
                         r = install_info_add(ctx, bn, NULL, lp->root_dir, /* auxiliary= */ false, &i);
                         if (r < 0)
@@ -1749,7 +1751,6 @@ static int install_info_traverse(
                                 /* Translate error code to highlight this specific case */
                                 return -ENOLINK;
                 }
-
                 if (r < 0)
                         return r;
         }
