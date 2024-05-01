@@ -750,19 +750,19 @@ static void server_rotate_journal(Server *s, JournalFile *f, uid_t uid) {
         server_process_deferred_closes(s);
 }
 
-static void server_sync(Server *s) {
+static void server_sync(Server *s, bool wait) {
         JournalFile *f;
         int r;
 
         if (s->system_journal) {
-                r = journal_file_set_offline(s->system_journal, false);
+                r = journal_file_set_offline(s->system_journal, wait);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
-                r = journal_file_set_offline(f, false);
+                r = journal_file_set_offline(f, wait);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync user journal, ignoring: %m");
@@ -1596,7 +1596,7 @@ static void server_full_flush(Server *s) {
         assert(s);
 
         (void) server_flush_to_var(s, false);
-        server_sync(s);
+        server_sync(s, /* wait = */ false);
         server_vacuum(s, false);
 
         server_space_usage_message(s, NULL);
@@ -1728,13 +1728,13 @@ fail:
         return 0;
 }
 
-static void server_full_sync(Server *s) {
+static void server_full_sync(Server *s, bool wait) {
         const char *fn;
         int r;
 
         assert(s);
 
-        server_sync(s);
+        server_sync(s, wait);
 
         /* Let clients know when the most recent sync happened. */
         fn = strjoina(s->runtime_directory, "/synced");
@@ -1742,15 +1742,13 @@ static void server_full_sync(Server *s) {
         if (r < 0)
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                             "Failed to write %s, ignoring: %m", fn);
-
-        return;
 }
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
-        server_full_sync(s);
+        server_full_sync(s, /* wait = */ false);
 
         return 0;
 }
@@ -1937,7 +1935,7 @@ static int server_parse_config_file(Server *s) {
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
-        server_sync(s);
+        server_sync(s, /* wait = */ false);
         return 0;
 }
 
@@ -1948,13 +1946,13 @@ static int server_schedule_sync(Server *s, int priority) {
 
         if (priority <= LOG_CRIT) {
                 /* Immediately sync to disk when this is of priority CRIT, ALERT, EMERG */
-                server_sync(s);
+                server_sync(s, /* wait = */ false);
                 return 0;
         }
 
         if (!s->event || sd_event_get_state(s->event) == SD_EVENT_FINISHED) {
                 /* Shutting down the server? Let's sync immediately. */
-                server_sync(s);
+                server_sync(s, /* wait = */ false);
                 return 0;
         }
 
@@ -2173,7 +2171,7 @@ static int synchronize_second_half(sd_event_source *event_source, void *userdata
         /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
          * event source at a low priority to ensure the synchronization completes after all queued log
          * messages are processed. */
-        server_full_sync(s);
+        server_full_sync(s, /* wait = */ true);
 
         /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
          * anymore and is immediately destroyed after we return from this function, i.e. from this event
