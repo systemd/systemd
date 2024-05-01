@@ -142,23 +142,15 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
 int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ UnitFileList *units = NULL;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free_ UnitFileList *units = NULL;
         unsigned c = 0;
-        const char *state;
-        char *path;
         int r;
-        bool fallback = false;
 
         if (install_client_side()) {
-                UnitFileList *u;
                 unsigned n_units;
 
-                h = hashmap_new(&unit_file_list_hash_ops_free);
-                if (!h)
-                        return log_oom();
-
-                r = unit_file_get_list(arg_runtime_scope, arg_root, h, arg_states, strv_skip(argv, 1));
+                r = unit_file_get_list(arg_runtime_scope, arg_root, arg_states, strv_skip(argv, 1), &h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get unit file list: %m");
 
@@ -168,6 +160,7 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                 if (!units)
                         return log_oom();
 
+                UnitFileList *u;
                 HASHMAP_FOREACH(u, h) {
                         if (!output_show_unit_file(u, NULL, NULL))
                                 continue;
@@ -179,6 +172,8 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                const char *path, *state;
+                bool fallback = false;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -201,19 +196,17 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to append unit dependencies: %m");
 
                         r = sd_bus_message_append_strv(m, names_with_deps);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                } else {
+                } else
                         r = sd_bus_message_append_strv(m, strv_skip(argv, 1));
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         /* Fallback to legacy ListUnitFiles method */
+                        log_debug_errno(r, "Unable to list unit files through ListUnitFilesByPatterns, falling back to ListUnitsFiles method.");
+
                         fallback = true;
-                        log_debug_errno(r, "Failed to list unit files: %s Falling back to ListUnitsFiles method.", bus_error_message(&error, r));
                         m = sd_bus_message_unref(m);
                         sd_bus_error_free(&error);
 
@@ -235,16 +228,15 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                         if (!GREEDY_REALLOC(units, c + 1))
                                 return log_oom();
 
-                        units[c] = (struct UnitFileList) {
-                                path,
-                                unit_file_state_from_string(state)
+                        units[c] = (UnitFileList) {
+                                .path = (char*) path,
+                                .state = unit_file_state_from_string(state),
                         };
 
                         if (output_show_unit_file(&units[c],
                             fallback ? arg_states : NULL,
                             fallback ? strv_skip(argv, 1) : NULL))
                                 c++;
-
                 }
                 if (r < 0)
                         return bus_log_parse_error(r);
