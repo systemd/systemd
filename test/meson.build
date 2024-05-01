@@ -29,7 +29,7 @@ if install_tests
                 # 'follow_symlinks' once we require Meson 1.3.0 or greater, see:
                 # https://github.com/mesonbuild/meson/commit/0af126fec798d6dbb0d1ad52168cc1f3f1758acd
                 if rsync.found()
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+                        rsync_r = rsync.full_path() + ' -rLpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 else
