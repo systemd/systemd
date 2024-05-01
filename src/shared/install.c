@@ -2857,11 +2857,12 @@ static int do_unit_file_disable(
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        InstallInfo *info;
         bool has_install_info = false;
         int r;
 
         STRV_FOREACH(name, names) {
+                InstallInfo *info;
+
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return install_changes_add(changes, n_changes, -EUCLEAN, *name, NULL);
 
@@ -2881,7 +2882,6 @@ static int do_unit_file_disable(
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
-
         if (r < 0)
                 return r;
 
