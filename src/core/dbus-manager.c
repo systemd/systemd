@@ -2412,7 +2412,7 @@ static int reply_install_changes_and_free(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
