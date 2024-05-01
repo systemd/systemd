@@ -57,6 +57,7 @@
 #include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
@@ -356,6 +357,40 @@ int config_parse_unit_string_printf(
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
+}
+
+int config_parse_reboot_parameter(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL;
+        const Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (!reboot_parameter_is_valid(k)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid reboot parameter '%s', ignoring.", k);
                 return 0;
         }
 
