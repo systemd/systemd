@@ -2844,6 +2844,9 @@ static int method_set_reboot_parameter(
         if (r < 0)
                 return r;
 
+        if (!reboot_parameter_is_valid(arg))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid reboot parameter");
+
         r = detect_container();
         if (r < 0)
                 return r;
