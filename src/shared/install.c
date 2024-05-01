@@ -661,7 +661,7 @@ static int remove_marked_symlinks_fd(
                 size_t *n_changes) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        int r = 0;
+        int r, ret = 0;
 
         assert(remove_symlinks_to);
         assert(fd >= 0);
@@ -679,36 +679,32 @@ static int remove_marked_symlinks_fd(
         rewinddir(d);
 
         FOREACH_DIRENT(de, d, return -errno)
-
                 if (de->d_type == DT_DIR) {
+                        _cleanup_close_ int nfd = -EBADF;
                         _cleanup_free_ char *p = NULL;
-                        int nfd, q;
 
-                        nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        nfd = RET_NERRNO(openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW));
                         if (nfd < 0) {
-                                if (errno == ENOENT)
-                                        continue;
-
-                                if (r == 0)
-                                        r = -errno;
+                                if (nfd != -ENOENT)
+                                        RET_GATHER(ret, nfd);
                                 continue;
                         }
 
                         p = path_make_absolute(de->d_name, path);
-                        if (!p) {
-                                safe_close(nfd);
+                        if (!p)
                                 return -ENOMEM;
-                        }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, lp, dry_run, restart, changes, n_changes);
-                        if (q < 0 && r == 0)
-                                r = q;
+                        RET_GATHER(ret, remove_marked_symlinks_fd(remove_symlinks_to,
+                                                                  TAKE_FD(nfd), p,
+                                                                  config_path, lp,
+                                                                  dry_run,
+                                                                  restart,
+                                                                  changes, n_changes));
 
                 } else if (de->d_type == DT_LNK) {
                         _cleanup_free_ char *p = NULL;
                         bool found;
-                        int q;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -727,64 +723,61 @@ static int remove_marked_symlinks_fd(
                         if (!found) {
                                 _cleanup_free_ char *template = NULL;
 
-                                q = unit_name_template(de->d_name, &template);
-                                if (q < 0 && q != -EINVAL)
-                                        return q;
-                                if (q >= 0)
+                                r = unit_name_template(de->d_name, &template);
+                                if (r < 0 && r != -EINVAL)
+                                        return r;
+                                if (r >= 0)
                                         found = set_contains(remove_symlinks_to, template);
                         }
 
                         if (!found) {
-                                _cleanup_free_ char *dest = NULL;
+                                _cleanup_free_ char *dest = NULL, *dest_name = NULL;
 
-                                q = chase(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
-                                if (q == -ENOENT)
+                                r = chase(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
+                                if (r == -ENOENT)
                                         continue;
-                                if (q < 0) {
-                                        log_debug_errno(q, "Failed to resolve symlink \"%s\": %m", p);
-                                        install_changes_add(changes, n_changes, q, p, NULL);
-
-                                        if (r == 0)
-                                                r = q;
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to resolve symlink \"%s\": %m", p);
+                                        RET_GATHER(ret, install_changes_add(changes, n_changes, r, p, NULL));
                                         continue;
                                 }
 
+                                r = path_extract_filename(dest, &dest_name);
+                                if (r < 0)
+                                        return r;
+
                                 found = set_contains(remove_symlinks_to, dest) ||
-                                        set_contains(remove_symlinks_to, basename(dest));
-
+                                        set_contains(remove_symlinks_to, dest_name);
                         }
-
 
                         if (!found)
                                 continue;
 
                         if (!dry_run) {
                                 if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
-                                        if (r == 0)
-                                                r = -errno;
-                                        install_changes_add(changes, n_changes, -errno, p, NULL);
+                                        RET_GATHER(ret, install_changes_add(changes, n_changes, -errno, p, NULL));
                                         continue;
                                 }
 
                                 (void) rmdir_parents(p, config_path);
                         }
 
-                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
-                        if (q < 0)
-                                return q;
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
+                        if (r < 0)
+                                return r;
 
                         /* Now, remember the full path (but with the root prefix removed) of
                          * the symlink we just removed, and remove any symlinks to it, too. */
 
                         const char *rp = skip_root(lp->root_dir, p);
-                        q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
-                        if (q < 0)
-                                return q;
-                        if (q > 0 && !dry_run)
+                        r = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && !dry_run)
                                 *restart = true;
                 }
 
-        return r;
+        return ret;
 }
 
 static int remove_marked_symlinks(
@@ -810,7 +803,7 @@ static int remove_marked_symlinks(
                 return errno == ENOENT ? 0 : -errno;
 
         do {
-                int q, cfd;
+                int cfd;
                 restart = false;
 
                 cfd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
@@ -818,9 +811,12 @@ static int remove_marked_symlinks(
                         return -errno;
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, lp, dry_run, &restart, changes, n_changes);
-                if (r == 0)
-                        r = q;
+                RET_GATHER(r, remove_marked_symlinks_fd(remove_symlinks_to,
+                                                        cfd, config_path,
+                                                        config_path, lp,
+                                                        dry_run,
+                                                        &restart,
+                                                        changes, n_changes));
         } while (restart);
 
         return r;
