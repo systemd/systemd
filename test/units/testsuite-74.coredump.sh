@@ -122,8 +122,13 @@ coredumpctl --json=short | jq
 coredumpctl --json=pretty | jq
 coredumpctl --json=off
 coredumpctl --root=/
-coredumpctl --directory=/var/log/journal
-coredumpctl --file="/var/log/journal/$(</etc/machine-id)"/*.journal
+if [ -d /var/log/journal ]; then
+    journal_dir=/var
+else
+    journal_dir=/run
+fi
+coredumpctl --directory="$journal_dir/log/journal"
+coredumpctl --file="$journal_dir/log/journal/$(</etc/machine-id)"/*.journal
 coredumpctl --since=@0
 coredumpctl --since=yesterday --until=tomorrow
 # We should have a couple of externally stored coredumps
