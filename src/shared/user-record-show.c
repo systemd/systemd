@@ -651,8 +651,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->kill_processes >= 0)
                 printf("  Kill Proc.: %s\n", yes_no(hr->kill_processes));
 
-        if (hr->service)
-                printf("     Service: %s\n", hr->service);
+        if (hr->service) {
+                printf("     Service: %s (can secure lock: %s)\n",
+                       hr->service,
+                       yes_no(hr->can_secure_lock));
+        }
 
         show_self_modifiable("Self Modify:",
                              hr->self_modifiable_fields,
