@@ -699,7 +699,7 @@ static int add_names(
 
                         if (inst_fragment &&
                             fragment_basename &&
-                            !streq(basename(inst_fragment), fragment_basename)) {
+                            !path_equal_filename(inst_fragment, fragment_basename)) {
                                 log_debug("Instance %s has fragment %s and is not an alias of %s.",
                                           inst, inst_fragment, unit_name);
                                 continue;
