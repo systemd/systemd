@@ -825,6 +825,9 @@ static int remove_marked_symlinks(
 static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         int r;
 
+        assert(i);
+        assert(name);
+
         if (streq(name, i->name))
                 return true;
 
@@ -856,13 +859,19 @@ static int find_symlinks_in_directory(
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *ret_same_name_link) {
 
-        int r = 0;
+        int r, ret = 0;
+
+        assert(dir);
+        assert(dir_path);
+        assert(info);
+        assert(unit_name_is_valid(info->name, UNIT_NAME_ANY));
+        assert(config_path);
+        assert(ret_same_name_link);
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 bool found_path = false, found_dest = false, b = false;
-                int q;
 
                 if (de->d_type != DT_LNK)
                         continue;
@@ -871,31 +880,16 @@ static int find_symlinks_in_directory(
                         _cleanup_free_ char *dest = NULL;
 
                         /* Acquire symlink destination */
-                        q = readlinkat_malloc(dirfd(dir), de->d_name, &dest);
-                        if (q == -ENOENT)
+                        r = readlinkat_malloc(dirfd(dir), de->d_name, &dest);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        RET_GATHER(ret, r);
                                 continue;
-                        if (q < 0) {
-                                if (r == 0)
-                                        r = q;
-                                continue;
-                        }
-
-                        /* Make absolute */
-                        if (!path_is_absolute(dest)) {
-                                char *x;
-
-                                x = path_join(dir_path, dest);
-                                if (!x)
-                                        return -ENOMEM;
-
-                                free_and_replace(dest, x);
                         }
 
                         /* Check if what the symlink points to matches what we are looking for */
-                        found_dest = streq(basename(dest), info->name);
+                        found_dest = path_equal_filename(dest, info->name);
                 }
-
-                assert(unit_name_is_valid(info->name, UNIT_NAME_ANY));
 
                 /* Check if the symlink itself matches what we are looking for.
                  *
@@ -911,10 +905,10 @@ static int find_symlinks_in_directory(
                 if (!found_path && ignore_destination) {
                         _cleanup_free_ char *template = NULL;
 
-                        q = unit_name_template(de->d_name, &template);
-                        if (q < 0 && q != -EINVAL)
-                                return q;
-                        if (q >= 0)
+                        r = unit_name_template(de->d_name, &template);
+                        if (r < 0 && r != -EINVAL)
+                                return r;
+                        if (r >= 0)
                                 found_dest = streq(template, info->name);
                 }
 
@@ -924,7 +918,6 @@ static int find_symlinks_in_directory(
                         /* Filter out same name links in the main config path */
                         p = path_make_absolute(de->d_name, dir_path);
                         t = path_make_absolute(info->name, config_path);
-
                         if (!p || !t)
                                 return -ENOMEM;
 
@@ -932,21 +925,19 @@ static int find_symlinks_in_directory(
                 }
 
                 if (b)
-                        *same_name_link = true;
+                        *ret_same_name_link = true;
                 else if (found_path || found_dest) {
                         if (!match_name)
                                 return 1;
 
                         /* Check if symlink name is in the set of names used by [Install] */
-                        q = is_symlink_with_known_name(info, de->d_name);
-                        if (q < 0)
-                                return q;
-                        if (q > 0)
-                                return 1;
+                        r = is_symlink_with_known_name(info, de->d_name);
+                        if (r != 0)
+                                return r;
                 }
         }
 
-        return r;
+        return ret;
 }
 
 static int find_symlinks(
@@ -955,14 +946,14 @@ static int find_symlinks(
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *ret_same_name_link) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
-        int r = 0;
+        int r;
 
         assert(i);
         assert(config_path);
-        assert(same_name_link);
+        assert(ret_same_name_link);
 
         config_dir = opendir(config_path);
         if (!config_dir) {
@@ -998,10 +989,10 @@ static int find_symlinks(
                                                /* match_name= */ match_name,
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
-                                               same_name_link);
+                                               ret_same_name_link);
                 if (r > 0)
                         return 1;
-                else if (r < 0)
+                if (r < 0)
                         log_debug_errno(r, "Failed to look up symlinks in \"%s\": %m", path);
         }
 
@@ -1013,7 +1004,7 @@ static int find_symlinks(
                                           /* match_name= */ match_name,
                                           /* ignore_same_name= */ ignore_same_name,
                                           config_path,
-                                          same_name_link);
+                                          ret_same_name_link);
 }
 
 static int find_symlinks_in_scope(
