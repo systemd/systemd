@@ -365,12 +365,15 @@ def clear_networkd_conf_dropins():
     rm_rf(networkd_conf_dropin_dir)
 
 def setup_systemd_udev_rules():
-    if not build_dir:
+    if not build_dir and not source_dir:
         return
 
     mkdir_p(udev_rules_dir)
 
     for path in [build_dir, source_dir]:
+        if not path:
+            continue
+
         path = os.path.join(path, "rules.d")
         print(f"Copying udev rules from {path} to {udev_rules_dir}")
 
@@ -450,7 +453,7 @@ def create_service_dropin(service, command, additional_settings=None):
     create_unit_dropin(f'{service}.service', drop_in)
 
 def setup_system_units():
-    if build_dir:
+    if build_dir or source_dir:
         mkdir_p('/run/systemd/system/')
 
         for unit in [
@@ -462,6 +465,9 @@ def setup_system_units():
                 'systemd-udevd.service',
         ]:
             for path in [build_dir, source_dir]:
+                if not path:
+                    continue
+
                 fullpath = os.path.join(os.path.join(path, "units"), unit)
                 if os.path.exists(fullpath):
                     print(f"Copying unit file from {fullpath} to /run/systemd/system/")
@@ -7753,9 +7759,11 @@ if __name__ == '__main__':
 
     if ns.source_dir:
         source_dir = ns.source_dir
-    else:
+        assert os.path.exists(os.path.join(source_dir, "meson_options.txt")), f"{source_dir} doesn't appear to be a systemd source tree."
+    elif os.path.exists(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../meson_options.txt"))):
         source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
-    assert os.path.exists(os.path.join(source_dir, "meson_options.txt")), f"{source_dir} doesn't appear to be a systemd source tree."
+    else:
+        source_dir = None
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
