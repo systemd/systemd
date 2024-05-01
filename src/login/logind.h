@@ -17,10 +17,13 @@
 
 typedef struct Manager Manager;
 
-#include "logind-action.h"
 #include "logind-button.h"
 #include "logind-device.h"
+#include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-user.h"
 #include "logind-inhibit.h"
+#include "logind-action.h"
 
 struct Manager {
         sd_event *event;
