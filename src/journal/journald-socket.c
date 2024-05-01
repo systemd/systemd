@@ -141,7 +141,7 @@ int server_forward_socket(
 
         /* Synthesise __REALTIME_TIMESTAMP as the last argument so systemd-journal-upload can receive these
          * export messages. */
-        char buf[sizeof("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 2];
+        char buf[STRLEN("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 2];
         xsprintf(buf, "__REALTIME_TIMESTAMP="USEC_FMT"\n\n", now(CLOCK_REALTIME));
         iov[iov_idx++] = IOVEC_MAKE_STRING(buf);
 
