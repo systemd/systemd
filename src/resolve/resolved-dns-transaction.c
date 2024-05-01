@@ -2647,7 +2647,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_DS:
                 case DNS_TYPE_CNAME:
                 case DNS_TYPE_DNAME: {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL, *soa = NULL;
                         const char *name;
 
                         /* CNAMEs and DNAMEs cannot be located at a
@@ -2694,6 +2694,21 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
+
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && dns_name_is_root(name)) {
+                                /* We made it all the way to the root zone. If we are in allow-downgrade
+                                 * mode, we need to make at least one request that we can be certain should
+                                 * have been signed, to test for servers that are not dnssec aware. */
+                                soa = dns_resource_key_new(rr->key->class, DNS_TYPE_SOA, name);
+                                if (!soa)
+                                        return -ENOMEM;
+
+                                log_debug("Requesting root zone SOA to probe dnssec support");
+                                r = dns_transaction_request_dnssec_rr(t, soa);
+                                if (r < 0)
+                                        return r;
+
+                        }
 
                         break;
                 }
