@@ -1182,6 +1182,41 @@ int user_secure_lock(User *u, user_secure_lock_cb_t cb, void *userdata) {
         return 0;
 }
 
+static void inactive_secure_lock_cb(User *u, void *userdata, const sd_bus_error *error) {
+        if (!error)
+                return;
+
+        log_error("Failed to secure lock user %s due to inactivity, ignoring: %s",
+                  u->user_record->user_name,
+                  strnull(error->message));
+}
+
+void user_maybe_became_inactive(User *u) {
+        int r;
+
+        assert(u);
+
+        if (user_get_state(u) == USER_ACTIVE)
+                return; /* Nope, we're still active */
+
+        if (!user_can_secure_lock(u))
+                return;
+
+        if (FLAGS_SET(user_inhibit_what(u, INHIBIT_BLOCK), INHIBIT_INACTIVE_SECURE_LOCK)) {
+                log_info("User %s has become inactive. Skipping secure lock due to inhibitor.",
+                         u->user_record->user_name);
+                return;
+        }
+
+        log_info("User %s has become inactive. Secure locking.", u->user_record->user_name);
+
+        r = user_secure_lock(u, inactive_secure_lock_cb, NULL);
+        if (r < 0)
+                log_warning_errno(r,
+                                  "Failed to secure lock user %s due to inactivity, ignoring: %m",
+                                  u->user_record->user_name);
+}
+
 static bool elect_display_filter(Session *s) {
         /* Return true if the session is a candidate for the user’s ‘primary session’ or ‘display’. */
         assert(s);
