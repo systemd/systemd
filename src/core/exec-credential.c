@@ -949,8 +949,8 @@ int exec_setup_credentials(
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
                 return -EINVAL;
 
-        /* This where we'll place stuff when we are done; this main credentials directory is world-readable,
-         * and the subdir we mount over with a read-only file system readable by the service's user */
+        /* This is where we'll place stuff when we are done; the main credentials directory is world-readable,
+         * and the subdir we mount over with a read-only file system readable by the service's user. */
         q = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials");
         if (!q)
                 return -ENOMEM;
