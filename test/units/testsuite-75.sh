@@ -14,6 +14,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# We need at least Knot 3.0 which support (among others) the ds-push directive
+if ! knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check; then
+    echo "This test requires at least Knot 3.0. skipping..." | tee --append /skipped
+    exit 77
+fi
+
 RUN_OUT="$(mktemp)"
 
 run() {
@@ -268,6 +274,15 @@ systemctl start systemd-networkd
 /usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
 systemctl reload systemd-resolved
 systemctl start resolved-dummy-server
+
+# Copy over our knot configuration
+mkdir -p /var/lib/knot/zones/ /etc/knot/
+cp -rfv /usr/lib/systemd/tests/testdata/knot-data/zones/* /var/lib/knot/zones/
+cp -fv /usr/lib/systemd/tests/testdata/knot-data/knot.conf /etc/knot/knot.conf
+chgrp -R knot /etc/knot/ /var/lib/knot/
+chmod -R ug+rwX /var/lib/knot/
+chmod -R g+r /etc/knot/
+
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
