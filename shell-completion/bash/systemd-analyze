@@ -67,7 +67,7 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame unit-paths exit-status calendar timestamp timespan'
+        [STANDALONE]='time blame unit-files unit-paths exit-status capability compare-versions calendar timestamp timespan pcrs srk'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -79,11 +79,12 @@ _systemd_analyze() {
         [INSPECT_ELF]='inspect-elf'
         [PLOT]='plot'
         [ARCHITECTURES]='architectures'
+        [FDSTORE]='fdstore'
     )
 
-    local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
+    local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
                        systemd/journal-remote.conf systemd/journal-upload.conf systemd/logind.conf
-                       systemd/resolved.conf systemd/networkd.conf systemd/resolved.conf
+                       systemd/resolved.conf systemd/networkd.conf systemd/pstore.conf systemd/resolved.conf
                        systemd/sleep.conf systemd/system.conf systemd/timedated.conf
                        systemd/timesyncd.conf systemd/user.conf udev/udev.conf'
 
@@ -210,6 +211,13 @@ _systemd_analyze() {
             comps='--help --version --no-pager --json=off --json=pretty --json=short --no-legend'
         else
             comps=$( __get_architectures )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[FDSTORE]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global -H --host -M --machine --no-pager --json=off --json=pretty --json=short --root --image'
+        else
+            comps=$( __get_services $mode )
         fi
     fi
 

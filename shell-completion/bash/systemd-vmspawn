@@ -1,0 +1,70 @@
+# shellcheck shell=bash
+# systemd-vmspawn(1) completion                 -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+_systemd_vmspawn() {
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local i verb comps
+
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode'
+        [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal'
+        [BOOL]='--kvm --vsock --tpm --secure-boot --discard-disk --register --pass-ssh-key'
+        [FIRMWARE]='--firmware'
+        [BIND]='--bind --bind-ro'
+        [SSH_KEY]='--ssh-key'
+        [CONSOLE]='--console'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid--private-users --background --set-credential --load-credential'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[BOOL]}; then
+        comps='yes no'
+    elif __contains_word "$prev" ${OPTS[PATH]}; then
+        compopt -o nospace -o filenames
+        comps=$(compgen -f -- "$cur" )
+    elif __contains_word "$prev" ${OPTS[FIRMWARE]}; then
+        compopt -o nospace -o filenames
+        comps="list $(compgen -f -- "$cur" )"
+    elif __contains_word "$prev" ${OPTS[BIND]}; then
+        compopt -o nospace -o filenames
+        comps=$(compgen -f -- "${cur}" )
+    elif __contains_word "$prev" ${OPTS[SSH_KEY]}; then
+        comps='dsa ecdsa ecdsa-sk ed25519 ed25519-sk rsa'
+    elif __contains_word "$prev" ${OPTS[CONSOLE]}; then
+        comps='interactive native gui'
+    elif __contains_word "$prev" ${OPTS[ARG]}; then
+        comps=''
+    else
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+
+}
+
+complete -F _systemd_vmspawn systemd-vmspawn
