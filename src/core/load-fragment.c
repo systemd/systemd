@@ -57,6 +57,7 @@
 #include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
@@ -360,6 +361,30 @@ int config_parse_unit_string_printf(
         }
 
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
+}
+
+int config_parse_reboot_parameter(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        if (!reboot_parameter_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid reboot parameter '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        return config_parse_unit_string_printf(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_unit_strv_printf(

@@ -2238,7 +2238,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_emergency_action(u, name, &u->job_timeout_action, message, flags, error);
 
         if (streq(name, "JobTimeoutRebootArgument"))
-                return bus_set_transient_string(u, name, &u->job_timeout_reboot_arg, message, flags, error);
+                return bus_set_transient_reboot_parameter(u, name, &u->job_timeout_reboot_arg, message, flags, error);
 
         if (streq(name, "StartLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &u->start_ratelimit.interval, message, flags, error);
@@ -2262,7 +2262,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_exit_status(u, name, &u->success_action_exit_status, message, flags, error);
 
         if (streq(name, "RebootArgument"))
-                return bus_set_transient_string(u, name, &u->reboot_arg, message, flags, error);
+                return bus_set_transient_reboot_parameter(u, name, &u->reboot_arg, message, flags, error);
 
         if (streq(name, "CollectMode"))
                 return bus_set_transient_collect_mode(u, name, &u->collect_mode, message, flags, error);
