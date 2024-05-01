@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "clean-ipc.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -20,6 +21,7 @@
 #include "label-util.h"
 #include "limits-util.h"
 #include "logind-dbus.h"
+#include "logind-inhibit.h"
 #include "logind-user-dbus.h"
 #include "logind-user.h"
 #include "mkdir-label.h"
@@ -36,6 +38,7 @@
 #include "uid-classification.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 
 int user_new(Manager *m, UserRecord *ur, User **ret) {
         _cleanup_(user_freep) User *u = NULL;
@@ -61,7 +64,12 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
                 .user_record = user_record_ref(ur),
                 .last_session_timestamp = USEC_INFINITY,
                 .gc_mode = USER_GC_BY_ANY,
+                .inhibitors = hashmap_new(&inhibitor_hash_ops),
+                .secure_locked = streq(ur->state, "locked"),
         };
+
+        if (!u->inhibitors)
+                return -ENOMEM;
 
         if (asprintf(&u->state_file, "/run/systemd/users/" UID_FMT, ur->uid) < 0)
                 return -ENOMEM;
@@ -137,6 +145,11 @@ User *user_free(User *u) {
         free(u->state_file);
 
         user_record_unref(u->user_record);
+
+        free(u->secure_lock_callbacks);
+        free(u->secure_lock_userdata);
+        sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+        varlink_unref(u->pending_secure_lock_call);
 
         return mfree(u);
 }
@@ -307,8 +320,46 @@ int user_save(User *u) {
         return user_save_internal(u);
 }
 
+static int user_enumerate_inhibitors(User *u) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r = 0;
+
+        assert(u);
+
+        if (asprintf(&p, "/run/systemd/user-inhibit/" UID_FMT, u->user_record->uid) < 0)
+                return log_oom();
+
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open %s: %m", p);
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                Inhibitor *i;
+                int k;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                k = inhibitor_new_user(u, de->d_name, &i);
+                if (k < 0) {
+                        RET_GATHER(r, log_warning_errno(k, "Couldn't add inhibitor %s/%s, ignoring: %m", p, de->d_name));
+                        continue;
+                }
+
+                RET_GATHER(r, inhibitor_load(i));
+        }
+
+        return r;
+}
+
 int user_load(User *u) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL, *last_session_timestamp = NULL, *gc_mode = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL, *last_session_timestamp = NULL,
+                            *gc_mode = NULL, *sl_backend = NULL, *sl_delay = NULL, *sl_auto_inhibitor = NULL;
         int r;
 
         assert(u);
@@ -320,7 +371,10 @@ int user_load(User *u) {
                            "REALTIME",               &realtime,
                            "MONOTONIC",              &monotonic,
                            "LAST_SESSION_TIMESTAMP", &last_session_timestamp,
-                           "GC_MODE",                &gc_mode);
+                           "GC_MODE",                &gc_mode,
+                           "SL_BACKEND",             &sl_backend,
+                           "SL_DELAY",               &sl_delay,
+                           "SL_AUTO_INHIBITOR",      &sl_auto_inhibitor);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -347,6 +401,8 @@ int user_load(User *u) {
         u->gc_mode = user_gc_mode_from_string(gc_mode);
         if (u->gc_mode < 0)
                 u->gc_mode = USER_GC_BY_PIN;
+
+        (void) user_enumerate_inhibitors(u);
 
         return 0;
 }
@@ -493,6 +549,7 @@ static int user_update_slice(User *u) {
 }
 
 int user_start(User *u) {
+        Inhibitor *inhibitor;
         int r;
 
         assert(u);
@@ -523,6 +580,14 @@ int user_start(User *u) {
                 (void) user_update_slice(u);
 
                 (void) user_start_runtime_dir(u);
+        }
+
+        HASHMAP_FOREACH(inhibitor, u->inhibitors) {
+                (void) inhibitor_start(inhibitor);
+                if (inhibitor_is_orphan(inhibitor)) {
+                        inhibitor_stop(inhibitor);
+                        inhibitor_free(inhibitor);
+                }
         }
 
         /* Start user@UID.service if needed. */
@@ -568,6 +633,7 @@ static void user_stop_service(User *u, bool force) {
 }
 
 int user_stop(User *u, bool force) {
+        Inhibitor *inhibitor;
         int r = 0;
 
         assert(u);
@@ -588,6 +654,11 @@ int user_stop(User *u, bool force) {
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 RET_GATHER(r, session_stop(s, force));
 
+        HASHMAP_FOREACH(inhibitor, u->inhibitors) {
+                inhibitor_stop(inhibitor);
+                inhibitor_free(inhibitor);
+        }
+
         user_stop_service(u, force);
 
         u->stopping = true;
@@ -596,6 +667,8 @@ int user_stop(User *u, bool force) {
 
         return r;
 }
+
+static int user_finish_secure_lock(User *u, const sd_bus_error *error);
 
 int user_finalize(User *u) {
         int r = 0;
@@ -626,6 +699,15 @@ int user_finalize(User *u) {
         if (u->started) {
                 user_send_signal(u, false);
                 u->started = false;
+        }
+
+        if (u->n_pending_secure_locks > 0) { /* We have pending SecureLock() calls */
+                /* Stop waiting for whatever we were waiting for */
+                u->pending_secure_lock_call = varlink_close_unref(u->pending_secure_lock_call);
+                u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+                /* Return an error */
+                (void) user_finish_secure_lock(u, &SD_BUS_ERROR_MAKE_CONST(BUS_ERROR_NO_SUCH_USER, "User is exiting."));
         }
 
         return r;
@@ -845,6 +927,256 @@ int user_kill(User *u, int signo) {
         assert(u);
 
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
+}
+
+bool user_can_secure_lock(User *u) {
+        assert(u);
+
+        if (u->secure_locked)
+                /* Makes no sense for a user that's actively secure locked right now
+                 * to report that it cannot be secure locked... */
+                return true;
+
+        /* Check if backend reports support for it */
+        if (!u->user_record->can_secure_lock)
+                return false;
+
+        /* Check if any session opted out */
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                if (SESSION_CLASS_CAN_LOCK(s->class) && !s->can_secure_lock)
+                        return false;
+
+        /* Check if inhibited */
+        if (FLAGS_SET(user_inhibit_what(u, INHIBIT_BLOCK), INHIBIT_SECURE_LOCK))
+                return false;
+
+        return true;
+}
+
+bool user_is_secure_locked(User *u) {
+        return u->secure_locked;
+}
+
+void user_set_secure_locked(User *u, bool secure_locked) {
+        int r;
+
+        if (u->secure_locked == secure_locked)
+                return;
+
+        u->secure_locked = secure_locked;
+
+        r = user_send_changed(u, "SecureLocked", NULL);
+        if (r < 0)
+                log_warning_errno(r,
+                                  "Failed to emit SecureLocked changed for %s, ignoring: %m",
+                                  u->user_record->user_name);
+
+        if (!secure_locked) {
+                r = user_send_secure_unlocked(u);
+                if (r < 0)
+                        log_warning_errno(r,
+                                          "Failed to emit SecureUnlocked for %s, ignoring: %m",
+                                          u->user_record->user_name);
+        }
+}
+
+static int user_finish_secure_lock(User *u, const sd_bus_error *error) {
+        assert(u);
+
+        for (size_t i = 0; i < u->n_pending_secure_locks; i++) {
+                user_secure_lock_cb_t cb = u->secure_lock_callbacks[i];
+                void *userdata = u->secure_lock_userdata[i];
+
+                cb(u, userdata, error);
+        }
+
+        u->secure_lock_callbacks = mfree(u->secure_lock_callbacks);
+        u->secure_lock_userdata = mfree(u->secure_lock_userdata);
+        u->n_pending_secure_locks = 0;
+
+        return 0;
+}
+
+static int user_on_secure_lock_reply(
+                Varlink *_link,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        User *u = ASSERT_PTR(userdata);
+
+        assert(u->pending_secure_lock_call == _link);
+        link = TAKE_PTR(u->pending_secure_lock_call);
+
+        if (error_id) {
+                if (STR_IN_SET(error_id,
+                               VARLINK_ERROR_INTERFACE_NOT_FOUND,
+                               VARLINK_ERROR_METHOD_NOT_FOUND,
+                               VARLINK_ERROR_METHOD_NOT_IMPLEMENTED))
+                        sd_bus_error_setf(&error,
+                                          SD_BUS_ERROR_NOT_SUPPORTED,
+                                          "Backend missing functionality: %s",
+                                          error_id);
+
+                else if (STR_IN_SET(error_id,
+                                    VARLINK_ERROR_PROTOCOL,
+                                    VARLINK_ERROR_INVALID_PARAMETER,
+                                    VARLINK_ERROR_EXPECTED_MORE,
+                                    "io.systemd.SecureLockBackend.BadService"))
+                        sd_bus_error_setf(&error,
+                                          SD_BUS_ERROR_INCONSISTENT_MESSAGE,
+                                          "Backend protocol error: %s",
+                                          error_id);
+
+                else if (streq(error_id, "io.systemd.SecureLockBackend.NoSuchUser"))
+                        sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "User unknown to backend.");
+
+                else
+                        sd_bus_error_set_errno(&error, varlink_error_to_errno(error_id, parameters));
+        }
+
+        return user_finish_secure_lock(u, &error);
+}
+
+static int user_trigger_secure_lock(User *u) {
+        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(u);
+
+        path = path_join("/run/systemd/secure-lock", u->user_record->service);
+        if (!path)
+                return log_oom();
+
+        r = varlink_connect_address(&link, path);
+        if (r < 0)
+                return log_error_errno(r, "%s: Failed to establish Varlink connection: %m", path);
+
+        r = varlink_attach_event(link, u->manager->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "%s: Failed to attach to event loop: %m", path);
+
+        (void) varlink_set_userdata(link, u);
+        (void) varlink_set_description(link, path);
+
+        r = varlink_bind_reply(link, user_on_secure_lock_reply);
+        if (r < 0)
+                return log_error_errno(r, "%s: Failed to attach reply callback: %m", path);
+
+        r = varlink_invokeb(link,
+                            "io.systemd.SecureLockBackend.Activate",
+                            JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING("service", u->user_record->service),
+                                JSON_BUILD_PAIR_STRING("userName", u->user_record->user_name)));
+        if (r < 0)
+                return log_error_errno(r, "%s: Failed to invoke Activate(): %m", path);
+
+        assert(!u->pending_secure_lock_call);
+        u->pending_secure_lock_call = TAKE_PTR(link);
+
+        return 0;
+}
+
+static int user_on_delayed_secure_lock(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+        log_info("Delayed secure lock for user %s timed out, locking now.", u->user_record->user_name);
+
+        r = user_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to trigger secure lock: %m");
+                return user_finish_secure_lock(u, &error);
+        }
+
+        return 0;
+}
+
+void user_inhibitor_dropped(User *u, Inhibitor *i) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        if (!FLAGS_SET(i->what_user, INHIBIT_SECURE_LOCK) || i->mode != INHIBIT_DELAY)
+                return;
+
+        if (FLAGS_SET(user_inhibit_what(u, INHIBIT_DELAY), INHIBIT_SECURE_LOCK))
+                return;
+
+        if (!u->pending_secure_lock_timeout_source) {
+                log_info("All clients dropped requests to delay secure lock of user %s.", u->user_record->user_name);
+                return;
+        } else
+                log_info("All clients dropped requests to delay secure lock of user %s, locking now.", u->user_record->user_name);
+
+        u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+        r = user_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to trigger secure lock: %m");
+                user_finish_secure_lock(u, &error);
+        }
+}
+
+int user_secure_lock(User *u, user_secure_lock_cb_t cb, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+        assert(cb);
+
+        if (!GREEDY_REALLOC(u->secure_lock_callbacks, u->n_pending_secure_locks + 1))
+                return log_oom();
+        if (!GREEDY_REALLOC(u->secure_lock_userdata, u->n_pending_secure_locks + 1))
+                return log_oom();
+        u->secure_lock_callbacks[u->n_pending_secure_locks] = cb;
+        u->secure_lock_userdata[u->n_pending_secure_locks] = userdata;
+        u->n_pending_secure_locks++;
+
+        if (u->n_pending_secure_locks > 1) /* We're already processing another secure lock request */
+                return 0;
+
+        assert(!u->pending_secure_lock_timeout_source && !u->pending_secure_lock_call);
+
+        r = user_send_prepare_for_secure_lock(u);
+        if (r < 0)
+                log_warning_errno(r, "Failed to emit PrepareForSecureLock(), ignoring: %m");
+
+        if (FLAGS_SET(user_inhibit_what(u, INHIBIT_DELAY), INHIBIT_SECURE_LOCK)) {
+                log_info("Delaying secure lock for user %s.", u->user_record->user_name);
+
+                r = sd_event_add_time_relative(
+                                u->manager->event,
+                                &u->pending_secure_lock_timeout_source,
+                                CLOCK_MONOTONIC,
+                                u->manager->inhibit_delay_max,
+                                0 /* default accuracy */,
+                                user_on_delayed_secure_lock,
+                                u);
+                if (r >= 0) {
+                        (void) sd_event_source_set_description(u->pending_secure_lock_timeout_source, "pending-secure-lock");
+                        return 0;
+                }
+
+                log_warning_errno(r,
+                                  "Failed to schedule delayed secure lock for user %s, locking immediately: %m",
+                                  u->user_record->user_name);
+        } else
+                log_info("Secure locking user %s now.", u->user_record->user_name);
+
+        r = user_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to trigger secure lock: %m");
+                return user_finish_secure_lock(u, &error);
+        }
+
+        return 0;
 }
 
 static bool elect_display_filter(Session *s) {

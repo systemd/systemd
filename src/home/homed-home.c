@@ -224,8 +224,7 @@ Home *home_free(Home *h) {
         free(h->user_name);
         free(h->sysfs);
 
-        h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
-        h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
+        h->ref_event_source = sd_event_source_disable_unref(h->ref_event_source);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
@@ -1000,6 +999,22 @@ finish:
         home_set_state(h, _HOME_STATE_INVALID);
 }
 
+static void home_notify_logind_secure_locked(Home *h, bool locked) {
+        int r;
+
+        assert(h);
+
+        if (!h->manager->secure_lock_subscribed)
+                return;
+
+        r = varlink_notifyb(h->manager->secure_lock_subscribed,
+                            JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("uid", h->uid),
+                                JSON_BUILD_PAIR_BOOLEAN("locked", locked)));
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify logind of secure lock state, ignoring: %m");
+}
+
 static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1013,20 +1028,15 @@ static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
                 goto finish;
         }
 
+        home_notify_logind_secure_locked(h, true);
+
         log_debug("Locking operation of %s completed.", h->user_name);
         h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, HOME_LOCKED);
         return;
 
 finish:
-        /* If a specific home doesn't know the concept of locking, then that's totally OK, don't propagate
-         * the error if we are executing a LockAllHomes() operation. */
-
-        if (h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
-                h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
-        else
-                h->current_operation = operation_result_unref(h->current_operation, r, &error);
-
+        h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
 }
 
@@ -1049,6 +1059,8 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
                 h->current_operation = operation_result_unref(h->current_operation, r, &error);
                 return;
         }
+
+        home_notify_logind_secure_locked(h, false);
 
         r = user_record_good_authentication(h->record);
         if (r < 0)
@@ -2053,9 +2065,20 @@ int home_unregister(Home *h, sd_bus_error *error) {
         return 1;
 }
 
-int home_lock(Home *h, sd_bus_error *error) {
+static int home_lock_internal(Home *h, sd_bus_error *error) {
         int r;
 
+        assert(h);
+
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        home_set_state(h, HOME_LOCKING);
+        return 0;
+}
+
+int home_lock(Home *h, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
@@ -2073,12 +2096,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
-        if (r < 0)
-                return r;
-
-        home_set_state(h, HOME_LOCKING);
-        return 0;
+        return home_lock_internal(h, error);
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -2714,14 +2732,8 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
 
         assert(s);
 
-        if (h->ref_event_source_please_suspend == s)
-                h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
-
-        if (h->ref_event_source_dont_suspend == s)
-                h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
-
-        if (home_is_referenced(h))
-                return 0;
+        assert(s == h->ref_event_source);
+        h->ref_event_source = sd_event_source_disable_unref(h->ref_event_source);
 
         log_info("Got notification that all sessions of user %s ended, deactivating automatically.", h->user_name);
 
@@ -2735,25 +2747,17 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int home_create_fifo(Home *h, bool please_suspend) {
+int home_create_ref(Home *h) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *evt = NULL;
         _cleanup_close_ int ret_fd = -EBADF;
-        sd_event_source **ss;
-        const char *fn, *suffix;
+        const char *fn;
         int r;
 
         assert(h);
 
-        if (please_suspend) {
-                suffix = ".please-suspend";
-                ss = &h->ref_event_source_please_suspend;
-        } else {
-                suffix = ".dont-suspend";
-                ss = &h->ref_event_source_dont_suspend;
-        }
+        fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
 
-        fn = strjoina("/run/systemd/home/", h->user_name, suffix);
-
-        if (!*ss) {
+        if (!h->ref_event_source) {
                 _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
@@ -2764,22 +2768,21 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, &evt, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
-                (void) sd_event_source_set_description(*ss, "acquire-ref");
+                (void) sd_event_source_set_description(evt, "acquire-ref");
 
                 /* We need to notice dropped refs before we process new bus requests (which
                  * might try to obtain new refs) */
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_NORMAL-10);
+                r = sd_event_source_set_priority(evt, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*ss, true);
+                r = sd_event_source_set_io_fd_own(evt, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
-
                 TAKE_FD(ref_fd);
         }
 
@@ -2787,6 +2790,8 @@ int home_create_fifo(Home *h, bool please_suspend) {
         if (ret_fd < 0)
                 return log_error_errno(errno, "Failed to open FIFO %s for writing: %m", fn);
 
+        if (evt)
+                h->ref_event_source = TAKE_PTR(evt);
         return TAKE_FD(ret_fd);
 }
 
@@ -2853,14 +2858,7 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
 bool home_is_referenced(Home *h) {
         assert(h);
 
-        return h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend;
-}
-
-bool home_shall_suspend(Home *h) {
-        assert(h);
-
-        /* Suspend if there's at least one client referencing this home directory that wants a suspend and none who does not. */
-        return h->ref_event_source_please_suspend && !h->ref_event_source_dont_suspend;
+        return !!h->ref_event_source;
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {
@@ -2894,51 +2892,6 @@ static int home_dispatch_release(Home *h, Operation *o) {
         case HOME_ACTIVE:
         case HOME_LINGERING:
                 r = home_deactivate_internal(h, false, &error);
-                break;
-
-        default:
-                /* All other cases means we are currently executing an operation, which means the job remains
-                 * pending. */
-                return 0;
-        }
-
-        assert(!h->current_operation);
-
-        if (r != 0) /* failure or completed */
-                operation_result(o, r, &error);
-        else /* ongoing */
-                h->current_operation = operation_ref(o);
-
-        return 1;
-}
-
-static int home_dispatch_lock_all(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(h);
-        assert(o);
-        assert(o->type == OPERATION_LOCK_ALL);
-
-        switch (home_get_state(h)) {
-
-        case HOME_UNFIXATED:
-        case HOME_ABSENT:
-        case HOME_INACTIVE:
-        case HOME_DIRTY:
-                log_info("Home %s is not active, no locking necessary.", h->user_name);
-                r = 1; /* done */
-                break;
-
-        case HOME_LOCKED:
-                log_info("Home %s is already locked.", h->user_name);
-                r = 1; /* done */
-                break;
-
-        case HOME_ACTIVE:
-        case HOME_LINGERING:
-                log_info("Locking home %s.", h->user_name);
-                r = home_lock(h, &error);
                 break;
 
         default:
@@ -3042,7 +2995,51 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         /* Note that we don't call operation_fail() or operation_success() here, because this kind of
          * operation has no message associated with it, and thus there's no need to propagate success. */
 
-        assert(!o->message);
+        assert(!o->message && !o->varlink);
+        return 1;
+}
+
+static int home_dispatch_secure_lock(Home *h, Operation *o) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(h);
+        assert(o);
+        assert(o->type == OPERATION_SECURE_LOCK);
+
+        switch (home_get_state(h)) {
+
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                log_info("Home %s is not active, not lock needed.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_LOCKED:
+                log_info("Home %s is already locked.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_lock_internal(h, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
+        }
+
+        assert(!h->current_operation);
+
+        if (r != 0) /* failure or completed */
+                operation_result(o, r, &error);
+        else /* ongoing */
+                h->current_operation = operation_ref(o);
+
         return 1;
 }
 
@@ -3083,7 +3080,7 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         /* Note that we don't call operation_fail() or operation_success() here, because this kind of
          * operation has no message associated with it, and thus there's no need to propagate success. */
 
-        assert(!o->message);
+        assert(!o->message && !o->varlink);
         return 1;
 }
 
@@ -3099,9 +3096,9 @@ static int on_pending(sd_event_source *s, void *userdata) {
                 static int (* const operation_table[_OPERATION_MAX])(Home *h, Operation *o) = {
                         [OPERATION_ACQUIRE]          = home_dispatch_acquire,
                         [OPERATION_RELEASE]          = home_dispatch_release,
-                        [OPERATION_LOCK_ALL]         = home_dispatch_lock_all,
                         [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
+                        [OPERATION_SECURE_LOCK]      = home_dispatch_secure_lock,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
                 };
 
