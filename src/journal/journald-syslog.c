@@ -314,8 +314,8 @@ void server_process_syslog_message(
                 const char *label,
                 size_t label_len) {
 
-        char *t, syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-                 syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
+                 syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
                 *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;

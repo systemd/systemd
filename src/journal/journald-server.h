@@ -162,8 +162,8 @@ struct Server {
         bool sent_notify_ready:1;
         bool sync_scheduled:1;
 
-        char machine_id_field[sizeof("_MACHINE_ID=") + 32];
-        char boot_id_field[sizeof("_BOOT_ID=") + 32];
+        char machine_id_field[STRLEN("_MACHINE_ID=") + SD_ID128_STRING_MAX];
+        char boot_id_field[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX];
         char *hostname_field;
         char *namespace_field;
         char *runtime_directory;
