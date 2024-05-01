@@ -1653,7 +1653,7 @@ static int install_info_follow(
 
         /* If the basename doesn't match, the caller should add a complete new entry for this. */
 
-        if (!ignore_different_name && !streq(basename(info->symlink_target), info->name))
+        if (!ignore_different_name && !path_equal_filename(info->symlink_target, info->name))
                 return -EXDEV;
 
         free_and_replace(info->path, info->symlink_target);
@@ -3107,7 +3107,7 @@ int unit_file_lookup_state(
 
         case INSTALL_MODE_REGULAR:
                 /* Check if the name we were querying is actually an alias */
-                if (!streq(name, basename(info->path)) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                if (!path_equal_filename(name, info->path) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                         state = UNIT_FILE_ALIAS;
                         break;
                 }
