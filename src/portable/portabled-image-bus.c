@@ -596,7 +596,7 @@ static int normalize_portable_changes(
                 bool found = false;
 
                 for (size_t j = 0; j < n_changes_attached; ++j)
-                        if (streq(basename(changes_detached[i].path), basename(changes_attached[j].path))) {
+                        if (path_equal_filename(changes_detached[i].path, changes_attached[j].path)) {
                                 found = true;
                                 break;
                         }
