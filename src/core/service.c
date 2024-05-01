@@ -441,7 +441,7 @@ static void service_release_fd_store(Service *s) {
 static void service_release_stdio_fd(Service *s) {
         assert(s);
 
-        if (s->stdin_fd < 0 && s->stdout_fd < 0 && s->stdout_fd < 0)
+        if (s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
                 return;
 
         log_unit_debug(UNIT(s), "Releasing stdin/stdout/stderr file descriptors.");
