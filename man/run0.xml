@@ -39,8 +39,8 @@
 
     <itemizedlist>
       <listitem><para>No execution or security context credentials are inherited from the caller into the
-      invoked commands, as they are invoked from a fresh, isolated service forked off the service
-      manager.</para></listitem>
+      invoked commands, as they are invoked from a fresh, isolated service forked off by the service manager.
+      </para></listitem>
 
       <listitem><para>Authentication takes place via <ulink
       url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>, thus isolating the
