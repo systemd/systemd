@@ -2475,7 +2475,7 @@ int unit_file_link(
         if (r < 0)
                 return r;
 
-        config_path = FLAG_SET(flags, UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
+        config_path = FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
@@ -3390,6 +3390,8 @@ static int pattern_match_multiple_instances(
         _cleanup_free_ char *templated_name = NULL;
         int r;
 
+        assert(unit_name);
+
         /* If no ret is needed or the rule itself does not have instances
          * initialized, we return not matching */
         if (!ret || !rule.instances)
@@ -3436,20 +3438,25 @@ static int pattern_match_multiple_instances(
 static int query_presets(const char *name, const UnitFilePresets *presets, char ***instance_name_list) {
         PresetAction action = PRESET_UNKNOWN;
 
+        assert(name);
+        assert(presets);
+
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        for (size_t i = 0; i < presets->n_rules; i++)
-                if (pattern_match_multiple_instances(presets->rules[i], name, instance_name_list) > 0 ||
-                    fnmatch(presets->rules[i].pattern, name, FNM_NOESCAPE) == 0) {
-                        action = presets->rules[i].action;
+        FOREACH_ARRAY(i, presets->rules, presets->n_rules)
+                if (pattern_match_multiple_instances(*i, name, instance_name_list) > 0 ||
+                    fnmatch(i->pattern, name, FNM_NOESCAPE) == 0) {
+                        action = i->action;
                         break;
                 }
 
         switch (action) {
+
         case PRESET_UNKNOWN:
                 log_debug("Preset files don't specify rule for %s. Enabling.", name);
                 return PRESET_ENABLE;
+
         case PRESET_ENABLE:
                 if (instance_name_list && *instance_name_list)
                         STRV_FOREACH(s, *instance_name_list)
@@ -3457,12 +3464,15 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 else
                         log_debug("Preset files say enable %s.", name);
                 return PRESET_ENABLE;
+
         case PRESET_DISABLE:
                 log_debug("Preset files say disable %s.", name);
                 return PRESET_DISABLE;
+
         case PRESET_IGNORE:
                 log_debug("Preset files say ignore %s.", name);
                 return PRESET_IGNORE;
+
         default:
                 assert_not_reached();
         }
