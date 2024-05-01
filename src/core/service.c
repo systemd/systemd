@@ -20,6 +20,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -815,6 +816,8 @@ static int service_add_extras(Service *s) {
                 /* Figure out a type automatically */
                 if (s->bus_name)
                         s->type = SERVICE_DBUS;
+                else if (exec_context_has_credentials(&s->exec_context))
+                        s->type = SERVICE_EXEC;
                 else if (s->exec_command[SERVICE_EXEC_START])
                         s->type = SERVICE_SIMPLE;
                 else
