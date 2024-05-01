@@ -117,17 +117,23 @@ static int in_search_path(const LookupPaths *lp, const char *path) {
 
         /* Check if 'path' is in lp->search_path. */
 
-        r = path_extract_directory(ASSERT_PTR(path), &parent);
+        assert(lp);
+        assert(path);
+
+        r = path_extract_directory(path, &parent);
         if (r < 0)
                 return r;
 
-        return path_strv_contains(ASSERT_PTR(lp)->search_path, parent);
+        return path_strv_contains(lp->search_path, parent);
 }
 
-static int underneath_search_path(const LookupPaths *lp, const char *path) {
+static bool underneath_search_path(const LookupPaths *lp, const char *path) {
         /* Check if 'path' is underneath lp->search_path. */
 
-        return !!path_startswith_strv(ASSERT_PTR(path), ASSERT_PTR(lp)->search_path);
+        assert(lp);
+        assert(path);
+
+        return path_startswith_strv(path, lp->search_path);
 }
 
 static const char* skip_root(const char *root_dir, const char *path) {
@@ -2511,11 +2517,8 @@ int unit_file_link(
                         /* A silent noop if the file is already in the search path. */
                         continue;
 
-                r = underneath_search_path(&lp, *file);
-                if (r > 0)
-                        r = -ETXTBSY;
-                if (r < 0)
-                        return install_changes_add(changes, n_changes, r, *file, NULL);
+                if (underneath_search_path(&lp, *file))
+                        return install_changes_add(changes, n_changes, -ETXTBSY, *file, NULL);
 
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
