@@ -91,6 +91,9 @@
 
 #define FAILED_TO_WRITE_ENTRY_RATELIMIT ((const RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
 
+static int server_schedule_sync(Server *s, int priority);
+static int server_refresh_idle_timer(Server *s);
+
 static int server_determine_path_usage(
                 Server *s,
                 const char *path,
@@ -747,7 +750,7 @@ static void server_rotate_journal(Server *s, JournalFile *f, uid_t uid) {
         server_process_deferred_closes(s);
 }
 
-void server_sync(Server *s) {
+static void server_sync(Server *s) {
         JournalFile *f;
         int r;
 
@@ -1938,7 +1941,7 @@ static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
         return 0;
 }
 
-int server_schedule_sync(Server *s, int priority) {
+static int server_schedule_sync(Server *s, int priority) {
         int r;
 
         assert(s);
@@ -2375,7 +2378,7 @@ int server_map_seqnum_file(
         return 0;
 }
 
-void server_unmap_seqnum_file(void *p, size_t size) {
+static void server_unmap_seqnum_file(void *p, size_t size) {
         assert(size > 0);
 
         if (!p)
@@ -2445,7 +2448,7 @@ int server_start_or_stop_idle_timer(Server *s) {
         return 1;
 }
 
-int server_refresh_idle_timer(Server *s) {
+static int server_refresh_idle_timer(Server *s) {
         int r;
 
         assert(s);
