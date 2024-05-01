@@ -40,6 +40,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+#include "varlink.h"
 
 static Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
@@ -48,7 +49,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(device_hash_ops, char, string_hash
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(seat_hash_ops, char, string_hash_func, string_compare_func, Seat, seat_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(session_hash_ops, char, string_hash_func, string_compare_func, Session, session_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(user_hash_ops, void, trivial_hash_func, trivial_compare_func, User, user_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(inhibitor_hash_ops, char, string_hash_func, string_compare_func, Inhibitor, inhibitor_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, Varlink, varlink_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(button_hash_ops, char, string_hash_func, string_compare_func, Button, button_free);
 
 static int manager_new(Manager **ret) {
@@ -74,12 +75,13 @@ static int manager_new(Manager **ret) {
                 .users = hashmap_new(&user_hash_ops),
                 .inhibitors = hashmap_new(&inhibitor_hash_ops),
                 .buttons = hashmap_new(&button_hash_ops),
+                .secure_lock_backends = set_new(&varlink_hash_ops),
 
                 .user_units = hashmap_new(&string_hash_ops),
                 .session_units = hashmap_new(&string_hash_ops),
         };
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->secure_lock_backends || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
@@ -130,12 +132,15 @@ static Manager* manager_free(Manager *m) {
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
 
+        set_free(m->secure_lock_backends);
+
         sd_event_source_unref(m->idle_action_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
         sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         sd_event_source_unref(m->nologin_timeout_source);
         sd_event_source_unref(m->wall_message_timeout_source);
 
+        sd_event_source_unref(m->secure_lock_backends_event_source);
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
@@ -354,6 +359,143 @@ static int manager_enumerate_users(Manager *m) {
         }
 
         return r;
+}
+
+static int manager_on_secure_lock_notification(
+                Varlink *link,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        struct sl_notif_params {
+                uid_t uid;
+                bool locked;
+        } p;
+        static const JsonDispatch dispatch_table[] = {
+                { "uid",    JSON_VARIANT_INTEGER, json_dispatch_uid_gid, offsetof(struct sl_notif_params, uid),    0 },
+                { "locked", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(struct sl_notif_params, locked), 0 },
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        User *u = NULL;
+        int r;
+
+        r = json_dispatch(parameters, dispatch_table, JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (!uid_is_valid(p.uid))
+                return log_error_errno(SYNTHETIC_ERRNO(-EINVAL), "Got invalid UID "UID_FMT" from secure lock notification!", p.uid);
+
+        u = hashmap_get(m->users, UID_TO_PTR(p.uid));
+        if (!u)
+                return 0; /* Not a user that we know about */
+
+        user_set_secure_locked(u, p.locked);
+        return 0;
+}
+
+static int manager_enumerate_secure_lock_backends(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(m);
+
+        set_clear(m->secure_lock_backends);
+
+        d = opendir("/run/systemd/secure-lock");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open /run/systemd/secure-lock: %m");
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
+
+                if (!IN_SET(de->d_type, DT_SOCK, DT_LNK))
+                        continue;
+
+                path = path_join("/run/systemd/secure-lock", de->d_name);
+                if (!path)
+                        return log_oom();
+
+                r = varlink_connect_address(&link, path);
+                if (r < 0) {
+                        log_error_errno(r, "%s: Failed to establish Varlink connection: %m", path);
+                        continue;
+                }
+
+                r = varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+                if (r < 0) {
+                        log_error_errno(r, "%s: Failed to atttach to event loop: %m", path);
+                        continue;
+                }
+
+                (void) varlink_set_userdata(link, m);
+                (void) varlink_set_description(link, path);
+
+                r = varlink_bind_reply(link, manager_on_secure_lock_notification);
+                if (r < 0) {
+                        log_error_errno(r, "%s: Failed to attach notification callback: %m", path);
+                        continue;
+                }
+
+                r = varlink_observeb(link,
+                                     "io.systemd.SecureLockBackend.Subscribe",
+                                     JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("service", de->d_name)));
+                if (r < 0) {
+                        log_error_errno(r, "%s: Failed to invoke Subscribe(): %m", path);
+                        continue;
+                }
+
+                r = set_consume(m->secure_lock_backends, TAKE_PTR(link));
+                if (r < 0) {
+                        log_error_errno(r, "%s: Failed to add varlink connection to set: %m", path);
+                        continue;
+                }
+        }
+
+        return 0;
+}
+
+static int manager_dispatch_secure_lock_backends(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        (void) manager_enumerate_secure_lock_backends(m);
+        return 0;
+}
+
+static int manager_connect_secure_lock_backends(Manager *m) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(m);
+
+        (void) mkdir_label("/run/systemd/secure-lock", 0755);
+
+        r = sd_event_add_inotify(m->event,
+                                 &s,
+                                 "/run/systemd/secure-lock",
+                                 IN_CREATE|IN_DELETE|IN_MOVE|IN_ONLYDIR,
+                                 manager_dispatch_secure_lock_backends,
+                                 m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify watch on /run/systemd/secure-lock: %m");
+
+        r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                log_warning_errno(r, "Failed to adjust secure lock backend inotify priority, ignoring: %m");
+
+        (void) sd_event_source_set_description(s, "secure-lock-backend");
+
+        sd_event_source_unref(m->secure_lock_backends_event_source);
+        m->secure_lock_backends_event_source = TAKE_PTR(s);
+        return 0;
 }
 
 static int parse_fdname(const char *fdname, char **ret_session_id, dev_t *ret_devno) {
@@ -1119,6 +1261,11 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Start watching for secure lock backends */
+        r = manager_connect_secure_lock_backends(m);
+        if (r < 0)
+                return r;
+
         /* Instantiate magic seat 0 */
         r = manager_add_seat(m, "seat0", &m->seat0);
         if (r < 0)
@@ -1140,6 +1287,10 @@ static int manager_startup(Manager *m) {
         r = manager_enumerate_users(m);
         if (r < 0)
                 log_warning_errno(r, "User enumeration failed: %m");
+
+        r = manager_enumerate_secure_lock_backends(m);
+        if (r < 0)
+                log_warning_errno(r, "Secure lock backend enumeration failed: %m");
 
         r = manager_enumerate_sessions(m);
         if (r < 0)

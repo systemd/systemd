@@ -1637,6 +1637,27 @@ int varlink_get_current_parameters(Varlink *v, JsonVariant **ret) {
         return 0;
 }
 
+const char *varlink_get_current_method(Varlink *v) {
+        JsonVariant *p;
+
+        /* Returns current method name, owned by the Varlink
+         * instance. For logging purposes. */
+
+        assert_return(v, NULL);
+
+        if (!v->current)
+                return NULL;
+
+        p = json_variant_by_key(v->current, "method");
+        if (!p)
+                return NULL;
+
+        if (!json_variant_is_string(p))
+                return NULL;
+
+        return json_variant_string(p);
+}
+
 static void handle_revents(Varlink *v, int revents) {
         assert(v);
 

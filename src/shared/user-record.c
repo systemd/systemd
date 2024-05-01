@@ -1407,6 +1407,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
                 { "fallbackShell",              JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0         },
                 { "fallbackHomeDirectory",      JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0         },
                 { "useFallback",                JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, use_fallback),                  0         },
+                { "canSecureLock",              JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, can_secure_lock),               0         },
                 {},
         };
 
