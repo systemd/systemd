@@ -2307,7 +2307,7 @@ int unit_file_mask(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **names,
+                char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2350,7 +2350,7 @@ int unit_file_unmask(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **names,
+                char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2462,7 +2462,7 @@ int unit_file_link(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2564,7 +2564,7 @@ static int path_shall_revert(const LookupPaths *lp, const char *path) {
 int unit_file_revert(
                 RuntimeScope scope,
                 const char *root_dir,
-                char **names,
+                char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2721,7 +2721,7 @@ int unit_file_add_dependency(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
-                char **names,
+                char * const *names,
                 const char *target,
                 UnitDependency dep,
                 InstallChange **changes,
@@ -2793,7 +2793,7 @@ static int do_unit_file_enable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
-                char **names_or_paths,
+                char * const *names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2824,7 +2824,7 @@ int unit_file_enable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **names_or_paths,
+                char * const *names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2850,7 +2850,7 @@ static int do_unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
-                char **names,
+                char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2892,7 +2892,7 @@ int unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2916,7 +2916,7 @@ int unit_file_disable(
 static int normalize_linked_files(
                 RuntimeScope scope,
                 const LookupPaths *lp,
-                char **names_or_paths,
+                char * const *names_or_paths,
                 char ***ret_names,
                 char ***ret_files) {
 
@@ -2975,7 +2975,7 @@ int unit_file_reenable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **names_or_paths,
+                char * const *names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -3492,7 +3492,7 @@ static int execute_preset(
                 InstallContext *minus,
                 const LookupPaths *lp,
                 const char *config_path,
-                char **files,
+                char * const *files,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
                 size_t *n_changes) {
@@ -3591,7 +3591,7 @@ int unit_file_preset(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
-                char **names,
+                char * const *names,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
                 size_t *n_changes) {
