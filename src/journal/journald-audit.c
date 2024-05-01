@@ -336,9 +336,8 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
         uint64_t seconds, msec, id;
         const char *p, *type_name;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
-             type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
-             source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
-        struct iovec iovec[N_IOVEC_META_FIELDS + 8 + N_IOVEC_AUDIT_FIELDS];
+                type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_AUDIT_FIELDS];
         char *m, *type_field_name;
         int k;
 
@@ -375,10 +374,6 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=audit");
 
-        sprintf(source_time_field, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64,
-                (usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC);
-        iovec[n++] = IOVEC_MAKE_STRING(source_time_field);
-
         sprintf(type_field, "_AUDIT_TYPE=%i", type);
         iovec[n++] = IOVEC_MAKE_STRING(type_field);
 
@@ -401,7 +396,9 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
 
         map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, LOG_NOTICE, 0);
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL,
+                                TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
+                                LOG_NOTICE, 0);
 
         /* free() all entries that map_all_fields() added. All others
          * are allocated on the stack or are constant. */
