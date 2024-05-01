@@ -2377,14 +2377,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--wait</option></term>
 
         <listitem>
-          <para>Synchronously wait for started units to terminate again.
-          This option may not be combined with <option>--no-block</option>.
-          Note that this will wait forever if any given unit never terminates
-          (by itself or by getting stopped explicitly); particularly services
-          which use <literal>RemainAfterExit=yes</literal>.</para>
+          <para>When used with <command>start</command> or <command>restart</command>, synchronously wait for
+          started units to terminate again. This option may not be combined with <option>--no-block</option>.
+          Note that this will wait forever if any given unit never terminates (by itself or by getting
+          stopped explicitly); particularly services which use <literal>RemainAfterExit=yes</literal>.</para>
 
-          <para>When used with <command>is-system-running</command>, wait
-          until the boot process is completed before returning.</para>
+          <para>When used with <command>is-system-running</command>, wait until the boot process is completed
+          before returning.</para>
+
+          <para>When used with <command>kill</command>, wait until the signalled units terminate. Note that
+          this will wait forever if any given unit never terminates.</para>
 
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
