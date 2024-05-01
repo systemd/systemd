@@ -351,7 +351,7 @@ integration_tests = {
         '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
         '18': 'TEST-18-FAILUREACTION',
         '19': 'TEST-19-CGROUP',
-        # '21': 'TEST-21-DFUZZER',
+        '21': 'TEST-21-DFUZZER',
         '22': 'TEST-22-TMPFILES',
         # '23': 'TEST-23-UNIT-FILE',
         # '24': 'TEST-24-CRYPTSETUP',
@@ -370,7 +370,7 @@ integration_tests = {
         '45': 'TEST-45-TIMEDATE',
         # '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
-        # '52': 'TEST-52-HONORFIRSTSHUTDOWN',
+        '52': 'TEST-52-HONORFIRSTSHUTDOWN',
         # '53': 'TEST-53-ISSUE-16347',
         # '54': 'TEST-54-CREDS',
         # '55': 'TEST-55-OOMD',
@@ -396,7 +396,7 @@ integration_tests = {
         '79': 'TEST-79-MEMPRESS',
         '80': 'TEST-80-NOTIFYACCESS',
         '81': 'TEST-81-GENERATORS',
-        # '82': 'TEST-82-SOFTREBOOT',
+        '82': 'TEST-82-SOFTREBOOT',
         '83': 'TEST-83-BTRFS',
         '84': 'TEST-84-STORAGETM',
 }
