@@ -3694,27 +3694,24 @@ static UnitFileList* unit_file_list_free(UnitFileList *f) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-        unit_file_list_hash_ops_free,
-        char,
-        string_hash_func,
-        string_compare_func,
-        UnitFileList,
-        unit_file_list_free);
+DEFINE_HASH_OPS_FULL(unit_file_list_hash_ops_free_free,
+                     char, string_hash_func, string_compare_func, free,
+                     UnitFileList, unit_file_list_free);
 
 int unit_file_get_list(
                 RuntimeScope scope,
                 const char *root_dir,
-                Hashmap *h,
-                char **states,
-                char **patterns) {
+                char * const *states,
+                char * const *patterns,
+                Hashmap **ret) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
-        assert(h);
+        assert(ret);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3736,7 +3733,11 @@ int unit_file_get_list(
                 }
 
                 FOREACH_DIRENT(de, d, return -errno) {
-                        _cleanup_(unit_file_list_freep) UnitFileList *f = NULL;
+                        if (!IN_SET(de->d_type, DT_LNK, DT_REG))
+                                continue;
+
+                        if (hashmap_contains(h, de->d_name))
+                                continue;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -3744,33 +3745,38 @@ int unit_file_get_list(
                         if (!strv_fnmatch_or_empty(patterns, de->d_name, FNM_NOESCAPE))
                                 continue;
 
-                        if (hashmap_get(h, de->d_name))
+                        UnitFileState state;
+
+                        r = unit_file_lookup_state(scope, &lp, de->d_name, &state);
+                        if (r < 0)
+                                state = UNIT_FILE_BAD;
+
+                        if (!strv_isempty(states) &&
+                            !strv_contains(states, unit_file_state_to_string(state)))
                                 continue;
 
-                        if (!IN_SET(de->d_type, DT_LNK, DT_REG))
-                                continue;
-
-                        f = new0(UnitFileList, 1);
+                        _cleanup_(unit_file_list_freep) UnitFileList *f = new(UnitFileList, 1);
                         if (!f)
                                 return -ENOMEM;
 
-                        f->path = path_make_absolute(de->d_name, *dirname);
+                        *f = (UnitFileList) {
+                                .path = path_make_absolute(de->d_name, *dirname),
+                                .state = state,
+                        };
                         if (!f->path)
                                 return -ENOMEM;
 
-                        r = unit_file_lookup_state(scope, &lp, de->d_name, &f->state);
-                        if (r < 0)
-                                f->state = UNIT_FILE_BAD;
+                        _cleanup_free_ char *unit_name = strdup(de->d_name);
+                        if (!unit_name)
+                                return -ENOMEM;
 
-                        if (!strv_isempty(states) &&
-                            !strv_contains(states, unit_file_state_to_string(f->state)))
-                                continue;
-
-                        r = hashmap_put(h, basename(f->path), f);
+                        r = hashmap_ensure_put(h, unit_name, f);
                         if (r < 0)
                                 return r;
+                        assert(r > 0);
 
-                        f = NULL; /* prevent cleanup */
+                        TAKE_PTR(unit_name);
+                        TAKE_PTR(f);
                 }
         }
 
