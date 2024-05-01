@@ -2423,7 +2423,7 @@ static int reply_install_changes_and_free(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
@@ -2488,7 +2488,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, error);
 }
 
-static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
+static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
