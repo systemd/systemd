@@ -1175,16 +1175,19 @@ static int install_info_add(
                 bool auxiliary,
                 InstallInfo **ret) {
 
+        _cleanup_free_ char *name_alloc = NULL;
         int r;
 
         assert(ctx);
 
         if (!name) {
-                /* 'name' and 'path' must not both be null. Check here 'path' using assert_se() to
-                 * workaround a bug in gcc that generates a -Wnonnull warning when calling basename(),
-                 * but this cannot be possible in any code path (See #6119). */
-                assert_se(path);
-                name = basename(path);
+                assert(path);
+
+                r = path_extract_filename(path, &name_alloc);
+                if (r < 0)
+                        return r;
+
+                name = name_alloc;
         }
 
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
@@ -1199,35 +1202,35 @@ static int install_info_add(
                 return 0;
         }
 
-        _cleanup_(install_info_freep) InstallInfo *alloc = new(InstallInfo, 1);
-        if (!alloc)
+        _cleanup_(install_info_freep) InstallInfo *new_info = new(InstallInfo, 1);
+        if (!new_info)
                 return -ENOMEM;
 
-        *alloc = (InstallInfo) {
+        *new_info = (InstallInfo) {
                 .install_mode = _INSTALL_MODE_INVALID,
                 .auxiliary = auxiliary,
         };
 
-        alloc->name = strdup(name);
-        if (!alloc->name)
-                return -ENOMEM;
-
-        if (root) {
-                alloc->root = strdup(root);
-                if (!alloc->root)
+        if (name_alloc)
+                new_info->name = TAKE_PTR(name_alloc);
+        else {
+                new_info->name = strdup(name);
+                if (!new_info->name)
                         return -ENOMEM;
         }
 
-        if (path) {
-                alloc->path = strdup(path);
-                if (!alloc->path)
-                        return -ENOMEM;
-        }
-
-        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, alloc->name, alloc);
+        r = strdup_to(&new_info->root, root);
         if (r < 0)
                 return r;
-        i = TAKE_PTR(alloc);
+
+        r = strdup_to(&new_info->path, path);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, new_info->name, new_info);
+        if (r < 0)
+                return r;
+        i = TAKE_PTR(new_info);
 
         if (ret)
                 *ret = i;
