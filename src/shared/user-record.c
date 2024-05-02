@@ -1401,7 +1401,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
                 { "lastBadAuthenticationUSec",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, last_bad_authentication_usec),  0         },
                 { "rateLimitBeginUSec",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_begin_usec),          0         },
                 { "rateLimitCount",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_count),               0         },
-                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, removable),                     0         },
+                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,         offsetof(UserRecord, removable),                     0         },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0         },
                 { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 { "fallbackShell",              JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0         },
