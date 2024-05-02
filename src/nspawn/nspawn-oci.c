@@ -417,7 +417,7 @@ static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags
                 { "rlimits",         JSON_VARIANT_ARRAY,   oci_rlimits,           0,                                     0               },
                 { "apparmorProfile", JSON_VARIANT_STRING,  oci_unsupported,       0,                                     JSON_PERMISSIVE },
                 { "capabilities",    JSON_VARIANT_OBJECT,  oci_capabilities,      0,                                     0               },
-                { "noNewPrivileges", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(Settings, no_new_privileges), 0               },
+                { "noNewPrivileges", JSON_VARIANT_BOOLEAN, json_dispatch_tristate,offsetof(Settings, no_new_privileges), 0               },
                 { "oomScoreAdj",     JSON_VARIANT_INTEGER, oci_oom_score_adj,     0,                                     0               },
                 { "selinuxLabel",    JSON_VARIANT_STRING,  oci_unsupported,       0,                                     JSON_PERMISSIVE },
                 { "user",            JSON_VARIANT_OBJECT,  oci_user,              0,                                     0               },
@@ -433,7 +433,7 @@ static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
 
         static const JsonDispatch table[] = {
                 { "path",     JSON_VARIANT_STRING,  json_dispatch_string,  offsetof(Settings, root)      },
-                { "readonly", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(Settings, read_only) },
+                { "readonly", JSON_VARIANT_BOOLEAN, json_dispatch_tristate,offsetof(Settings, read_only) },
                 {}
         };
 
