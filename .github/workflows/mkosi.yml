@@ -130,8 +130,6 @@ jobs:
         tee mkosi.conf.d/99-ci.conf <<EOF
         [Host]
         KernelCommandLineExtra=
-                # udev's debug log output is very verbose, so up it to info in CI.
-                udev.log_level=info
                 # Root device can take a long time to appear, so let's bump the timeout.
                 systemd.default_device_timeout_sec=180
         EOF
