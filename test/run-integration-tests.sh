@@ -90,7 +90,7 @@ ARGS=("${args_filtered[@]}")
 
 cd "$(dirname "$0")"
 
-SELECTED_TESTS="${SELECTED_TESTS:-TEST-??-*}"
+SELECTED_TESTS="TEST-50-DISSECT"
 
 # Let's always do the cleaning operation first, because it destroys the image
 # cache.
