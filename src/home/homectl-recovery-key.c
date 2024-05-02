@@ -3,6 +3,7 @@
 #include "errno-util.h"
 #include "glyph-util.h"
 #include "homectl-recovery-key.h"
+#include "json-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
@@ -11,46 +12,46 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-static int add_privileged(JsonVariant **v, const char *hashed) {
-        _cleanup_(json_variant_unrefp) JsonVariant *e = NULL, *w = NULL, *l = NULL;
+static int add_privileged(sd_json_variant **v, const char *hashed) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL, *w = NULL, *l = NULL;
         int r;
 
         assert(v);
         assert(hashed);
 
-        r = json_build(&e, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("modhex64")),
-                                       JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_STRING(hashed))));
+        r = sd_json_build(&e, SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("modhex64")),
+                                       SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build recover key JSON object: %m");
 
-        json_variant_sensitive(e);
+        sd_json_variant_sensitive(e);
 
-        w = json_variant_ref(json_variant_by_key(*v, "privileged"));
-        l = json_variant_ref(json_variant_by_key(w, "recoveryKey"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(*v, "privileged"));
+        l = sd_json_variant_ref(sd_json_variant_by_key(w, "recoveryKey"));
 
-        r = json_variant_append_array(&l, e);
+        r = sd_json_variant_append_array(&l, e);
         if (r < 0)
                 return log_error_errno(r, "Failed append recovery key: %m");
 
-        r = json_variant_set_field(&w, "recoveryKey", l);
+        r = sd_json_variant_set_field(&w, "recoveryKey", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to set recovery key array: %m");
 
-        r = json_variant_set_field(v, "privileged", w);
+        r = sd_json_variant_set_field(v, "privileged", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update privileged field: %m");
 
         return 0;
 }
 
-static int add_public(JsonVariant **v) {
+static int add_public(sd_json_variant **v) {
         _cleanup_strv_free_ char **types = NULL;
         int r;
 
         assert(v);
 
-        r = json_variant_strv(json_variant_by_key(*v, "recoveryKeyType"), &types);
+        r = sd_json_variant_strv(sd_json_variant_by_key(*v, "recoveryKeyType"), &types);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse recovery key type list: %m");
 
@@ -58,25 +59,25 @@ static int add_public(JsonVariant **v) {
         if (r < 0)
                 return log_oom();
 
-        r = json_variant_set_field_strv(v, "recoveryKeyType", types);
+        r = sd_json_variant_set_field_strv(v, "recoveryKeyType", types);
         if (r < 0)
                 return log_error_errno(r, "Failed to update recovery key types: %m");
 
         return 0;
 }
 
-static int add_secret(JsonVariant **v, const char *password) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *l = NULL;
+static int add_secret(sd_json_variant **v, const char *password) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL, *l = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
         int r;
 
         assert(v);
         assert(password);
 
-        w = json_variant_ref(json_variant_by_key(*v, "secret"));
-        l = json_variant_ref(json_variant_by_key(w, "password"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(*v, "secret"));
+        l = sd_json_variant_ref(sd_json_variant_by_key(w, "password"));
 
-        r = json_variant_strv(l, &passwords);
+        r = sd_json_variant_strv(l, &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert password array: %m");
 
@@ -84,24 +85,24 @@ static int add_secret(JsonVariant **v, const char *password) {
         if (r < 0)
                 return log_oom();
 
-        r = json_variant_new_array_strv(&l, passwords);
+        r = sd_json_variant_new_array_strv(&l, passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate new password array JSON: %m");
 
-        json_variant_sensitive(l);
+        sd_json_variant_sensitive(l);
 
-        r = json_variant_set_field(&w, "password", l);
+        r = sd_json_variant_set_field(&w, "password", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update password field: %m");
 
-        r = json_variant_set_field(v, "secret", w);
+        r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update secret object: %m");
 
         return 0;
 }
 
-int identity_add_recovery_key(JsonVariant **v) {
+int identity_add_recovery_key(sd_json_variant **v) {
         _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
 

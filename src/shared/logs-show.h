@@ -11,6 +11,7 @@
 
 #include "macro.h"
 #include "output-mode.h"
+#include "set.h"
 #include "time-util.h"
 
 typedef struct BootId {
