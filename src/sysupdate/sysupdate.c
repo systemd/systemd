@@ -38,7 +38,7 @@
 static char *arg_definitions = NULL;
 bool arg_sync = true;
 uint64_t arg_instances_max = UINT64_MAX;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 char *arg_root = NULL;
@@ -485,10 +485,10 @@ static int context_show_version(Context *c, const char *version) {
         if (!us)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
 
-        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+        if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 (void) pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s\n"

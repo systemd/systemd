@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "json.h"
+#include "sd-json.h"
 
 /* This header should include all prototypes only the JSON parser itself and
  * its tests need access to. Normal code consuming the JSON parser should not
@@ -23,31 +23,31 @@ assert_cc(sizeof(JsonValue) == 8U);
 
 #define JSON_VALUE_NULL ((JsonValue) {})
 
-/* We use fake JsonVariant objects for some special values, in order to avoid memory allocations for them. Note that
+/* We use fake sd_json_variant objects for some special values, in order to avoid memory allocations for them. Note that
  * effectively this means that there are multiple ways to encode the same objects: via these magic values or as
- * properly allocated JsonVariant. We convert between both on-the-fly as necessary. */
+ * properly allocated sd_json_variant. We convert between both on-the-fly as necessary. */
 enum
 {
  _JSON_VARIANT_MAGIC_TRUE = 1,
-#define JSON_VARIANT_MAGIC_TRUE ((JsonVariant*) _JSON_VARIANT_MAGIC_TRUE)
+#define JSON_VARIANT_MAGIC_TRUE ((sd_json_variant*) _JSON_VARIANT_MAGIC_TRUE)
  _JSON_VARIANT_MAGIC_FALSE,
-#define JSON_VARIANT_MAGIC_FALSE ((JsonVariant*) _JSON_VARIANT_MAGIC_FALSE)
+#define JSON_VARIANT_MAGIC_FALSE ((sd_json_variant*) _JSON_VARIANT_MAGIC_FALSE)
  _JSON_VARIANT_MAGIC_NULL,
-#define JSON_VARIANT_MAGIC_NULL ((JsonVariant*) _JSON_VARIANT_MAGIC_NULL)
+#define JSON_VARIANT_MAGIC_NULL ((sd_json_variant*) _JSON_VARIANT_MAGIC_NULL)
  _JSON_VARIANT_MAGIC_ZERO_INTEGER,
-#define JSON_VARIANT_MAGIC_ZERO_INTEGER ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_INTEGER)
+#define JSON_VARIANT_MAGIC_ZERO_INTEGER ((sd_json_variant*) _JSON_VARIANT_MAGIC_ZERO_INTEGER)
  _JSON_VARIANT_MAGIC_ZERO_UNSIGNED,
-#define JSON_VARIANT_MAGIC_ZERO_UNSIGNED ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_UNSIGNED)
+#define JSON_VARIANT_MAGIC_ZERO_UNSIGNED ((sd_json_variant*) _JSON_VARIANT_MAGIC_ZERO_UNSIGNED)
  _JSON_VARIANT_MAGIC_ZERO_REAL,
-#define JSON_VARIANT_MAGIC_ZERO_REAL ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_REAL)
+#define JSON_VARIANT_MAGIC_ZERO_REAL ((sd_json_variant*) _JSON_VARIANT_MAGIC_ZERO_REAL)
  _JSON_VARIANT_MAGIC_EMPTY_STRING,
-#define JSON_VARIANT_MAGIC_EMPTY_STRING ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_STRING)
+#define JSON_VARIANT_MAGIC_EMPTY_STRING ((sd_json_variant*) _JSON_VARIANT_MAGIC_EMPTY_STRING)
  _JSON_VARIANT_MAGIC_EMPTY_ARRAY,
-#define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_ARRAY)
+#define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((sd_json_variant*) _JSON_VARIANT_MAGIC_EMPTY_ARRAY)
  _JSON_VARIANT_MAGIC_EMPTY_OBJECT,
-#define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_OBJECT)
+#define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((sd_json_variant*) _JSON_VARIANT_MAGIC_EMPTY_OBJECT)
  __JSON_VARIANT_MAGIC_MAX
-#define _JSON_VARIANT_MAGIC_MAX ((JsonVariant*) __JSON_VARIANT_MAGIC_MAX)
+#define _JSON_VARIANT_MAGIC_MAX ((sd_json_variant*) __JSON_VARIANT_MAGIC_MAX)
 };
 
 /* This is only safe as long as we don't define more than 4K magic pointers, i.e. the page size of the simplest
