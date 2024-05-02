@@ -249,8 +249,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *device_key,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
-                const char *pubkey_path,
-                bool load_pubkey,
+                const char *pcr_pubkey_path,
+                bool load_pcr_pubkey,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
@@ -307,10 +307,13 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
-        if (load_pubkey) {
-                r = tpm2_load_pcr_public_key(pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
+        /* Load the PCR public key if specified explicitly, or if no pcrlock policy was specified and
+         * automatic loading of PCR public keys wasn't disabled explicitly. The reason we turn this off when
+         * pcrlock is configured is simply that we currently not support both in combination. */
+        if (pcr_pubkey_path || (load_pcr_pubkey && !pcrlock_path)) {
+                r = tpm2_load_pcr_public_key(pcr_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
-                        if (pubkey_path || signature_path || r != -ENOENT)
+                        if (pcr_pubkey_path || signature_path || r != -ENOENT)
                                 return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                         log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
