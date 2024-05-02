@@ -12,13 +12,13 @@
 
 static FILE *null = NULL;
 
-static int method_something(Varlink *v, JsonVariant *p, VarlinkMethodFlags flags, void *userdata) {
-        json_variant_dump(p, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, null, NULL);
+static int method_something(Varlink *v, sd_json_variant *p, VarlinkMethodFlags flags, void *userdata) {
+        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, NULL);
         return 0;
 }
 
-static int reply_callback(Varlink *v, JsonVariant *p, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
-        json_variant_dump(p, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, null, NULL);
+static int reply_callback(Varlink *v, sd_json_variant *p, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, NULL);
         return 0;
 }
 

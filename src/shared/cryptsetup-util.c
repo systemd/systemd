@@ -173,9 +173,9 @@ int cryptsetup_get_token_as_json(
                 struct crypt_device *cd,
                 int idx,
                 const char *verify_type,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *text;
         int r;
 
@@ -197,18 +197,18 @@ int cryptsetup_get_token_as_json(
         if (r < 0)
                 return r;
 
-        r = json_parse(text, 0, &v, NULL, NULL);
+        r = sd_json_parse(text, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
         if (verify_type) {
-                JsonVariant *w;
+                sd_json_variant *w;
 
-                w = json_variant_by_key(v, "type");
+                w = sd_json_variant_by_key(v, "type");
                 if (!w)
                         return -EINVAL;
 
-                if (!streq_ptr(json_variant_string(w), verify_type))
+                if (!streq_ptr(sd_json_variant_string(w), verify_type))
                         return -EMEDIUMTYPE;
         }
 
@@ -218,7 +218,7 @@ int cryptsetup_get_token_as_json(
         return 0;
 }
 
-int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
+int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -226,7 +226,7 @@ int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
         if (r < 0)
                 return r;
 
-        r = json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format token data for LUKS: %m");
 
@@ -325,27 +325,27 @@ int dlopen_cryptsetup(void) {
 #endif
 }
 
-int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
+int cryptsetup_get_keyslot_from_token(sd_json_variant *v) {
         int keyslot, r;
-        JsonVariant *w;
+        sd_json_variant *w;
 
         /* Parses the "keyslots" field of a LUKS2 token object. The field can be an array, but here we assume
          * that it contains a single element only, since that's the only way we ever generate it
          * ourselves. */
 
-        w = json_variant_by_key(v, "keyslots");
+        w = sd_json_variant_by_key(v, "keyslots");
         if (!w)
                 return -ENOENT;
-        if (!json_variant_is_array(w) || json_variant_elements(w) != 1)
+        if (!sd_json_variant_is_array(w) || sd_json_variant_elements(w) != 1)
                 return -EMEDIUMTYPE;
 
-        w = json_variant_by_index(w, 0);
+        w = sd_json_variant_by_index(w, 0);
         if (!w)
                 return -ENOENT;
-        if (!json_variant_is_string(w))
+        if (!sd_json_variant_is_string(w))
                 return -EMEDIUMTYPE;
 
-        r = safe_atoi(json_variant_string(w), &keyslot);
+        r = safe_atoi(sd_json_variant_string(w), &keyslot);
         if (r < 0)
                 return r;
         if (keyslot < 0)

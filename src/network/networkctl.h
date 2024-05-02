@@ -17,7 +17,7 @@ extern bool arg_full;
 extern bool arg_runtime;
 extern unsigned arg_lines;
 extern char *arg_drop_in;
-extern JsonFormatFlags arg_json_format_flags;
+extern sd_json_format_flags_t arg_json_format_flags;
 
 bool networkd_is_running(void);
 int acquire_bus(sd_bus **ret);
