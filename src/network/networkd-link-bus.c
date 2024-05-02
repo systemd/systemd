@@ -680,7 +680,7 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
 
 int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         Link *link = ASSERT_PTR(userdata);
         int r;
@@ -691,7 +691,7 @@ int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to build JSON data: %m");
 
-        r = json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to format JSON data: %m");
 

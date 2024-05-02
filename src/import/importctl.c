@@ -42,7 +42,7 @@ static bool arg_quiet = false;
 static bool arg_ask_password = true;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
 
 #define PROGRESS_PREFIX "Total: "
@@ -932,7 +932,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, read_only ? "ro" : "rw",
@@ -1151,7 +1151,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         arg_legend = false;
                         break;
 
