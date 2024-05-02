@@ -220,6 +220,34 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment Variables</title>
+
+    <para>As with <literal>systemd-run</literal>, the session will inherit the system
+    environment from systemd. In addition, the following environment variables will be set:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>TERM</term>
+        <listitem><para>Forwarded from the caller of run0. Can be overriden with <option>--setenv</option></para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>SUDO_USER</term>
+        <listitem><para>Set to the username of the originating user.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>SUDO_UID</term>
+        <listitem><para>Set to the user id of the originating user.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>SUDO_GID</term>
+        <listitem><para>Set to the primary group id of the originating session.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
