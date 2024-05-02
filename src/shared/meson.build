@@ -96,7 +96,6 @@ shared_sources = files(
         'journal-file-util.c',
         'journal-importer.c',
         'journal-util.c',
-        'json.c',
         'kbd-util.c',
         'kernel-config.c',
         'kernel-image.c',

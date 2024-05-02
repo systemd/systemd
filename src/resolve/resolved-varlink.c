@@ -2,6 +2,7 @@
 
 #include "glyph-util.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-varlink.h"
 #include "socket-netlink.h"
@@ -60,11 +61,11 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSSECValidationFailed",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("result", JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
-                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
-                                                                                  "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
-                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
-                                                                                  "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg))));
+                                      SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
+                                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
+                                                                                  "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                  "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg))));
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
                 return varlink_error(q->varlink_request, "io.systemd.Resolve.NoTrustAnchor", NULL);
@@ -85,15 +86,15 @@ static int reply_query_state(DnsQuery *q) {
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(DNS_RCODE_NXDOMAIN))));
+                                      SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("rcode", SD_JSON_BUILD_INTEGER(DNS_RCODE_NXDOMAIN))));
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode)),
-                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
-                                                                                  "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
-                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
-                                                                                  "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg))));
+                                      SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("rcode", SD_JSON_BUILD_INTEGER(q->answer_rcode)),
+                                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
+                                                                                  "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                  "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg))));
 
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
@@ -181,7 +182,7 @@ static bool validate_and_mangle_flags(
 }
 
 static int find_addr_records(
-                JsonVariant **array,
+                sd_json_variant **array,
                 DnsQuestion *question,
                 DnsQuery *q,
                 DnsResourceRecord **canonical,
@@ -190,7 +191,7 @@ static int find_addr_records(
         int ifindex, r;
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int family;
                 const void *p;
 
@@ -210,15 +211,15 @@ static int find_addr_records(
                         return -EAFNOSUPPORT;
                 }
 
-                r = json_build(&entry,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                               JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
-                                               JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
+                r = sd_json_build(&entry,
+                               SD_JSON_BUILD_OBJECT(
+                                               SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
+                                               SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(family)),
+                                               SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(array, entry);
+                r = sd_json_variant_append_array(array, entry);
                 if (r < 0)
                         return r;
 
@@ -231,7 +232,7 @@ static int find_addr_records(
 
 static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = query;
         _cleanup_free_ char *normalized = NULL;
         DnsQuestion *question;
@@ -263,7 +264,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
-        if (json_variant_is_blank_object(array)) {
+        if (sd_json_variant_is_blank_object(array)) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
                 goto finish;
         }
@@ -274,10 +275,10 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         r = varlink_replyb(q->varlink_request,
-                           JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
-                                           JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
+                           SD_JSON_BUILD_OBJECT(
+                                           SD_JSON_BUILD_PAIR("addresses", SD_JSON_BUILD_VARIANT(array)),
+                                           SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(normalized)),
+                                           SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send hostname reply: %m");
@@ -312,24 +313,24 @@ static int parse_as_address(Varlink *link, LookupParameters *p) {
 
         return varlink_replyb(
                         link,
-                        JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR("addresses",
-                                        JSON_BUILD_ARRAY(
-                                                JSON_BUILD_OBJECT(
-                                                        JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                        JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(ff)),
-                                                        JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
-                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(canonical)),
-                                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
+                        SD_JSON_BUILD_OBJECT(
+                                SD_JSON_BUILD_PAIR("addresses",
+                                        SD_JSON_BUILD_ARRAY(
+                                                SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
+                                                        SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(ff)),
+                                                        SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
+                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(canonical)),
+                                SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
                                                                             SD_RESOLVED_SYNTHETIC))));
 }
 
-static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,    offsetof(LookupParameters, ifindex), 0              },
-                { "name",    JSON_VARIANT_STRING,        json_dispatch_string, offsetof(LookupParameters, name),    JSON_MANDATORY },
-                { "family",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,    offsetof(LookupParameters, family),  0              },
-                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(LookupParameters, flags),   0              },
+static int vl_method_resolve_hostname(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -397,28 +398,28 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         return 1;
 }
 
-static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         LookupParameters *p = ASSERT_PTR(userdata);
         union in_addr_union buf = {};
-        JsonVariant *i;
+        sd_json_variant *i;
         size_t n, k = 0;
 
         assert(variant);
 
-        if (!json_variant_is_array(variant))
+        if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        n = json_variant_elements(variant);
+        n = sd_json_variant_elements(variant);
         if (!IN_SET(n, 4, 16))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
                 int64_t b;
 
-                if (!json_variant_is_integer(i))
+                if (!sd_json_variant_is_integer(i))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
 
-                b = json_variant_integer(i);
+                b = sd_json_variant_integer(i);
                 if (b < 0 || b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
@@ -434,7 +435,7 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
 }
 
 static void vl_method_resolve_address_complete(DnsQuery *query) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
@@ -475,24 +476,24 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
                 if (r < 0)
                         goto finish;
 
-                r = json_variant_append_arrayb(
+                r = sd_json_variant_append_arrayb(
                                 &array,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
+                                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(normalized))));
                 if (r < 0)
                         goto finish;
         }
 
-        if (json_variant_is_blank_object(array)) {
+        if (sd_json_variant_is_blank_object(array)) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
                 goto finish;
         }
 
         r = varlink_replyb(q->varlink_request,
-                           JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR("names", JSON_BUILD_VARIANT(array)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
+                           SD_JSON_BUILD_OBJECT(
+                                           SD_JSON_BUILD_PAIR("names", SD_JSON_BUILD_VARIANT(array)),
+                                           SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send address reply: %m");
@@ -500,12 +501,12 @@ finish:
         }
 }
 
-static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,     offsetof(LookupParameters, ifindex), 0              },
-                { "family",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,     offsetof(LookupParameters, family),  JSON_MANDATORY },
-                { "address", JSON_VARIANT_ARRAY,         json_dispatch_address, 0,                                   JSON_MANDATORY },
-                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,  offsetof(LookupParameters, flags),   0              },
+static int vl_method_resolve_address(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  SD_JSON_MANDATORY },
+                { "address", SD_JSON_VARIANT_ARRAY,         json_dispatch_address,   0,                                   SD_JSON_MANDATORY },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -564,7 +565,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
-static int append_txt(JsonVariant **txt, DnsResourceRecord *rr) {
+static int append_txt(sd_json_variant **txt, DnsResourceRecord *rr) {
         int r;
 
         assert(txt);
@@ -575,16 +576,16 @@ static int append_txt(JsonVariant **txt, DnsResourceRecord *rr) {
                 return 0;
 
         LIST_FOREACH(items, i, rr->txt.items) {
-                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
 
                 if (i->length <= 0)
                         continue;
 
-                r = json_variant_new_octescape(&entry, i->data, i->length);
+                r = sd_json_variant_new_octescape(&entry, i->data, i->length);
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(txt, entry);
+                r = sd_json_variant_append_array(txt, entry);
                 if (r < 0)
                         return r;
         }
@@ -595,10 +596,10 @@ static int append_txt(JsonVariant **txt, DnsResourceRecord *rr) {
 static int append_srv(
                 DnsQuery *q,
                 DnsResourceRecord *rr,
-                JsonVariant **array) {
+                sd_json_variant **array) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *normalized = NULL;
         int r;
 
@@ -654,12 +655,12 @@ static int append_srv(
         if (r < 0)
                 return r;
 
-        r = json_build(&v,
-                       JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->srv.priority)),
-                                        JSON_BUILD_PAIR("weight", JSON_BUILD_UNSIGNED(rr->srv.weight)),
-                                        JSON_BUILD_PAIR("port", JSON_BUILD_UNSIGNED(rr->srv.port)),
-                                        JSON_BUILD_PAIR("hostname", JSON_BUILD_STRING(normalized))));
+        r = sd_json_build(&v,
+                       SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->srv.priority)),
+                                        SD_JSON_BUILD_PAIR("weight", SD_JSON_BUILD_UNSIGNED(rr->srv.weight)),
+                                        SD_JSON_BUILD_PAIR("port", SD_JSON_BUILD_UNSIGNED(rr->srv.port)),
+                                        SD_JSON_BUILD_PAIR("hostname", SD_JSON_BUILD_STRING(normalized))));
         if (r < 0)
                 return r;
 
@@ -670,13 +671,13 @@ static int append_srv(
                 if (r < 0)
                         return r;
 
-                r = json_variant_set_field_string(&v, "canonicalName", normalized);
+                r = sd_json_variant_set_field_string(&v, "canonicalName", normalized);
                 if (r < 0)
                         return r;
         }
 
         if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
-                _cleanup_(json_variant_unrefp) JsonVariant *addresses = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *addresses = NULL;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
                         DnsQuestion *question;
@@ -699,12 +700,12 @@ static int append_srv(
                                 return r;
                 }
 
-                r = json_variant_set_field(&v, "addresses", addresses);
+                r = sd_json_variant_set_field(&v, "addresses", addresses);
                 if (r < 0)
                         return r;
         }
 
-        r = json_variant_append_array(array, v);
+        r = sd_json_variant_append_array(array, v);
         if (r < 0)
                 return r;
 
@@ -723,7 +724,7 @@ static Varlink *get_vl_link_aux_query(DnsQuery *aux) {
 
 static void resolve_service_all_complete(DnsQuery *query) {
         _cleanup_(dns_query_freep) DnsQuery *q = query;
-        _cleanup_(json_variant_unrefp) JsonVariant *srv = NULL, *txt = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *srv = NULL, *txt = NULL;
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         DnsQuestion *question;
@@ -804,7 +805,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                         canonical = dns_resource_record_ref(rr);
         }
 
-        if (json_variant_is_blank_object(srv)) {
+        if (sd_json_variant_is_blank_object(srv)) {
                 r = varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
                 goto finish;
         }
@@ -829,14 +830,14 @@ static void resolve_service_all_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
-        r = varlink_replyb(query->varlink_request, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("services", JSON_BUILD_VARIANT(srv)),
-                                        JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_object(txt), "txt", JSON_BUILD_VARIANT(txt)),
-                                        JSON_BUILD_PAIR("canonical", JSON_BUILD_OBJECT(
-                                                                        JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name)),
-                                                                        JSON_BUILD_PAIR("type", JSON_BUILD_STRING(type)),
-                                                                        JSON_BUILD_PAIR("domain", JSON_BUILD_STRING(domain)))),
-                                        JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(dns_query_reply_flags_make(query)))));
+        r = varlink_replyb(query->varlink_request, SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("services", SD_JSON_BUILD_VARIANT(srv)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(txt), "txt", SD_JSON_BUILD_VARIANT(txt)),
+                                        SD_JSON_BUILD_PAIR("canonical", SD_JSON_BUILD_OBJECT(
+                                                                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
+                                                                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type)),
+                                                                        SD_JSON_BUILD_PAIR("domain", SD_JSON_BUILD_STRING(domain)))),
+                                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(dns_query_reply_flags_make(query)))));
 
 finish:
         if (r < 0) {
@@ -990,14 +991,14 @@ finish:
         }
 }
 
-static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, VarlinkMethodFlags flags, void* userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "name",    JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0              },
-                { "type",    JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0              },
-                { "domain",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  JSON_MANDATORY },
-                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex), 0              },
-                { "family",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0              },
-                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0              },
+static int vl_method_resolve_service(Varlink* link, sd_json_variant* parameters, VarlinkMethodFlags flags, void* userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0              },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0              },
+                { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  SD_JSON_MANDATORY },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex), 0              },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0              },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0              },
                 {}
         };
 
@@ -1077,7 +1078,7 @@ static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, Var
 }
 
 static void vl_method_resolve_record_complete(DnsQuery *query) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = query;
         DnsQuestion *question;
         int r;
@@ -1108,7 +1109,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         int ifindex;
         DnsResourceRecord *rr;
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 r = dns_question_matches_rr(question, rr, NULL);
                 if (r < 0)
@@ -1124,11 +1125,11 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
                 if (r < 0)
                         goto finish;
 
-                r = json_variant_append_arrayb(
+                r = sd_json_variant_append_arrayb(
                                 &array,
-                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                  JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
-                                                  JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rr->wire_format, rr->wire_format_size))));
+                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
+                                                  SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
+                                                  SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rr->wire_format, rr->wire_format_size))));
                 if (r < 0)
                         goto finish;
 
@@ -1141,9 +1142,9 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         }
 
         r = varlink_replyb(q->varlink_request,
-                           JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR("rrs", JSON_BUILD_VARIANT(array)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
+                           SD_JSON_BUILD_OBJECT(
+                                           SD_JSON_BUILD_PAIR("rrs", SD_JSON_BUILD_VARIANT(array)),
+                                           SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send record reply: %m");
@@ -1151,13 +1152,13 @@ finish:
         }
 }
 
-static int vl_method_resolve_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,    offsetof(LookupParameters, ifindex), 0              },
-                { "name",    JSON_VARIANT_STRING,        json_dispatch_string, offsetof(LookupParameters, name),    JSON_MANDATORY },
-                { "class",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(LookupParameters, class),  0              },
-                { "type",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(LookupParameters, type),   JSON_MANDATORY },
-                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(LookupParameters, flags),   0              },
+static int vl_method_resolve_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, class),   0                 },
+                { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -1228,7 +1229,7 @@ static int vl_method_resolve_record(Varlink *link, JsonVariant *parameters, Varl
         return 1;
 }
 
-static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_subscribe_query_results(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
         int r;
 
@@ -1240,13 +1241,13 @@ static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *paramet
         if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
                 return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         /* Send a ready message to the connecting client, to indicate that we are now listinening, and all
          * queries issued after the point the client sees this will also be reported to the client. */
         r = varlink_notifyb(link,
-                            JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ready", JSON_BUILD_BOOLEAN(true))));
+                            SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("ready", SD_JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
                 return log_error_errno(r, "Failed to report monitor to be established: %m");
 
@@ -1260,42 +1261,42 @@ static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *paramet
         return 1;
 }
 
-static int vl_method_dump_cache(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *list = NULL;
+static int vl_method_dump_cache(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
         Manager *m;
         int r;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
 
         LIST_FOREACH(scopes, s, m->dns_scopes) {
-                _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
                 r = dns_scope_dump_cache_to_json(s, &j);
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(&list, j);
+                r = sd_json_variant_append_array(&list, j);
                 if (r < 0)
                         return r;
         }
 
         if (!list) {
-                r = json_variant_new_array(&list, NULL, 0);
+                r = sd_json_variant_new_array(&list, NULL, 0);
                 if (r < 0)
                         return r;
         }
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR("dump", JSON_BUILD_VARIANT(list))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR("dump", SD_JSON_BUILD_VARIANT(list))));
 }
 
-static int dns_server_dump_state_to_json_list(DnsServer *server, JsonVariant **list) {
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant **list) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         int r;
 
         assert(list);
@@ -1305,18 +1306,18 @@ static int dns_server_dump_state_to_json_list(DnsServer *server, JsonVariant **l
         if (r < 0)
                 return r;
 
-        return json_variant_append_array(list, j);
+        return sd_json_variant_append_array(list, j);
 }
 
-static int vl_method_dump_server_state(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *list = NULL;
+static int vl_method_dump_server_state(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
         Manager *m;
         int r;
         Link *l;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
@@ -1341,23 +1342,23 @@ static int vl_method_dump_server_state(Varlink *link, JsonVariant *parameters, V
                 }
 
         if (!list) {
-                r = json_variant_new_array(&list, NULL, 0);
+                r = sd_json_variant_new_array(&list, NULL, 0);
                 if (r < 0)
                         return r;
         }
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR("dump", JSON_BUILD_VARIANT(list))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR("dump", SD_JSON_BUILD_VARIANT(list))));
 }
 
-static int vl_method_dump_statistics(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+static int vl_method_dump_statistics(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         Manager *m;
         int r;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
@@ -1366,22 +1367,22 @@ static int vl_method_dump_statistics(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, JSON_BUILD_VARIANT(j));
+        return varlink_replyb(link, SD_JSON_BUILD_VARIANT(j));
 }
 
-static int vl_method_reset_statistics(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_reset_statistics(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
 
         dns_manager_reset_statistics(m);
 
-        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+        return varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
 static int varlink_monitor_server_init(Manager *m) {

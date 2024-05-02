@@ -252,15 +252,15 @@ TEST(validate_json) {
         assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-        assert_se(json_build(&v, JSON_BUILD_OBJECT(
-                                             JSON_BUILD_PAIR("a", JSON_BUILD_STRING("x")),
-                                             JSON_BUILD_PAIR("b", JSON_BUILD_UNSIGNED(44)),
-                                             JSON_BUILD_PAIR("d", JSON_BUILD_ARRAY(JSON_BUILD_UNSIGNED(5), JSON_BUILD_UNSIGNED(7), JSON_BUILD_UNSIGNED(107))),
-                                             JSON_BUILD_PAIR("g", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("f", JSON_BUILD_REAL(0.5f)))))) >= 0);
+        assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("x")),
+                                             SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_UNSIGNED(44)),
+                                             SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(5), SD_JSON_BUILD_UNSIGNED(7), SD_JSON_BUILD_UNSIGNED(107))),
+                                             SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("f", SD_JSON_BUILD_REAL(0.5f)))))) >= 0);
 
-        json_variant_dump(v, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, stdout, NULL);
+        sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stdout, NULL);
 
         const VarlinkSymbol* symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, VARLINK_METHOD, "Mymethod"));
 
@@ -296,16 +296,16 @@ TEST(recursive) {
         assert_se(test_recursive_one(20000) < 0 );
 }
 
-static int test_method(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        JsonVariant *foo = json_variant_by_key(parameters, "foo"), *bar = json_variant_by_key(parameters, "bar");
+static int test_method(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        sd_json_variant *foo = sd_json_variant_by_key(parameters, "foo"), *bar = sd_json_variant_by_key(parameters, "bar");
 
         return varlink_replyb(link,
-                              JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_UNSIGNED("waldo", json_variant_unsigned(foo) * json_variant_unsigned(bar)),
-                                              JSON_BUILD_PAIR_UNSIGNED("quux", json_variant_unsigned(foo) + json_variant_unsigned(bar))));
+                              SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR_UNSIGNED("waldo", sd_json_variant_unsigned(foo) * sd_json_variant_unsigned(bar)),
+                                              SD_JSON_BUILD_PAIR_UNSIGNED("quux", sd_json_variant_unsigned(foo) + sd_json_variant_unsigned(bar))));
 }
 
-static int done_method(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int done_method(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         assert_se(sd_event_exit(varlink_get_event(link), 0) >= 0);
         return 0;
 }
@@ -354,45 +354,45 @@ TEST(validate_method_call) {
         assert_se(pthread_create(&t, NULL, server_thread, FD_TO_PTR(TAKE_FD(fd[1]))) == 0);
         assert_se(varlink_connect_fd(&v, TAKE_FD(fd[0])) >= 0);
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_UNSIGNED("foo", 8),
-                                                JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("foo", 8),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *expected_reply = NULL;
-        assert_se(json_build(&expected_reply,
-                             JSON_BUILD_OBJECT(
-                                             JSON_BUILD_PAIR_UNSIGNED("waldo", 8*9),
-                                             JSON_BUILD_PAIR_UNSIGNED("quux", 8+9))) >= 0);
-
-        assert_se(!error_id);
-
-        json_variant_dump(reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
-        json_variant_dump(expected_reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
-        assert_se(json_variant_equal(reply, expected_reply));
-
-        assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_UNSIGNED("foo", 9),
-                                                JSON_BUILD_PAIR_UNSIGNED("bar", 8),
-                                                JSON_BUILD_PAIR_STRING("optional", "pfft"))) >= 0);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *expected_reply = NULL;
+        assert_se(sd_json_build(&expected_reply,
+                             SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("waldo", 8*9),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("quux", 8+9))) >= 0);
 
         assert_se(!error_id);
-        assert_se(json_variant_equal(reply, expected_reply));
+
+        sd_json_variant_dump(reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+        sd_json_variant_dump(expected_reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+        assert_se(sd_json_variant_equal(reply, expected_reply));
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_UNSIGNED("foo", 8),
-                                                JSON_BUILD_PAIR_UNSIGNED("bar", 9),
-                                                JSON_BUILD_PAIR_STRING("zzz", "pfft"))) >= 0);
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("foo", 9),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("bar", 8),
+                                                SD_JSON_BUILD_PAIR_STRING("optional", "pfft"))) >= 0);
+
+        assert_se(!error_id);
+        assert_se(sd_json_variant_equal(reply, expected_reply));
+
+        assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("foo", 8),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("bar", 9),
+                                                SD_JSON_BUILD_PAIR_STRING("zzz", "pfft"))) >= 0);
         ASSERT_STREQ(error_id, VARLINK_ERROR_INVALID_PARAMETER);
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_BOOLEAN("foo", true),
-                                                JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("foo", true),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
         ASSERT_STREQ(error_id, VARLINK_ERROR_INVALID_PARAMETER);
 
         assert_se(varlink_send(v, "xyz.Done", NULL) >= 0);
