@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "in-addr-util.h"
-#include "json.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "time-util.h"
@@ -181,4 +182,4 @@ void dns_server_unref_stream(DnsServer *s);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
-int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret);
+int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);

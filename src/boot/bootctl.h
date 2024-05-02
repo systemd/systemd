@@ -2,10 +2,10 @@
 #pragma once
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "boot-entry.h"
 #include "image-policy.h"
-#include "json.h"
 #include "pager.h"
 
 typedef enum InstallSource {
@@ -28,7 +28,7 @@ extern sd_id128_t arg_machine_id;
 extern char *arg_install_layout;
 extern BootEntryTokenType arg_entry_token_type;
 extern char *arg_entry_token;
-extern JsonFormatFlags arg_json_format_flags;
+extern sd_json_format_flags_t arg_json_format_flags;
 extern bool arg_arch_all;
 extern char *arg_root;
 extern char *arg_image;
