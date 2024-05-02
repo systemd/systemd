@@ -1073,7 +1073,7 @@ static void server_dispatch_message_real(
                 int priority,
                 pid_t object_pid) {
 
-        char source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
+        char source_time[STRLEN("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         _unused_ _cleanup_free_ char *cmdline1 = NULL, *cmdline2 = NULL;
         uid_t journal_uid;
         ClientContext *o;
@@ -1153,7 +1153,7 @@ static void server_dispatch_message_real(
         assert(n <= m);
 
         if (tv) {
-                sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
+                xsprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
                 iovec[n++] = IOVEC_MAKE_STRING(source_time);
         }
 
