@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "blockdev-util.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
@@ -24,6 +25,7 @@
 #include "efi-loader.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -2264,6 +2266,7 @@ static int run(int argc, char *argv[]) {
         if (streq(verb, "attach")) {
                 _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 _cleanup_(erase_and_freep) void *key_data = NULL;
+                _cleanup_close_ int lock_fd = -EBADF;
                 crypt_status_info status;
                 size_t key_data_size = 0;
                 uint32_t flags = 0;
@@ -2327,6 +2330,19 @@ static int run(int argc, char *argv[]) {
                 } else if (arg_keyfile_erase)
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
+                struct stat st;
+                if (stat(source, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", source);
+
+                if (S_ISBLK(st.st_mode)) {
+                        /* Lock the device so that udev doesn't interfere with our work. */
+
+                        lock_fd = lock_whole_block_device(st.st_rdev, LOCK_EX);
+                        if (lock_fd < 0)
+                                return log_error_errno(r, "Failed to lock whole block device of '%s': %m", source);
+                } else
+                        log_debug("%s is not a block device, no need to lock.", source);
+
                 if (arg_header) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT)){
                             log_debug("tcrypt header: %s", arg_header);
@@ -2358,8 +2374,6 @@ static int run(int argc, char *argv[]) {
                         arg_key_size = 256U / 8U;
 
                 if (key_file) {
-                        struct stat st;
-
                         /* Ideally we'd do this on the open fd, but since this is just a
                          * warning it's OK to do this in two steps. */
                         if (stat(key_file, &st) >= 0 && S_ISREG(st.st_mode) && (st.st_mode & 0005))
