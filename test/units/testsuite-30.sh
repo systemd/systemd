@@ -16,7 +16,7 @@ systemd-run --on-clock-change touch /tmp/clock-changed
 test ! -f /tmp/timezone-changed
 test ! -f /tmp/clock-changed
 
-timedatectl set-timezone Europe/Kiev
+timedatectl set-timezone Europe/Kyiv
 
 while test ! -f /tmp/timezone-changed ; do sleep .5 ; done
 
