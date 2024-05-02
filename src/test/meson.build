@@ -14,8 +14,7 @@ test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', project_build_root + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', project_build_root)
-test_env.set('SYSTEMD_SLOW_TESTS', slow_tests ? '1' : '0')
-test_env.set('SYSTEMD_INTEGRATION_TESTS', integration_tests ? '1' : '0')
+test_env.set('SYSTEMD_SLOW_TESTS', want_slow_tests ? '1' : '0')
 
 if efi_addon != ''
         test_env.set('EFI_ADDON', efi_addon)

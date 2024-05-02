@@ -431,12 +431,18 @@ foreach test_number, dirname : integration_tests
                 '--',
         ] + test_params['mkosi_args']
 
+        integration_test_env = {}
+
+        if want_integration_tests
+                integration_test_env = {'SYSTEMD_INTEGRATION_TESTS': '1'}
+        endif
+
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
         # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
         # running the integration tests with mkosi.
         test(dirname,
              integration_test_wrapper,
-             env : test_env,
+             env : integration_test_env,
              args : args,
              timeout : test_params['timeout'],
              suite : 'integration-tests')
