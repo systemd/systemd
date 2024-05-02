@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "unaligned.h"
 #include "utf8.h"
 
@@ -179,7 +180,7 @@ int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *
         return memcmp_nn(a->raw, a->size, b->raw, b->size);
 }
 
-int json_dispatch_client_id(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+int json_dispatch_client_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         sd_dhcp_client_id *client_id = ASSERT_PTR(userdata);
         _cleanup_(iovec_done) struct iovec iov = {};
         int r;

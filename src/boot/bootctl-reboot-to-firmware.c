@@ -38,9 +38,9 @@ int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
-int vl_method_set_reboot_to_firmware(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "state", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+int vl_method_set_reboot_to_firmware(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "state", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
                 {}
         };
         bool b;
@@ -59,10 +59,10 @@ int vl_method_set_reboot_to_firmware(Varlink *link, JsonVariant *parameters, Var
         return varlink_reply(link, NULL);
 }
 
-int vl_method_get_reboot_to_firmware(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_reboot_to_firmware(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         int r;
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         r = efi_get_reboot_to_firmware();
@@ -71,5 +71,5 @@ int vl_method_get_reboot_to_firmware(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BOOLEAN("state", r)));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BOOLEAN("state", r)));
 }

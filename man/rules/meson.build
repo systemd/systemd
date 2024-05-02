@@ -151,6 +151,7 @@ manpages = [
    'sd_id128_t'],
   ''],
  ['sd-journal', '3', [], ''],
+ ['sd-json', '3', [], ''],
  ['sd-login', '3', [], 'HAVE_PAM'],
  ['sd_booted', '3', [], ''],
  ['sd_bus_add_match',
