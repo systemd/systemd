@@ -7,13 +7,13 @@
 #include "tests.h"
 
 TEST(parse_json_argument) {
-        JsonFormatFlags flags = JSON_FORMAT_PRETTY;
+        sd_json_format_flags_t flags = SD_JSON_FORMAT_PRETTY;
 
         assert_se(parse_json_argument("help", &flags) == 0);
-        assert_se(flags == JSON_FORMAT_PRETTY);
+        assert_se(flags == SD_JSON_FORMAT_PRETTY);
 
         assert_se(parse_json_argument("off", &flags) == 1);
-        assert_se(flags == JSON_FORMAT_OFF);
+        assert_se(flags == SD_JSON_FORMAT_OFF);
 }
 
 TEST(parse_path_argument) {

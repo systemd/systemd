@@ -37,6 +37,7 @@
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "keyring-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
@@ -825,7 +826,7 @@ static int luks_validate_home_record(
         assert(h);
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *rr = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *rr = NULL;
                 _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
                 _cleanup_free_ void *encrypted = NULL, *iv = NULL;
@@ -834,7 +835,7 @@ static int luks_validate_home_record(
                 _cleanup_free_ char *decrypted = NULL;
                 const char *text, *type;
                 crypt_token_info state;
-                JsonVariant *jr, *jiv;
+                sd_json_variant *jr, *jiv;
                 unsigned line, column;
                 const EVP_CIPHER *cc;
 
@@ -853,22 +854,22 @@ static int luks_validate_home_record(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read LUKS token %i: %m", token);
 
-                r = json_parse(text, JSON_PARSE_SENSITIVE, &v, &line, &column);
+                r = sd_json_parse(text, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LUKS token JSON data %u:%u: %m", line, column);
 
-                jr = json_variant_by_key(v, "record");
+                jr = sd_json_variant_by_key(v, "record");
                 if (!jr)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'record' field.");
-                jiv = json_variant_by_key(v, "iv");
+                jiv = sd_json_variant_by_key(v, "iv");
                 if (!jiv)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'iv' field.");
 
-                r = json_variant_unbase64(jr, &encrypted, &encrypted_size);
+                r = sd_json_variant_unbase64(jr, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to base64 decode record: %m");
 
-                r = json_variant_unbase64(jiv, &iv, &iv_size);
+                r = sd_json_variant_unbase64(jiv, &iv, &iv_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to base64 decode IV: %m");
 
@@ -906,7 +907,7 @@ static int luks_validate_home_record(
 
                 decrypted[decrypted_size] = 0;
 
-                r = json_parse(decrypted, JSON_PARSE_SENSITIVE, &rr, NULL, NULL);
+                r = sd_json_parse(decrypted, SD_JSON_PARSE_SENSITIVE, &rr, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse decrypted JSON record, refusing.");
 
@@ -941,7 +942,7 @@ static int format_luks_token_text(
 
         int r, encrypted_size_out1 = 0, encrypted_size_out2 = 0, iv_size, key_size;
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ void *iv = NULL, *encrypted = NULL;
         size_t text_length, encrypted_size;
         _cleanup_free_ char *text = NULL;
@@ -976,7 +977,7 @@ static int format_luks_token_text(
         if (EVP_EncryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
 
-        r = json_variant_format(hr->json, 0, &text);
+        r = sd_json_variant_format(hr->json, 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format user record for LUKS: %m");
 
@@ -997,16 +998,16 @@ static int format_luks_token_text(
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);
 
-        r = json_build(&v,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
-                                       JSON_BUILD_PAIR("keyslots", JSON_BUILD_EMPTY_ARRAY),
-                                       JSON_BUILD_PAIR("record", JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
-                                       JSON_BUILD_PAIR("iv", JSON_BUILD_BASE64(iv, iv_size))));
+        r = sd_json_build(&v,
+                       SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
+                                       SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_EMPTY_ARRAY),
+                                       SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
+                                       SD_JSON_BUILD_PAIR("iv", SD_JSON_BUILD_BASE64(iv, iv_size))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare LUKS JSON token object: %m");
 
-        r = json_variant_format(v, 0, ret);
+        r = sd_json_variant_format(v, 0, ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to format encrypted user record for LUKS: %m");
 

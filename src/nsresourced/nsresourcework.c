@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "group-record.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "lock-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
@@ -60,7 +61,7 @@ typedef struct LookupParameters {
         const char *service;
 } LookupParameters;
 
-static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, JsonVariant **ret) {
+static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json_variant **ret) {
         _cleanup_free_ char *name = NULL, *realname = NULL;
         UserDisposition disposition;
         int r;
@@ -81,29 +82,29 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, JsonVar
         if (r < 0)
                 return -ENOMEM;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(name)),
-                                          JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(userns_info->start + offset)),
-                                          JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                          JSON_BUILD_PAIR("realName", JSON_BUILD_STRING(realname)),
-                                          JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                          JSON_BUILD_PAIR("shell", JSON_BUILD_STRING(NOLOGIN)),
-                                          JSON_BUILD_PAIR("locked", JSON_BUILD_BOOLEAN(true)),
-                                          JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                                          JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
+                                          SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                          SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
+                                          SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                          SD_JSON_BUILD_PAIR("shell", SD_JSON_BUILD_STRING(NOLOGIN)),
+                                          SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                          SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
+                                          SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
 }
 
-static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "uid",      JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0 },
-                { "userName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
-                { "service",  JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0 },
+                { "userName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
                 {}
         };
 
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -184,13 +185,13 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(v))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v))));
 
 not_found:
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, JsonVariant **ret) {
+static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, sd_json_variant **ret) {
         _cleanup_free_ char *name = NULL, *description = NULL;
         UserDisposition disposition;
         int r;
@@ -211,25 +212,25 @@ static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, JsonVa
         if (r < 0)
                 return -ENOMEM;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(name)),
-                                          JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(userns_info->start + offset)),
-                                          JSON_BUILD_PAIR("description", JSON_BUILD_STRING(description)),
-                                          JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                                          JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
+                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                                          SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                                          SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
+                                          SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
 }
 
-static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "gid",       JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0 },
-                { "groupName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0 },
+                { "groupName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
+                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -310,17 +311,17 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(v))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v))));
 
 not_found:
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
-                { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
+static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
+                { "groupName", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
+                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
@@ -724,13 +725,13 @@ typedef struct AllocateParameters {
         unsigned userns_fd_idx;
 } AllocateParameters;
 
-static int vl_method_allocate_user_range(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_allocate_user_range(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",                        JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(AllocateParameters, name),          JSON_MANDATORY },
-                { "size",                        _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(AllocateParameters, size),          JSON_MANDATORY },
-                { "target",                      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(AllocateParameters, target),        0              },
-                { "userNamespaceFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx), JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AllocateParameters, name),          SD_JSON_MANDATORY },
+                { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, size),          SD_JSON_MANDATORY },
+                { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, target),        0                 },
+                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx), SD_JSON_MANDATORY },
                 {}
         };
 
@@ -851,7 +852,7 @@ static int vl_method_allocate_user_range(Varlink *link, JsonVariant *parameters,
         /* Note, we'll not return UID values from the host, since the child might not run in the same
          * user namespace as us. If they want to know the ranges they should read them off the userns fd, so
          * that they are translated into their PoV */
-        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+        return varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 
 fail:
         /* Note: we don't have to clean-up the BPF maps in the error path: the bpf map type used will
@@ -925,11 +926,11 @@ typedef struct RegisterParameters {
         unsigned userns_fd_idx;
 } RegisterParameters;
 
-static int vl_method_register_user_namespace(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_register_user_namespace(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",                        JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(RegisterParameters, name),          JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(RegisterParameters, userns_fd_idx), JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(RegisterParameters, name),          SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(RegisterParameters, userns_fd_idx), SD_JSON_MANDATORY },
                 {}
         };
 
@@ -1039,7 +1040,7 @@ static int vl_method_register_user_namespace(Varlink *link, JsonVariant *paramet
         if (r < 0)
                 goto fail;
 
-        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+        return varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 
 fail:
         userns_registry_remove(registry_dir_fd, userns_info);
@@ -1051,11 +1052,11 @@ typedef struct AddMountParameters {
         unsigned mount_fd_idx;
 } AddMountParameters;
 
-static int vl_method_add_mount_to_user_namespace(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_add_mount_to_user_namespace(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch parameter_dispatch_table[] = {
-                { "userNamespaceFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint, offsetof(AddMountParameters, userns_fd_idx), JSON_MANDATORY },
-                { "mountFileDescriptor",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint, offsetof(AddMountParameters, mount_fd_idx),  JSON_MANDATORY },
+        static const sd_json_dispatch_field parameter_dispatch_table[] = {
+                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(AddMountParameters, userns_fd_idx), SD_JSON_MANDATORY },
+                { "mountFileDescriptor",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(AddMountParameters, mount_fd_idx),  SD_JSON_MANDATORY },
                 {}
         };
 
@@ -1166,7 +1167,7 @@ static int vl_method_add_mount_to_user_namespace(Varlink *link, JsonVariant *par
                 log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
                           mnt_id, userns_st.st_ino, userns_info->name);
 
-        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+        return varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
 static int validate_cgroup(Varlink *link, int fd, uint64_t *ret_cgroup_id) {
@@ -1202,10 +1203,10 @@ typedef struct AddCGroupParameters {
         unsigned cgroup_fd_idx;
 } AddCGroupParameters;
 
-static int vl_method_add_cgroup_to_user_namespace(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch parameter_dispatch_table[] = {
-                { "userNamespaceFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint, offsetof(AddCGroupParameters, userns_fd_idx), JSON_MANDATORY },
-                { "controlGroupFileDescriptor",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint, offsetof(AddCGroupParameters, cgroup_fd_idx), JSON_MANDATORY },
+static int vl_method_add_cgroup_to_user_namespace(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field parameter_dispatch_table[] = {
+                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(AddCGroupParameters, userns_fd_idx), SD_JSON_MANDATORY },
+                { "controlGroupFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(AddCGroupParameters, cgroup_fd_idx), SD_JSON_MANDATORY },
                 {}
         };
 
@@ -1314,7 +1315,7 @@ static int vl_method_add_cgroup_to_user_namespace(Varlink *link, JsonVariant *pa
         log_debug("Granting ownership to cgroup %" PRIu64 " to userns " INO_FMT " ('%s' @ UID " UID_FMT ")",
                   cgroup_id, userns_st.st_ino, userns_info->name, userns_info->start);
 
-        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+        return varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
 static uint64_t hash_ifname_id(UserNamespaceInfo *userns_info, const char *ifname) {
@@ -1501,12 +1502,12 @@ typedef struct AddNetworkParameters {
         const char *mode;
 } AddNetworkParameters;
 
-static int vl_method_add_netif_to_user_namespace(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch parameter_dispatch_table[] = {
-                { "userNamespaceFileDescriptor",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(AddNetworkParameters, userns_fd_idx), JSON_MANDATORY },
-                { "networkNamespaceFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(AddNetworkParameters, netns_fd_idx),  JSON_MANDATORY },
-                { "namespaceInterfaceName",         JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(AddNetworkParameters, ifname),        0              },
-                { "mode",                           JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(AddNetworkParameters, mode),          JSON_MANDATORY },
+static int vl_method_add_netif_to_user_namespace(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field parameter_dispatch_table[] = {
+                { "userNamespaceFileDescriptor",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AddNetworkParameters, userns_fd_idx), SD_JSON_MANDATORY },
+                { "networkNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AddNetworkParameters, netns_fd_idx),  SD_JSON_MANDATORY },
+                { "namespaceInterfaceName",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AddNetworkParameters, ifname),        0                 },
+                { "mode",                           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AddNetworkParameters, mode),          SD_JSON_MANDATORY },
                 {}
         };
 
@@ -1611,8 +1612,8 @@ static int vl_method_add_netif_to_user_namespace(Varlink *link, JsonVariant *par
         log_debug("Adding veth tunnel %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ", interface %s).",
                   ifname_host, userns_st.st_ino, userns_info->name, userns_info->start, ifname_namespace);
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("hostInterfaceName", JSON_BUILD_STRING(ifname_host)),
-                                                      JSON_BUILD_PAIR("namespaceInterfaceName", JSON_BUILD_STRING(ifname_namespace))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
+                                                      SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace))));
 }
 
 static int process_connection(VarlinkServer *server, int _fd) {
