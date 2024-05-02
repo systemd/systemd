@@ -265,8 +265,8 @@ CHANGES WITH 256-rc1:
 
         * systemd-journald can now forward journal entries to a socket
           (AF_INET, AF_INET6, AF_UNIX, or AF_VSOCK). The socket can be
-          specified in journald.conf via a new option ForwardAddress= or via
-          the 'journald.forward_address' credential. Log records are sent in
+          specified in journald.conf via a new option ForwardToSocket= or via
+          the 'journald.forward_to_socket' credential. Log records are sent in
           the Journal Export Format. A related setting MaxLevelSocket= has been
           added to control the maximum log levels for the messages sent to this
           socket.
