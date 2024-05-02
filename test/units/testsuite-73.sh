@@ -28,31 +28,6 @@ EOF
     systemctl daemon-reload
 }
 
-restore_locale() {
-    if [[ -d /usr/lib/locale/xx_XX.UTF-8 ]]; then
-        rmdir /usr/lib/locale/xx_XX.UTF-8
-    fi
-
-    if [[ -f /tmp/locale.conf.bak ]]; then
-        mv /tmp/locale.conf.bak /etc/locale.conf
-    else
-        rm -f /etc/locale.conf
-    fi
-
-    if [[ -f /tmp/default-locale.bak ]]; then
-        mv /tmp/default-locale.bak /etc/default/locale
-    else
-        rm -f /etc/default/locale
-        rmdir --ignore-fail-on-non-empty /etc/default
-    fi
-
-    if [[ -f /tmp/locale.gen.bak ]]; then
-        mv /tmp/locale.gen.bak /etc/locale.gen
-    else
-        rm -f /etc/locale.gen
-    fi
-}
-
 testcase_locale() {
     local i output
 
@@ -77,13 +52,8 @@ testcase_locale() {
     mkdir -p /etc/default
 
     trap restore_locale RETURN
-
-    if command -v locale-gen >/dev/null 2>&1 &&
-           ! localectl list-locales | grep -F "en_US.UTF-8"; then
-        # ensure at least one utf8 locale exist
-        echo "en_US.UTF-8 UTF-8" >/etc/locale.gen
-        locale-gen en_US.UTF-8
-    fi
+    # Ensure at least one UTF-8 locale exists.
+    generate_locale en_US.UTF-8
 
     # create invalid locale
     mkdir -p /usr/lib/locale/xx_XX.UTF-8

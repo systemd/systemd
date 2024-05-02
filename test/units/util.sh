@@ -345,3 +345,36 @@ EOF
         echo -e "[Unit]\nUpholds=foo.service" >"$initdir/usr/lib/systemd/system/multi-user.target.d/10-foo-service.conf"
         mksquashfs "$initdir" /tmp/app-reload.raw -noappend
 }
+
+restore_locale() {
+    if [[ -d /usr/lib/locale/xx_XX.UTF-8 ]]; then
+        rmdir /usr/lib/locale/xx_XX.UTF-8
+    fi
+
+    if [[ -f /tmp/locale.conf.bak ]]; then
+        mv /tmp/locale.conf.bak /etc/locale.conf
+    else
+        rm -f /etc/locale.conf
+    fi
+
+    if [[ -f /tmp/default-locale.bak ]]; then
+        mv /tmp/default-locale.bak /etc/default/locale
+    else
+        rm -rf /etc/default
+    fi
+
+    if [[ -f /tmp/locale.gen.bak ]]; then
+        mv /tmp/locale.gen.bak /etc/locale.gen
+    else
+        rm -f /etc/locale.gen
+    fi
+}
+
+generate_locale() {
+    local locale="${1:?}"
+
+    if command -v locale-gen >/dev/null && ! localectl list-locales | grep -F "$locale"; then
+        echo "$locale UTF-8" >/etc/locale.gen
+        locale-gen "$locale"
+    fi
+}
