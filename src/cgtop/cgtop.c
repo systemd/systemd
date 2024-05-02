@@ -207,7 +207,10 @@ static int process(
                         return r;
 
                 g->n_tasks = 0;
-                while (cg_read_pid(f, &pid) > 0) {
+                for (;;) {
+                        r = cg_read_pid(f, &pid, CGROUP_REFUSE_UNMAPPED);
+                        if (r <= 0 && r != -EREMOTE)
+                                break;
 
                         if (arg_count == COUNT_USERSPACE_PROCESSES && pid_is_kernel_thread(pid) > 0)
                                 continue;
