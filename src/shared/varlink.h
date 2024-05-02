@@ -3,7 +3,7 @@
 
 #include "sd-event.h"
 
-#include "json.h"
+#include "sd-json.h"
 #include "pidref.h"
 #include "time-util.h"
 #include "varlink-idl.h"
@@ -51,8 +51,8 @@ typedef enum VarlinkServerFlags {
         _VARLINK_SERVER_FLAGS_ALL = (1 << 5) - 1,
 } VarlinkServerFlags;
 
-typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
-typedef int (*VarlinkReply)(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata);
+typedef int (*VarlinkMethod)(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata);
+typedef int (*VarlinkReply)(Varlink *link, sd_json_variant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata);
 typedef int (*VarlinkConnect)(VarlinkServer *server, Varlink *link, void *userdata);
 typedef void (*VarlinkDisconnect)(VarlinkServer *server, Varlink *link, void *userdata);
 
@@ -84,18 +84,18 @@ Varlink* varlink_flush_close_unref(Varlink *v);
 Varlink* varlink_close_unref(Varlink *v);
 
 /* Enqueue method call, not expecting a reply */
-int varlink_send(Varlink *v, const char *method, JsonVariant *parameters);
+int varlink_send(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_sendb(Varlink *v, const char *method, ...);
 
 /* Send method call and wait for reply */
-int varlink_call_full(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
-static inline int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
+int varlink_call_full(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
+static inline int varlink_call(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id) {
         return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
-int varlink_call_and_log(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
+int varlink_call_and_log(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters);
 
-int varlink_callb_ap(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, va_list ap);
-static inline int varlink_callb_full(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...) {
+int varlink_callb_ap(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, va_list ap);
+static inline int varlink_callb_full(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...) {
         va_list ap;
         int r;
 
@@ -104,7 +104,7 @@ static inline int varlink_callb_full(Varlink *v, const char *method, JsonVariant
         va_end(ap);
         return r;
 }
-static inline int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, ...) {
+static inline int varlink_callb(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...) {
         va_list ap;
         int r;
 
@@ -113,46 +113,46 @@ static inline int varlink_callb(Varlink *v, const char *method, JsonVariant **re
         va_end(ap);
         return r;
 }
-int varlink_callb_and_log(Varlink *v, const char *method, JsonVariant **ret_parameters, ...);
+int varlink_callb_and_log(Varlink *v, const char *method, sd_json_variant **ret_parameters, ...);
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
-int varlink_collect_full(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
-static inline int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
+int varlink_collect_full(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
+static inline int varlink_collect(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id) {
         return varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
-int varlink_collectb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, ...);
+int varlink_collectb(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
 
 /* Enqueue method call, expect a reply, which is eventually delivered to the reply callback */
-int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters);
+int varlink_invoke(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_invokeb(Varlink *v, const char *method, ...);
 
 /* Enqueue method call, expect a reply now, and possibly more later, which are all delivered to the reply callback */
-int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters);
+int varlink_observe(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_observeb(Varlink *v, const char *method, ...);
 
 /* Enqueue a final reply */
-int varlink_reply(Varlink *v, JsonVariant *parameters);
+int varlink_reply(Varlink *v, sd_json_variant *parameters);
 int varlink_replyb(Varlink *v, ...);
 
 /* Enqueue a (final) error */
-int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters);
+int varlink_error(Varlink *v, const char *error_id, sd_json_variant *parameters);
 int varlink_errorb(Varlink *v, const char *error_id, ...);
-int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters);
+int varlink_error_invalid_parameter(Varlink *v, sd_json_variant *parameters);
 int varlink_error_invalid_parameter_name(Varlink *v, const char *name);
 int varlink_error_errno(Varlink *v, int error);
 
 /* Enqueue a "more" reply */
-int varlink_notify(Varlink *v, JsonVariant *parameters);
+int varlink_notify(Varlink *v, sd_json_variant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
 /* Ask for the current message to be dispatched again */
 int varlink_dispatch_again(Varlink *v);
 
 /* Get the currently processed incoming message */
-int varlink_get_current_parameters(Varlink *v, JsonVariant **ret);
+int varlink_get_current_parameters(Varlink *v, sd_json_variant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
-int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata);
+int varlink_dispatch(Varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata);
 
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int varlink_push_fd(Varlink *v, int fd);
@@ -242,7 +242,7 @@ typedef enum VarlinkInvocationFlags {
 
 int varlink_invocation(VarlinkInvocationFlags flags);
 
-int varlink_error_to_errno(const char *error, JsonVariant *parameters);
+int varlink_error_to_errno(const char *error, sd_json_variant *parameters);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);

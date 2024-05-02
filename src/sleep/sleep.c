@@ -16,6 +16,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "battery-capacity.h"
@@ -36,7 +37,6 @@
 #include "hibernate-util.h"
 #include "id128-util.h"
 #include "io-util.h"
-#include "json.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
@@ -57,7 +57,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *formatted = NULL, *id = NULL, *image_id = NULL,
                        *version_id = NULL, *image_version = NULL;
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -98,18 +98,18 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         if (r < 0)
                 log_full_errno(log_level_ignore, r, "Failed to parse os-release, ignoring: %m");
 
-        r = json_build(&v, JSON_BUILD_OBJECT(
-                               JSON_BUILD_PAIR_UUID("uuid", uuid),
-                               JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
-                               JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", JSON_BUILD_STRING(uts.release)),
-                               JSON_BUILD_PAIR_CONDITION(id, "osReleaseId", JSON_BUILD_STRING(id)),
-                               JSON_BUILD_PAIR_CONDITION(image_id, "osReleaseImageId", JSON_BUILD_STRING(image_id)),
-                               JSON_BUILD_PAIR_CONDITION(version_id, "osReleaseVersionId", JSON_BUILD_STRING(version_id)),
-                               JSON_BUILD_PAIR_CONDITION(image_version, "osReleaseImageVersion", JSON_BUILD_STRING(image_version))));
+        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                               SD_JSON_BUILD_PAIR_UUID("uuid", uuid),
+                               SD_JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
+                               SD_JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", SD_JSON_BUILD_STRING(uts.release)),
+                               SD_JSON_BUILD_PAIR_CONDITION(!!id, "osReleaseId", SD_JSON_BUILD_STRING(id)),
+                               SD_JSON_BUILD_PAIR_CONDITION(!!image_id, "osReleaseImageId", SD_JSON_BUILD_STRING(image_id)),
+                               SD_JSON_BUILD_PAIR_CONDITION(!!version_id, "osReleaseVersionId", SD_JSON_BUILD_STRING(version_id)),
+                               SD_JSON_BUILD_PAIR_CONDITION(!!image_version, "osReleaseImageVersion", SD_JSON_BUILD_STRING(image_version))));
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to build JSON object: %m");
 
-        r = json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, 0, &formatted);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to format JSON object: %m");
 

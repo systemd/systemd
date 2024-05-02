@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "json.h"
+#include "json-util.h"
 #include "missing_magic.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -70,43 +72,43 @@ UserNamespaceInfo *userns_info_free(UserNamespaceInfo *userns) {
         return mfree(userns);
 }
 
-static int dispatch_cgroups_array(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int dispatch_cgroups_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         UserNamespaceInfo *info = ASSERT_PTR(userdata);
         _cleanup_free_ uint64_t *cgroups = NULL;
         size_t n_cgroups = 0;
 
-        if (json_variant_is_null(variant)) {
+        if (sd_json_variant_is_null(variant)) {
                 info->cgroups = mfree(info->cgroups);
                 info->n_cgroups = 0;
                 return 0;
         }
 
-        if (!json_variant_is_array(variant))
+        if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        cgroups = new(uint64_t, json_variant_elements(variant));
+        cgroups = new(uint64_t, sd_json_variant_elements(variant));
         if (!cgroups)
                 return json_log_oom(variant, flags);
 
-        JsonVariant *e;
+        sd_json_variant *e;
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
                 bool found = false;
 
-                if (!json_variant_is_unsigned(e))
+                if (!sd_json_variant_is_unsigned(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a number.");
 
                 FOREACH_ARRAY(cg, cgroups, n_cgroups)
-                        if (*cg == json_variant_unsigned(e)) {
+                        if (*cg == sd_json_variant_unsigned(e)) {
                                 found = true;
                                 break;
                         }
                 if (found) /* suppress duplicate */
                         continue;
 
-                cgroups[n_cgroups++] = json_variant_unsigned(e);
+                cgroups[n_cgroups++] = sd_json_variant_unsigned(e);
         }
 
-        assert(n_cgroups <= json_variant_elements(variant));
+        assert(n_cgroups <= sd_json_variant_elements(variant));
 
         free_and_replace(info->cgroups, cgroups);
         info->n_cgroups = n_cgroups;
@@ -116,19 +118,19 @@ static int dispatch_cgroups_array(const char *name, JsonVariant *variant, JsonDi
 
 static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **ret) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "owner",   JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        JSON_MANDATORY },
-                { "name",    JSON_VARIANT_STRING,   json_dispatch_string,   offsetof(UserNamespaceInfo, name),         JSON_MANDATORY },
-                { "userns",  JSON_VARIANT_UNSIGNED, json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), JSON_MANDATORY },
-                { "start",   JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start),        0              },
-                { "size",    JSON_VARIANT_UNSIGNED, json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0              },
-                { "target",  JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target),       0              },
-                { "cgroups", JSON_VARIANT_ARRAY,    dispatch_cgroups_array, 0,                                         0              },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "owner",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        SD_JSON_MANDATORY },
+                { "name",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),         SD_JSON_MANDATORY },
+                { "userns",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
+                { "start",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start),        0                 },
+                { "size",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0                 },
+                { "target",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target),       0                 },
+                { "cgroups", SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
                 {}
         };
 
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         int r;
 
@@ -140,7 +142,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 dir_fd = registry_fd;
         }
 
-        r = json_parse_file_at(NULL, dir_fd, fn, 0, &v, NULL, NULL);
+        r = sd_json_parse_file_at(NULL, dir_fd, fn, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -148,7 +150,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
         if (!userns_info)
                 return -ENOMEM;
 
-        r = json_dispatch(v, dispatch_table, 0, userns_info);
+        r = sd_json_dispatch(v, dispatch_table, 0, userns_info);
         if (r < 0)
                 return r;
 
@@ -349,29 +351,29 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 dir_fd = registry_fd;
         }
 
-        _cleanup_(json_variant_unrefp) JsonVariant *cgroup_array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cgroup_array = NULL;
         FOREACH_ARRAY(cg, info->cgroups, info->n_cgroups) {
-                r = json_variant_append_arrayb(
+                r = sd_json_variant_append_arrayb(
                                 &cgroup_array,
-                                JSON_BUILD_UNSIGNED(*cg));
+                                SD_JSON_BUILD_UNSIGNED(*cg));
                 if (r < 0)
                         return r;
         }
 
-        _cleanup_(json_variant_unrefp) JsonVariant *def = NULL;
-        r = json_build(&def, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("owner", JSON_BUILD_UNSIGNED(info->owner)),
-                                       JSON_BUILD_PAIR("name", JSON_BUILD_STRING(info->name)),
-                                       JSON_BUILD_PAIR("userns", JSON_BUILD_UNSIGNED(info->userns_inode)),
-                                       JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "start", JSON_BUILD_UNSIGNED(info->start)),
-                                       JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "size", JSON_BUILD_UNSIGNED(info->size)),
-                                       JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "target", JSON_BUILD_UNSIGNED(info->target)),
-                                       JSON_BUILD_PAIR_CONDITION(cgroup_array, "cgroups", JSON_BUILD_VARIANT(cgroup_array))));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
+        r = sd_json_build(&def, SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
+                                       SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
+                                       SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "start", SD_JSON_BUILD_UNSIGNED(info->start)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "size", SD_JSON_BUILD_UNSIGNED(info->size)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "target", SD_JSON_BUILD_UNSIGNED(info->target)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array))));
         if (r < 0)
                 return r;
 
         _cleanup_free_ char *def_buf = NULL;
-        r = json_variant_format(def, 0, &def_buf);
+        r = sd_json_variant_format(def, 0, &def_buf);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format userns JSON object: %m");
 
