@@ -130,6 +130,16 @@ Deprecations and removals:
 
 Features:
 
+* cryptenroll/cryptsetup/homed: add unlock mechanism that combines tpm2 and
+  fido2, as well as tpm2 + ssh-agent, insipred by ChromeOS' logic: encrypt the
+  volume key with the TPM, with a policy that insists that a nonce is signed by
+  the fido2 device's key or ssh-agent key. Thus, add unlock/login time the TPM
+  generates a nonce, which is sent as a challenge to the fido2/ssh-agent, which
+  returns a signature which is handed to the tpm, which then reveals the volume
+  key to the PC.
+
+* cryptenroll/cryptsetup/homed: similar to this, implement TOTP backed by TPM.
+
 * expose the handoff timestamp fully via the D-Bus properties that contain
   ExecStatus information
 
