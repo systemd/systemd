@@ -298,7 +298,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTar");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -377,7 +377,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRaw");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -447,7 +447,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open directory '%s': %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystem");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -653,7 +653,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -726,7 +726,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
                 if (r < 0)
                         return bus_log_create_error(r);
