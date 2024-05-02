@@ -705,3 +705,11 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   placed in a trusted disk image directory (see above), or if suitable polkit
   authentication was acquired. See `systemd.image-policy(7)` for the valid
   syntax for image policy strings.
+
+`systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
+
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
+  tinting of the background for containers, VMs, and interactive `systemd-run`
+  and `run0` invocations is turned off. Not that this environment variable has
+  no effect if the background color is explicitly selected via the relevant
+  `--background=` switch of the tool.
