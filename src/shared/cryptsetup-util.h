@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "json.h"
 #include "macro.h"
+#include "string-util.h"
+#include "strv.h"
 
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
@@ -93,8 +96,8 @@ void cryptsetup_enable_logging(struct crypt_device *cd);
 
 int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
-int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, JsonVariant **ret);
-int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
+int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, sd_json_variant **ret);
+int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
 
 #else
 
@@ -108,7 +111,7 @@ static inline void sym_crypt_freep(struct crypt_device** cd) {}
 
 int dlopen_cryptsetup(void);
 
-int cryptsetup_get_keyslot_from_token(JsonVariant *v);
+int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 
 static inline const char *mangle_none(const char *s) {
         /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */

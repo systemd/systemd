@@ -18,6 +18,7 @@
 #include "hmac.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
@@ -3254,7 +3255,7 @@ int tpm2_make_policy_session(
 }
 
 static int find_signature(
-                JsonVariant *v,
+                sd_json_variant *v,
                 const TPML_PCR_SELECTION *pcr_selection,
                 const void *fp,
                 size_t fp_size,
@@ -3264,14 +3265,14 @@ static int find_signature(
                 size_t *ret_signature_size) {
 
 #if HAVE_OPENSSL
-        JsonVariant *b, *i;
+        sd_json_variant *b, *i;
         const char *k;
         int r;
 
         /* Searches for a signature blob in the specified JSON object. Search keys are PCR bank, PCR mask,
          * public key, and policy digest. */
 
-        if (!json_variant_is_object(v))
+        if (!sd_json_variant_is_object(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
 
         uint16_t pcr_bank = pcr_selection->pcrSelections[0].hash;
@@ -3282,25 +3283,25 @@ static int find_signature(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know PCR bank %" PRIu16, pcr_bank);
 
         /* First, find field by bank */
-        b = json_variant_by_key(v, k);
+        b = sd_json_variant_by_key(v, k);
         if (!b)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Signature lacks data for PCR bank '%s'.", k);
 
-        if (!json_variant_is_array(b))
+        if (!sd_json_variant_is_array(b))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Bank data is not a JSON array.");
 
         /* Now iterate through all signatures known for this bank */
         JSON_VARIANT_ARRAY_FOREACH(i, b) {
                 _cleanup_free_ void *fpj_data = NULL, *polj_data = NULL;
-                JsonVariant *maskj, *fpj, *sigj, *polj;
+                sd_json_variant *maskj, *fpj, *sigj, *polj;
                 size_t fpj_size, polj_size;
                 uint32_t parsed_mask;
 
-                if (!json_variant_is_object(i))
+                if (!sd_json_variant_is_object(i))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Bank data element is not a JSON object");
 
                 /* Check if the PCR mask matches our expectations */
-                maskj = json_variant_by_key(i, "pcrs");
+                maskj = sd_json_variant_by_key(i, "pcrs");
                 if (!maskj)
                         continue;
 
@@ -3312,11 +3313,11 @@ static int find_signature(
                         continue; /* Not for this PCR mask */
 
                 /* Then check if this is for the public key we operate with */
-                fpj = json_variant_by_key(i, "pkfp");
+                fpj = sd_json_variant_by_key(i, "pkfp");
                 if (!fpj)
                         continue;
 
-                r = json_variant_unhex(fpj, &fpj_data, &fpj_size);
+                r = sd_json_variant_unhex(fpj, &fpj_data, &fpj_size);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decode fingerprint in JSON data: %m");
 
@@ -3324,11 +3325,11 @@ static int find_signature(
                         continue; /* Not for this public key */
 
                 /* Finally, check if this is for the PCR policy we expect this to be */
-                polj = json_variant_by_key(i, "pol");
+                polj = sd_json_variant_by_key(i, "pol");
                 if (!polj)
                         continue;
 
-                r = json_variant_unhex(polj, &polj_data, &polj_size);
+                r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
 
@@ -3336,11 +3337,11 @@ static int find_signature(
                         continue;
 
                 /* This entry matches all our expectations, now return the signature included in it */
-                sigj = json_variant_by_key(i, "sig");
+                sigj = sd_json_variant_by_key(i, "sig");
                 if (!sigj)
                         continue;
 
-                return json_variant_unbase64(sigj, ret_signature, ret_signature_size);
+                return sd_json_variant_unbase64(sigj, ret_signature, ret_signature_size);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
@@ -4035,7 +4036,7 @@ static int tpm2_policy_authorize(
                 const TPM2B_PUBLIC *public,
                 const void *fp,
                 size_t fp_size,
-                JsonVariant *signature_json,
+                sd_json_variant *signature_json,
                 TPM2B_DIGEST **ret_policy_digest) {
 
         TSS2_RC rc;
@@ -4209,7 +4210,7 @@ static int tpm2_build_sealing_policy(
                 const void *fp,
                 size_t fp_size,
                 uint32_t pubkey_pcr_mask,
-                JsonVariant *signature_json,
+                sd_json_variant *signature_json,
                 bool use_pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST **ret_policy_digest) {
@@ -5573,7 +5574,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
                 uint32_t pubkey_pcr_mask,
-                JsonVariant *signature,
+                sd_json_variant *signature,
                 const char *pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
@@ -6264,7 +6265,7 @@ static int tpm2_userspace_log(
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;
         _cleanup_free_ char *f = NULL;
         sd_id128_t boot_id;
         int r;
@@ -6307,10 +6308,10 @@ static int tpm2_userspace_log(
                 assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
                 assert_se(implementation = EVP_get_digestbyname(a));
 
-                r = json_variant_append_arrayb(
-                                &array, JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                                JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
+                r = sd_json_variant_append_arrayb(
+                                &array, SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append digest object to JSON array: %m");
         }
@@ -6321,19 +6322,19 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire boot ID: %m");
 
-        r = json_build(&v, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_UNSIGNED(pcr_index)),
-                                       JSON_BUILD_PAIR("digests", JSON_BUILD_VARIANT(array)),
-                                       JSON_BUILD_PAIR("content_type", JSON_BUILD_STRING("systemd")),
-                                       JSON_BUILD_PAIR("content", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR_CONDITION(description, "string", JSON_BUILD_STRING(description)),
-                                                                       JSON_BUILD_PAIR("bootId", JSON_BUILD_ID128(boot_id)),
-                                                                       JSON_BUILD_PAIR("timestamp", JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
-                                                                       JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
+                                       SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
+                                       SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
+                                       SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
+                                                                       SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
+                                                                       SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
+                                                                       SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                                       SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
-        r = json_variant_format(v, JSON_FORMAT_SEQ, &f);
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_SEQ, &f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format JSON: %m");
 
@@ -6577,16 +6578,16 @@ bool tpm2_pcr_prediction_equal(
 int tpm2_pcr_prediction_to_json(
                 const Tpm2PCRPrediction *prediction,
                 uint16_t algorithm,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
         int r;
 
         assert(prediction);
         assert(ret);
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *vj = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vj = NULL;
                 Tpm2PCRPredictionResult *banks;
 
                 if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
@@ -6598,9 +6599,9 @@ int tpm2_pcr_prediction_to_json(
                         if (!hash)
                                 continue;
 
-                        r = json_variant_append_arrayb(
+                        r = sd_json_variant_append_arrayb(
                                         &vj,
-                                        JSON_BUILD_HEX(hash->buffer, hash->size));
+                                        SD_JSON_BUILD_HEX(hash->buffer, hash->size));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to append hash variant to JSON array: %m");
                 }
@@ -6608,17 +6609,17 @@ int tpm2_pcr_prediction_to_json(
                 if (!vj)
                         continue;
 
-                r = json_variant_append_arrayb(
+                r = sd_json_variant_append_arrayb(
                                 &aj,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_INTEGER("pcr", pcr),
-                                                JSON_BUILD_PAIR_VARIANT("values", vj)));
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                                                SD_JSON_BUILD_PAIR_VARIANT("values", vj)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append PCR variants to JSON array: %m");
         }
 
         if (!aj) {
-                r = json_variant_new_array(&aj, NULL, 0);
+                r = sd_json_variant_new_array(&aj, NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -6630,7 +6631,7 @@ int tpm2_pcr_prediction_to_json(
 int tpm2_pcr_prediction_from_json(
                 Tpm2PCRPrediction *prediction,
                 uint16_t algorithm,
-                JsonVariant *aj) {
+                sd_json_variant *aj) {
 
         int r;
 
@@ -6639,36 +6640,36 @@ int tpm2_pcr_prediction_from_json(
         size_t alg_index = tpm2_hash_algorithm_index(algorithm);
         assert(alg_index < TPM2_N_HASH_ALGORITHMS);
 
-        if (!json_variant_is_array(aj))
+        if (!sd_json_variant_is_array(aj))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR variant array is not an array.");
 
-        JsonVariant *pcr;
+        sd_json_variant *pcr;
         JSON_VARIANT_ARRAY_FOREACH(pcr, aj) {
-                JsonVariant *nr, *values;
+                sd_json_variant *nr, *values;
 
-                nr = json_variant_by_key(pcr, "pcr");
+                nr = sd_json_variant_by_key(pcr, "pcr");
                 if (!nr)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks PCR index field");
 
-                if (!json_variant_is_unsigned(nr) ||
-                    json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
+                if (!sd_json_variant_is_unsigned(nr) ||
+                    sd_json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry PCR index is not an integer in the range 0…23");
 
-                values = json_variant_by_key(pcr, "values");
+                values = sd_json_variant_by_key(pcr, "values");
                 if (!values)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks values field");
 
-                if (!json_variant_is_array(values))
+                if (!sd_json_variant_is_array(values))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry values field is not an array");
 
-                prediction->pcrs |= UINT32_C(1) << json_variant_unsigned(nr);
+                prediction->pcrs |= UINT32_C(1) << sd_json_variant_unsigned(nr);
 
-                JsonVariant *v;
+                sd_json_variant *v;
                 JSON_VARIANT_ARRAY_FOREACH(v, values) {
                         _cleanup_free_ void *buffer = NULL;
                         size_t size;
 
-                        r = json_variant_unhex(v, &buffer, &size);
+                        r = sd_json_variant_unhex(v, &buffer, &size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR policy array hash value");
 
@@ -6685,7 +6686,7 @@ int tpm2_pcr_prediction_from_json(
                         memcpy(banks->hash[alg_index].buffer, buffer, size);
                         banks->hash[alg_index].size = size;
 
-                        r = ordered_set_ensure_put(prediction->results + json_variant_unsigned(nr), &tpm2_pcr_prediction_result_hash_ops, banks);
+                        r = ordered_set_ensure_put(prediction->results + sd_json_variant_unsigned(nr), &tpm2_pcr_prediction_result_hash_ops, banks);
                         if (r == -EEXIST) /* Let's allow duplicates */
                                 continue;
                         if (r < 0)
@@ -6927,7 +6928,7 @@ int tpm2_policy_super_pcr(
 void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         assert(data);
 
-        data->prediction_json = json_variant_unref(data->prediction_json);
+        data->prediction_json = sd_json_variant_unref(data->prediction_json);
         tpm2_pcr_prediction_done(&data->prediction);
         iovec_done(&data->nv_handle);
         iovec_done(&data->nv_public);
@@ -6936,13 +6937,13 @@ void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         iovec_done(&data->pin_private);
 }
 
-static int json_dispatch_tpm2_algorithm(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uint16_t *algorithm = ASSERT_PTR(userdata);
         int r;
 
-        r = tpm2_hash_alg_from_string(json_variant_string(variant));
+        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
         if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", json_variant_string(variant));
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
 
         *algorithm = r;
         return 0;
@@ -6966,21 +6967,21 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
 }
 
 int tpm2_pcrlock_policy_from_json(
-                JsonVariant *v,
+                sd_json_variant *v,
                 Tpm2PCRLockPolicy *ret_policy) {
 
         /* We use a type check of _JSON_VARIANT_TYPE_INVALID for the integer fields to allow
          * json_dispatch_uint32() to parse strings as integers to work around the integer type weakness of
          * JSON's design. */
-        JsonDispatch policy_dispatch[] = {
-                { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
-                { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
-                { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
-                { "nvHandle",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
-                { "nvPublic",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
-                { "srkHandle",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
-                { "pinPublic",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
-                { "pinPrivate", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
+        sd_json_dispatch_field policy_dispatch[] = {
+                { "pcrBank",    SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       SD_JSON_MANDATORY },
+                { "pcrValues",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,     offsetof(Tpm2PCRLockPolicy, prediction_json), SD_JSON_MANDATORY },
+                { "nvIndex",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(Tpm2PCRLockPolicy, nv_index),        SD_JSON_MANDATORY },
+                { "nvHandle",   SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       SD_JSON_MANDATORY },
+                { "nvPublic",   SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       SD_JSON_MANDATORY },
+                { "srkHandle",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      SD_JSON_MANDATORY },
+                { "pinPublic",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      SD_JSON_MANDATORY },
+                { "pinPrivate", SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     SD_JSON_MANDATORY },
                 {}
         };
 
@@ -6990,7 +6991,7 @@ int tpm2_pcrlock_policy_from_json(
         assert(v);
         assert(ret_policy);
 
-        r = json_dispatch(v, policy_dispatch, JSON_LOG, &policy);
+        r = sd_json_dispatch(v, policy_dispatch, SD_JSON_LOG, &policy);
         if (r < 0)
                 return r;
 
@@ -7018,8 +7019,8 @@ int tpm2_pcrlock_policy_load(
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 pcrlock policy file: %m");
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        r = json_parse_file(
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_file(
                         f,
                         discovered_path,
                         /* flags = */ 0,
@@ -7064,8 +7065,8 @@ static int pcrlock_policy_load_credential(
         if (memchr(decoded.iov_base, 0, decoded.iov_len))
                 return log_error_errno(r, "Credential '%s' contains embedded NUL byte, refusing.", name);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        r = json_parse(decoded.iov_base,
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(decoded.iov_base,
                        /* flags= */ 0,
                        &v,
                        /* ret_line= */ NULL,
@@ -7276,48 +7277,48 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
-int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
+int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
         int r;
 
         assert(ret);
 
         for (size_t i = 0; i < TPM2_PCRS_MAX; i++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
 
                 if ((pcr_mask & (UINT32_C(1) << i)) == 0)
                         continue;
 
-                r = json_variant_new_integer(&e, i);
+                r = sd_json_variant_new_integer(&e, i);
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(&a, e);
+                r = sd_json_variant_append_array(&a, e);
                 if (r < 0)
                         return r;
         }
 
         if (!a)
-                return json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, NULL, 0);
 
         *ret = TAKE_PTR(a);
         return 0;
 }
 
-int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
-        JsonVariant *e;
+int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret) {
+        sd_json_variant *e;
         uint32_t mask = 0;
 
-        if (!json_variant_is_array(v))
+        if (!sd_json_variant_is_array(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR array is not a JSON array.");
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 uint64_t u;
 
-                if (!json_variant_is_unsigned(e))
+                if (!sd_json_variant_is_unsigned(e))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not an unsigned integer.");
 
-                u = json_variant_unsigned(e);
+                u = sd_json_variant_unsigned(e);
                 if (u >= TPM2_PCRS_MAX)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range: %" PRIu64, u);
 
@@ -7343,9 +7344,9 @@ int tpm2_make_luks2_json(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *hmj = NULL, *pkmj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         int r;
 
@@ -7370,22 +7371,22 @@ int tpm2_make_luks2_json(
          * other programming languages. Let's not make things worse though, i.e. future additions to the JSON
          * object should use "_" rather than "-" in field names. */
 
-        r = json_build(&v,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
-                                       JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
-                                       JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
-                                       JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
-                                       JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
-                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
-                                       JSON_BUILD_PAIR("tpm2_pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));
+        r = sd_json_build(&v,
+                       SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
+                                       SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                                       SD_JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
+                                       SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!!tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!!tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
+                                       SD_JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
+                                       SD_JSON_BUILD_PAIR("tpm2-pin", SD_JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
+                                       SD_JSON_BUILD_PAIR("tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));
         if (r < 0)
                 return r;
 
@@ -7396,7 +7397,7 @@ int tpm2_make_luks2_json(
 }
 
 int tpm2_parse_luks2_json(
-                JsonVariant *v,
+                sd_json_variant *v,
                 int *ret_keyslot,
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
@@ -7416,7 +7417,7 @@ int tpm2_parse_luks2_json(
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;
-        JsonVariant *w;
+        sd_json_variant *w;
 
         assert(v);
 
@@ -7431,7 +7432,7 @@ int tpm2_parse_luks2_json(
                 }
         }
 
-        w = json_variant_by_key(v, "tpm2-pcrs");
+        w = sd_json_variant_by_key(v, "tpm2-pcrs");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-pcrs' field.");
 
@@ -7441,37 +7442,37 @@ int tpm2_parse_luks2_json(
 
         /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
          * to SHA256. */
-        w = json_variant_by_key(v, "tpm2-pcr-bank");
+        w = sd_json_variant_by_key(v, "tpm2-pcr-bank");
         if (w) {
                 /* The PCR bank field is optional */
 
-                if (!json_variant_is_string(w))
+                if (!sd_json_variant_is_string(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR bank is not a string.");
 
-                r = tpm2_hash_alg_from_string(json_variant_string(w));
+                r = tpm2_hash_alg_from_string(sd_json_variant_string(w));
                 if (r < 0)
-                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
+                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", sd_json_variant_string(w));
 
                 pcr_bank = r;
         }
 
         /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
          * the algorithm was hardcoded to ECC. */
-        w = json_variant_by_key(v, "tpm2-primary-alg");
+        w = sd_json_variant_by_key(v, "tpm2-primary-alg");
         if (w) {
                 /* The primary key algorithm is optional */
 
-                if (!json_variant_is_string(w))
+                if (!sd_json_variant_is_string(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 primary key algorithm is not a string.");
 
-                r = tpm2_asym_alg_from_string(json_variant_string(w));
+                r = tpm2_asym_alg_from_string(sd_json_variant_string(w));
                 if (r < 0)
-                        return log_debug_errno(r, "TPM2 asymmetric algorithm invalid or not supported: %s", json_variant_string(w));
+                        return log_debug_errno(r, "TPM2 asymmetric algorithm invalid or not supported: %s", sd_json_variant_string(w));
 
                 primary_alg = r;
         }
 
-        w = json_variant_by_key(v, "tpm2-blob");
+        w = sd_json_variant_by_key(v, "tpm2-blob");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-blob' field.");
 
@@ -7479,7 +7480,7 @@ int tpm2_parse_luks2_json(
         if (r < 0)
                 return log_debug_errno(r, "Invalid base64 data in 'tpm2-blob' field.");
 
-        w = json_variant_by_key(v, "tpm2-policy-hash");
+        w = sd_json_variant_by_key(v, "tpm2-policy-hash");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
@@ -7487,37 +7488,37 @@ int tpm2_parse_luks2_json(
         if (r < 0)
                 return log_debug_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field.");
 
-        w = json_variant_by_key(v, "tpm2-pin");
+        w = sd_json_variant_by_key(v, "tpm2-pin");
         if (w) {
-                if (!json_variant_is_boolean(w))
+                if (!sd_json_variant_is_boolean(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PIN policy is not a boolean.");
 
-                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
+                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, sd_json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2_pcrlock");
+        w = sd_json_variant_by_key(v, "tpm2_pcrlock");
         if (w) {
-                if (!json_variant_is_boolean(w))
+                if (!sd_json_variant_is_boolean(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 pclock policy is not a boolean.");
 
-                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, json_variant_boolean(w));
+                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, sd_json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2_salt");
+        w = sd_json_variant_by_key(v, "tpm2_salt");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &salt);
                 if (r < 0)
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_salt' field.");
         }
 
-        w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
+        w = sd_json_variant_by_key(v, "tpm2_pubkey_pcrs");
         if (w) {
                 r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
                 if (r < 0)
                         return r;
         }
 
-        w = json_variant_by_key(v, "tpm2_pubkey");
+        w = sd_json_variant_by_key(v, "tpm2_pubkey");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &pubkey);
                 if (r < 0)
@@ -7525,14 +7526,14 @@ int tpm2_parse_luks2_json(
         } else if (pubkey_pcr_mask != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
 
-        w = json_variant_by_key(v, "tpm2_srk");
+        w = sd_json_variant_by_key(v, "tpm2_srk");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &srk);
                 if (r < 0)
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_srk' field.");
         }
 
-        w = json_variant_by_key(v, "tpm2_pcrlock_nv");
+        w = sd_json_variant_by_key(v, "tpm2_pcrlock_nv");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &pcrlock_nv);
                 if (r < 0)
@@ -7866,7 +7867,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
 #endif
 }
 
-int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
+int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
         _cleanup_strv_free_ char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -7895,7 +7896,7 @@ int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
-        r = json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
+        r = sd_json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
 
