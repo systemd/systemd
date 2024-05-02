@@ -2736,27 +2736,27 @@ const void* table_get_at(Table *t, size_t row, size_t column) {
         return table_get(t, cell);
 }
 
-static int table_data_to_json(TableData *d, JsonVariant **ret) {
+static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
         switch (d->type) {
 
         case TABLE_EMPTY:
-                return json_variant_new_null(ret);
+                return sd_json_variant_new_null(ret);
 
         case TABLE_STRING:
         case TABLE_PATH:
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
-                return json_variant_new_string(ret, d->string);
+                return sd_json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:
         case TABLE_STRV_WRAPPED:
-                return json_variant_new_array_strv(ret, d->strv);
+                return sd_json_variant_new_array_strv(ret, d->strv);
 
         case TABLE_BOOLEAN_CHECKMARK:
         case TABLE_BOOLEAN:
-                return json_variant_new_boolean(ret, d->boolean);
+                return sd_json_variant_new_boolean(ret, d->boolean);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
@@ -2765,116 +2765,116 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_TIMESTAMP_LEFT:
         case TABLE_TIMESTAMP_DATE:
                 if (d->timestamp == USEC_INFINITY)
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_unsigned(ret, d->timestamp);
+                return sd_json_variant_new_unsigned(ret, d->timestamp);
 
         case TABLE_TIMESPAN:
         case TABLE_TIMESPAN_MSEC:
         case TABLE_TIMESPAN_DAY:
                 if (d->timespan == USEC_INFINITY)
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_unsigned(ret, d->timespan);
+                return sd_json_variant_new_unsigned(ret, d->timespan);
 
         case TABLE_SIZE:
         case TABLE_BPS:
                 if (d->size == UINT64_MAX)
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_unsigned(ret, d->size);
+                return sd_json_variant_new_unsigned(ret, d->size);
 
         case TABLE_INT:
-                return json_variant_new_integer(ret, d->int_val);
+                return sd_json_variant_new_integer(ret, d->int_val);
 
         case TABLE_INT8:
-                return json_variant_new_integer(ret, d->int8);
+                return sd_json_variant_new_integer(ret, d->int8);
 
         case TABLE_INT16:
-                return json_variant_new_integer(ret, d->int16);
+                return sd_json_variant_new_integer(ret, d->int16);
 
         case TABLE_INT32:
-                return json_variant_new_integer(ret, d->int32);
+                return sd_json_variant_new_integer(ret, d->int32);
 
         case TABLE_INT64:
-                return json_variant_new_integer(ret, d->int64);
+                return sd_json_variant_new_integer(ret, d->int64);
 
         case TABLE_UINT:
-                return json_variant_new_unsigned(ret, d->uint_val);
+                return sd_json_variant_new_unsigned(ret, d->uint_val);
 
         case TABLE_UINT8:
-                return json_variant_new_unsigned(ret, d->uint8);
+                return sd_json_variant_new_unsigned(ret, d->uint8);
 
         case TABLE_UINT16:
-                return json_variant_new_unsigned(ret, d->uint16);
+                return sd_json_variant_new_unsigned(ret, d->uint16);
 
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
-                return json_variant_new_unsigned(ret, d->uint32);
+                return sd_json_variant_new_unsigned(ret, d->uint32);
 
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
-                return json_variant_new_unsigned(ret, d->uint64);
+                return sd_json_variant_new_unsigned(ret, d->uint64);
 
         case TABLE_PERCENT:
-                return json_variant_new_integer(ret, d->percent);
+                return sd_json_variant_new_integer(ret, d->percent);
 
         case TABLE_IFINDEX:
                 if (d->ifindex <= 0)
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_integer(ret, d->ifindex);
+                return sd_json_variant_new_integer(ret, d->ifindex);
 
         case TABLE_IN_ADDR:
-                return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET));
+                return sd_json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET));
 
         case TABLE_IN6_ADDR:
-                return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
+                return sd_json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
 
         case TABLE_ID128:
-                return json_variant_new_id128(ret, d->id128);
+                return sd_json_variant_new_id128(ret, d->id128);
 
         case TABLE_UUID:
-                return json_variant_new_uuid(ret, d->id128);
+                return sd_json_variant_new_uuid(ret, d->id128);
 
         case TABLE_UID:
                 if (!uid_is_valid(d->uid))
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_integer(ret, d->uid);
+                return sd_json_variant_new_integer(ret, d->uid);
 
         case TABLE_GID:
                 if (!gid_is_valid(d->gid))
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_integer(ret, d->gid);
+                return sd_json_variant_new_integer(ret, d->gid);
 
         case TABLE_PID:
                 if (!pid_is_valid(d->pid))
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_integer(ret, d->pid);
+                return sd_json_variant_new_integer(ret, d->pid);
 
         case TABLE_SIGNAL:
                 if (!SIGNAL_VALID(d->int_val))
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_integer(ret, d->int_val);
+                return sd_json_variant_new_integer(ret, d->int_val);
 
         case TABLE_MODE:
         case TABLE_MODE_INODE_TYPE:
                 if (d->mode == MODE_INVALID)
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_variant_new_unsigned(ret, d->mode);
+                return sd_json_variant_new_unsigned(ret, d->mode);
 
         case TABLE_DEVNUM:
                 if (devnum_is_zero(d->devnum))
-                        return json_variant_new_null(ret);
+                        return sd_json_variant_new_null(ret);
 
-                return json_build(ret, JSON_BUILD_ARRAY(
-                                                  JSON_BUILD_UNSIGNED(major(d->devnum)),
-                                                  JSON_BUILD_UNSIGNED(minor(d->devnum))));
+                return sd_json_build(ret, SD_JSON_BUILD_ARRAY(
+                                                  SD_JSON_BUILD_UNSIGNED(major(d->devnum)),
+                                                  SD_JSON_BUILD_UNSIGNED(minor(d->devnum))));
 
         default:
                 return -EINVAL;
@@ -2927,8 +2927,8 @@ static const char *table_get_json_field_name(Table *t, size_t idx) {
         return idx < t->n_json_fields ? t->json_fields[idx] : NULL;
 }
 
-static int table_to_json_regular(Table *t, JsonVariant **ret) {
-        JsonVariant **rows = NULL, **elements = NULL;
+static int table_to_json_regular(Table *t, sd_json_variant **ret) {
+        sd_json_variant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
         size_t n_rows, display_columns;
         int r;
@@ -2962,11 +2962,11 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                 display_columns = t->n_columns;
         assert(display_columns > 0);
 
-        elements = new0(JsonVariant*, display_columns * 2);
+        elements = new0(sd_json_variant*, display_columns * 2);
         if (!elements)
                 return -ENOMEM;
 
-        CLEANUP_ARRAY(elements, (size_t) { display_columns * 2 }, json_variant_unref_many);
+        CLEANUP_ARRAY(elements, (size_t) { display_columns * 2 }, sd_json_variant_unref_many);
 
         for (size_t j = 0; j < display_columns; j++) {
                 _cleanup_free_ char *mangled = NULL;
@@ -2985,16 +2985,16 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                         n = mangled;
                 }
 
-                r = json_variant_new_string(elements + j*2, n);
+                r = sd_json_variant_new_string(elements + j*2, n);
                 if (r < 0)
                         return r;
         }
 
-        rows = new0(JsonVariant*, n_rows-1);
+        rows = new0(sd_json_variant*, n_rows-1);
         if (!rows)
                 return -ENOMEM;
 
-        CLEANUP_ARRAY(rows, (size_t) { n_rows - 1 }, json_variant_unref_many);
+        CLEANUP_ARRAY(rows, (size_t) { n_rows - 1 }, sd_json_variant_unref_many);
 
         for (size_t i = 1; i < n_rows; i++) {
                 TableData **row;
@@ -3011,23 +3011,23 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
                         k = j*2+1;
-                        elements[k] = json_variant_unref(elements[k]);
+                        elements[k] = sd_json_variant_unref(elements[k]);
 
                         r = table_data_to_json(d, elements + k);
                         if (r < 0)
                                 return r;
                 }
 
-                r = json_variant_new_object(rows + i - 1, elements, display_columns * 2);
+                r = sd_json_variant_new_object(rows + i - 1, elements, display_columns * 2);
                 if (r < 0)
                         return r;
         }
 
-        return json_variant_new_array(ret, rows, n_rows - 1);
+        return sd_json_variant_new_array(ret, rows, n_rows - 1);
 }
 
-static int table_to_json_vertical(Table *t, JsonVariant **ret) {
-        JsonVariant **elements = NULL;
+static int table_to_json_vertical(Table *t, sd_json_variant **ret) {
+        sd_json_variant **elements = NULL;
         size_t n_elements = 0;
         int r;
 
@@ -3040,11 +3040,11 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
         /* Ensure we have no incomplete rows */
         assert(t->n_cells % t->n_columns == 0);
 
-        elements = new0(JsonVariant *, t->n_cells);
+        elements = new0(sd_json_variant *, t->n_cells);
         if (!elements)
                 return -ENOMEM;
 
-        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+        CLEANUP_ARRAY(elements, n_elements, sd_json_variant_unref_many);
 
         for (size_t i = t->n_columns; i < t->n_cells; i++) {
 
@@ -3061,7 +3061,7 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
                                 n = mangled;
                         }
 
-                        r = json_variant_new_string(elements + n_elements, n);
+                        r = sd_json_variant_new_string(elements + n_elements, n);
                 } else
                         r = table_data_to_json(t->data[i], elements + n_elements);
                 if (r < 0)
@@ -3070,10 +3070,10 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
                 n_elements++;
         }
 
-        return json_variant_new_object(ret, elements, n_elements);
+        return sd_json_variant_new_object(ret, elements, n_elements);
 }
 
-int table_to_json(Table *t, JsonVariant **ret) {
+int table_to_json(Table *t, sd_json_variant **ret) {
         assert(t);
 
         if (t->vertical)
@@ -3082,13 +3082,13 @@ int table_to_json(Table *t, JsonVariant **ret) {
         return table_to_json_regular(t, ret);
 }
 
-int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(t);
 
-        if (flags & JSON_FORMAT_OFF) /* If JSON output is turned off, use regular output */
+        if (flags & SD_JSON_FORMAT_OFF) /* If JSON output is turned off, use regular output */
                 return table_print(t, f);
 
         if (!f)
@@ -3098,14 +3098,14 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
         if (r < 0)
                 return r;
 
-        json_variant_dump(v, flags, f, NULL);
+        sd_json_variant_dump(v, flags, f, NULL);
 
         return fflush_and_check(f);
 }
 
 int table_print_with_pager(
                 Table *t,
-                JsonFormatFlags json_format_flags,
+                sd_json_format_flags_t json_format_flags,
                 PagerFlags pager_flags,
                 bool show_header) {
 
@@ -3117,7 +3117,7 @@ int table_print_with_pager(
         /* An all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
          * the table header and logs about any error. */
 
-        if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+        if (json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(pager_flags);
 
         saved_header = t->header;

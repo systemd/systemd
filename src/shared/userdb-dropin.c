@@ -17,21 +17,21 @@ static int load_user(
                 UserDBFlags flags,
                 UserRecord **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
         bool have_privileged;
         int r;
 
         assert(f);
 
-        r = json_parse_file(f, path, 0, &v, NULL, NULL);
+        r = sd_json_parse_file(f, path, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
         if (FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW) || !path || !(name || uid_is_valid(uid)))
                 have_privileged = false;
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *privileged_v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *privileged_v = NULL;
                 _cleanup_free_ char *d = NULL, *j = NULL;
 
                 /* Let's load the "privileged" section from a companion file. But only if USERDB_AVOID_SHADOW
@@ -56,7 +56,7 @@ static int load_user(
                                 return -ENOMEM;
                 }
 
-                r = json_parse_file(NULL, j, JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
+                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
@@ -64,7 +64,7 @@ static int load_user(
                 else if (r < 0)
                         return r;
                 else {
-                        r = json_variant_merge_object(&v, privileged_v);
+                        r = sd_json_variant_merge_object(&v, privileged_v);
                         if (r < 0)
                                 return r;
 
@@ -169,21 +169,21 @@ static int load_group(
                 UserDBFlags flags,
                 GroupRecord **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         bool have_privileged;
         int r;
 
         assert(f);
 
-        r = json_parse_file(f, path, 0, &v, NULL, NULL);
+        r = sd_json_parse_file(f, path, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
         if (FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW) || !path || !(name || gid_is_valid(gid)))
                 have_privileged = false;
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *privileged_v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *privileged_v = NULL;
                 _cleanup_free_ char *d = NULL, *j = NULL;
 
                 r = path_extract_directory(path, &d);
@@ -200,7 +200,7 @@ static int load_group(
                                 return -ENOMEM;
                 }
 
-                r = json_parse_file(NULL, j, JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
+                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
@@ -208,7 +208,7 @@ static int load_group(
                 else if (r < 0)
                         return r;
                 else {
-                        r = json_variant_merge_object(&v, privileged_v);
+                        r = sd_json_variant_merge_object(&v, privileged_v);
                         if (r < 0)
                                 return r;
 

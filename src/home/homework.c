@@ -14,6 +14,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework.h"
 #include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
@@ -22,7 +23,7 @@
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "homework-pkcs11.h"
-#include "homework.h"
+#include "json-util.h"
 #include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -80,7 +81,7 @@ int user_record_authenticate(
 
         /* First, let's see if we already have a volume key from the keyring */
         if (cache->volume_key &&
-            json_variant_is_blank_object(json_variant_by_key(secret->json, "secret"))) {
+            sd_json_variant_is_blank_object(sd_json_variant_by_key(secret->json, "secret"))) {
                 log_info("LUKS volume key from keyring unlocks user record.");
                 return 1;
         }
@@ -538,7 +539,7 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
         return 0;
 }
 
-static int read_identity_file(int root_fd, JsonVariant **ret) {
+static int read_identity_file(int root_fd, sd_json_variant **ret) {
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         unsigned line, column;
@@ -559,7 +560,7 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         if (!identity_file)
                 return log_oom();
 
-        r = json_parse_file(identity_file, ".identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
@@ -568,8 +569,8 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         return 0;
 }
 
-static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
-        _cleanup_(json_variant_unrefp) JsonVariant *normalized = NULL;
+static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
@@ -578,9 +579,9 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         assert(root_fd >= 0);
         assert(v);
 
-        normalized = json_variant_ref(v);
+        normalized = sd_json_variant_ref(v);
 
-        r = json_variant_normalize(&normalized);
+        r = sd_json_variant_normalize(&normalized);
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
@@ -598,7 +599,7 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
                 goto fail;
         }
 
-        json_variant_dump(normalized, JSON_FORMAT_PRETTY, identity_file, NULL);
+        sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, NULL);
 
         r = fflush_and_check(identity_file);
         if (r < 0) {
@@ -635,7 +636,7 @@ int home_load_embedded_identity(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *intermediate_home = NULL, *new_home = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(h);
@@ -1977,14 +1978,14 @@ static int home_unlock(UserRecord *h) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         unsigned line = 0, column = 0;
         const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
-        JsonVariant *fdmap, *blob_fd_variant;
+        sd_json_variant *fdmap, *blob_fd_variant;
         int r;
 
         start = now(CLOCK_MONOTONIC);
@@ -2011,11 +2012,11 @@ static int run(int argc, char *argv[]) {
                 json_file = stdin;
         }
 
-        r = json_parse_file(json_file, json_path, JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
 
-        fdmap = json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
+        fdmap = sd_json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
         if (fdmap) {
                 r = hashmap_ensure_allocated(&blobs, &blob_fd_hash_ops);
                 if (r < 0)
@@ -2025,10 +2026,10 @@ static int run(int argc, char *argv[]) {
                         _cleanup_free_ char *filename = NULL;
                         _cleanup_close_ int fd = -EBADF;
 
-                        assert(json_variant_is_integer(blob_fd_variant));
-                        assert(json_variant_integer(blob_fd_variant) >= 0);
-                        assert(json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
-                        fd = SD_LISTEN_FDS_START + (int) json_variant_integer(blob_fd_variant);
+                        assert(sd_json_variant_is_integer(blob_fd_variant));
+                        assert(sd_json_variant_integer(blob_fd_variant) >= 0);
+                        assert(sd_json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
+                        fd = SD_LISTEN_FDS_START + (int) sd_json_variant_integer(blob_fd_variant);
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *resolved = NULL;
@@ -2052,7 +2053,7 @@ static int run(int argc, char *argv[]) {
                         TAKE_FD(fd);
                 }
 
-                r = json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
+                r = sd_json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip internal fdmap from JSON: %m");
         }
@@ -2141,7 +2142,7 @@ static int run(int argc, char *argv[]) {
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
         if (new_home)
-                json_variant_dump(new_home->json, JSON_FORMAT_NEWLINE, stdout, NULL);
+                sd_json_variant_dump(new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         return 0;
 }
