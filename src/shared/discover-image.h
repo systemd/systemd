@@ -5,10 +5,10 @@
 #include <stdint.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "hashmap.h"
 #include "image-policy.h"
-#include "json.h"
 #include "lock-util.h"
 #include "macro.h"
 #include "os-util.h"
@@ -117,7 +117,7 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
         return false;
 }
 
-int image_to_json(const struct Image *i, JsonVariant **ret);
+int image_to_json(const struct Image *i, sd_json_variant **ret);
 
 const char *image_root_to_string(ImageClass c) _const_;
 

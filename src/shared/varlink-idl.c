@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "json-util.h"
 #include "memstream-util.h"
+#include "set.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "varlink-idl.h"
-#include "set.h"
 
 #define DEPTH_MAX 64U
 
@@ -1360,9 +1361,9 @@ int varlink_idl_consistent(const VarlinkInterface *interface, int level) {
         return 0;
 }
 
-static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant *v, VarlinkFieldDirection direction, const char **bad_field);
+static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_variant *v, VarlinkFieldDirection direction, const char **bad_field);
 
-static int varlink_idl_validate_field_element_type(const VarlinkField *field, JsonVariant *v) {
+static int varlink_idl_validate_field_element_type(const VarlinkField *field, sd_json_variant *v) {
         assert(field);
 
         switch (field->field_type) {
@@ -1373,32 +1374,32 @@ static int varlink_idl_validate_field_element_type(const VarlinkField *field, Js
                 return varlink_idl_validate_symbol(field->symbol, v, VARLINK_REGULAR, NULL);
 
         case VARLINK_BOOL:
-                if (!json_variant_is_boolean(v))
+                if (!sd_json_variant_is_boolean(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a bool, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_INT:
                 /* Allow strings here too, since integers with > 53 bits are often passed in as strings */
-                if (!json_variant_is_integer(v) && !json_variant_is_unsigned(v) && !json_variant_is_string(v))
+                if (!sd_json_variant_is_integer(v) && !sd_json_variant_is_unsigned(v) && !sd_json_variant_is_string(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_FLOAT:
-                if (!json_variant_is_number(v))
+                if (!sd_json_variant_is_number(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a float, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_STRING:
-                if (!json_variant_is_string(v))
+                if (!sd_json_variant_is_string(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a string, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_OBJECT:
-                if (!json_variant_is_object(v))
+                if (!sd_json_variant_is_object(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
 
                 break;
@@ -1410,20 +1411,20 @@ static int varlink_idl_validate_field_element_type(const VarlinkField *field, Js
         return 0;
 }
 
-static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v) {
+static int varlink_idl_validate_field(const VarlinkField *field, sd_json_variant *v) {
         int r;
 
         assert(field);
 
-        if (!v || json_variant_is_null(v)) {
+        if (!v || sd_json_variant_is_null(v)) {
 
                 if (!FLAGS_SET(field->field_flags, VARLINK_NULLABLE))
                         return varlink_idl_log(SYNTHETIC_ERRNO(ENOANO), "Mandatory field '%s' is null or missing on object, refusing.", strna(field->name));
 
         } else if (FLAGS_SET(field->field_flags, VARLINK_ARRAY)) {
-                JsonVariant *i;
+                sd_json_variant *i;
 
-                if (!json_variant_is_array(v))
+                if (!sd_json_variant_is_array(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is not, refusing.", strna(field->name));
 
                 JSON_VARIANT_ARRAY_FOREACH(i, v) {
@@ -1434,9 +1435,9 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
 
         } else if (FLAGS_SET(field->field_flags, VARLINK_MAP)) {
                 _unused_ const char *k;
-                JsonVariant *e;
+                sd_json_variant *e;
 
-                if (!json_variant_is_object(v))
+                if (!sd_json_variant_is_object(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
 
                 JSON_VARIANT_OBJECT_FOREACH(k, e, v) {
@@ -1454,7 +1455,7 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
         return 0;
 }
 
-static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant *v, VarlinkFieldDirection direction, const char **bad_field) {
+static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_variant *v, VarlinkFieldDirection direction, const char **bad_field) {
         int r;
 
         assert(symbol);
@@ -1471,13 +1472,13 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                 bool found = false;
                 const char *s;
 
-                if (!json_variant_is_string(v)) {
+                if (!sd_json_variant_is_string(v)) {
                         if (bad_field)
                                 *bad_field = symbol->name;
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-string to enum field '%s', refusing.", strna(symbol->name));
                 }
 
-                assert_se(s = json_variant_string(v));
+                assert_se(s = sd_json_variant_string(v));
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
@@ -1501,7 +1502,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
         case VARLINK_STRUCT_TYPE:
         case VARLINK_METHOD:
         case VARLINK_ERROR: {
-                if (!json_variant_is_object(v)) {
+                if (!sd_json_variant_is_object(v)) {
                         if (bad_field)
                                 *bad_field = symbol->name;
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-object to field '%s', refusing.", strna(symbol->name));
@@ -1512,7 +1513,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                         if (field->field_direction != direction)
                                 continue;
 
-                        r = varlink_idl_validate_field(field, json_variant_by_key(v, field->name));
+                        r = varlink_idl_validate_field(field, sd_json_variant_by_key(v, field->name));
                         if (r < 0) {
                                 if (bad_field)
                                         *bad_field = field->name;
@@ -1520,7 +1521,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                         }
                 }
 
-                _unused_ JsonVariant *e;
+                _unused_ sd_json_variant *e;
                 const char *name;
                 JSON_VARIANT_OBJECT_FOREACH(name, e, v) {
                         if (!varlink_idl_find_field(symbol, name)) {
@@ -1540,7 +1541,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
         return 1; /* validated */
 }
 
-static int varlink_idl_validate_method(const VarlinkSymbol *method, JsonVariant *v, VarlinkFieldDirection direction, const char **bad_field) {
+static int varlink_idl_validate_method(const VarlinkSymbol *method, sd_json_variant *v, VarlinkFieldDirection direction, const char **bad_field) {
         assert(IN_SET(direction, VARLINK_INPUT, VARLINK_OUTPUT));
 
         if (!method)
@@ -1551,15 +1552,15 @@ static int varlink_idl_validate_method(const VarlinkSymbol *method, JsonVariant 
         return varlink_idl_validate_symbol(method, v, direction, bad_field);
 }
 
-int varlink_idl_validate_method_call(const VarlinkSymbol *method, JsonVariant *v, const char **bad_field) {
+int varlink_idl_validate_method_call(const VarlinkSymbol *method, sd_json_variant *v, const char **bad_field) {
         return varlink_idl_validate_method(method, v, VARLINK_INPUT, bad_field);
 }
 
-int varlink_idl_validate_method_reply(const VarlinkSymbol *method, JsonVariant *v, const char **bad_field) {
+int varlink_idl_validate_method_reply(const VarlinkSymbol *method, sd_json_variant *v, const char **bad_field) {
         return varlink_idl_validate_method(method, v, VARLINK_OUTPUT, bad_field);
 }
 
-int varlink_idl_validate_error(const VarlinkSymbol *error, JsonVariant *v, const char **bad_field) {
+int varlink_idl_validate_error(const VarlinkSymbol *error, sd_json_variant *v, const char **bad_field) {
         if (!error)
                 return 0; /* Can't validate */
         if (error->symbol_type != VARLINK_ERROR)
