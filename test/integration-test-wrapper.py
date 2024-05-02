@@ -119,7 +119,7 @@ def main():
                 else []
             ),
         ]),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}" ,
+        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
         *args.mkosi_args,
         'qemu',
     ]
