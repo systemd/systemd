@@ -85,7 +85,7 @@ echo -n hoho >/tmp/pcrlockpwd
 chmod 0600 /tmp/pcrlockpwd
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$img" /tmp/pcrlockpwd
 
-systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key= --wipe-slot=tpm2 "$img"
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --wipe-slot=tpm2 "$img"
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
