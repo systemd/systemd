@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "blockdev-util.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
@@ -20,6 +21,7 @@
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
+#include "fd-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "env-util.h"
@@ -2264,12 +2266,14 @@ static int run(int argc, char *argv[]) {
         if (streq(verb, "attach")) {
                 _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 _cleanup_(erase_and_freep) void *key_data = NULL;
+                _cleanup_close_ int lock_fd = -EBADF;
                 crypt_status_info status;
                 size_t key_data_size = 0;
                 uint32_t flags = 0;
                 unsigned tries;
                 usec_t until;
                 PassphraseType passphrase_type = PASSPHRASE_NONE;
+                dev_t devno;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG] */
 
@@ -2326,6 +2330,14 @@ static int run(int argc, char *argv[]) {
                                 log_debug("Automatically discovered key for volume '%s'.", volume);
                 } else if (arg_keyfile_erase)
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
+
+                r = path_get_whole_disk(source, /* backing = */ false, &devno);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find whole block device for '%s': %m", source);
+
+                lock_fd = lock_whole_block_device(devno, LOCK_EX);
+                if (lock_fd < 0)
+                        return log_error_errno(r, "Failed to lock whole block device for '%s': %m", source);
 
                 if (arg_header) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT)){
