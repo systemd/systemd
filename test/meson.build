@@ -427,9 +427,9 @@ foreach test_number, dirname : integration_tests
         # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
         # running the integration tests with mkosi.
         test(dirname,
-                integration_test_wrapper,
-                env: test_env,
-                args : args,
-                timeout : test_params['timeout'],
-                suite : 'integration-tests')
+             integration_test_wrapper,
+             env: test_env,
+             args : args,
+             timeout : test_params['timeout'],
+             suite : 'integration-tests')
 endforeach
