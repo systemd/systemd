@@ -1977,7 +1977,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                if (!arg_background) {
+                if (!arg_background && shall_tint_background()) {
                         _cleanup_free_ char *bg = NULL;
 
                         r = terminal_tint_color(130 /* green */, &bg);
