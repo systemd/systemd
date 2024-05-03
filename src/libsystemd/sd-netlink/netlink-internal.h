@@ -3,6 +3,10 @@
 
 #include <linux/netlink.h>
 
+#ifndef NFPROTO_NETDEV
+#define NFPROTO_NETDEV	5
+#endif
+
 #include "sd-netlink.h"
 
 #include "list.h"
