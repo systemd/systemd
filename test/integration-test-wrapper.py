@@ -64,6 +64,22 @@ def main():
         """
     )
 
+    if os.getenv("TEST_MATCH_SUBTEST"):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_MATCH_SUBTEST={os.environ["TEST_MATCH_SUBTEST"]}
+            """
+        )
+
+    if os.getenv("TEST_MATCH_TESTCASE"):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_MATCH_TESTCASE={os.environ["TEST_MATCH_TESTCASE"]}
+            """
+        )
+
     if not sys.stderr.isatty():
         dropin += textwrap.dedent(
             """
