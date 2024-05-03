@@ -169,7 +169,7 @@ jobs:
             -Dtpm2=enabled \
             -Dlibcryptsetup=enabled \
             -Dlibcurl=enabled \
-            -Drepart=enabled \
+            -Drepart=disabled \
             -Dfirstboot=true \
             -Dsysusers=true \
             -Dtmpfiles=true \
