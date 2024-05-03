@@ -22,7 +22,8 @@ $ git config submodule.recurse true
 $ git config fetch.recurseSubmodules on-demand
 $ git config push.recurseSubmodules no
 $ cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
-$ cp tools/git-post-rewrite-hook.sh .git/hooks/post-rewrite
+$ cp tools/git-submodule-update-hook.sh .git/hooks/post-rewrite
+$ cp tools/git-submodule-update-hook.sh .git/hooks/post-checkout
 ```
 
 When adding new functionality, tests should be added. For shared functionality
