@@ -2478,9 +2478,10 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
+        SecureBootMode sboot_mode = secure_boot_mode();
         _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
 
-        if (secure_boot_mode() != SECURE_BOOT_SETUP)
+        if (sboot_mode != SECURE_BOOT_SETUP && sboot_mode != SECURE_BOOT_AUDIT)
                 return EFI_SUCCESS;
 
         /* the lack of a 'keys' directory is not fatal and is silently ignored */
