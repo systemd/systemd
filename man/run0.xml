@@ -220,6 +220,43 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment Variables</title>
+
+    <para>As with <literal>systemd-run</literal>, the session will inherit the system
+    environment from the service manager. In addition, the following environment variables will be set:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>$TERM</term>
+        <listitem><para>Copied from the $TERM of the caller. Can be overriden with <option>--setenv=</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>$SUDO_USER</term>
+        <listitem><para>Set to the username of the originating user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>$SUDO_UID</term>
+        <listitem><para>Set to the numeric UNIX user id of the originating user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>$SUDO_GID</term>
+        <listitem><para>Set to the primary numeric UNIX group id of the originating session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
