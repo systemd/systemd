@@ -57,12 +57,12 @@ testcase_timezone() {
     assert_in "Local time:" "$(timedatectl --no-pager)"
 
     echo 'change timezone'
-    assert_eq "$(timedatectl --no-pager set-timezone Europe/Kiev 2>&1)" ""
-    assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "Europe/Kiev"
+    assert_eq "$(timedatectl --no-pager set-timezone Europe/Kyiv 2>&1)" ""
+    assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
     if [[ -f /etc/timezone ]]; then
-        assert_eq "$(cat /etc/timezone)" "Europe/Kiev"
+        assert_eq "$(cat /etc/timezone)" "Europe/Kyiv"
     fi
-    assert_in "Time zone: Europe/Kiev \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'
