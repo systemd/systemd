@@ -24,6 +24,8 @@ extern const char* const unified_sections[_UNIFIED_SECTION_MAX + 1];
 
 static inline bool unified_section_measure(UnifiedSection section) {
         /* Don't include the PCR signature in the PCR measurements, since they sign the expected result of
-         * the measurement, and hence shouldn't be input to it. */
-        return section >= 0 && section < _UNIFIED_SECTION_MAX && section != UNIFIED_SECTION_PCRSIG;
+         * the measurement, and hence shouldn't be input to it.
+         * The .ucode section is not included because it is measured by systemd-stub separately later,
+         * after merging with addon files. */
+        return section >= 0 && section < _UNIFIED_SECTION_MAX && section != UNIFIED_SECTION_PCRSIG && section != UNIFIED_SECTION_UCODE;
 }
