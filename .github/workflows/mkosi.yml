@@ -121,8 +121,6 @@ jobs:
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
-        QemuVsock=yes
-        QemuKvm=yes
         # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
         QemuFirmware=uefi
         EOF
