@@ -932,10 +932,10 @@ static void server_write_to_journal(
                 uid_t uid,
                 const struct iovec *iovec,
                 size_t n,
-                int priority) {
+                int priority,
+                const dual_timestamp *ts) {
 
         bool vacuumed = false;
-        struct dual_timestamp ts;
         JournalFile *f;
         int r;
 
@@ -943,13 +943,7 @@ static void server_write_to_journal(
         assert(iovec);
         assert(n > 0);
 
-        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do not use
-         * the source time, and not even the time the event was originally seen, but instead simply the time we started
-         * processing it, as we want strictly linear ordering in what we write out.) */
-        assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
-        assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
-
-        if (ts.realtime < s->last_realtime_clock) {
+        if (ts->realtime < s->last_realtime_clock) {
                 /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen during
                  * regular operation. However, when it does happen, then we should make sure that we start fresh files
                  * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
@@ -983,11 +977,11 @@ static void server_write_to_journal(
                         return;
         }
 
-        s->last_realtime_clock = ts.realtime;
+        s->last_realtime_clock = ts->realtime;
 
         r = journal_file_append_entry(
                         f,
-                        &ts,
+                        ts,
                         /* boot_id= */ NULL,
                         iovec, n,
                         &s->seqnum->seqnum,
@@ -1019,7 +1013,7 @@ static void server_write_to_journal(
         log_debug_errno(r, "Retrying write.");
         r = journal_file_append_entry(
                         f,
-                        &ts,
+                        ts,
                         /* boot_id= */ NULL,
                         iovec, n,
                         &s->seqnum->seqnum,
@@ -1188,9 +1182,15 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
-        (void) server_forward_socket(s, iovec, n, priority);
+        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
+         * not use the source time, and not even the time the event was originally seen, but instead simply
+         * the time we started processing it, as we want strictly linear ordering in what we write out.) */
+        struct dual_timestamp ts;
+        dual_timestamp_now(&ts);
 
-        server_write_to_journal(s, journal_uid, iovec, n, priority);
+        (void) server_forward_socket(s, iovec, n, priority, &ts);
+
+        server_write_to_journal(s, journal_uid, iovec, n, priority, &ts);
 }
 
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
