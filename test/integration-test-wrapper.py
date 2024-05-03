@@ -51,6 +51,7 @@ def main():
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
+    name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
     test_unit = f"testsuite-{args.test_number}.service"
 
     dropin = textwrap.dedent(
@@ -90,7 +91,7 @@ def main():
             """
         )
 
-        journal_file = (args.meson_build_dir / (f"test/journal/{args.test_name}.journal")).absolute()
+        journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
     else:
         journal_file = None
@@ -100,7 +101,7 @@ def main():
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
-        '--machine', args.test_name,
+        '--machine', name,
         '--ephemeral',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
