@@ -212,6 +212,7 @@ Encrypt=tpm2
 EOF
     PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=50M /tmp/dditest.raw --tpm2-pcrs=
     DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
+    udevadm wait --settle --timeout=10 "$DEVICE"
     systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes
     mkdir /tmp/dditest.mnt
     mount -t ext4 /dev/mapper/dditest /tmp/dditest.mnt
