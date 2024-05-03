@@ -81,7 +81,6 @@ def main():
 
     cmd = [
         'mkosi',
-        '--debug',
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
