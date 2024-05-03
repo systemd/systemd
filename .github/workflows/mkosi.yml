@@ -180,7 +180,7 @@ jobs:
       run: meson compile -C build mkosi
 
     - name: Run integration tests
-      run: meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit
+      run: meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
 
     - name: Archive failed test journals
       uses: actions/upload-artifact@v4
