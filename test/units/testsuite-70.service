@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=TEST-70-TPM2
+Wants=tpm2.target
+After=tpm2.target
 
 [Service]
 Type=oneshot
