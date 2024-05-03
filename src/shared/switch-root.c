@@ -39,10 +39,10 @@ int switch_root(const char *new_root,
                 unsigned long mount_flags;                 /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is unset */
                 unsigned long mount_flags_recursive_run;   /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is set (0 if shall be skipped) */
         } transfer_table[] = {
-                { "/dev",                                 MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm/ + /dev/pts/ and similar */
-                { "/sys",                                 MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
-                { "/proc",                                MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar */
-                { "/run",                                 MS_BIND,         MS_BIND|MS_REC }, /* Recursive except on soft reboot, see above */
+                { "/dev",                                 MS_BIND|MS_REC,  MS_MOVE        }, /* Recursive, because we want to save the original /dev/shm/ + /dev/pts/ and similar */
+                { "/sys",                                 MS_BIND|MS_REC,  MS_MOVE        }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
+                { "/proc",                                MS_BIND|MS_REC,  MS_MOVE        }, /* Similar */
+                { "/run",                                 MS_BIND,         MS_MOVE        }, /* Recursive except on soft reboot, see above */
                 { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND,         0 /* skip! */  }, /* Credentials passed into the system should survive */
                 { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND,         0 /* skip! */  },  /* Similar */
                 { "/run/host",                            MS_BIND|MS_REC,  0 /* skip! */  },  /* Host supplied hierarchy should also survive */
