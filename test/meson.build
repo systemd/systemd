@@ -341,7 +341,7 @@ integration_tests = {
         '03': 'TEST-03-JOBS',
         # '04': 'TEST-04-JOURNAL', # Extremely flaky
         '05': 'TEST-05-RLIMITS',
-        # '06': 'TEST-06-SELINUX',
+        '06': 'TEST-06-SELINUX',
         # '07': 'TEST-07-PID1',
         # '08': 'TEST-08-INITRD',
         '09': 'TEST-09-REBOOT',
