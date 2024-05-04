@@ -214,7 +214,7 @@ static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
 
         if (!pidref_equal(&s->main_pid, &pidref)) {
                 service_unwatch_main_pid(s);
-                exec_status_start(&s->main_exec_status, pidref.pid);
+                exec_status_start(&s->main_exec_status, pidref.pid, /* ts = */ NULL);
         }
 
         s->main_pid = TAKE_PIDREF(pidref);
