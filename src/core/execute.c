@@ -366,6 +366,7 @@ int exec_spawn(Unit *unit,
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        dual_timestamp start_timestamp;
         int r;
 
         assert(unit);
@@ -446,6 +447,10 @@ int exec_spawn(Unit *unit,
 
         xsprintf(serialization_fd_number, "%i", fileno(f));
 
+        /* Record the start timestamp before we fork so that it is guaranteed to be earlier than the
+         * handoff timestamp. */
+        dual_timestamp_now(&start_timestamp);
+
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
         r = posix_spawn_wrapper(
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
@@ -473,7 +478,7 @@ int exec_spawn(Unit *unit,
         log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
                        command->path, pidref.pid, r > 0 ? "via" : "without");
 
-        exec_status_start(&command->exec_status, pidref.pid);
+        exec_status_start(&command->exec_status, pidref.pid, &start_timestamp);
 
         *ret = TAKE_PIDREF(pidref);
         return 0;
@@ -1816,14 +1821,17 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c) {
         return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
-void exec_status_start(ExecStatus *s, pid_t pid) {
+void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
         assert(s);
 
         *s = (ExecStatus) {
                 .pid = pid,
         };
 
-        dual_timestamp_now(&s->start_timestamp);
+        if (ts)
+                s->start_timestamp = *ts;
+        else
+                dual_timestamp_now(&s->start_timestamp);
 }
 
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status) {
