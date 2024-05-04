@@ -3,4 +3,9 @@
 Description=Verbose successful service
 
 [Service]
-ExecStart=/bin/echo success
+Type=oneshot
+# Sleep so that the cgroup is still there when journald processes the log message which is required for
+# journald to add the expected fields to the log message.
+ExecStart=sleep 2
+ExecStart=echo success
+ExecStart=sleep 2
