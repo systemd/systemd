@@ -13,3 +13,4 @@ mountpoint /issue2730
 run_subtests
 
 touch /testok
+systemctl --no-block exit 123
