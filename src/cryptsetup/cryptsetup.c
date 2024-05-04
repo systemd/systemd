@@ -2149,7 +2149,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
-               "%1$s detach VOLUME\n\n"
+               "%1$s detach VOLUME [OPTIONS]\n\n"
                "%2$sAttach or detach an encrypted block device.%3$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
@@ -2483,12 +2483,21 @@ static int run(int argc, char *argv[]) {
 
         } else if (streq(verb, "detach")) {
                 const char *volume = ASSERT_PTR(argv[optind + 1]);
+                const char *option = argc - optind >= 3 ? ASSERT_PTR(argv[optind + 2]) : NULL;
+                uint32_t flags = 0;
 
-                if (argc - optind >= 3)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach does not accept more than one argument.");
+                if (argc - optind >= 4)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach does not accept more than two arguments.");
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                if (option) {
+                        if (streq(option, "deferred"))
+                                flags |= CRYPT_DEACTIVATE_DEFERRED;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown option %s, valid options are 'deferred'.", option);
+                }
 
                 r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
@@ -2500,7 +2509,7 @@ static int run(int argc, char *argv[]) {
 
                 cryptsetup_enable_logging(cd);
 
-                r = crypt_deactivate(cd, volume);
+                r = crypt_deactivate_by_name(cd, volume, flags);
                 if (r < 0)
                         return log_error_errno(r, "Failed to deactivate '%s': %m", volume);
 
