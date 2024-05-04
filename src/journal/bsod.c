@@ -58,14 +58,15 @@ static int help(void) {
         return 0;
 }
 
-static int acquire_first_emergency_log_message(char **ret) {
+static int acquire_first_emergency_log_message(char **ret_message, char **ret_message_id) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *message = NULL;
+        _cleanup_free_ char *message = NULL, *message_id = NULL;
         const void *d;
         size_t l;
         int r;
 
-        assert(ret);
+        assert(ret_message);
+        assert(ret_message_id);
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | (arg_continuous ? 0 : SD_JOURNAL_ASSUME_IMMUTABLE));
         if (r < 0)
@@ -97,7 +98,8 @@ static int acquire_first_emergency_log_message(char **ret) {
 
                 if (!arg_continuous) {
                         log_debug("No emergency level entries in the journal");
-                        *ret = NULL;
+                        *ret_message = NULL;
+                        *ret_message_id = NULL;
                         return 0;
                 }
 
@@ -114,7 +116,25 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (!message)
                 return log_oom();
 
-        *ret = TAKE_PTR(message);
+        r = sd_journal_get_data(j, "MESSAGE_ID", &d, &l);
+        if (r == -ENOENT) {
+                *ret_message = TAKE_PTR(message);
+                *ret_message_id = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read message ID from journal: %m");
+
+        d = memory_startswith(d, l, "MESSAGE_ID=");
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong message ID.");
+
+        message_id = memdup_suffix0(d, l - STRLEN("MESSAGE_ID="));
+        if (!message_id)
+                return log_oom();
+
+        *ret_message = TAKE_PTR(message);
+        *ret_message_id = TAKE_PTR(message_id);
 
         return 0;
 }
@@ -139,12 +159,13 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
         return -ENOTTY;
 }
 
-static int display_emergency_message_fullscreen(const char *message) {
+static int display_emergency_message_fullscreen(const char *message, const char *message_id) {
         int r, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *stream = NULL;
+        _cleanup_free_ char *combined_message = NULL;
         char read_character_buffer = '\0';
         struct winsize w = {
                 .ws_col = 80,
@@ -153,6 +174,13 @@ static int display_emergency_message_fullscreen(const char *message) {
         const char *tty;
 
         assert(message);
+        /* If we have the message ID, we should suffix it to the message we print */
+        if (message_id) {
+                combined_message = strjoin(message, "\nMessage ID: ", message_id);
+                if (!combined_message)
+                        return log_oom();
+                message = combined_message;
+        }
 
         if (arg_tty)
                 tty = arg_tty;
@@ -213,7 +241,11 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
+        r = print_qrcode_full(stream,
+                              "", message,
+                              qr_code_start_row, qr_code_start_column,
+                              w.ws_col,
+                              w.ws_row);
         if (r < 0)
                 log_warning_errno(r, "QR code could not be printed, ignoring: %m");
 
@@ -302,8 +334,8 @@ static int run(int argc, char *argv[]) {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = 0,
         };
-        _cleanup_free_ char *message = NULL;
         int r;
+        _cleanup_free_ char *message = NULL, *message_id = NULL;
 
         log_setup();
 
@@ -313,7 +345,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = acquire_first_emergency_log_message(&message);
+        r = acquire_first_emergency_log_message(&message, &message_id);
         if (r < 0)
                 return r;
 
@@ -324,7 +356,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
-        return display_emergency_message_fullscreen(message);
+        return display_emergency_message_fullscreen(message, message_id);
 }
 
 DEFINE_MAIN_FUNCTION(run);
