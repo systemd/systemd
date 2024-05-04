@@ -324,6 +324,7 @@ done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
 knotc reload
+sleep 2
 
 ### SETUP END ###
 
