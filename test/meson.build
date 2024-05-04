@@ -24,20 +24,28 @@ if install_tests
                 'testsuite-63.units',
                 'testsuite-80.units',
         ]
-                # install_subdir() does not handle symlinks correctly which causes a very ugly warning when
-                # installing, so if rsync is available we use that instead. TODO: switch to the new option
-                # 'follow_symlinks' once we require Meson 1.3.0 or greater, see:
-                # https://github.com/mesonbuild/meson/commit/0af126fec798d6dbb0d1ad52168cc1f3f1758acd
-                if rsync.found()
-                        rsync_r = rsync.full_path() + ' -rLpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+                # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
+                # instead of copying the symlink) so we use rsync instead.
+                if meson.version().version_compare('<1.3.0')
+                        if not rsync.found()
+                                error('rsync is required to install the integration test data')
+                        endif
+
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 else
                         install_subdir(subdir,
-                                       exclude_files : '.gitattributes',
-                                       install_dir : testdata_dir)
+                                       exclude_files : ['.gitattributes', '25-default.link'],
+                                       install_dir : testdata_dir,
+                                       follow_symlinks : false)
                 endif
         endforeach
+
+        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
+        # exclude it and create the correct symlink here.
+        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
+                                                       testdata_dir / 'test-network/conf/25-default.link'))
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
