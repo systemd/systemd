@@ -278,7 +278,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd
-systemctl start systemd-networkd
+systemctl restart systemd-networkd
 /usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
 systemctl reload systemd-resolved
 systemctl start resolved-dummy-server
