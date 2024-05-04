@@ -109,13 +109,12 @@ journalctl --sync
 
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
-timeout 30 bash -xec 'while systemctl -q is-active verbose-success.service; do sleep 1; done'
 journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
-[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T '(echo)' -T systemd -T '(systemd)' -T systemd-executor)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T '(echo)' -T sleep -T '(sleep)' -T systemd -T '(systemd)' -T systemd-executor)" ]]
 
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
@@ -263,7 +262,7 @@ UNIT_NAME="test-cursor-$RANDOM.service"
 CURSOR_FILE="$(mktemp)"
 # Generate some messages we can match against
 journalctl --cursor-file="$CURSOR_FILE" -n1
-systemd-run --unit="$UNIT_NAME" --wait --service-type=exec bash -xec "echo hello; echo world"
+systemd-run --unit="$UNIT_NAME" --wait --service-type=exec bash -ec "sleep 2; set -x; echo hello; echo world; set +x; sleep 2"
 journalctl --sync
 # --after-cursor= + --unit=
 # The format of the "Starting ..." message depends on StatusUnitFormat=, so match only the beginning
@@ -277,6 +276,7 @@ diff <(journalctl --cursor-file="$CURSOR_FILE" -p info -o cat _SYSTEMD_UNIT="$UN
 hello
 + echo world
 world
++ set +x
 EOF
 rm -f "$CURSOR_FILE"
 
