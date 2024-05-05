@@ -59,6 +59,8 @@ def main():
         [Unit]
         After=multi-user.target network.target
         Requires=multi-user.target
+        SuccessAction=exit
+        SuccessActionExitStatus=123
 
         [Service]
         StandardOutput=journal+console
@@ -85,8 +87,6 @@ def main():
         dropin += textwrap.dedent(
             """
             [Unit]
-            SuccessAction=exit
-            SuccessActionExitStatus=123
             FailureAction=exit
             """
         )
@@ -143,7 +143,7 @@ def main():
 
     result = subprocess.run(cmd)
     # Return code 123 is the expected success code
-    if result.returncode != (0 if sys.stderr.isatty() else 123):
+    if result.returncode != 123:
         if result.returncode != 77 and journal_file:
             cmd = [
                 'journalctl',
