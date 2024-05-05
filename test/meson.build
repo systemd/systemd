@@ -415,6 +415,7 @@ foreach test_number, dirname : integration_tests
                 'timeout' : 1800,
                 'storage' : 'volatile',
                 'priority' : 0,
+                'firmware' : 'linux',
         }
 
         # TODO: This fs.exists call isn't included in rebuild logic
@@ -430,6 +431,7 @@ foreach test_number, dirname : integration_tests
                 '--test-name', dirname,
                 '--test-number', test_number,
                 '--storage', test_params['storage'],
+                '--firmware', test_params['firmware'],
                 '--',
         ] + test_params['mkosi_args']
 

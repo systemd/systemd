@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--test-name', required=True)
     parser.add_argument('--test-number', required=True)
     parser.add_argument('--storage', required=True)
+    parser.add_argument('--firmware', required=True)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
@@ -119,6 +120,7 @@ def main():
         '--runtime-network=none',
         '--runtime-scratch=no',
         '--append',
+        '--qemu-firmware', args.firmware,
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
