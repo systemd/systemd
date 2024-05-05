@@ -356,7 +356,7 @@ integration_tests = {
         '13': 'TEST-13-NSPAWN',
         '15': 'TEST-15-DROPIN',
         '16': 'TEST-16-EXTEND-TIMEOUT',
-        '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
+        '17': 'TEST-17-UDEV',
         '18': 'TEST-18-FAILUREACTION',
         '19': 'TEST-19-CGROUP',
         # '21': 'TEST-21-DFUZZER',
@@ -383,7 +383,6 @@ integration_tests = {
         # '54': 'TEST-54-CREDS',
         # '55': 'TEST-55-OOMD',
         # '58': 'TEST-58-REPART',
-        # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
         '59': 'TEST-59-RELOADING-RESTART',
         '60': 'TEST-60-MOUNT-RATELIMIT',
         '62': 'TEST-62-RESTRICT-IFACES',
