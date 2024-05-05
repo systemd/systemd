@@ -40,6 +40,10 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
+# FIXME: Remove after tmp.mount is kept intact in the debian packaging for UPSTREAM=1 builds.
+sed --in-place '/tmp.mount/d' debian/rules
+sed --in-place '/tmp.mount/d' debian/not-installed
+
 build() {
     DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
