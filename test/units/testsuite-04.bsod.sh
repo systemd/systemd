@@ -4,7 +4,12 @@ set -eux
 set -o pipefail
 
 if systemd-detect-virt -cq; then
-    echo "This test requires a VM, skipping the test"
+    echo "This test requires a VM, skipping the test" | tee --append /skipped
+    exit 0
+fi
+
+if [[ ! -x /usr/lib/systemd/systemd-bsod ]]; then
+    echo "systemd-bsod is not installed, skipping the test" | tee --append /skipped
     exit 0
 fi
 
