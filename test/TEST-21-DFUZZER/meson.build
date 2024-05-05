@@ -2,4 +2,5 @@
 
 test_params = test_params + {
         'timeout' : 3600,
+        'priority': -50,
 }
