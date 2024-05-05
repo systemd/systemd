@@ -25,6 +25,8 @@ DLSYM_FUNCTION(kmod_unref);
 DLSYM_FUNCTION(kmod_validate_resources);
 
 int dlopen_libkmod(void) {
+        ELF_NOTE_DLOPEN("libkmod.so.2", "kmod", "Support for loading kernel modules.", "recommended");
+
         return dlopen_many_sym_or_warn(
                         &libkmod_dl,
                         "libkmod.so.2",

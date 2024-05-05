@@ -1418,6 +1418,24 @@ elif compression == 'lz4' and not liblz4.found()
 elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
+# In the dlopen ELF note we save the default compression library with a
+# higher priority, so that packages can give it priority over the
+# secondary libraries
+if compression == 'zstd'
+        conf.set_quoted('COMPRESSION_PRIORITY_ZSTD', 'recommended')
+else
+        conf.set_quoted('COMPRESSION_PRIORITY_ZSTD', 'suggested')
+endif
+if compression == 'lz4'
+        conf.set_quoted('COMPRESSION_PRIORITY_LZ4', 'recommended')
+else
+        conf.set_quoted('COMPRESSION_PRIORITY_LZ4', 'suggested')
+endif
+if compression == 'xz'
+        conf.set_quoted('COMPRESSION_PRIORITY_XZ', 'recommended')
+else
+        conf.set_quoted('COMPRESSION_PRIORITY_XZ', 'suggested')
+endif
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 libarchive = dependency('libarchive',
