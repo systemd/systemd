@@ -1979,6 +1979,21 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINET:pnP325J:*
  KEYBOARD_KEY_76=f21                                    # Touchpad toggle
 
 ###########################################################
+# Xiaomi
+###########################################################
+
+# Fix mapping of menu / home / back capacitive buttons on bottom bezel
+# Menu: LeftMeta + S   -> menu      (ignore LeftMeta, map S to menu)
+# Home: LeftCtrl + Esc -> LeftMeta  (ignore LeftCtrl, map Esc to LeftMeta)
+# Back: Backspace      -> back      (map backspace to back)
+evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
+ KEYBOARD_KEY_700e0=unknown	# LeftCtrl -> ignore
+ KEYBOARD_KEY_700e3=unknown	# LeftMeta -> ignore
+ KEYBOARD_KEY_70016=menu	# S -> menu
+ KEYBOARD_KEY_70029=leftmeta	# Esc -> LeftMeta (Windows key / Win8 tablets home)
+ KEYBOARD_KEY_7002a=back	# Backspace -> back
+
+###########################################################
 # Zepto
 ###########################################################
 
