@@ -387,7 +387,7 @@ integration_tests = {
         '60': 'TEST-60-MOUNT-RATELIMIT',
         '62': 'TEST-62-RESTRICT-IFACES',
         '63': 'TEST-63-PATH',
-        # '64': 'TEST-54-UDEV-STORAGE',
+        # '64': 'TEST-64-UDEV-STORAGE',
         '65': 'TEST-65-ANALYZE',
         '66': 'TEST-66-DEVICE-ISOLATION',
         '67': 'TEST-67-INTEGRITY',
