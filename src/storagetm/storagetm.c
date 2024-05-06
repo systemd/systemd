@@ -721,9 +721,13 @@ static int plymouth_send_text(const char *text) {
         assert(text);
 
         c = asprintf(&plymouth_message,
+                     "r%c"  /* reactivate */
                      "M\x02%c%s%c"
-                     "A%c", /* pause spinner */
+                     "A%c"  /* pause spinner */
+                     "D%c", /* deactivate */
+                     '\x00',
                      (int) strlen(text) + 1, text, '\x00',
+                     '\x00',
                      '\x00');
         if (c < 0)
                 return log_oom();
