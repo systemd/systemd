@@ -5371,7 +5371,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->fallback_smack_process_label = u->manager->defaults.smack_process_label;
 
         if (u->manager->restrict_fs && p->bpf_restrict_fs_map_fd < 0) {
-                int fd = bpf_restrict_fs_map_fd(u);
+                int fd = bpf_restrict_fs_map_fd(u->manager->restrict_fs);
                 if (fd < 0)
                         return fd;
 

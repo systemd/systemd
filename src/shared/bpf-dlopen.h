@@ -15,6 +15,7 @@ DLSYM_PROTOTYPE(bpf_link__open);
 DLSYM_PROTOTYPE(bpf_link__pin);
 DLSYM_PROTOTYPE(bpf_map__fd);
 DLSYM_PROTOTYPE(bpf_map__name);
+DLSYM_PROTOTYPE(bpf_map__reuse_fd);
 DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd);
 DLSYM_PROTOTYPE(bpf_map__set_max_entries);
 DLSYM_PROTOTYPE(bpf_map__set_pin_path);
