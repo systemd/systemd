@@ -1615,97 +1615,97 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static JsonVariant* security_assessor_find_in_policy(const struct security_assessor *a, JsonVariant *policy, const char *name) {
-        JsonVariant *item;
+static sd_json_variant* security_assessor_find_in_policy(const struct security_assessor *a, sd_json_variant *policy, const char *name) {
+        sd_json_variant *item;
         assert(a);
 
         if (!policy)
                 return NULL;
-        if (!json_variant_is_object(policy)) {
+        if (!sd_json_variant_is_object(policy)) {
                 log_debug("Specified policy is not a JSON object, ignoring.");
                 return NULL;
         }
 
-        item = json_variant_by_key(policy, a->json_field);
+        item = sd_json_variant_by_key(policy, a->json_field);
         if (!item)
                 return NULL;
-        if (!json_variant_is_object(item)) {
+        if (!sd_json_variant_is_object(item)) {
                 log_debug("Item for '%s' in policy JSON object is not an object, ignoring.", a->id);
                 return NULL;
         }
 
-        return name ? json_variant_by_key(item, name) : item;
+        return name ? sd_json_variant_by_key(item, name) : item;
 }
 
-static uint64_t access_weight(const struct security_assessor *a, JsonVariant *policy) {
-        JsonVariant *val;
+static uint64_t access_weight(const struct security_assessor *a, sd_json_variant *policy) {
+        sd_json_variant *val;
 
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "weight");
         if (val) {
-                if (json_variant_is_unsigned(val))
-                        return json_variant_unsigned(val);
+                if (sd_json_variant_is_unsigned(val))
+                        return sd_json_variant_unsigned(val);
                 log_debug("JSON field 'weight' of policy for %s is not an unsigned integer, ignoring.", a->id);
         }
 
         return a->weight;
 }
 
-static uint64_t access_range(const struct security_assessor *a, JsonVariant *policy) {
-        JsonVariant *val;
+static uint64_t access_range(const struct security_assessor *a, sd_json_variant *policy) {
+        sd_json_variant *val;
 
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "range");
         if (val) {
-                if (json_variant_is_unsigned(val))
-                        return json_variant_unsigned(val);
+                if (sd_json_variant_is_unsigned(val))
+                        return sd_json_variant_unsigned(val);
                 log_debug("JSON field 'range' of policy for %s is not an unsigned integer, ignoring.", a->id);
         }
 
         return a->range;
 }
 
-static const char *access_description_na(const struct security_assessor *a, JsonVariant *policy) {
-        JsonVariant *val;
+static const char *access_description_na(const struct security_assessor *a, sd_json_variant *policy) {
+        sd_json_variant *val;
 
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_na");
         if (val) {
-                if (json_variant_is_string(val))
-                        return json_variant_string(val);
+                if (sd_json_variant_is_string(val))
+                        return sd_json_variant_string(val);
                 log_debug("JSON field 'description_na' of policy for %s is not a string, ignoring.", a->id);
         }
 
         return a->description_na;
 }
 
-static const char *access_description_good(const struct security_assessor *a, JsonVariant *policy) {
-        JsonVariant *val;
+static const char *access_description_good(const struct security_assessor *a, sd_json_variant *policy) {
+        sd_json_variant *val;
 
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_good");
         if (val) {
-                if (json_variant_is_string(val))
-                        return json_variant_string(val);
+                if (sd_json_variant_is_string(val))
+                        return sd_json_variant_string(val);
                 log_debug("JSON field 'description_good' of policy for %s is not a string, ignoring.", a->id);
         }
 
         return a->description_good;
 }
 
-static const char *access_description_bad(const struct security_assessor *a, JsonVariant *policy) {
-        JsonVariant *val;
+static const char *access_description_bad(const struct security_assessor *a, sd_json_variant *policy) {
+        sd_json_variant *val;
 
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_bad");
         if (val) {
-                if (json_variant_is_string(val))
-                        return json_variant_string(val);
+                if (sd_json_variant_is_string(val))
+                        return sd_json_variant_string(val);
                 log_debug("JSON field 'description_bad' of policy for %s is not a string, ignoring.", a->id);
         }
 
@@ -1716,9 +1716,9 @@ static int assess(const SecurityInfo *info,
                   Table *overview_table,
                   AnalyzeSecurityFlags flags,
                   unsigned threshold,
-                  JsonVariant *policy,
+                  sd_json_variant *policy,
                   PagerFlags pager_flags,
-                  JsonFormatFlags json_format_flags) {
+                  sd_json_format_flags_t json_format_flags) {
 
         static const struct {
                 uint64_t exposure;
@@ -1871,7 +1871,7 @@ static int assess(const SecurityInfo *info,
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                if (json_format_flags & JSON_FORMAT_OFF) {
+                if (json_format_flags & SD_JSON_FORMAT_OFF) {
                         r = table_hide_column_from_display(details_table, (size_t) 2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set columns to display: %m");
@@ -1890,7 +1890,7 @@ static int assess(const SecurityInfo *info,
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table && (json_format_flags & JSON_FORMAT_OFF)) {
+        if (details_table && (json_format_flags & SD_JSON_FORMAT_OFF)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 
@@ -2412,9 +2412,9 @@ static int analyze_security_one(sd_bus *bus,
                                 Table *overview_table,
                                 AnalyzeSecurityFlags flags,
                                 unsigned threshold,
-                                JsonVariant *policy,
+                                sd_json_variant *policy,
                                 PagerFlags pager_flags,
-                                JsonFormatFlags json_format_flags) {
+                                sd_json_format_flags_t json_format_flags) {
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
@@ -2644,9 +2644,9 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 
 static int offline_security_check(Unit *u,
                                   unsigned threshold,
-                                  JsonVariant *policy,
+                                  sd_json_variant *policy,
                                   PagerFlags pager_flags,
-                                  JsonFormatFlags json_format_flags) {
+                                  sd_json_format_flags_t json_format_flags) {
 
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
@@ -2667,7 +2667,7 @@ static int offline_security_check(Unit *u,
 
 static int offline_security_checks(
                 char **filenames,
-                JsonVariant *policy,
+                sd_json_variant *policy,
                 RuntimeScope scope,
                 bool check_man,
                 bool run_generators,
@@ -2675,7 +2675,7 @@ static int offline_security_checks(
                 const char *root,
                 const char *profile,
                 PagerFlags pager_flags,
-                JsonFormatFlags json_format_flags) {
+                sd_json_format_flags_t json_format_flags) {
 
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
@@ -2771,7 +2771,7 @@ static int offline_security_checks(
 
 static int analyze_security(sd_bus *bus,
                      char **units,
-                     JsonVariant *policy,
+                     sd_json_variant *policy,
                      RuntimeScope scope,
                      bool check_man,
                      bool run_generators,
@@ -2779,7 +2779,7 @@ static int analyze_security(sd_bus *bus,
                      unsigned threshold,
                      const char *root,
                      const char *profile,
-                     JsonFormatFlags json_format_flags,
+                     sd_json_format_flags_t json_format_flags,
                      PagerFlags pager_flags,
                      AnalyzeSecurityFlags flags) {
 
@@ -2897,7 +2897,7 @@ static int analyze_security(sd_bus *bus,
 
 int verb_security(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *policy = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy = NULL;
         int r;
         unsigned line, column;
 
@@ -2910,7 +2910,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         if (arg_security_policy) {
-                r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
+                r = sd_json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
         } else {
@@ -2922,7 +2922,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
                         return r;
 
                 if (f) {
-                        r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
+                        r = sd_json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
                         if (r < 0)
                                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
                 }
