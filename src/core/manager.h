@@ -375,6 +375,8 @@ struct Manager {
          * file system */
         int pin_cgroupfs_fd;
 
+        int pin_restrict_fs_map_fd;
+
         unsigned gc_marker;
 
         /* The stat() data the last time we saw /etc/localtime */
