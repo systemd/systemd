@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-tpm2.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "json.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "sha256.h"
@@ -80,7 +81,7 @@ int acquire_tpm2_key(
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_free_ void *loaded_blob = NULL;
         _cleanup_free_ char *auto_device = NULL;
         struct iovec blob;
@@ -242,7 +243,7 @@ int find_tpm2_auto_data(
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags flags;

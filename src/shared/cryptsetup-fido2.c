@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "json.h"
 #include "libfido2-util.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -158,8 +159,8 @@ int acquire_fido2_key_auto(
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                JsonVariant *w;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                sd_json_variant *w;
                 _cleanup_free_ void *salt = NULL;
                 _cleanup_free_ char *rp = NULL;
                 size_t salt_size = 0;
@@ -179,74 +180,74 @@ int acquire_fido2_key_auto(
                         continue;
                 }
 
-                w = json_variant_by_key(v, "fido2-credential");
-                if (!w || !json_variant_is_string(w))
+                w = sd_json_variant_by_key(v, "fido2-credential");
+                if (!w || !sd_json_variant_is_string(w))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "FIDO2 token data lacks 'fido2-credential' field.");
 
-                r = unbase64mem(json_variant_string(w), &cid, &cid_size);
+                r = unbase64mem(sd_json_variant_string(w), &cid, &cid_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'fido2-credential' field.");
 
-                w = json_variant_by_key(v, "fido2-salt");
-                if (!w || !json_variant_is_string(w))
+                w = sd_json_variant_by_key(v, "fido2-salt");
+                if (!w || !sd_json_variant_is_string(w))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "FIDO2 token data lacks 'fido2-salt' field.");
 
                 assert(!salt);
                 assert(salt_size == 0);
-                r = unbase64mem(json_variant_string(w), &salt, &salt_size);
+                r = unbase64mem(sd_json_variant_string(w), &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded salt.");
 
-                w = json_variant_by_key(v, "fido2-rp");
+                w = sd_json_variant_by_key(v, "fido2-rp");
                 if (w) {
                         /* The "rp" field is optional. */
 
-                        if (!json_variant_is_string(w))
+                        if (!sd_json_variant_is_string(w))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "FIDO2 token data's 'fido2-rp' field is not a string.");
 
                         assert(!rp);
-                        rp = strdup(json_variant_string(w));
+                        rp = strdup(sd_json_variant_string(w));
                         if (!rp)
                                 return log_oom();
                 }
 
-                w = json_variant_by_key(v, "fido2-clientPin-required");
+                w = sd_json_variant_by_key(v, "fido2-clientPin-required");
                 if (w) {
                         /* The "fido2-clientPin-required" field is optional. */
 
-                        if (!json_variant_is_boolean(w))
+                        if (!sd_json_variant_is_boolean(w))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
 
-                        SET_FLAG(required, FIDO2ENROLL_PIN, json_variant_boolean(w));
+                        SET_FLAG(required, FIDO2ENROLL_PIN, sd_json_variant_boolean(w));
                 } else
                         required |= FIDO2ENROLL_PIN_IF_NEEDED; /* compat with 248, where the field was unset */
 
-                w = json_variant_by_key(v, "fido2-up-required");
+                w = sd_json_variant_by_key(v, "fido2-up-required");
                 if (w) {
                         /* The "fido2-up-required" field is optional. */
 
-                        if (!json_variant_is_boolean(w))
+                        if (!sd_json_variant_is_boolean(w))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
 
-                        SET_FLAG(required, FIDO2ENROLL_UP, json_variant_boolean(w));
+                        SET_FLAG(required, FIDO2ENROLL_UP, sd_json_variant_boolean(w));
                 } else
                         required |= FIDO2ENROLL_UP_IF_NEEDED; /* compat with 248 */
 
-                w = json_variant_by_key(v, "fido2-uv-required");
+                w = sd_json_variant_by_key(v, "fido2-uv-required");
                 if (w) {
                         /* The "fido2-uv-required" field is optional. */
 
-                        if (!json_variant_is_boolean(w))
+                        if (!sd_json_variant_is_boolean(w))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
 
-                        SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
+                        SET_FLAG(required, FIDO2ENROLL_UV, sd_json_variant_boolean(w));
                 } else
                         required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
 
