@@ -67,7 +67,8 @@ purpose. Specifically, the following features are provided:
 
 ## Configuring per-Service Credentials
 
-Within unit files, there are four settings to configure service credentials.
+Within unit files, there are the following settings to configure service 
+credentials.
 
 1. `LoadCredential=` may be used to load a credential from disk, from an
    `AF_UNIX` socket, or propagate them from a system credential.
@@ -94,7 +95,7 @@ Each credential configured with these options carries a short name (suitable
 for inclusion in a filename) in the unit file, under which the invoked service
 code can then retrieve it. Each name should only be specified once.
 
-For details about these four settings [see the man
+For details about these settings [see the man
 page](https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Credentials).
 
 It is a good idea to also enable mount namespacing for services that process
@@ -208,7 +209,7 @@ via `systemd-creds cat`.
 ## Encryption
 
 Credentials are supposed to be useful for carrying sensitive information, such
-as cryptographic key material. For this kind of data (symmetric) encryption and
+as cryptographic key material. For such purposes (symmetric) encryption and
 authentication are provided to make storage of the data at rest safer. The data
 may be encrypted and authenticated with AES256-GCM. The encryption key can
 either be one derived from the local TPM2 device, or one stored in
