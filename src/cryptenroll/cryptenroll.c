@@ -637,31 +637,33 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (auto_pcrlock) {
-                assert(!arg_tpm2_pcrlock);
+        if (arg_enroll_type == ENROLL_TPM2) {
+                if (auto_pcrlock) {
+                        assert(!arg_tpm2_pcrlock);
 
-                r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
-                } else
-                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
-        }
+                        r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
+                        } else
+                                log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+                }
 
-        if (auto_public_key_pcr_mask) {
-                assert(arg_tpm2_public_key_pcr_mask == 0);
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
-        }
+                if (auto_public_key_pcr_mask) {
+                        assert(arg_tpm2_public_key_pcr_mask == 0);
+                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                }
 
-        if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 by default if no pcrlock policy is around (which is a better replacement) */
-                assert(arg_tpm2_n_hash_pcr_values == 0);
+                if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 by default if no pcrlock policy is around (which is a better replacement) */
+                        assert(arg_tpm2_n_hash_pcr_values == 0);
 
-                if (!GREEDY_REALLOC_APPEND(
-                                    arg_tpm2_hash_pcr_values,
-                                    arg_tpm2_n_hash_pcr_values,
-                                    &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
-                                    1))
-                        return log_oom();
+                        if (!GREEDY_REALLOC_APPEND(
+                                            arg_tpm2_hash_pcr_values,
+                                            arg_tpm2_n_hash_pcr_values,
+                                            &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                            1))
+                                return log_oom();
+                }
         }
 
         return 1;
