@@ -1023,15 +1023,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_WHEN:
                         if (streq(optarg, "show")) {
-                                r = logind_show_shutdown();
-                                if (r < 0 && r != -ENODATA)
-                                        return r;
-
-                                return 0;
+                                arg_action = ACTION_SYSTEMCTL_SHOW_SHUTDOWN;
+                                return 1;
                         }
 
                         if (STR_IN_SET(optarg, "", "cancel")) {
-                                arg_when = USEC_INFINITY;
+                                arg_action = ACTION_CANCEL_SHUTDOWN;
+                                return 1;
+                        }
+
+                        if (streq(optarg, "auto")) {
+                                arg_when = USEC_INFINITY; /* logind chooses on server side */
                                 break;
                         }
 
@@ -1339,6 +1341,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SHOW_SHUTDOWN:
+        case ACTION_SYSTEMCTL_SHOW_SHUTDOWN:
                 r = logind_show_shutdown();
                 break;
 
