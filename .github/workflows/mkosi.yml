@@ -123,6 +123,8 @@ jobs:
         ToolsTreeDistribution=fedora
         # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
         QemuFirmware=uefi
+        # We build with debuginfo so there's no point in mounting the sources into the machine.
+        RuntimeBuildSources=no
         EOF
 
         # These should override the options from mkosi.conf so we put them in a dropin that's ordered later
