@@ -2039,6 +2039,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
+        'src/libsystemd/sd-json',
         'src/libsystemd/sd-netlink',
         'src/libsystemd/sd-network',
         'src/libsystemd/sd-resolve')]
@@ -2087,6 +2088,7 @@ install_libsystemd_static = static_library(
                         libdl,
                         libgcrypt_cflags,
                         liblz4_cflags,
+                        libm,
                         libmount,
                         libopenssl,
                         librt,

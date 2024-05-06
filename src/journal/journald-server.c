@@ -2189,14 +2189,14 @@ static void synchronize_destroy(void *userdata) {
         varlink_unref(userdata);
 }
 
-static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_synchronize(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
         Server *s = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         log_info("Received client request to sync journal.");
@@ -2230,12 +2230,12 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
         return 0;
 }
 
-static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_rotate(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         log_info("Received client request to rotate journal, rotating.");
@@ -2244,12 +2244,12 @@ static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMetho
         return varlink_reply(link, NULL);
 }
 
-static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_flush_to_var(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
         if (s->namespace)
                 return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
@@ -2260,12 +2260,12 @@ static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, Varlin
         return varlink_reply(link, NULL);
 }
 
-static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_relinquish_var(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
         if (s->namespace)
                 return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
