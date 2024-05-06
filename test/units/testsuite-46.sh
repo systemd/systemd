@@ -33,6 +33,8 @@ wait_for_state() {
     done
 }
 
+FSTYPE="$(stat --file-system --format "%T" /)"
+
 systemd-analyze log-level debug
 systemctl service-log-level systemd-homed debug
 
@@ -129,8 +131,9 @@ if ! systemd-detect-virt -cq ; then
         inspect test-user
 fi
 
-# Do some resize tests, but only if we run on real kernels, as quota inside of containers will fail
-if ! systemd-detect-virt -cq ; then
+# Do some resize tests, but only if we run on real kernels and are on btrfs, as quota inside of containers
+# will fail and minimizing while active only works on btrfs.
+if ! systemd-detect-virt -cq && [[ "$FSTYPE" == "btrfs" ]]; then
     # grow while inactive
     PASSWORD=xEhErW0ndafV4s homectl resize test-user 300M
     inspect test-user
