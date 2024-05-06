@@ -54,7 +54,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
         return sym_libbpf_get_error(link) == 0;
 }
 
-static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
+static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj, int map_fd) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         _cleanup_close_ int inner_map_fd = -EBADF;
         int r;
@@ -65,22 +65,28 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         if (!obj)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to open BPF object: %m");
 
-        /* TODO Maybe choose a number based on runtime information? */
-        r = sym_bpf_map__set_max_entries(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
-        assert(r <= 0);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fs: Failed to resize BPF map '%s': %m",
-                                       sym_bpf_map__name(obj->maps.cgroup_hash));
+        if (map_fd > 0) {
+                r = sym_bpf_map__reuse_fd(obj->maps.cgroup_hash, map_fd);
+                if (r < 0)
+                        return log_error_errno(r, "bpf-restrict-fs: Failed to reuse map fd: %m");
+        } else {
+                /* TODO Maybe choose a number based on runtime information? */
+                r = sym_bpf_map__set_max_entries(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
+                assert(r <= 0);
+                if (r < 0)
+                        return log_error_errno(r, "bpf-restrict-fs: Failed to resize BPF map '%s': %m",
+                                               sym_bpf_map__name(obj->maps.cgroup_hash));
 
-        /* Dummy map to satisfy the verifier */
-        inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
-        if (inner_map_fd < 0)
-                return log_error_errno(errno, "bpf-restrict-fs: Failed to create BPF map: %m");
+                /* Dummy map to satisfy the verifier */
+                inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
+                if (inner_map_fd < 0)
+                        return log_error_errno(errno, "bpf-restrict-fs: Failed to create BPF map: %m");
 
-        r = sym_bpf_map__set_inner_map_fd(obj->maps.cgroup_hash, inner_map_fd);
-        assert(r <= 0);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fs: Failed to set inner map fd: %m");
+                r = sym_bpf_map__set_inner_map_fd(obj->maps.cgroup_hash, inner_map_fd);
+                assert(r <= 0);
+                if (r < 0)
+                        return log_error_errno(r, "bpf-restrict-fs: Failed to set inner map fd: %m");
+        }
 
         r = restrict_fs_bpf__load(obj);
         assert(r <= 0);
@@ -115,7 +121,7 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
         }
 
-        r = prepare_restrict_fs_bpf(&obj);
+        r = prepare_restrict_fs_bpf(&obj, /* map_fd= */ -EBADF);
         if (r < 0)
                 return (supported = false);
 
@@ -134,7 +140,7 @@ int bpf_restrict_fs_setup(Manager *m) {
 
         assert(m);
 
-        r = prepare_restrict_fs_bpf(&obj);
+        r = prepare_restrict_fs_bpf(&obj, m->restrict_fs_map_fd);
         if (r < 0)
                 return r;
 
@@ -237,14 +243,10 @@ int bpf_restrict_fs_cleanup(Unit *u) {
         return 0;
 }
 
-int bpf_restrict_fs_map_fd(Unit *unit) {
-        assert(unit);
-        assert(unit->manager);
+int bpf_restrict_fs_map_fd(struct restrict_fs_bpf *prog) {
+        assert(prog);
 
-        if (!unit->manager->restrict_fs)
-                return -ENOMEDIUM;
-
-        return sym_bpf_map__fd(unit->manager->restrict_fs->maps.cgroup_hash);
+        return sym_bpf_map__fd(prog->maps.cgroup_hash);
 }
 
 void bpf_restrict_fs_destroy(struct restrict_fs_bpf *prog) {
@@ -267,7 +269,7 @@ int bpf_restrict_fs_cleanup(Unit *u) {
         return 0;
 }
 
-int bpf_restrict_fs_map_fd(Unit *unit) {
+int bpf_restrict_fs_map_fd(struct restrict_fs_bpf *prog) {
         return -ENOMEDIUM;
 }
 

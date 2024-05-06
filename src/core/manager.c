@@ -910,6 +910,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .private_listen_fd = -EBADF,
                 .dev_autofs_fd = -EBADF,
                 .cgroup_inotify_fd = -EBADF,
+                .restrict_fs_map_fd = -EBADF,
                 .pin_cgroupfs_fd = -EBADF,
                 .ask_password_inotify_fd = -EBADF,
                 .idle_pipe = { -EBADF, -EBADF, -EBADF, -EBADF},
@@ -1019,14 +1020,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 r = manager_setup_memory_pressure_event_source(m);
                 if (r < 0)
                         return r;
-
-#if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
-                        r = bpf_restrict_fs_setup(m);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
-                }
-#endif
         }
 
         if (test_run_flags == 0) {
@@ -1915,6 +1908,25 @@ static void manager_setup_bus(Manager *m) {
         }
 }
 
+static int manager_setup_restrict_fs_bpf(Manager *m) {
+        int r;
+
+        assert(m);
+
+#if HAVE_LIBBPF
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        if (!bpf_restrict_fs_supported(/* initialize = */ true))
+                return 0;
+
+        r = bpf_restrict_fs_setup(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup LSM BPF: %m");
+#endif
+        return 0;
+}
+
 static void manager_preset_all(Manager *m) {
         int r;
 
@@ -2064,6 +2076,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 r = manager_setup_handoff_timestamp_fd(m);
                 if (r < 0)
                         /* This shouldn't fail, except if things are really broken. */
+                        return r;
+
+                r = manager_setup_restrict_fs_bpf(m);
+                if (r < 0)
                         return r;
 
                 /* Connect to the bus if we are good for it */
