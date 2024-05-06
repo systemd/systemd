@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 if ! command -v systemd-firstboot >/dev/null; then
     echo "systemd-firstboot not found, skipping the test"
     exit 0
@@ -13,6 +16,8 @@ at_exit() {
         ls -lR "$ROOT"
         rm -fr "$ROOT"
     fi
+
+    restore_locale
 }
 
 trap at_exit EXIT
@@ -23,6 +28,23 @@ ROOT_HASHED_PASSWORD1='$6$foobarsalt$YbwdaATX6IsFxvWbY3QcZj2gB31R/LFRFrjlFrJtTTq
 # Generated via `mkpasswd -m sha-512 -S foobarsalt password2`
 # shellcheck disable=SC2016
 ROOT_HASHED_PASSWORD2='$6$foobarsalt$q.P2932zYMLbKnjFwIxPI8y3iuxeuJ2BgE372LcZMMnj3Gcg/9mJg2LPKUl.ha0TG/.fRNNnRQcLfzM0SNot3.'
+
+if [[ -f /etc/locale.conf ]]; then
+    cp /etc/locale.conf /tmp/locale.conf.bak
+fi
+
+# Debian/Ubuntu specific file
+if [[ -f /etc/default/locale ]]; then
+    cp /etc/default/locale /tmp/default-locale.bak
+fi
+
+if [[ -f /etc/locale.gen ]]; then
+    cp /etc/locale.gen /tmp/locale.gen.bak
+fi
+
+# Make sure at least two locales exist (C.UTF-8 and en_US.UTF-8) as systemd-firstboot --prompt-locale will
+# skip writing the locale if it detects only one is installed.
+generate_locale en_US.UTF-8
 
 # Debian and Ubuntu use /etc/default/locale instead of /etc/locale.conf. Make
 # sure we use the appropriate path for locale configuration.

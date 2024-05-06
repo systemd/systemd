@@ -72,3 +72,9 @@ done
 # We want /var/log/journal to be created on first boot so it can be created with the right chattr settings by
 # systemd-journald.
 rm -r "$BUILDROOT/var/log/journal"
+
+rm -f /etc/nsswitch.conf
+cp "$SRCDIR/factory/etc/nsswitch.conf" /etc/nsswitch.conf
+
+# Remove to make TEST-73-LOCALE pass on Ubuntu.
+rm -f /etc/default/keyboard

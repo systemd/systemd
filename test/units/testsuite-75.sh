@@ -14,6 +14,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# We need at least Knot 3.0 which support (among others) the ds-push directive
+if ! knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check; then
+    echo "This test requires at least Knot 3.0. skipping..." | tee --append /skipped
+    exit 77
+fi
+
 RUN_OUT="$(mktemp)"
 
 run() {
@@ -246,6 +252,14 @@ ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 mkdir -p "/etc/dnssec-trust-anchors.d/"
 echo local >/etc/dnssec-trust-anchors.d/local.negative
 
+# Copy over our knot configuration
+mkdir -p /var/lib/knot/zones/ /etc/knot/
+cp -rfv /usr/lib/systemd/tests/testdata/knot-data/zones/* /var/lib/knot/zones/
+cp -fv /usr/lib/systemd/tests/testdata/knot-data/knot.conf /etc/knot/knot.conf
+chgrp -R knot /etc/knot/ /var/lib/knot/
+chmod -R ug+rwX /var/lib/knot/
+chmod -R g+r /etc/knot/
+
 # Sign the root zone
 keymgr . generate algorithm=ECDSAP256SHA256 ksk=yes zsk=yes
 # Create a trust anchor for resolved with our root zone
@@ -264,10 +278,11 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd
-systemctl start systemd-networkd
+systemctl restart systemd-networkd
 /usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
 systemctl reload systemd-resolved
 systemctl start resolved-dummy-server
+
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
@@ -309,6 +324,7 @@ done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
 knotc reload
+sleep 2
 
 ### SETUP END ###
 
@@ -862,8 +878,8 @@ test "$(resolvectl --json=short query -t AAAA localhost)" == '{"key":{"class":1,
 test "$(resolvectl --json=short query -t A localhost)" == '{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]}'
 
 # Test ResolveRecord RR resolving via Varlink
-test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
-test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
+test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
+test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
 
 # Ensure that reloading keeps the manually configured address
 {

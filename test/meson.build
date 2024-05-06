@@ -4,6 +4,7 @@ if install_tests
         foreach subdir : [
                 'auxv',
                 'journal-data',
+                'knot-data',
                 'test-journals',
                 'units',
                 'test-execute',
@@ -24,20 +25,28 @@ if install_tests
                 'testsuite-63.units',
                 'testsuite-80.units',
         ]
-                # install_subdir() does not handle symlinks correctly which causes a very ugly warning when
-                # installing, so if rsync is available we use that instead. TODO: switch to the new option
-                # 'follow_symlinks' once we require Meson 1.3.0 or greater, see:
-                # https://github.com/mesonbuild/meson/commit/0af126fec798d6dbb0d1ad52168cc1f3f1758acd
-                if rsync.found()
-                        rsync_r = rsync.full_path() + ' -rLpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+                # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
+                # instead of copying the symlink) so we use rsync instead.
+                if meson.version().version_compare('<1.3.0')
+                        if not rsync.found()
+                                error('rsync is required to install the integration test data')
+                        endif
+
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 else
                         install_subdir(subdir,
-                                       exclude_files : '.gitattributes',
-                                       install_dir : testdata_dir)
+                                       exclude_files : ['.gitattributes', '25-default.link'],
+                                       install_dir : testdata_dir,
+                                       follow_symlinks : false)
                 endif
         endforeach
+
+        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
+        # exclude it and create the correct symlink here.
+        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
+                                                       testdata_dir / 'test-network/conf/25-default.link'))
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
@@ -339,27 +348,27 @@ integration_tests = {
         '01': 'TEST-01-BASIC',
         '02': 'TEST-02-UNITTESTS',
         '03': 'TEST-03-JOBS',
-        # '04': 'TEST-04-JOURNAL', # Extremely flaky
+        '04': 'TEST-04-JOURNAL',
         '05': 'TEST-05-RLIMITS',
         '06': 'TEST-06-SELINUX',
-        # '07': 'TEST-07-PID1',
+        '07': 'TEST-07-PID1',
         # '08': 'TEST-08-INITRD',
         '09': 'TEST-09-REBOOT',
         '13': 'TEST-13-NSPAWN',
         '15': 'TEST-15-DROPIN',
         '16': 'TEST-16-EXTEND-TIMEOUT',
-        '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
+        '17': 'TEST-17-UDEV',
         '18': 'TEST-18-FAILUREACTION',
         '19': 'TEST-19-CGROUP',
-        # '21': 'TEST-21-DFUZZER',
+        '21': 'TEST-21-DFUZZER',
         '22': 'TEST-22-TMPFILES',
-        # '23': 'TEST-23-UNIT-FILE',
+        '23': 'TEST-23-UNIT-FILE',
         # '24': 'TEST-24-CRYPTSETUP',
         '25': 'TEST-25-IMPORT',
         '26': 'TEST-26-SYSTEMCTL',
         '29': 'TEST-29-PORTABLE',
         '30': 'TEST-30-ONCLOCKCHANGE',
-        # '31': 'TEST-31-DEVICE-ENUMERATION',
+        '31': 'TEST-31-DEVICE-ENUMERATION',
         '32': 'TEST-32-OOMPOLICY',
         '34': 'TEST-34-DYNAMICUSERMIGRATE',
         '35': 'TEST-35-LOGIN',
@@ -368,29 +377,29 @@ integration_tests = {
         '43': 'TEST-43-PRIVATEUSER-UNPRIV',
         '44': 'TEST-44-LOG-NAMESPACE',
         '45': 'TEST-45-TIMEDATE',
-        # '46': 'TEST-46-HOMED',
+        '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
-        # '52': 'TEST-52-HONORFIRSTSHUTDOWN',
-        # '53': 'TEST-53-ISSUE-16347',
+        '52': 'TEST-52-HONORFIRSTSHUTDOWN',
+        '53': 'TEST-53-ISSUE-16347',
         # '54': 'TEST-54-CREDS',
-        # '55': 'TEST-55-OOMD',
-        # '58': 'TEST-58-REPART',
-        # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
+        '55': 'TEST-55-OOMD',
+        '58': 'TEST-58-REPART',
         '59': 'TEST-59-RELOADING-RESTART',
         '60': 'TEST-60-MOUNT-RATELIMIT',
         '62': 'TEST-62-RESTRICT-IFACES',
         '63': 'TEST-63-PATH',
-        # '64': 'TEST-54-UDEV-STORAGE',
+        # '64': 'TEST-64-UDEV-STORAGE',
         '65': 'TEST-65-ANALYZE',
         '66': 'TEST-66-DEVICE-ISOLATION',
         '67': 'TEST-67-INTEGRITY',
         '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
+        # '69': 'TEST-69-SHUTDOWN',
         '70': 'TEST-70-TPM2',
         '71': 'TEST-71-HOSTNAME',
         '72': 'TEST-72-SYSUPDATE',
-        # '73': 'TEST-73-LOCALE',
-        # '74': 'TEST-74-AUX-UTILS',
-        # '75': 'TEST-75-RESOLVED',
+        '73': 'TEST-73-LOCALE',
+        '74': 'TEST-74-AUX-UTILS',
+        '75': 'TEST-75-RESOLVED',
         '76': 'TEST-76-SYSCTL',
         '78': 'TEST-78-SIGQUEUE',
         '79': 'TEST-79-MEMPRESS',
@@ -404,7 +413,9 @@ foreach test_number, dirname : integration_tests
         test_params = {
                 'mkosi_args' : [],
                 'timeout' : 1800,
-                'storage': 'volatile',
+                'storage' : 'volatile',
+                'priority' : 0,
+                'firmware' : 'linux',
         }
 
         # TODO: This fs.exists call isn't included in rebuild logic
@@ -420,16 +431,24 @@ foreach test_number, dirname : integration_tests
                 '--test-name', dirname,
                 '--test-number', test_number,
                 '--storage', test_params['storage'],
+                '--firmware', test_params['firmware'],
                 '--',
         ] + test_params['mkosi_args']
+
+        integration_test_env = {}
+
+        if want_integration_tests
+                integration_test_env = {'SYSTEMD_INTEGRATION_TESTS': '1'}
+        endif
 
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
         # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
         # running the integration tests with mkosi.
         test(dirname,
-                integration_test_wrapper,
-                env: test_env,
-                args : args,
-                timeout : test_params['timeout'],
-                suite : 'integration-tests')
+             integration_test_wrapper,
+             env : integration_test_env,
+             args : args,
+             timeout : test_params['timeout'],
+             priority : test_params['priority'],
+             suite : 'integration-tests')
 endforeach

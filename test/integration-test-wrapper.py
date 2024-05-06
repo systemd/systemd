@@ -48,9 +48,11 @@ def main():
     parser.add_argument('--test-name', required=True)
     parser.add_argument('--test-number', required=True)
     parser.add_argument('--storage', required=True)
+    parser.add_argument('--firmware', required=True)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
+    name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
     test_unit = f"testsuite-{args.test_number}.service"
 
     dropin = textwrap.dedent(
@@ -58,34 +60,49 @@ def main():
         [Unit]
         After=multi-user.target network.target
         Requires=multi-user.target
+        SuccessAction=exit
+        SuccessActionExitStatus=123
 
         [Service]
         StandardOutput=journal+console
         """
     )
 
+    if os.getenv("TEST_MATCH_SUBTEST"):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_MATCH_SUBTEST={os.environ["TEST_MATCH_SUBTEST"]}
+            """
+        )
+
+    if os.getenv("TEST_MATCH_TESTCASE"):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_MATCH_TESTCASE={os.environ["TEST_MATCH_TESTCASE"]}
+            """
+        )
+
     if not sys.stderr.isatty():
         dropin += textwrap.dedent(
             """
             [Unit]
-            SuccessAction=exit
-            SuccessActionExitStatus=123
             FailureAction=exit
             """
         )
 
-        journal_file = (args.meson_build_dir / (f"test/journal/{args.test_name}.journal")).absolute()
+        journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
     else:
         journal_file = None
 
     cmd = [
         'mkosi',
-        '--debug',
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
-        '--machine', args.test_name,
+        '--machine', name,
         '--ephemeral',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
@@ -103,6 +120,7 @@ def main():
         '--runtime-network=none',
         '--runtime-scratch=no',
         '--append',
+        '--qemu-firmware', args.firmware,
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
@@ -120,14 +138,14 @@ def main():
                 else []
             ),
         ]),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}" ,
+        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
         *args.mkosi_args,
         'qemu',
     ]
 
     result = subprocess.run(cmd)
     # Return code 123 is the expected success code
-    if result.returncode != (0 if sys.stderr.isatty() else 123):
+    if result.returncode != 123:
         if result.returncode != 77 and journal_file:
             cmd = [
                 'journalctl',
