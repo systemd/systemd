@@ -5,10 +5,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "sd-json.h"
 #include "sd-lldp-rx.h"
 
 #include "hash-funcs.h"
-#include "json.h"
 #include "lldp-rx-internal.h"
 #include "time-util.h"
 
@@ -91,4 +91,4 @@ sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size);
 int lldp_neighbor_parse(sd_lldp_neighbor *n);
 void lldp_neighbor_start_ttl(sd_lldp_neighbor *n);
 bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b);
-int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret);
+int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret);

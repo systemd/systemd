@@ -16,7 +16,7 @@
 #include "verbs.h"
 #include "version.h"
 
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static VarlinkMethodFlags arg_method_flags = 0;
 static bool arg_collect = false;
@@ -128,7 +128,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case '?':
@@ -140,7 +140,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* If more than one reply is expected, imply JSON-SEQ output */
         if (FLAGS_SET(arg_method_flags, VARLINK_METHOD_MORE))
-                arg_json_format_flags |= JSON_FORMAT_SEQ;
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
         return 1;
 }
@@ -217,25 +217,25 @@ static int verb_info(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = varlink_call_and_log(vl, "org.varlink.service.GetInfo", /* parameters= */ NULL, &reply);
         if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                static const struct JsonDispatch dispatch_table[] = {
-                        { "vendor",     JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, vendor),     JSON_MANDATORY },
-                        { "product",    JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, product),    JSON_MANDATORY },
-                        { "version",    JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, version),    JSON_MANDATORY },
-                        { "url",        JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, url),        JSON_MANDATORY },
-                        { "interfaces", JSON_VARIANT_ARRAY,  json_dispatch_strv,         offsetof(GetInfoData, interfaces), JSON_MANDATORY },
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                static const struct sd_json_dispatch_field dispatch_table[] = {
+                        { "vendor",     SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, vendor),     SD_JSON_MANDATORY },
+                        { "product",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, product),    SD_JSON_MANDATORY },
+                        { "version",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, version),    SD_JSON_MANDATORY },
+                        { "url",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, url),        SD_JSON_MANDATORY },
+                        { "interfaces", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         offsetof(GetInfoData, interfaces), SD_JSON_MANDATORY },
                         {}
                 };
                 _cleanup_(get_info_data_done) GetInfoData data = {};
 
-                r = json_dispatch(reply, dispatch_table, JSON_LOG, &data);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG, &data);
                 if (r < 0)
                         return r;
 
@@ -272,12 +272,12 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                                 return table_log_print_error(r);
                 }
         } else {
-                JsonVariant *v;
+                sd_json_variant *v;
 
                 v = streq_ptr(argv[0], "list-interfaces") ?
-                        json_variant_by_key(reply, "interfaces") : reply;
+                        sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
@@ -300,27 +300,27 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = varlink_callb_and_log(
                         vl,
                         "org.varlink.service.GetInterfaceDescription",
                         &reply,
-                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("interface", interface)));
+                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("interface", interface)));
         if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                static const struct JsonDispatch dispatch_table[] = {
-                        { "description",  JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY },
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                static const struct sd_json_dispatch_field dispatch_table[] = {
+                        { "description",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                         {}
                 };
                 _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
                 const char *description = NULL;
                 unsigned line = 0, column = 0;
 
-                r = json_dispatch(reply, dispatch_table, JSON_LOG, &description);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG, &description);
                 if (r < 0)
                         return r;
 
@@ -338,14 +338,14 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to format parsed interface description: %m");
                 }
         } else
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
 
         return 0;
 }
 
 static int reply_callback(
                 Varlink *link,
-                JsonVariant *parameters,
+                sd_json_variant *parameters,
                 const char *error,
                 VarlinkReplyFlags flags,
                 void *userdata)  {
@@ -362,12 +362,12 @@ static int reply_callback(
         } else
                 r = 0;
 
-        json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+        sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
         return r;
 }
 
 static int verb_call(int argc, char *argv[], void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *jp = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         const char *url, *method, *parameter;
         unsigned line = 0, column = 0;
@@ -380,20 +380,20 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
 
         /* No JSON mode explicitly configured? Then default to the same as -j */
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
-        arg_json_format_flags |= JSON_FORMAT_NEWLINE;
+        arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
 
         if (parameter) {
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
-                r = json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
+                r = sd_json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
         } else {
-                r = json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
+                r = sd_json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse parameters at <stdin>:%u:%u: %m", line, column);
         }
@@ -403,7 +403,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (arg_collect) {
-                JsonVariant *reply = NULL;
+                sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
                 r = varlink_collect(vl, method, jp, &reply, &error);
@@ -418,7 +418,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         r = 0;
 
                 pager_open(arg_pager_flags);
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
 
         } else if (arg_method_flags & VARLINK_METHOD_ONEWAY) {
@@ -460,7 +460,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to wait for varlink connection events: %m");
                 }
         } else {
-                JsonVariant *reply = NULL;
+                sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
                 r = varlink_call(vl, method, jp, &reply, &error);
@@ -478,7 +478,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 
                 pager_open(arg_pager_flags);
 
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
         }
 

@@ -36,8 +36,8 @@ typedef struct LookupParameters {
         const char *service;
 } LookupParameters;
 
-static int add_nss_service(JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *status = NULL, *z = NULL;
+static int add_nss_service(sd_json_variant **v) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL, *z = NULL;
         sd_id128_t mid;
         int r;
 
@@ -46,33 +46,33 @@ static int add_nss_service(JsonVariant **v) {
         /* Patch in service field if it's missing. The assumption here is that this field is unset only for
          * NSS records */
 
-        if (json_variant_by_key(*v, "service"))
+        if (sd_json_variant_by_key(*v, "service"))
                 return 0;
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return r;
 
-        status = json_variant_ref(json_variant_by_key(*v, "status"));
-        z = json_variant_ref(json_variant_by_key(status, SD_ID128_TO_STRING(mid)));
+        status = sd_json_variant_ref(sd_json_variant_by_key(*v, "status"));
+        z = sd_json_variant_ref(sd_json_variant_by_key(status, SD_ID128_TO_STRING(mid)));
 
-        if (json_variant_by_key(z, "service"))
+        if (sd_json_variant_by_key(z, "service"))
                 return 0;
 
-        r = json_variant_set_field_string(&z, "service", "io.systemd.NameServiceSwitch");
+        r = sd_json_variant_set_field_string(&z, "service", "io.systemd.NameServiceSwitch");
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&status, SD_ID128_TO_STRING(mid), z);
+        r = sd_json_variant_set_field(&status, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
-        return json_variant_set_field(v, "status", status);
+        return sd_json_variant_set_field(v, "status", status);
 }
 
-static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
+static int build_user_json(Varlink *link, UserRecord *ur, sd_json_variant **ret) {
         _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         UserRecordLoadFlags flags;
         uid_t peer_uid;
         bool trusted;
@@ -103,14 +103,14 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
                 (FLAGS_SET(ur->mask, USER_RECORD_PRIVILEGED) &&
                  !FLAGS_SET(stripped->mask, USER_RECORD_PRIVILEGED));
 
-        v = json_variant_ref(stripped->json);
+        v = sd_json_variant_ref(stripped->json);
         r = add_nss_service(&v);
         if (r < 0)
                 return r;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(v)),
-                                          JSON_BUILD_PAIR("incomplete", JSON_BUILD_BOOLEAN(stripped->incomplete))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
+                                          SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete))));
 }
 
 static int userdb_flags_from_service(Varlink *link, const char *service, UserDBFlags *ret) {
@@ -129,16 +129,16 @@ static int userdb_flags_from_service(Varlink *link, const char *service, UserDBF
         return 0;
 }
 
-static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "uid",      JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0 },
-                { "userName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
-                { "service",  JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0 },
+                { "userName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
@@ -163,7 +163,7 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 r = userdb_by_name(p.user_name, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
                 r = userdb_all(userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
@@ -191,7 +191,7 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                                 if (r < 0)
                                         return r;
 
-                                last = json_variant_unref(last);
+                                last = sd_json_variant_unref(last);
                         }
 
                         r = build_user_json(link, z, &last);
@@ -222,9 +222,9 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         return varlink_reply(link, v);
 }
 
-static int build_group_json(Varlink *link, GroupRecord *gr, JsonVariant **ret) {
+static int build_group_json(Varlink *link, GroupRecord *gr, sd_json_variant **ret) {
         _cleanup_(group_record_unrefp) GroupRecord *stripped = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         UserRecordLoadFlags flags;
         uid_t peer_uid;
         bool trusted;
@@ -255,26 +255,26 @@ static int build_group_json(Varlink *link, GroupRecord *gr, JsonVariant **ret) {
                 (FLAGS_SET(gr->mask, USER_RECORD_PRIVILEGED) &&
                  !FLAGS_SET(stripped->mask, USER_RECORD_PRIVILEGED));
 
-        v = json_variant_ref(gr->json);
+        v = sd_json_variant_ref(gr->json);
         r = add_nss_service(&v);
         if (r < 0)
                 return r;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(v)),
-                                          JSON_BUILD_PAIR("incomplete", JSON_BUILD_BOOLEAN(stripped->incomplete))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
+                                          SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete))));
 }
 
-static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "gid",       JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0 },
-                { "groupName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0 },
+                { "groupName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
+                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
@@ -298,7 +298,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 r = groupdb_by_name(p.group_name, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
                 r = groupdb_all(userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
@@ -320,7 +320,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                                 if (r < 0)
                                         return r;
 
-                                last = json_variant_unref(last);
+                                last = sd_json_variant_unref(last);
                         }
 
                         r = build_group_json(link, z, &last);
@@ -351,11 +351,11 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         return varlink_reply(link, v);
 }
 
-static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
-                { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
+static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
+                { "groupName", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
+                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
@@ -402,9 +402,9 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 if (last_user_name) {
                         assert(last_group_name);
 
-                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
-                                                            JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                            JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
+                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(
+                                                            SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                                            SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
                         if (r < 0)
                                 return r;
                 }
@@ -420,9 +420,9 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
 
         assert(last_group_name);
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                              JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                              SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
 }
 
 static int process_connection(VarlinkServer *server, int _fd) {
