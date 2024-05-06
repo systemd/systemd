@@ -408,6 +408,7 @@ integration_tests = {
         # '82': 'TEST-82-SOFTREBOOT',
         '83': 'TEST-83-BTRFS',
         '84': 'TEST-84-STORAGETM',
+        '85': 'TEST-85-NETWORK',
 }
 foreach test_number, dirname : integration_tests
         test_params = {
