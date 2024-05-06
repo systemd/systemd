@@ -128,6 +128,19 @@ int manager_serialize(
         if (!switching_root)
                 (void) serialize_strv(f, "env", m->client_environment);
 
+        if (m->restrict_fs) {
+                int fd;
+
+                fd = bpf_restrict_fs_map_fd(m->restrict_fs);
+                if (fd < 0)
+                        return fd;
+
+                r = serialize_fd(f, fds, "pin-restrict-fs-map-fd", fd);
+                if (r < 0)
+                        return r;
+        }
+
+
         if (m->notify_fd >= 0) {
                 r = serialize_fd(f, fds, "notify-fd", m->notify_fd);
                 if (r < 0)
@@ -449,6 +462,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = deserialize_environment(val, &m->client_environment);
                         if (r < 0)
                                 log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", val);
+
+                } else if ((val = startswith(l, "pin-restrict-fs-map-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd >= 0)
+                                m->pin_restrict_fs_map_fd = fd;
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
