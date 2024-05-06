@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+if ((NO_BUILD)); then
+    exit 0
+fi
+
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 ID="${ID%-*}"
