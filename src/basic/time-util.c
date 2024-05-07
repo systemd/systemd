@@ -270,6 +270,8 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u) {
 struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n) {
         assert(ts);
 
+        log_info("abc");
+
         if (n == NSEC_INFINITY ||
             n / NSEC_PER_SEC >= TIME_T_MAX) {
                 ts->tv_sec = (time_t) -1;
