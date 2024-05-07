@@ -152,7 +152,7 @@ static int show_cgroup_name(
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
                 r = cg_fd_get_cgroupid(fd, &cgroupid);
                 if (r < 0)
-                        log_debug_errno(errno, "Failed to determine cgroup ID of %s, ignoring: %m", path);
+                        log_debug_errno(r, "Failed to determine cgroup ID of %s, ignoring: %m", path);
         }
 
         r = path_extract_filename(path, &b);
