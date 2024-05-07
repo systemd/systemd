@@ -479,13 +479,14 @@ struct ExecParameters {
 #include "unit.h"
 #include "dynamic-user.h"
 
-int exec_spawn(Unit *unit,
-               ExecCommand *command,
-               const ExecContext *context,
-               ExecParameters *exec_params,
-               ExecRuntime *runtime,
-               const CGroupContext *cgroup_context,
-               PidRef *ret);
+int exec_spawn(
+                Unit *unit,
+                ExecCommand *command,
+                const ExecContext *context,
+                ExecParameters *exec_params,
+                ExecRuntime *runtime,
+                const CGroupContext *cgroup_context,
+                PidRef *ret);
 
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, size_t n);
