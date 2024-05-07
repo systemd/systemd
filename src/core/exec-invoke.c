@@ -2896,7 +2896,7 @@ static int setup_ephemeral(
                  */
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
-                        log_debug_errno(fd, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
+                        log_debug_errno(r, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
         } else {
                 assert(*root_directory);
 

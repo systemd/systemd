@@ -1242,13 +1242,13 @@ static int manager_setup_user_lookup_fd(Manager *m) {
         if (!m->user_lookup_event_source) {
                 r = sd_event_add_io(m->event, &m->user_lookup_event_source, m->user_lookup_fds[0], EPOLLIN, manager_dispatch_user_lookup_fd, m);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to allocate user lookup event source: %m");
+                        return log_error_errno(r, "Failed to allocate user lookup event source: %m");
 
                 /* Process even earlier than the notify event source, so that we always know first about valid UID/GID
                  * resolutions */
                 r = sd_event_source_set_priority(m->user_lookup_event_source, EVENT_PRIORITY_USER_LOOKUP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to set priority of user lookup event source: %m");
+                        return log_error_errno(r, "Failed to set priority of user lookup event source: %m");
 
                 (void) sd_event_source_set_description(m->user_lookup_event_source, "user-lookup");
         }
@@ -1287,11 +1287,11 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
         if (!m->handoff_timestamp_event_source) {
                 r = sd_event_add_io(m->event, &m->handoff_timestamp_event_source, m->handoff_timestamp_fds[0], EPOLLIN, manager_dispatch_handoff_timestamp_fd, m);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to allocate handoff timestamp event source: %m");
+                        return log_error_errno(r, "Failed to allocate handoff timestamp event source: %m");
 
                 r = sd_event_source_set_priority(m->handoff_timestamp_event_source, EVENT_PRIORITY_HANDOFF_TIMESTAMP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to set priority of handoff timestamp event source: %m");
+                        return log_error_errno(r, "Failed to set priority of handoff timestamp event source: %m");
 
                 (void) sd_event_source_set_description(m->handoff_timestamp_event_source, "handoff-timestamp");
         }
@@ -3069,7 +3069,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 r = manager_get_dump_string(m, /* patterns= */ NULL, &dump);
                 if (r < 0) {
-                        log_warning_errno(errno, "Failed to acquire manager dump: %m");
+                        log_warning_errno(r, "Failed to acquire manager dump: %m");
                         break;
                 }
 
@@ -3160,7 +3160,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                                         r = manager_get_dump_jobs_string(m, /* patterns= */ NULL, "  ", &dump_jobs);
                                         if (r < 0) {
-                                                log_warning_errno(errno, "Failed to acquire manager jobs dump: %m");
+                                                log_warning_errno(r, "Failed to acquire manager jobs dump: %m");
                                                 break;
                                         }
 

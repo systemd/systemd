@@ -46,7 +46,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED)) {
                 r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
-                        return log_error_errno(errno, "Event run failed %m");
+                        return log_error_errno(r, "Event run failed %m");
         }
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;

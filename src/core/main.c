@@ -2637,7 +2637,7 @@ static void setenv_manager_environment(void) {
 
                 r = putenv_dup(*p, true);
                 if (r < 0)
-                        log_warning_errno(errno, "Failed to setenv \"%s\", ignoring: %m", *p);
+                        log_warning_errno(r, "Failed to setenv \"%s\", ignoring: %m", *p);
         }
 }
 

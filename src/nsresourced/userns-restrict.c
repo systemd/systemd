@@ -218,7 +218,7 @@ int userns_restrict_put_by_inode(
 
                 r = sym_bpf_map_update_elem(outer_map_fd, &ino, &inner_map_fd, BPF_ANY);
                 if (r < 0)
-                        return log_debug_errno(errno, "Failed to replace map in inode hash: %m");
+                        return log_debug_errno(r, "Failed to replace map in inode hash: %m");
         } else {
                 /* Let's add an entry for this userns inode if missing. If it exists just extend the existing map. We
                  * might race against each other, hence we try a couple of times */
@@ -258,7 +258,7 @@ int userns_restrict_put_by_inode(
 
                 r = sym_bpf_map_update_elem(inner_map_fd, mntid, &dummy_value, BPF_ANY);
                 if (r < 0)
-                        return log_debug_errno(errno, "Failed to add mount ID to map: %m");
+                        return log_debug_errno(r, "Failed to add mount ID to map: %m");
 
                 log_debug("Allowing mount %i on userns inode %" PRIu64, *mntid, ino);
         }
@@ -318,7 +318,7 @@ int userns_restrict_reset_by_inode(
 
         r = sym_bpf_map_delete_elem(outer_map_fd, &u);
         if (r < 0)
-                return log_debug_errno(outer_map_fd, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", ino);
+                return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", ino);
 
         return 0;
 }
