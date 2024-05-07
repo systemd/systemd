@@ -353,20 +353,18 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
 
-int exec_spawn(Unit *unit,
-               ExecCommand *command,
-               const ExecContext *context,
-               ExecParameters *params,
-               ExecRuntime *runtime,
-               const CGroupContext *cgroup_context,
-               PidRef *ret) {
+int exec_spawn(
+                Unit *unit,
+                ExecCommand *command,
+                const ExecContext *context,
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                const CGroupContext *cgroup_context,
+                PidRef *ret) {
 
-        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        dual_timestamp start_timestamp;
         int r;
 
         assert(unit);
@@ -445,7 +443,11 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
 
+        char serialization_fd_number[DECIMAL_STR_MAX(int)];
         xsprintf(serialization_fd_number, "%i", fileno(f));
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        dual_timestamp start_timestamp;
 
         /* Record the start timestamp before we fork so that it is guaranteed to be earlier than the
          * handoff timestamp. */

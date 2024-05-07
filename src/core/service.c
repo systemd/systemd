@@ -2413,35 +2413,38 @@ static void service_enter_start(Service *s) {
                 goto fail;
         }
 
-        if (IN_SET(s->type, SERVICE_SIMPLE, SERVICE_IDLE)) {
-                /* For simple services we immediately start
-                 * the START_POST binaries. */
+        assert(pidref.pid == c->exec_status.pid);
 
+        switch (s->type) {
+
+        case SERVICE_SIMPLE:
+        case SERVICE_IDLE:
+                /* For simple services we immediately start the START_POST binaries. */
                 (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &c->exec_status.start_timestamp);
-                service_enter_start_post(s);
+                return service_enter_start_post(s);
 
-        } else  if (s->type == SERVICE_FORKING) {
-
-                /* For forking services we wait until the start
-                 * process exited. */
-
+        case SERVICE_FORKING:
+                /* For forking services we wait until the start process exited. */
                 pidref_done(&s->control_pid);
                 s->control_pid = TAKE_PIDREF(pidref);
-                service_set_state(s, SERVICE_START);
+                return service_set_state(s, SERVICE_START);
 
-        } else if (IN_SET(s->type, SERVICE_ONESHOT, SERVICE_DBUS, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_EXEC)) {
-
-                /* For oneshot services we wait until the start process exited, too, but it is our main process. */
-
-                /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
-                 * bus. 'notify' and 'exec' services are similar. */
-
+        case SERVICE_ONESHOT: /* For oneshot services we wait until the start process exited, too, but it is our main process. */
+        case SERVICE_EXEC:
+        case SERVICE_DBUS:
+        case SERVICE_NOTIFY:
+        case SERVICE_NOTIFY_RELOAD:
+                /* For D-Bus services we know the main pid right away, but wait for the bus name to appear
+                 * on the bus. 'notify' and 'exec' services wait for readiness notification and EOF
+                 * on exec_fd, respectively. */
                 (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &c->exec_status.start_timestamp);
-                service_set_state(s, SERVICE_START);
-        } else
-                assert_not_reached();
+                return service_set_state(s, SERVICE_START);
 
-        return;
+        default:
+                ;
+        }
+
+        assert_not_reached();
 
 fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
