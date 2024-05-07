@@ -1311,33 +1311,25 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
          * is run first. */
 
         if (c->log_namespace) {
-                _cleanup_free_ char *unit = NULL;
+                FOREACH_STRING(s, "systemd-journald", "systemd-journald-varlink") {
+                        _cleanup_free_ char *socket_unit = NULL;
 
-                r = unit_name_build_from_type("systemd-journald", c->log_namespace, UNIT_SOCKET, &unit);
+                        r = unit_name_build_from_type(s, c->log_namespace, UNIT_SOCKET, &socket_unit);
+                        if (r < 0)
+                                return r;
+
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, socket_unit, true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_free_ char *sync_unit = NULL;
+
+                r = unit_name_build_from_type("systemd-journald-sync", c->log_namespace, UNIT_SERVICE, &sync_unit);
                 if (r < 0)
                         return r;
 
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, unit, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
-
-                unit = mfree(unit);
-
-                r = unit_name_build_from_type("systemd-journald-varlink", c->log_namespace, UNIT_SOCKET, &unit);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, unit, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
-
-                unit = mfree(unit);
-
-                r = unit_name_build_from_type("systemd-journald-sync", c->log_namespace, UNIT_SERVICE, &unit);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, unit, true, UNIT_DEPENDENCY_FILE);
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, sync_unit, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         } else {
