@@ -39,10 +39,6 @@ ExecStart=false
 
 
 def main():
-    if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
-        print("SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping", file=sys.stderr)
-        exit(77)
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
@@ -50,8 +46,17 @@ def main():
     parser.add_argument('--test-number', required=True)
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
+    parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
+
+    if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
+        print(f"SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        exit(77)
+
+    if args.slow and not bool(int(os.getenv("SYSTEMD_SLOW_TESTS", "0"))):
+        print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        exit(77)
 
     name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
     test_unit = f"testsuite-{args.test_number}.service"

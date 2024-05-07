@@ -416,6 +416,7 @@ foreach test_number, dirname : integration_tests
                 'storage' : 'volatile',
                 'priority' : 0,
                 'firmware' : 'linux',
+                'slow' : false,
         }
 
         # TODO: This fs.exists call isn't included in rebuild logic
@@ -432,13 +433,22 @@ foreach test_number, dirname : integration_tests
                 '--test-number', test_number,
                 '--storage', test_params['storage'],
                 '--firmware', test_params['firmware'],
-                '--',
-        ] + test_params['mkosi_args']
+        ]
+
+        if test_params['slow']
+                args += ['--slow']
+        endif
+
+        args += ['--'] + test_params['mkosi_args']
 
         integration_test_env = {}
 
         if want_integration_tests
-                integration_test_env = {'SYSTEMD_INTEGRATION_TESTS': '1'}
+                integration_test_env += {'SYSTEMD_INTEGRATION_TESTS': '1'}
+        endif
+
+        if want_slow_tests
+                integration_test_env += {'SYSTEMD_SLOW_TESTS': '1'}
         endif
 
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
