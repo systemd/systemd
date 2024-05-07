@@ -4898,7 +4898,6 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                        strempty(arg_copy_source), *source, strempty(root), *target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
-                        struct timespec tspec;
 
                         /* We are looking at a regular file */
 
@@ -4933,10 +4932,13 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
 
-                        timespec_store_nsec(&tspec, ts);
+                        if (ts != USEC_INFINITY) {
+                                struct timespec tspec;
+                                timespec_store(&tspec, ts);
 
-                        if (ts != USEC_INFINITY && futimens(pfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
-                                return -errno;
+                                if (futimens(pfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
+                                        return -errno;
+                        }
                 }
         }
 
