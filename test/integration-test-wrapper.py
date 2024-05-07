@@ -9,6 +9,7 @@ with the expectation that as part of formally defining the API it will be tidy.
 '''
 
 import argparse
+import json
 import os
 import shlex
 import subprocess
@@ -144,24 +145,36 @@ def main():
     ]
 
     result = subprocess.run(cmd)
-    # Return code 123 is the expected success code
-    if result.returncode != 123:
-        if result.returncode != 77 and journal_file:
-            cmd = [
-                'journalctl',
-                '--no-hostname',
-                '-o', 'short-monotonic',
-                '--file', journal_file,
-                '-u', test_unit,
-                '-p', 'info',
-            ]
-            print("Test failed, relevant logs can be viewed with: \n\n"
-                  f"{shlex.join(str(a) for a in cmd)}\n", file=sys.stderr)
-        exit(result.returncode or 1)
 
-    # Do not keep journal files for tests that don't fail.
+    # Return code 123 is the expected success code
+    if result.returncode in (123, 77):
+        # Do not keep journal files for tests that don't fail.
+        if journal_file:
+            journal_file.unlink(missing_ok=True)
+
+        exit(0 if result.returncode == 123 else 77)
+
     if journal_file:
-        journal_file.unlink(missing_ok=True)
+        ops = []
+
+        if os.getenv("GITHUB_ACTIONS"):
+            id = os.environ["GITHUB_RUN_ID"]
+            iteration = os.environ["GITHUB_RUN_NUMBER"]
+            j = json.loads(subprocess.run(["mkosi", "--json", "summary"], stdout=subprocess.PIPE, text=True).stdout)
+            images = {image["Image"]: image for image in j["Images"]}
+            distribution = images["system"]["Distribution"]
+            release = images["system"]["Release"]
+            artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
+            ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
+            journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
+
+        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {test_unit} -p info"]
+
+        print("Test failed, relevant logs can be viewed with: \n\n"
+              f"{shlex.join(' && '.join(ops))}\n", file=sys.stderr)
+
+    # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
+    exit(result.returncode or 1)
 
 
 if __name__ == '__main__':
