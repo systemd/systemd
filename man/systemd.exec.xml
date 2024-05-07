@@ -3385,6 +3385,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         a terse way to declare credentials to inherit from the service manager into a service. This option
         may be used multiple times, each time defining an additional credential to pass to the unit.</para>
 
+        <para>Note that if the path is not specified or a valid credential identifier is given, i.e.
+        in the above two cases, a missing credential is not considered fatal.</para>
+
         <para>If an absolute path referring to a directory is specified, every file in that directory
         (recursively) will be loaded as a separate credential. The ID for each credential will be the
         provided ID suffixed with <literal>_$FILENAME</literal> (e.g., <literal>Key_file1</literal>). When
