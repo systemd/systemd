@@ -72,6 +72,8 @@ static void fido_log_propagate_handler(const char *s) {
 int dlopen_libfido2(void) {
         int r;
 
+        ELF_NOTE_DLOPEN("fido2", "Support fido2 for encryption and authentication.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libfido2.so.1");
+
         r = dlopen_many_sym_or_warn(
                         &libfido2_dl, "libfido2.so.1", LOG_DEBUG,
                         DLSYM_ARG(fido_assert_allow_cred),
