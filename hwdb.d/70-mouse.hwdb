@@ -540,6 +540,10 @@ mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:*
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
+# Logitech MX Master 3S (via Bolt Receiver)
+mouse:usb:v046dpc548:name:Logitech USB Receiver Mouse:*
+ MOUSE_DPI=1000@142
+
 # Logitech MX Ergo
 mouse:usb:v046dp406f:name:Logitech MX Ergo:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:406f:*
