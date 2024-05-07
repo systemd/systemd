@@ -1447,7 +1447,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 else if (r >= 0) {
                         r = read_etc_hostname(path, &hostname);
                         if (r < 0)
-                                log_debug_errno(errno, "Failed to read /etc/hostname of image %s: %m", i->name);
+                                log_debug_errno(r, "Failed to read /etc/hostname of image %s: %m", i->name);
                 }
 
                 path = mfree(path);
