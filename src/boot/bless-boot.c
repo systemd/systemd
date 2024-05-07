@@ -469,7 +469,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 /* First, fsync() the directory these files are located in */
                 r = fsync_parent_at(fd, skip_leading_slash(target));
                 if (r < 0)
-                        log_debug_errno(errno, "Failed to synchronize image directory, ignoring: %m");
+                        log_debug_errno(r, "Failed to synchronize image directory, ignoring: %m");
 
                 /* Secondly, syncfs() the whole file system these files are located in */
                 if (syncfs(fd) < 0)
