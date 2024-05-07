@@ -1222,12 +1222,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_register) {
-                r = register_machine(bus, arg_machine, arg_uuid, trans_scope, arg_directory);
-                if (r < 0)
-                        return r;
-        }
-
         bool use_kvm = arg_kvm > 0;
         if (arg_kvm < 0) {
                 r = qemu_check_kvm_support();
@@ -1867,6 +1861,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = unit_name_to_prefix(trans_scope, &scope_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                /* on distros that provide their own sshd@.service file we need to provide a dropin which
+                 * picks up our public key credential */
+                r = machine_credential_set(&arg_credentials,
+                                "systemd.unit-dropin.sshd-vsock@.service:"
+                                "[Service]\n"
+                                "ExecStart=\n"
+                                "ExecStart=/usr/sbin/sshd -i -o 'AuthorizedKeysFile=${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
+                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
@@ -1917,6 +1922,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 log_debug("Executing: %s", joined);
+        }
+
+        if (arg_register) {
+                _cleanup_free_ char *vm_address = NULL;
+
+                if (child_cid != VMADDR_CID_ANY && asprintf(&vm_address, "vsock/%u", child_cid) < 0)
+                        return log_oom();
+
+                r = register_machine(arg_machine, arg_uuid, trans_scope, arg_directory, child_cid, vm_address, ssh_private_key_path);
+                if (r < 0)
+                        return r;
         }
 
         assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGCHLD, SIGWINCH) >= 0);
