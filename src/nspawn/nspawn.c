@@ -2668,7 +2668,7 @@ static int setup_journal(const char *directory) {
 
         r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
-                return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
+                return log_error_errno(r, "Failed to bind mount journal from host into guest: %m");
 
         return 0;
 }
