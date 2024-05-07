@@ -209,6 +209,8 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         _cleanup_close_ int dfd = -EBADF;
         int r;
 
+        assert(p);
+
         r = path_extract_directory(p, &pp);
         if (r == -EDESTADDRREQ) {
                 /* only fname is passed, no prefix to operate on */
@@ -226,7 +228,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 if (r < 0)
                         return r;
 
-                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_DIRECTORY, NULL);
                 if (dfd < 0)
                         return dfd;
         }
@@ -241,25 +243,22 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 r = btrfs_subvol_make_fallback(dfd, bn, m);
         else
                 r = RET_NERRNO(mkdirat(dfd, bn, m));
-        if (r < 0) {
-                if (r == -EEXIST)
-                        return 0;
-
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
                 return r;
-        }
 
         if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
                 return 1;
 
-        _cleanup_close_ int nfd = -EBADF;
-        nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        _cleanup_close_ int nfd = openat(dfd, bn, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (nfd < 0)
                 return -errno;
 
         if (ts != USEC_INFINITY) {
                 struct timespec tspec;
+                timespec_store(&tspec, ts);
 
-                timespec_store_nsec(&tspec, ts);
                 if (futimens(dfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
                         return -errno;
 
