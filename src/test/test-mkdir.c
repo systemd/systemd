@@ -143,26 +143,26 @@ TEST(mkdir_p_root_full) {
         _cleanup_free_ char *p = NULL;
         struct stat st;
 
-        assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp));
 
-        assert_se(p = path_join(tmp, "foo"));
-        assert_se(mkdir_p_root_full(tmp, "/foo", UID_INVALID, GID_INVALID, 0755, 1234, NULL) >= 0);
-        assert_se(is_dir(p, false) > 0);
-        assert_se(is_dir(p, true) > 0);
-        assert_se(stat(p, &st) >= 0);
-        assert_se(st.st_mtim.tv_nsec == 1234);
-        assert_se(st.st_atim.tv_nsec == 1234);
+        ASSERT_NOT_NULL(p = path_join(tmp, "foo"));
+        ASSERT_OK(mkdir_p_root_full(tmp, "/foo", UID_INVALID, GID_INVALID, 0755, 2 * USEC_PER_SEC, NULL));
+        ASSERT_GT(is_dir(p, false), 0);
+        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_ERRNO(stat(p, &st));
+        ASSERT_EQ(st.st_mtim.tv_nsec, 2 * NSEC_PER_SEC);
+        ASSERT_EQ(st.st_atim.tv_nsec, 2 * NSEC_PER_SEC);
 
         p = mfree(p);
-        assert_se(p = path_join(tmp, "dir-not-exists/foo"));
-        assert_se(mkdir_p_root_full(tmp, "/dir-not-exists/foo", UID_INVALID, GID_INVALID, 0755, 5678, NULL) >= 0);
-        assert_se(is_dir(p, false) > 0);
-        assert_se(is_dir(p, true) > 0);
+        ASSERT_NOT_NULL(p = path_join(tmp, "dir-not-exists/foo"));
+        ASSERT_OK(mkdir_p_root_full(tmp, "/dir-not-exists/foo", UID_INVALID, GID_INVALID, 0755, 90 * USEC_PER_HOUR, NULL));
+        ASSERT_GT(is_dir(p, false), 0);
+        ASSERT_GT(is_dir(p, true), 0);
         p = mfree(p);
-        assert_se(p = path_join(tmp, "dir-not-exists"));
-        assert_se(stat(p, &st) >= 0);
-        assert_se(st.st_mtim.tv_nsec == 5678);
-        assert_se(st.st_atim.tv_nsec == 5678);
+        ASSERT_NOT_NULL(p = path_join(tmp, "dir-not-exists"));
+        ASSERT_OK_ERRNO(stat(p, &st));
+        ASSERT_EQ(st.st_mtim.tv_nsec, 90 * NSEC_PER_HOUR);
+        ASSERT_EQ(st.st_atim.tv_nsec, 90 * NSEC_PER_HOUR);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
