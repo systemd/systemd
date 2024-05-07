@@ -1596,7 +1596,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         /* Write a log message noting the unit or process who requested the Reload() */
-        log_caller(message, m, "Reloading");
+        log_caller(message, m, "Reload");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
@@ -1642,11 +1642,11 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         /* Write a log message noting the unit or process who requested the Reexecute() */
-        log_caller(message, m, "Reexecuting");
+        log_caller(message, m, "Reexecution");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
-                log_warning("Reexecuting request rejected due to rate limit.");
+                log_warning("Reexecution request rejected due to rate limit.");
                 return sd_bus_error_setf(error,
                                          SD_BUS_ERROR_LIMITS_EXCEEDED,
                                          "Reexecute() request rejected due to rate limit.");
