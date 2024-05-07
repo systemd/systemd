@@ -212,7 +212,7 @@ static int fscrypt_setup(
 
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
-                return log_error_errno(errno, "Failed to retrieve xattr list: %m");
+                return log_error_errno(r, "Failed to retrieve xattr list: %m");
 
         NULSTR_FOREACH(xa, xattr_buf) {
                 _cleanup_free_ void *salt = NULL, *encrypted = NULL;
@@ -635,7 +635,7 @@ int home_passwd_fscrypt(
 
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
-                return log_error_errno(errno, "Failed to retrieve xattr list: %m");
+                return log_error_errno(r, "Failed to retrieve xattr list: %m");
 
         NULSTR_FOREACH(xa, xattr_buf) {
                 const char *nr;
