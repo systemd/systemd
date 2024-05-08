@@ -4656,12 +4656,30 @@ _public_ int sd_json_dispatch_full(
 
                         merged_flags = flags | p->flags;
 
+                        /* If an explicit type is specified, verify it matches */
                         if (p->type != _SD_JSON_VARIANT_TYPE_INVALID &&
-                            !sd_json_variant_has_type(value, p->type)) {
+                            !sd_json_variant_has_type(value, p->type) &&
+                            !(FLAGS_SET(merged_flags, SD_JSON_NULLABLE) && sd_json_variant_is_null(value))) {
 
                                 json_log(value, merged_flags, 0,
                                          "Object field '%s' has wrong type %s, expected %s.", sd_json_variant_string(key),
                                          sd_json_variant_type_to_string(sd_json_variant_type(value)), sd_json_variant_type_to_string(p->type));
+
+                                if (merged_flags & SD_JSON_PERMISSIVE)
+                                        continue;
+
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = p->name;
+
+                                return -EINVAL;
+                        }
+
+                        /* If the SD_JSON_REFUSE_NULL flag is specified, insist the field is not "null". Note
+                         * that this provides overlapping functionality with the type check above. */
+                        if (FLAGS_SET(merged_flags, SD_JSON_REFUSE_NULL) && sd_json_variant_is_null(value)) {
+
+                                json_log(value, merged_flags, 0,
+                                         "Object field '%s' may not be null.", sd_json_variant_string(key));
 
                                 if (merged_flags & SD_JSON_PERMISSIVE)
                                         continue;

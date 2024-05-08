@@ -1109,6 +1109,86 @@ TEST(json_iovec) {
         assert_se(iovec_memcmp(&iov1, &b) > 0);
 }
 
+TEST(json_dispatch_nullable) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        assert_se(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("x1", JSON_BUILD_CONST_STRING("foo")),
+                                             SD_JSON_BUILD_PAIR("x2", JSON_BUILD_CONST_STRING("bar")),
+                                             SD_JSON_BUILD_PAIR("x3", JSON_BUILD_CONST_STRING("waldo")),
+                                             SD_JSON_BUILD_PAIR("x4", JSON_BUILD_CONST_STRING("foo2")),
+                                             SD_JSON_BUILD_PAIR("x5", JSON_BUILD_CONST_STRING("bar2")),
+                                             SD_JSON_BUILD_PAIR("x6", JSON_BUILD_CONST_STRING("waldo2")),
+                                             SD_JSON_BUILD_PAIR("x7", SD_JSON_BUILD_NULL),
+                                             SD_JSON_BUILD_PAIR("x8", SD_JSON_BUILD_NULL),
+                                             SD_JSON_BUILD_PAIR("x9", SD_JSON_BUILD_NULL))) >= 0);
+
+        struct data {
+                const char *x1, *x2, *x3, *x4, *x5, *x6, *x7, *x8, *x9;
+        } data = {
+                .x1 = POINTER_MAX,
+                .x2 = POINTER_MAX,
+                .x3 = POINTER_MAX,
+                .x4 = POINTER_MAX,
+                .x5 = POINTER_MAX,
+                .x6 = POINTER_MAX,
+                .x7 = POINTER_MAX,
+                .x8 = POINTER_MAX,
+                .x9 = POINTER_MAX,
+        };
+
+        assert_se(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "x1", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x1), SD_JSON_NULLABLE    },
+                                        { "x2", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x2), SD_JSON_REFUSE_NULL },
+                                        { "x3", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x3), 0                   },
+                                        { "x4", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct data, x4), SD_JSON_NULLABLE    },
+                                        { "x5", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct data, x5), SD_JSON_REFUSE_NULL },
+                                        { "x6", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct data, x6), 0                   },
+                                        { "x7", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x7), SD_JSON_NULLABLE    },
+                                        { "x8", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x8), 0                   },
+                                        { "x9", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct data, x9), SD_JSON_NULLABLE    },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data) >= 0);
+
+        assert_se(streq_ptr(data.x1, "foo"));
+        assert_se(streq_ptr(data.x2, "bar"));
+        assert_se(streq_ptr(data.x3, "waldo"));
+        assert_se(streq_ptr(data.x4, "foo2"));
+        assert_se(streq_ptr(data.x5, "bar2"));
+        assert_se(streq_ptr(data.x6, "waldo2"));
+        assert_se(!data.x7);
+        assert_se(!data.x8);
+        assert_se(!data.x9);
+
+        assert_se(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "x7", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, offsetof(struct data, x7), SD_JSON_REFUSE_NULL },
+                                        {},
+                                },
+                                /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+
+        assert_se(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "x7", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(struct data, x7), SD_JSON_REFUSE_NULL },
+                                        {},
+                                },
+                                /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+
+        assert_se(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "x7", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(struct data, x7), 0 },
+                                        {},
+                                },
+                                /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+}
+
 TEST(parse_continue) {
         unsigned line = 23, column = 43;
 
