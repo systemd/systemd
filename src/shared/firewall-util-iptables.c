@@ -355,7 +355,7 @@ int fw_iptables_add_local_dnat(
 
 static int dlopen_iptc(void) {
         ELF_NOTE_DLOPEN("ip4tc",
-                        "Support for firewall rules",
+                        "Support for firewall rules with iptables backend",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libip4tc.so.2");
 
