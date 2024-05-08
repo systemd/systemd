@@ -3,6 +3,7 @@
 if install_tests
         foreach subdir : [
                 'auxv',
+                'bpftrace',
                 'journal-data',
                 'knot-data',
                 'test-journals',
