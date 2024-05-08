@@ -6,4 +6,4 @@ mkdir /sys/fs/cgroup/system.slice/delegated-cgroup-filtering.service/the_child
 
 echo "parent_process: hello, world!"
 echo "parent_process: hello, people!"
-sleep .15
+sleep 2

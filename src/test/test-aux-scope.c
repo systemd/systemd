@@ -10,6 +10,7 @@
 #include "bus-error.h"
 #include "bus-message.h"
 #include "bus-wait-for-jobs.h"
+#include "daemon-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "missing_syscall.h"
@@ -151,6 +152,10 @@ int main(int argc, char *argv[]) {
 
                 pids[i] = TAKE_PIDREF(pidref);
         }
+
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send readiness notification: %m");
 
         r = sd_event_loop(event);
         if (r < 0)

@@ -85,5 +85,5 @@ PID1_ENVIRON="SYSTEMD_GETTY_AUTO=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 [[ "$(find "$OUT_DIR" ! -type d | wc -l)" -eq 0 ]]
 
 # Cleanup
-umount /sys/class/tty/console/active
+umount /sys/class/tty/console/active --lazy
 rm -f "${DUMMY_CONSOLES[@]/#//dev/}" /dev/notatty99
