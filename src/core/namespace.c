@@ -97,6 +97,8 @@ typedef struct MountEntry {
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
+        bool create_source_dir:1; /* Create the source directory if it doesn't exist - for implicit bind mounts */
+        mode_t source_dir_mode;   /* Mode for the source directory, if it is to be created */
         MountEntryState state;    /* Whether it was already processed or skipped */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *unprefixed_path_const; /* If the path was amended with a prefix, these will save the original */
@@ -888,8 +890,13 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
 
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
-                /* ExtensionImages/Directories bases are opened in /run/systemd/unit-extensions on the host */
-                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) && !path_startswith(mount_entry_path(f), root_directory)) {
+                /* ExtensionImages/Directories bases are opened in /run/[user/xyz/]systemd/unit-extensions
+                 * on the host, and a private (invisible to the guest) tmpfs instance is mounted on
+                 * /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private /tmp and
+                 * /var/tmp. */
+                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) &&
+                    !path_startswith(mount_entry_path(f), root_directory) &&
+                    !(f->mode == MOUNT_TMPFS && endswith(mount_entry_path(f), "/systemd/unit-private-tmp"))) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
                         continue;
@@ -1618,6 +1625,14 @@ static int apply_one_mount(
                  * that bind mount source paths are always relative to the host root, hence we pass NULL as
                  * root directory to chase() here. */
 
+                /* When we create implicit mounts, we might need to create the path ourselves as it is on a
+                 * just-created tmpfs, for example. */
+                if (m->create_source_dir) {
+                        r = mkdir_p(mount_entry_source(m), m->source_dir_mode);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
+                }
+
                 r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
@@ -1955,12 +1970,20 @@ static int apply_mounts(
                 bool again = false;
 
                 FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
+                        bool chase_inside_root = true;
 
                         if (m->state != MOUNT_PENDING)
                                 continue;
 
-                        /* ExtensionImages/Directories are first opened in the propagate directory, not in the root_directory */
-                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? root : NULL, m);
+                        /* ExtensionImages/Directories are first opened in the propagate directory, not in
+                         * the root_directory. A private (invisible to the guest) tmpfs instance is mounted
+                         * on /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private
+                         * /tmp and /var/tmp. */
+                        if (IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ||
+                            (m->mode == MOUNT_TMPFS && endswith(mount_entry_path(m), "/systemd/unit-private-tmp")))
+                                chase_inside_root = false;
+
+                        r = follow_symlink(chase_inside_root ? root : NULL, m);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, error_path);
                                 return r;
@@ -2245,32 +2268,76 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        if (p->tmp_dir) {
-                bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
+        /* When DynamicUser=yes enforce that /tmp/ and /var/tmp/ are disconnected from the host's
+         * directories, as they are world writable and ephemeral uid/gid will be used. */
+        if (p->private_tmp_as_tmpfs == PRIVATE_TMP_DISCONNECTED) {
+                _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
+                MountEntry *tmpfs_entry, *tmp_entry, *var_tmp_entry;
 
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
+                tmpfs_dir = strdup(p->private_tmp_dir);
+                tmp_dir = path_join(p->private_tmp_dir, "tmp");
+                var_tmp_dir = path_join(p->private_tmp_dir, "var-tmp");
+                if (!tmpfs_dir || !tmp_dir || !var_tmp_dir)
                         return log_oom_debug();
 
-                *me = (MountEntry) {
+                tmpfs_entry = mount_list_extend(&ml);
+                tmp_entry = mount_list_extend(&ml);
+                var_tmp_entry = mount_list_extend(&ml);
+                if (!tmpfs_entry || !tmp_entry || !var_tmp_entry)
+                        return log_oom_debug();
+
+                *tmpfs_entry = (MountEntry) {
+                        .path_malloc = TAKE_PTR(tmpfs_dir),
+                        .mode = MOUNT_TMPFS,
+                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                        .flags = MS_NODEV|MS_STRICTATIME,
+                        .has_prefix = true,
+                };
+                *tmp_entry = (MountEntry) {
+                        .source_malloc = TAKE_PTR(tmp_dir),
                         .path_const = "/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->tmp_dir,
+                        .mode = MOUNT_BIND,
+                        .source_dir_mode = 01777,
+                        .create_source_dir = true,
                 };
-        }
-
-        if (p->var_tmp_dir) {
-                bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
-
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
+                *var_tmp_entry = (MountEntry) {
+                        .source_malloc = TAKE_PTR(var_tmp_dir),
                         .path_const = "/var/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->var_tmp_dir,
+                        .mode = MOUNT_BIND,
+                        .source_dir_mode = 01777,
+                        .create_source_dir = true,
                 };
+
+                /* Ensure that the tmpfs is mounted first, and bind mounts are added later. */
+                assert_cc(MOUNT_BIND < MOUNT_TMPFS);
+        } else {
+                if (p->tmp_dir) {
+                        bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
+
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
+
+                        *me = (MountEntry) {
+                                .path_const = "/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->tmp_dir,
+                        };
+                }
+
+                if (p->var_tmp_dir) {
+                        bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
+
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
+
+                        *me = (MountEntry) {
+                                .path_const = "/var/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->var_tmp_dir,
+                        };
+                }
         }
 
         r = append_mount_images(&ml, p->mount_images, p->n_mount_images);
@@ -3074,3 +3141,11 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+
+static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
+        [PRIVATE_TMP_OFF]          = "off",
+        [PRIVATE_TMP_CONNECTED]    = "connected",
+        [PRIVATE_TMP_DISCONNECTED] = "disconnected",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
