@@ -876,6 +876,50 @@ TEST(json_dispatch_enum_define) {
         assert(data.d < 0);
 }
 
+TEST(json_dispatch_double) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+
+        assert_se(json_build(&j, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("x1", JSON_BUILD_REAL(0.5)),
+                                             JSON_BUILD_PAIR("x2", JSON_BUILD_REAL(-0.5)),
+                                             JSON_BUILD_PAIR("x3", JSON_BUILD_CONST_STRING("infinity")),
+                                             JSON_BUILD_PAIR("x4", JSON_BUILD_CONST_STRING("-infinity")),
+                                             JSON_BUILD_PAIR("x5", JSON_BUILD_CONST_STRING("nan")),
+                                             JSON_BUILD_PAIR("x6", JSON_BUILD_CONST_STRING("inf")),
+                                             JSON_BUILD_PAIR("x7", JSON_BUILD_CONST_STRING("-inf")))) >= 0);
+
+        struct data {
+                double x1, x2, x3, x4, x5, x6, x7;
+        } data = {};
+
+        assert_se(json_dispatch(j,
+                                (const JsonDispatch[]) {
+                                        { "x1", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x1), 0 },
+                                        { "x2", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x2), 0 },
+                                        { "x3", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x3), 0 },
+                                        { "x4", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x4), 0 },
+                                        { "x5", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x5), 0 },
+                                        { "x6", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x6), 0 },
+                                        { "x7", _JSON_VARIANT_TYPE_INVALID, json_dispatch_double, offsetof(struct data, x7), 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data) >= 0);
+
+        assert_se(fabs(data.x1 - 0.5) < 0.01);
+        assert_se(fabs(data.x2 + 0.5) < 0.01);
+        assert_se(isinf(data.x3));
+        assert_se(data.x3 > 0);
+        assert_se(isinf(data.x4));
+        assert_se(data.x4 < 0);
+        assert_se(isnan(data.x5));
+        assert_se(isinf(data.x6));
+        assert_se(data.x6 > 0);
+        assert_se(isinf(data.x7));
+        assert_se(data.x7 < 0);
+}
+
 TEST(json_sensitive) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL, *v = NULL;
         _cleanup_free_ char *s = NULL;
