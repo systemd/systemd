@@ -105,7 +105,7 @@ static int generate_mask_symlinks(void) {
         STRV_FOREACH(u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
 
-                p = path_join(empty_to_root(arg_dest), *u);
+                p = path_join(arg_dest, *u);
                 if (!p)
                         return log_oom();
 
