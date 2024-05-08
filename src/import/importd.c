@@ -39,6 +39,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
+#include "varlink.h"
+#include "varlink-io.systemd.Import.h"
 #include "web-util.h"
 
 typedef struct Transfer Transfer;
@@ -87,11 +89,14 @@ struct Transfer {
 
         int stdin_fd;
         int stdout_fd;
+
+        Set *varlink_subscribed;
 };
 
 struct Manager {
         sd_event *event;
         sd_bus *bus;
+        VarlinkServer *varlink_server;
 
         uint32_t current_transfer_id;
         Hashmap *transfers;
@@ -120,6 +125,8 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, Varlink, varlink_unref);
+
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)
                 return NULL;
@@ -140,6 +147,8 @@ static Transfer *transfer_unref(Transfer *t) {
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
         safe_close(t->stdout_fd);
+
+        set_free(t->varlink_subscribed);
 
         return mfree(t);
 }
@@ -218,7 +227,17 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
                         priority,
                         line);
         if (r < 0)
-                log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
+                log_warning_errno(r, "Cannot emit log message bus signal, ignoring: %m");
+
+        r = varlink_many_notifyb(
+                        t->varlink_subscribed,
+                        JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("log",
+                                                        JSON_BUILD_OBJECT(
+                                                                        JSON_BUILD_PAIR_UNSIGNED("priority", priority),
+                                                                        JSON_BUILD_PAIR_STRING("message", line)))));
+        if (r < 0)
+                log_warning_errno(r, "Cannot emit log message varlink message, ignoring: %m");
 }
 
 static void transfer_send_progress_update(Transfer *t) {
@@ -229,15 +248,24 @@ static void transfer_send_progress_update(Transfer *t) {
         if (t->progress_percent_sent == t->progress_percent)
                 return;
 
+        double progress = transfer_percent_as_double(t);
+
         r = sd_bus_emit_signal(
                         t->manager->bus,
                         t->object_path,
                         "org.freedesktop.import1.Transfer",
                         "ProgressUpdate",
                         "d",
-                        transfer_percent_as_double(t));
+                        progress);
         if (r < 0)
-                log_warning_errno(r, "Cannot emit progress update signal, ignoring: %m");
+                log_warning_errno(r, "Cannot emit progress update bus signal, ignoring: %m");
+
+        r = varlink_many_notifyb(
+                        t->varlink_subscribed,
+                        JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_REAL("progress", progress)));
+        if (r < 0)
+                log_warning_errno(r, "Cannot emit progress update varlink message, ignoring: %m");
 
         t->progress_percent_sent = t->progress_percent;
 }
@@ -314,9 +342,17 @@ static int transfer_finalize(Transfer *t, bool success) {
                         t->object_path,
                         success ? "done" :
                         t->n_canceled > 0 ? "canceled" : "failed");
-
         if (r < 0)
                 log_error_errno(r, "Cannot emit message: %m");
+
+        if (success)
+                r = varlink_many_reply(t->varlink_subscribed, NULL);
+        else if (t->n_canceled > 0)
+                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferCancelled", NULL);
+        else
+                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferFailed", NULL);
+        if (r < 0)
+                log_warning_errno(r, "Cannot emit varlink reply, ignoring: %m");
 
         transfer_unref(t);
         return 0;
@@ -587,6 +623,8 @@ static Manager *manager_unref(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
+        m->varlink_server = varlink_server_unref(m->varlink_server);
+
         sd_event_unref(m->event);
 
         return mfree(m);
@@ -1729,10 +1767,247 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_image_class, ImageClass, image_class_from_string);
 
-        return hashmap_isempty(m->transfers);
+static int make_transfer_json(Transfer *t, JsonVariant **ret) {
+        int r;
+
+        assert(t);
+
+        r = json_build(ret,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("id", JSON_BUILD_UNSIGNED(t->id)),
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING(transfer_type_to_string(t->type))),
+                                       JSON_BUILD_PAIR("remote", JSON_BUILD_STRING(t->remote)),
+                                       JSON_BUILD_PAIR("local", JSON_BUILD_STRING(t->local)),
+                                       JSON_BUILD_PAIR("class", JSON_BUILD_STRING(image_class_to_string(t->class))),
+                                       JSON_BUILD_PAIR("percent", JSON_BUILD_REAL(transfer_percent_as_double(t)))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build transfer JSON data: %m");
+
+        return 0;
+}
+
+static int vl_method_list_transfers(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        struct p {
+                ImageClass class;
+        } p = {
+                .class = _IMAGE_CLASS_INVALID,
+        };
+
+        static const JsonDispatch dispatch_table[] = {
+                { "class", JSON_VARIANT_STRING,        json_dispatch_image_class, offsetof(struct p, class), 0 },
+                {},
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        Transfer *previous = NULL, *t;
+        HASHMAP_FOREACH(t, m->transfers) {
+
+                if (p.class >= 0 && p.class != t->class)
+                        continue;
+
+                if (previous) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        r = make_transfer_json(previous, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = varlink_notify(link, v);
+                        if (r < 0)
+                                return r;
+                }
+
+                previous = t;
+        }
+
+        if (previous) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = make_transfer_json(previous, &v);
+                if (r < 0)
+                        return r;
+
+                return varlink_reply(link, v);
+        }
+
+        return varlink_error(link, "io.systemd.Import.NoTransfers", NULL);
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, import_verify_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_type, ImportType, import_type_from_string);
+
+static int vl_method_pull(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        struct p {
+                const char *remote, *local;
+                ImageClass class;
+                ImportType type;
+                ImportVerify verify;
+                bool force;
+                bool read_only;
+                bool keep_download;
+        } p = {
+                .class = _IMAGE_CLASS_INVALID,
+                .verify = IMPORT_VERIFY_SIGNATURE,
+        };
+
+        static const JsonDispatch dispatch_table[] = {
+                { "remote",       JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct p, remote),        JSON_MANDATORY },
+                { "local",        JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct p, local),         0              },
+                { "class",        JSON_VARIANT_STRING,  json_dispatch_image_class,   offsetof(struct p, class),         JSON_MANDATORY },
+                { "type",         JSON_VARIANT_STRING,  json_dispatch_import_type,   offsetof(struct p, type),          JSON_MANDATORY },
+                { "verify",       JSON_VARIANT_STRING,  json_dispatch_import_verify, offsetof(struct p, verify),        JSON_SAFE      },
+                { "force",        JSON_VARIANT_BOOLEAN, json_dispatch_boolean,       offsetof(struct p, force),         0              },
+                { "readOnly",     JSON_VARIANT_BOOLEAN, json_dispatch_boolean,       offsetof(struct p, read_only),     0              },
+                { "keepDownload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,       offsetof(struct p, keep_download), 0              },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote))
+                return varlink_error_invalid_parameter_name(link, "remote");
+
+        if (p.local && !image_name_is_valid(p.local))
+                return varlink_error_invalid_parameter_name(link, "local");
+
+        uint64_t transfer_flags = (p.force * IMPORT_FORCE) | (p.read_only * IMPORT_READ_ONLY) | (p.keep_download * IMPORT_PULL_KEEP_DOWNLOAD);
+
+        TransferType tt =
+                p.type == IMPORT_TAR ? TRANSFER_PULL_TAR :
+                p.type == IMPORT_RAW ? TRANSFER_PULL_RAW : _TRANSFER_TYPE_INVALID;
+
+        assert(tt >= 0);
+
+        if (manager_find(m, tt, p.remote))
+                return varlink_errorb(link, "io.systemd.Import.AlreadyInProgress", JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("remote", p.remote)));
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.import1.pull",
+                        (const char**) STRV_MAKE(
+                                        "remote", p.remote,
+                                        "local",  p.local,
+                                        "class",  image_class_to_string(p.class),
+                                        "type",   import_type_to_string(p.type),
+                                        "verify", import_verify_to_string(p.verify)),
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+
+        r = transfer_new(m, &t);
+        if (r < 0)
+                return r;
+
+        t->type = tt;
+        t->verify = p.verify;
+        t->flags = transfer_flags;
+        t->class = p.class;
+
+        t->remote = strdup(p.remote);
+        if (!t->remote)
+                return -ENOMEM;
+
+        if (p.local) {
+                t->local = strdup(p.local);
+                if (!t->local)
+                        return -ENOMEM;
+        }
+
+        r = transfer_start(t);
+        if (r < 0)
+                return r;
+
+        /* If more was not set, just return the download id, and be done with it */
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+                return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("id", JSON_BUILD_UNSIGNED(t->id))));
+
+        /* Otherwise add this connection to the set of subscriptions, return the id, but keep the thing running */
+        r = set_ensure_put(&t->varlink_subscribed, &varlink_hash_ops, link);
+        if (r < 0)
+                return r;
+
+        varlink_ref(link);
+
+        r = varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("id", JSON_BUILD_UNSIGNED(t->id))));
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(t);
+        return 0;
+}
+
+static int manager_connect_varlink(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->event);
+        assert(!m->varlink_server);
+
+        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        varlink_server_set_userdata(m->varlink_server, m);
+
+        r = varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Import interface to varlink server: %m");
+
+        r = varlink_server_bind_method_many(
+                        m->varlink_server,
+                        "io.systemd.Import.ListTransfers", vl_method_list_transfers,
+                        "io.systemd.Import.Pull",          vl_method_pull);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
+
+        r = varlink_server_listen_auto(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = varlink_server_listen_address(m->varlink_server, "/run/systemd/io.systemd.Import", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+        }
+
+        return 0;
+}
+
+static bool manager_check_idle(void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        return hashmap_isempty(m->transfers) && varlink_server_current_connections(m->varlink_server) == 0;
 }
 
 static void manager_parse_env(Manager *m) {
@@ -1782,6 +2057,10 @@ static int run(int argc, char *argv[]) {
         manager_parse_env(m);
 
         r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_varlink(m);
         if (r < 0)
                 return r;
 
