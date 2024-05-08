@@ -163,17 +163,16 @@ static int install_debug_shell_dropin(void) {
 }
 
 static int process_unit_credentials(const char *credentials_dir) {
+        _cleanup_free_ DirectoryEntries *des = NULL;
         int r;
 
         assert(credentials_dir);
 
-        _cleanup_free_ DirectoryEntries *des = NULL;
         r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials from credentials directory '%s': %m", credentials_dir);
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
-                _cleanup_free_ void *d = NULL;
                 struct dirent *de = *i;
                 const char *unit, *dropin;
 
@@ -192,9 +191,13 @@ static int process_unit_credentials(const char *credentials_dir) {
                         continue;
                 }
 
-                r = read_credential_with_decryption(de->d_name, &d, NULL);
-                if (r < 0)
+                _cleanup_free_ char *d = NULL;
+
+                r = read_credential_with_decryption(de->d_name, (void**) &d, NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", de->d_name);
                         continue;
+                }
 
                 if (unit) {
                         _cleanup_free_ char *p = NULL;
@@ -212,7 +215,7 @@ static int process_unit_credentials(const char *credentials_dir) {
 
                         log_debug("Wrote unit file '%s' from credential '%s'", unit, de->d_name);
 
-                } else {
+                } else if (dropin) {
                         r = write_drop_in(arg_dest, dropin, 50, "credential", d);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to write drop-in for unit '%s' from credential '%s', ignoring: %m",
@@ -221,7 +224,8 @@ static int process_unit_credentials(const char *credentials_dir) {
                         }
 
                         log_debug("Wrote drop-in for unit '%s' from credential '%s'", dropin, de->d_name);
-                }
+                } else
+                        assert_not_reached();
         }
 
         return 0;
