@@ -378,6 +378,10 @@ static int sleep_supported_internal(
                         *ret_support = SLEEP_RESUME_DEVICE_MISSING;
                         return false;
 
+                case -ENOMEDIUM:
+                        *ret_support = SLEEP_RESUME_MISCONFIGURED;
+                        return false;
+
                 case -ENOSPC:
                         *ret_support = SLEEP_NOT_ENOUGH_SWAP_SPACE;
                         return false;

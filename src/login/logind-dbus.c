@@ -2160,6 +2160,10 @@ static int method_do_shutdown_or_sleep(
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                         "Specified resume device is missing or is not an active swap device");
 
+                        case SLEEP_RESUME_MISCONFIGURED:
+                                return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                        "Invalid resume config: resume= is not populated yet resume_offset= is");
+
                         case SLEEP_NOT_ENOUGH_SWAP_SPACE:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                         "Not enough suitable swap space for hibernation available on compatible block devices and file systems");

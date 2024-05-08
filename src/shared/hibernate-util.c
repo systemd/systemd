@@ -159,7 +159,7 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
         }
 
         if (devno == 0 && offset > 0 && offset != UINT64_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                        "Found populated /sys/power/resume_offset (%" PRIu64 ") but /sys/power/resume is not set, refusing.",
                                        offset);
 
