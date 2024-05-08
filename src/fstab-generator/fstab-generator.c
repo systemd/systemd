@@ -1450,7 +1450,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "root")) {
 
-                if (proc_cmdline_value_missing(key, value))
+                if (arg_root_what || proc_cmdline_value_missing(key, value))
                         return 0;
 
                 return free_and_strdup_warn(&arg_root_what, empty_to_null(value));
@@ -1555,6 +1555,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = mount_array_add_swap(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.swap-extra= option, ignoring: %s", value);
+        } else if (streq(key, "systemd.root")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_root_what, value);
         }
 
         return 0;
