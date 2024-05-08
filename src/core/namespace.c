@@ -2245,32 +2245,41 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        if (p->tmp_dir) {
-                bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
+        if (p->private_tmp_as_tmpfs) {
+                r = append_tmpfs_mounts(
+                                &ml,
+                                (TemporaryFileSystem []){{(char *) "/tmp", NULL}, {(char *) "/var/tmp", NULL}},
+                                /* n= */ 2);
+                if (r < 0)
+                        return r;
+        } else {
+                if (p->tmp_dir) {
+                        bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
 
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
 
-                *me = (MountEntry) {
-                        .path_const = "/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->tmp_dir,
-                };
-        }
+                        *me = (MountEntry) {
+                                .path_const = "/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->tmp_dir,
+                        };
+                }
 
-        if (p->var_tmp_dir) {
-                bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
+                if (p->var_tmp_dir) {
+                        bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
 
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
 
-                *me = (MountEntry) {
-                        .path_const = "/var/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->var_tmp_dir,
-                };
+                        *me = (MountEntry) {
+                                .path_const = "/var/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->var_tmp_dir,
+                        };
+                }
         }
 
         r = append_mount_images(&ml, p->mount_images, p->n_mount_images);
