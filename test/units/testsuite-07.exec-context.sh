@@ -340,6 +340,16 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
 fi
 
+# Ensure DynamicUser=yes does not imply PrivateTmp=yes if TemporaryFileSystem=/tmp /var/tmp is set
+systemd-run --unit test-07-dynamic-user-tmp.service \
+            --service-type=notify \
+            -p DynamicUser=yes \
+            -p TemporaryFileSystem="/tmp /var/tmp" \
+            -p NotifyAccess=all \
+            sh -c 'systemd-notify --ready; sleep infinity'
+(! ls /tmp/systemd-private-"$(cat /proc/sys/kernel/random/boot_id | tr -d '-')"-test-07-dynamic-user-tmp.service-* &>/dev/null)
+(! ls /var/tmp/systemd-private-"$(cat /proc/sys/kernel/random/boot_id | tr -d '-')"-test-07-dynamic-user-tmp.service-* &>/dev/null)
+
 # Make sure we properly (de)serialize various string arrays, including whitespaces
 # See: https://github.com/systemd/systemd/issues/31214
 systemd-run --wait --pipe -p Environment="FOO='bar4    '" \
