@@ -18,7 +18,7 @@ RefuseManualStop=yes
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-tmpfiles --user --create --remove --boot
+ExecStart=systemd-tmpfiles --user --clean --create --remove --boot
 SuccessExitStatus=DATAERR
 
 [Install]
