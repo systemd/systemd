@@ -20,6 +20,11 @@ DLSYM_FUNCTION(passwdqc_check);
 DLSYM_FUNCTION(passwdqc_random);
 
 int dlopen_passwdqc(void) {
+        ELF_NOTE_DLOPEN("passwdqc",
+                        "Support for password quality checks",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpasswdqc.so.1");
+
         return dlopen_many_sym_or_warn(
                         &passwdqc_dl, "libpasswdqc.so.1", LOG_DEBUG,
                         DLSYM_ARG(passwdqc_params_reset),
