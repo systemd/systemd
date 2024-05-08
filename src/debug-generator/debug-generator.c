@@ -44,8 +44,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_error_errno(r, "Failed to glob unit name: %m");
 
-                r = strv_consume(&arg_mask, n);
-                if (r < 0)
+                if (strv_consume(&arg_mask, n) < 0)
                         return log_oom();
 
         } else if (streq(key, "systemd.wants")) {
@@ -58,11 +57,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_error_errno(r, "Failed to glob unit name: %m");
 
-                r = strv_consume(&arg_wants, n);
-                if (r < 0)
+                if (strv_consume(&arg_wants, n) < 0)
                         return log_oom();
 
         } else if (proc_cmdline_key_streq(key, "systemd.debug_shell")) {
+
                 r = value ? parse_boolean(value) : 1;
                 arg_debug_shell = r != 0;
                 if (r >= 0)
@@ -71,6 +70,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 return free_and_strdup_warn(&arg_debug_tty, skip_dev_prefix(value));
 
         } else if (proc_cmdline_key_streq(key, "systemd.default_debug_tty")) {
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -168,8 +168,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         if (arg_debug_shell) {
-                r = strv_extend(&arg_wants, "debug-shell.service");
-                if (r < 0)
+                if (strv_extend(&arg_wants, "debug-shell.service") < 0)
                         return log_oom();
 
                 install_debug_shell_dropin();
