@@ -20,6 +20,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static VarlinkMethodFlags arg_method_flags = 0;
 static bool arg_collect = false;
+static bool arg_quiet = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -52,6 +53,7 @@ static int help(void) {
                "     --oneway            Do not request response\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
+               "  -q --quiet             Do not output method reply\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -86,6 +88,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "oneway",   no_argument,       NULL, ARG_ONEWAY   },
                 { "json",     required_argument, NULL, ARG_JSON     },
                 { "collect",  no_argument,       NULL, ARG_COLLECT  },
+                { "quiet",    no_argument,       NULL, 'q'          },
                 {},
         };
 
@@ -94,7 +97,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjq", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -129,6 +132,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case '?':
@@ -362,7 +369,9 @@ static int reply_callback(
         } else
                 r = 0;
 
-        json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+        if (!arg_quiet)
+                json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+
         return r;
 }
 
@@ -416,6 +425,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
                 } else
                         r = 0;
+
+                if (arg_quiet)
+                        return r;
 
                 pager_open(arg_pager_flags);
                 json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
@@ -479,6 +491,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 } else
                         r = 0;
 
+                if (arg_quiet)
+                        return r;
+
                 pager_open(arg_pager_flags);
 
                 json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
@@ -524,6 +539,9 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Field or symbol not unique in interface.");
         if (r < 0)
                 return log_error_errno(r, "Failed to check interface for consistency: %m");
+
+        if (arg_quiet)
+                return 0;
 
         pager_open(arg_pager_flags);
 
