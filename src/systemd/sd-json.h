@@ -280,10 +280,12 @@ typedef enum sd_json_dispatch_flags_t {
         SD_JSON_STRICT           = 1 << 3, /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string()) */
         SD_JSON_RELAX            = 1 << 4, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
         SD_JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
+        SD_JSON_NULLABLE         = 1 << 6, /* Allow both specified type and null for this field */
+        SD_JSON_REFUSE_NULL      = 1 << 7, /* Never allow null, even if type is otherwise not specified */
 
         /* The following two may be passed into log_json() in addition to those above */
-        SD_JSON_DEBUG            = 1 << 6, /* Indicates that this log message is a debug message */
-        SD_JSON_WARNING          = 1 << 7  /* Indicates that this log message is a warning message */
+        SD_JSON_DEBUG            = 1 << 8, /* Indicates that this log message is a debug message */
+        SD_JSON_WARNING          = 1 << 9  /* Indicates that this log message is a warning message */
 } sd_json_dispatch_flags_t;
 
 typedef int (*sd_json_dispatch_callback_t)(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
