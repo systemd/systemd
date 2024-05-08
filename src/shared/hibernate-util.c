@@ -394,7 +394,7 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         if (!entry) {
                 /* No need to check n_swaps == 0, since it's rejected early */
                 assert(resume_config_devno > 0);
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "Cannot find swap entry corresponding to /sys/power/resume.");
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find swap entry corresponding to /sys/power/resume.");
         }
 
         if (ret_device) {
@@ -452,11 +452,11 @@ int hibernation_is_safe(void) {
         bypass_space_check = getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
 
         r = find_suitable_hibernation_device_full(NULL, &size, &used);
-        if (r == -ENOSPC && bypass_space_check)
-                /* If we don't have any available swap space at all, and SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK
-                 * is set, skip all remaining checks since we can't do that properly anyway. It is quite
-                 * possible that the user is using a setup similar to #30083. When we actually perform
-                 * hibernation in sleep.c we'll check everything again. */
+        if (IN_SET(r, -ENOSPC, -ESTALE) && bypass_space_check)
+                /* If we don't have any available swap space at all, or the specified resume device is missing,
+                 * and $SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK is set, skip all remaining checks since
+                 * we can't do that properly anyway. It is quite possible that the user is using a setup
+                 * similar to #30083. When we actually perform hibernation in sleep.c we'll check everything again. */
                 return 0;
         if (r < 0)
                 return r;
