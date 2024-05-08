@@ -231,6 +231,9 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
+        if (context->dynamic_user)
+                return true;
+
         if (context->private_tmp && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
                 return true;
 
@@ -2161,6 +2164,7 @@ static int exec_shared_runtime_make(
         }
 
         if (c->private_tmp &&
+            !c->dynamic_user &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
               (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
                prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
