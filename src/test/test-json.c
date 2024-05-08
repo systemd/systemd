@@ -920,6 +920,86 @@ TEST(json_dispatch_double) {
         assert_se(data.x7 < 0);
 }
 
+TEST(json_dispatch_nullable) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+
+        assert_se(json_build(&j, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("x1", JSON_BUILD_CONST_STRING("foo")),
+                                             JSON_BUILD_PAIR("x2", JSON_BUILD_CONST_STRING("bar")),
+                                             JSON_BUILD_PAIR("x3", JSON_BUILD_CONST_STRING("waldo")),
+                                             JSON_BUILD_PAIR("x4", JSON_BUILD_CONST_STRING("foo2")),
+                                             JSON_BUILD_PAIR("x5", JSON_BUILD_CONST_STRING("bar2")),
+                                             JSON_BUILD_PAIR("x6", JSON_BUILD_CONST_STRING("waldo2")),
+                                             JSON_BUILD_PAIR("x7", JSON_BUILD_NULL),
+                                             JSON_BUILD_PAIR("x8", JSON_BUILD_NULL),
+                                             JSON_BUILD_PAIR("x9", JSON_BUILD_NULL))) >= 0);
+
+        struct data {
+                const char *x1, *x2, *x3, *x4, *x5, *x6, *x7, *x8, *x9;
+        } data = {
+                .x1 = POINTER_MAX,
+                .x2 = POINTER_MAX,
+                .x3 = POINTER_MAX,
+                .x4 = POINTER_MAX,
+                .x5 = POINTER_MAX,
+                .x6 = POINTER_MAX,
+                .x7 = POINTER_MAX,
+                .x8 = POINTER_MAX,
+                .x9 = POINTER_MAX,
+        };
+
+        assert_se(json_dispatch(j,
+                                (const JsonDispatch[]) {
+                                        { "x1", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x1), JSON_NULLABLE    },
+                                        { "x2", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x2), JSON_REFUSE_NULL },
+                                        { "x3", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x3), 0                },
+                                        { "x4", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(struct data, x4), JSON_NULLABLE    },
+                                        { "x5", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(struct data, x5), JSON_REFUSE_NULL },
+                                        { "x6", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(struct data, x6), 0                },
+                                        { "x7", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x7), JSON_NULLABLE    },
+                                        { "x8", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x8), 0                },
+                                        { "x9", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(struct data, x9), JSON_NULLABLE    },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data) >= 0);
+
+        assert_se(streq_ptr(data.x1, "foo"));
+        assert_se(streq_ptr(data.x2, "bar"));
+        assert_se(streq_ptr(data.x3, "waldo"));
+        assert_se(streq_ptr(data.x4, "foo2"));
+        assert_se(streq_ptr(data.x5, "bar2"));
+        assert_se(streq_ptr(data.x6, "waldo2"));
+        assert_se(!data.x7);
+        assert_se(!data.x8);
+        assert_se(!data.x9);
+
+        assert_se(json_dispatch(j,
+                                (const JsonDispatch[]) {
+                                        { "x7", _JSON_VARIANT_TYPE_INVALID, json_dispatch_const_string, offsetof(struct data, x7), JSON_REFUSE_NULL },
+                                        {},
+                                },
+                                /* flags= */ JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+
+        assert_se(json_dispatch(j,
+                                (const JsonDispatch[]) {
+                                        { "x7", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct data, x7), JSON_REFUSE_NULL },
+                                        {},
+                                },
+                                /* flags= */ JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+
+        assert_se(json_dispatch(j,
+                                (const JsonDispatch[]) {
+                                        { "x7", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct data, x7), 0 },
+                                        {},
+                                },
+                                /* flags= */ JSON_ALLOW_EXTENSIONS,
+                                &data) == -EINVAL);
+}
+
 TEST(json_sensitive) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL, *v = NULL;
         _cleanup_free_ char *s = NULL;
