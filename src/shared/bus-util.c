@@ -148,6 +148,8 @@ int bus_event_loop_with_idle(
                         return r;
 
                 if (r == 0 && !exiting && idle) {
+                        log_debug("Idle for %s, exiting.", FORMAT_TIMESPAN(timeout, 1));
+
                         /* Inform the service manager that we are going down, so that it will queue all
                          * further start requests, instead of assuming we are still running. */
                         (void) sd_notify(false, NOTIFY_STOPPING);
