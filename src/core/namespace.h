@@ -128,6 +128,7 @@ struct NamespaceParameters {
         const char *incoming_dir;
 
         const char *extension_dir;
+        const char *private_tmp_dir;
         const char *notify_socket;
         const char *host_os_release_stage;
 
@@ -142,6 +143,7 @@ struct NamespaceParameters {
         bool private_dev;
         bool private_network;
         bool private_ipc;
+        bool private_tmp_as_tmpfs;
 
         bool mount_apivfs;
         bool mount_nosuid;
