@@ -1,0 +1,38 @@
+kfunc:loop:loop_add
+{
+    printf("loop_add called on loop device %d by %s\n", args.i, comm);
+}
+
+kfunc:loop:loop_configure
+{
+    $lo = args.lo;
+    printf(
+        "lo_release called on loop device %d by %s\n",
+        $lo->lo_number,
+        comm
+    );
+}
+
+kfunc:loop:lo_release
+{
+    $lo = (struct loop_device *) args.disk->private_data;
+    printf(
+        "lo_release called on loop device %d by %s, autoclear: %s, partscan: %s\n",
+        $lo->lo_number,
+        comm,
+        $lo->lo_flags & LO_FLAGS_AUTOCLEAR ? "enabled" : "disabled",
+        $lo->lo_flags & LO_FLAGS_PARTSCAN ? "enabled" : "disabled"
+    );
+}
+
+kfunc:loop:loop_reread_partitions
+{
+    $lo = args.lo;
+    printf("loop_reread_partitions called on loop device %d by %s\n", $lo->lo_number, comm);
+}
+
+kfunc:loop:__loop_clr_fd
+{
+    $lo = args.lo;
+    printf("__loop_clr_fd called on loop device %d by %s\n", $lo->lo_number, comm);
+}
