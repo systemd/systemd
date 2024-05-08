@@ -122,7 +122,9 @@ int bus_event_loop_with_idle(
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                if (check_idle)
+                if (sd_bus_pending_method_calls(bus) > 0)
+                        idle = false;
+                else if (check_idle)
                         idle = check_idle(userdata);
                 else
                         idle = true;
