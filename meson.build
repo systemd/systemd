@@ -624,11 +624,13 @@ foreach ident : [
         ['pidfd_send_signal', '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['pidfd_open',        '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['rt_sigqueueinfo',   '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
