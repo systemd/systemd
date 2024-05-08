@@ -1743,7 +1743,7 @@ static int manager_connect_bus(Manager *m) {
         assert(m->event);
         assert(!m->bus);
 
-        r = sd_bus_default_system(&m->bus);
+        r = bus_open_system_watch_bind(&m->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
