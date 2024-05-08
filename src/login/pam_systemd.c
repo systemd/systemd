@@ -10,6 +10,9 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>

@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/wait.h>
 
 #include "sd-event.h"
