@@ -1604,16 +1604,16 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("GetProcesses",
-                                 SD_BUS_NO_ARGS,
-                                 SD_BUS_ARGS("a(sus)", processes),
-                                 bus_unit_method_get_processes,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_ARGS("a(sus)", processes),
+                                bus_unit_method_get_processes,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("AttachProcesses",
-                                 SD_BUS_ARGS("s", subcgroup, "au", pids),
-                                 SD_BUS_NO_RESULT,
-                                 bus_unit_method_attach_processes,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_ARGS("s", subcgroup, "au", pids),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_attach_processes,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
