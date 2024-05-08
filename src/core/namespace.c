@@ -97,6 +97,8 @@ typedef struct MountEntry {
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
+        bool create_source_dir:1; /* Create the source directory if it doesn't exist - for implicit bind mounts */
+        mode_t source_dir_mode;   /* Mode for the source directory, if it is to be created */
         MountEntryState state;    /* Whether it was already processed or skipped */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *unprefixed_path_const; /* If the path was amended with a prefix, these will save the original */
@@ -1618,6 +1620,14 @@ static int apply_one_mount(
                  * that bind mount source paths are always relative to the host root, hence we pass NULL as
                  * root directory to chase() here. */
 
+                /* When we create implicit mounts, we might need to create the path ourselves as it is on a
+                 * just-created tmpfs, for example. */
+                if (m->create_source_dir) {
+                        r = mkdir_p(mount_entry_source(m), m->source_dir_mode);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
+                }
+
                 r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
@@ -2245,32 +2255,72 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        if (p->tmp_dir) {
-                bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
+        if (p->private_tmp_as_tmpfs) {
+                _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
+                MountEntry *tmp_entry, *var_tmp_entry;
 
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
+                r = append_tmpfs_mounts(
+                                &ml,
+                                (TemporaryFileSystem []){{(char *) p->private_tmp_dir, (char *) "mode=01777" NESTED_TMPFS_LIMITS}},
+                                /* n= */ 1);
+                if (r < 0)
+                        return r;
+
+                tmp_dir = path_join(p->private_tmp_dir, "tmp");
+                var_tmp_dir = path_join(p->private_tmp_dir, "var-tmp");
+                if (!tmp_dir || !var_tmp_dir)
                         return log_oom_debug();
 
-                *me = (MountEntry) {
+                tmp_entry = mount_list_extend(&ml);
+                var_tmp_entry = mount_list_extend(&ml);
+                if (!tmp_entry || !var_tmp_entry)
+                        return log_oom_debug();
+
+                *tmp_entry = (MountEntry) {
+                        .source_malloc = TAKE_PTR(tmp_dir),
                         .path_const = "/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->tmp_dir,
+                        .mode = MOUNT_BIND,
+                        .source_dir_mode = 01777,
+                        .create_source_dir = true,
                 };
-        }
-
-        if (p->var_tmp_dir) {
-                bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
-
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
+                *var_tmp_entry = (MountEntry) {
+                        .source_malloc = TAKE_PTR(var_tmp_dir),
                         .path_const = "/var/tmp",
-                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
-                        .source_const = p->var_tmp_dir,
+                        .mode = MOUNT_BIND,
+                        .source_dir_mode = 01777,
+                        .create_source_dir = true,
                 };
+
+                /* Ensure that the tmpfs is mounted first, and bind mounts are added later. */
+                assert_cc(MOUNT_BIND < MOUNT_TMPFS);
+        } else {
+                if (p->tmp_dir) {
+                        bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
+
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
+
+                        *me = (MountEntry) {
+                                .path_const = "/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->tmp_dir,
+                        };
+                }
+
+                if (p->var_tmp_dir) {
+                        bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
+
+                        MountEntry *me = mount_list_extend(&ml);
+                        if (!me)
+                                return log_oom_debug();
+
+                        *me = (MountEntry) {
+                                .path_const = "/var/tmp",
+                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .source_const = p->var_tmp_dir,
+                        };
+                }
         }
 
         r = append_mount_images(&ml, p->mount_images, p->n_mount_images);
