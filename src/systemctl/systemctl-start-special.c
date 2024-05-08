@@ -223,8 +223,11 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 case ACTION_HYBRID_SLEEP:
                 case ACTION_SUSPEND_THEN_HIBERNATE:
 
+                        /* For sleep operations, do not automatically fall back to low-level operation for
+                         * errors other than logind not available. There's a high chance that logind did
+                         * some extra sanity check and that didn't pass. */
                         r = logind_reboot(a);
-                        if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                        if (r >= 0 || (r != -ENOSYS && arg_force == 0))
                                 return r;
 
                         arg_no_block = true;
