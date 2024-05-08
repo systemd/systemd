@@ -98,14 +98,18 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **ret)
 int cg_read_pid(FILE *f, pid_t *ret) {
         unsigned long ul;
 
-        /* Note that the cgroup.procs might contain duplicates! See cgroups.txt for details. */
+        /* Note that the cgroup.procs might contain duplicates! See cgroups.txt for details.
+         *
+         * In some circumstances (e.g. WSL2), cgroups might contain unmappable PIDs from other
+         * contexts. This function may return 0 in *ret, which is not a valid PID. Depending on
+         * the caller, it should either be skipped over or treated as an error.
+         */
 
         assert(f);
         assert(ret);
 
         errno = 0;
         if (fscanf(f, "%lu", &ul) != 1) {
-
                 if (feof(f)) {
                         *ret = 0;
                         return 0;
@@ -114,8 +118,6 @@ int cg_read_pid(FILE *f, pid_t *ret) {
                 return errno_or_else(EIO);
         }
 
-        if (ul <= 0)
-                return -EIO;
         if (ul > PID_T_MAX)
                 return -EIO;
 
@@ -139,6 +141,12 @@ int cg_read_pidref(FILE *f, PidRef *ret) {
                         *ret = PIDREF_NULL;
                         return 0;
                 }
+
+                if (pid == 0)
+                        /* Un unmappable PID. We certainly cannot create a pidref for it,
+                         * so return an error. (Also 0 would be interpreted as us by
+                         * pidref_set_pid(), which we cannot allow to happen.) */
+                        return -ESRCH;
 
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
