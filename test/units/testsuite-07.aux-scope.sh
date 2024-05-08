@@ -11,7 +11,7 @@ if ! grep -q pidfd_open /proc/kallsyms; then
 fi
 
 systemd-run --unit test-aux-scope.service \
-            -p Slice=aux.slice -p Type=exec -p TasksMax=99 -p CPUWeight=199 -p IPAccounting=yes \
+            --service-type notify -p Slice=aux.slice -p TasksMax=99 -p CPUWeight=199 -p IPAccounting=yes \
             /usr/lib/systemd/tests/unit-tests/manual/test-aux-scope
 kill -s USR1 "$(systemctl show --value --property MainPID test-aux-scope.service)"
 
