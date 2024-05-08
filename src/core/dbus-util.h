@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "execute.h"
 #include "dissect-image.h"
 #include "unit.h"
 
@@ -244,6 +245,7 @@ int bus_set_transient_string(Unit *u, const char *name, char **p, sd_bus_message
 int bus_set_transient_bool(Unit *u, const char *name, bool *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_tristate(Unit *u, const char *name, int *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_usec_internal(Unit *u, const char *name, usec_t *p, bool fix_0, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
+int bus_set_transient_private_tmp(Unit *u, const char *name, PrivateTmp *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 static inline int bus_set_transient_usec(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
         return bus_set_transient_usec_internal(u, name, p, false, message, flags, error);
 }
