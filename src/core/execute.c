@@ -231,7 +231,10 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
+        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED)
+                return true;
+
+        if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
                 return true;
 
         if (context->private_devices ||
@@ -964,7 +967,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->root_ephemeral),
                 prefix, yes_no(c->non_blocking),
-                prefix, yes_no(c->private_tmp),
+                prefix, private_tmp_to_string(c->private_tmp),
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
@@ -2155,12 +2158,12 @@ static int exec_shared_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && !c->private_tmp) {
+        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
 
-        if (c->private_tmp &&
+        if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
               (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
                prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
