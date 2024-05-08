@@ -114,7 +114,11 @@ static int show_cgroup_one_by_path(
                 if (r < 0)
                         return r;
 
-                if (!(flags & OUTPUT_KERNEL_THREADS) && pid_is_kernel_thread(pid) > 0)
+                if (pid == 0) /* Ignore unmappable PIDs for foreign processes. */
+                        continue;
+
+                if (!(flags & OUTPUT_KERNEL_THREADS) &&
+                    pid_is_kernel_thread(pid) > 0)
                         continue;
 
                 if (!GREEDY_REALLOC(pids, n + 1))
