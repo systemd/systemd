@@ -110,9 +110,7 @@ static int generate_mask_symlinks(void) {
                         return log_oom();
 
                 if (symlink("/dev/null", p) < 0)
-                        r = log_error_errno(errno,
-                                            "Failed to create mask symlink %s: %m",
-                                            p);
+                        RET_GATHER(r, log_error_errno(errno, "Failed to create mask symlink '%s': %m", p);
         }
 
         return r;
@@ -137,9 +135,7 @@ static int generate_wants_symlinks(void) {
                 if (!f)
                         return log_oom();
 
-                r = generator_add_symlink(arg_dest, target, "wants", f);
-                if (r < 0)
-                        return r;
+                RET_GATHER(r, generator_add_symlink(arg_dest, target, "wants", f));
         }
 
         return r;
