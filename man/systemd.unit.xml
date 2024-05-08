@@ -164,7 +164,7 @@
     instance (if any) is always uniquely defined for a given unit and all its aliases. The target of alias
     symlink must point to a valid unit file location, i.e. the symlink target name must match the symlink
     source name as described, and the destination path must be in one of the unit search paths, see UNIT FILE
-    LOAD PATH section below for more details. Note that the target file may not exist, i.e. the symlink may
+    LOAD PATH section below for more details. Note that the target file might not exist, i.e. the symlink may
     be dangling.</para>
 
     <para>Unit files may specify aliases through the <varname>Alias=</varname> directive in the [Install]
@@ -196,7 +196,7 @@
     <filename>.wants/</filename> or <filename>.requires/</filename> must thus point to a valid unit file
     location, i.e. the symlink target name must satisfy the described requirements, and the destination path
     must be in one of the unit search paths, see UNIT FILE LOAD PATH section below for more details. Note
-    that the target file may not exist, i.e. the symlink may be dangling.</para>
+    that the target file might not exist, i.e. the symlink may be dangling.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory
     <filename>foo.service.d/</filename> may exist. All files with the suffix

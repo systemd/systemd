@@ -350,7 +350,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             "fragment" and "drop-ins" (source files) of units. Each
             file is preceded by a comment which includes the file
             name. Note that this shows the contents of the backing files
-            on disk, which may not match the system manager's
+            on disk, which might not match the system manager's
             understanding of these units if any unit files were
             updated on disk and the <command>daemon-reload</command>
             command wasn't issued since.</para>
