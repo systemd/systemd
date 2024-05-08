@@ -2511,12 +2511,13 @@ static int item_do(
                 fdaction_t action) {
 
         struct stat st;
-        int r = 0, q = 0;
+        int r;
 
         assert(c);
         assert(i);
-        assert(path);
         assert(fd >= 0);
+        assert(path);
+        assert(action);
 
         if (fstat(fd, &st) < 0) {
                 r = log_error_errno(errno, "fstat() on file failed: %m");
@@ -2533,14 +2534,13 @@ static int item_do(
                  * reading the directory content. */
                 d = opendir(FORMAT_PROC_FD_PATH(fd));
                 if (!d) {
-                        log_error_errno(errno, "Failed to opendir() '%s': %m", FORMAT_PROC_FD_PATH(fd));
-                        if (r == 0)
-                                r = -errno;
+                        RET_GATHER(r, log_error_errno(errno, "Failed to opendir() '%s': %m", FORMAT_PROC_FD_PATH(fd)));
                         goto finish;
                 }
 
-                FOREACH_DIRENT_ALL(de, d, q = -errno; goto finish) {
-                        int de_fd;
+                FOREACH_DIRENT_ALL(de, d, RET_GATHER(r, -errno); goto finish) {
+                        _cleanup_close_ int de_fd = -EBADF;
+                        _cleanup_free_ char *de_path = NULL;
 
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
@@ -2548,22 +2548,21 @@ static int item_do(
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
                         if (de_fd < 0) {
                                 if (errno != ENOENT)
-                                        q = log_error_errno(errno, "Failed to open file '%s': %m", de->d_name);
-                        } else {
-                                _cleanup_free_ char *de_path = NULL;
-
-                                de_path = path_join(path, de->d_name);
-                                if (!de_path)
-                                        q = log_oom();
-                                else
-                                        /* Pass ownership of dirent fd over */
-                                        q = item_do(c, i, de_fd, de_path, CREATION_EXISTING, action);
+                                        RET_GATHER(r, log_error_errno(errno, "Failed to open file '%s': %m", de->d_name));
+                                continue;
                         }
 
-                        if (q < 0 && r == 0)
-                                r = q;
+                        de_path = path_join(path, de->d_name);
+                        if (!de_path) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        /* Pass ownership of dirent fd over */
+                        RET_GATHER(r, item_do(c, i, TAKE_FD(de_fd), de_path, CREATION_EXISTING, action));
                 }
         }
+
 finish:
         safe_close(fd);
         return r;
@@ -2573,21 +2572,22 @@ static int glob_item(Context *c, Item *i, action_t action) {
         _cleanup_globfree_ glob_t g = {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
-        int r = 0, k;
+        int r;
 
         assert(c);
         assert(i);
+        assert(action);
 
-        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k < 0 && k != -ENOENT)
-                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
-        STRV_FOREACH(fn, g.gl_pathv) {
+        r = 0;
+        STRV_FOREACH(fn, g.gl_pathv)
                 /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
-                k = action(c, i, *fn, CREATION_EXISTING);
-                if (k < 0 && r == 0)
-                        r = k;
-        }
+                RET_GATHER(r, action(c, i, *fn, CREATION_EXISTING));
 
         return r;
 }
@@ -2600,34 +2600,33 @@ static int glob_item_recursively(
         _cleanup_globfree_ glob_t g = {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
-        int r = 0, k;
+        int r;
 
-        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k < 0 && k != -ENOENT)
-                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+        assert(c);
+        assert(i);
+        assert(action);
 
+        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to glob '%s': %m", i->path);
+
+        r = 0;
         STRV_FOREACH(fn, g.gl_pathv) {
                 _cleanup_close_ int fd = -EBADF;
 
-                /* Make sure we won't trigger/follow file object (such as
-                 * device nodes, automounts, ...) pointed out by 'fn' with
-                 * O_PATH. Note, when O_PATH is used, flags other than
+                /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
+                 * pointed out by 'fn' with O_PATH. Note, when O_PATH is used, flags other than
                  * O_CLOEXEC, O_DIRECTORY, and O_NOFOLLOW are ignored. */
 
                 fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (fd < 0) {
-                        log_error_errno(errno, "Opening '%s' failed: %m", *fn);
-                        if (r == 0)
-                                r = -errno;
+                        RET_GATHER(r, log_error_errno(errno, "Failed to open '%s': %m", *fn));
                         continue;
                 }
 
-                k = item_do(c, i, fd, *fn, CREATION_EXISTING, action);
-                if (k < 0 && r == 0)
-                        r = k;
-
-                /* we passed fd ownership to the previous call */
-                fd = -EBADF;
+                RET_GATHER(r, item_do(c, i, TAKE_FD(fd), *fn, CREATION_EXISTING, action));
         }
 
         return r;
@@ -2658,7 +2657,7 @@ static int rm_if_wrong_type_safe(
         r = fstatat_harder(parent_fd, name, &st, flags, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
         if (r < 0) {
                 (void) fd_get_path(parent_fd, &parent_name);
-                return log_full_errno(r == -ENOENT? LOG_DEBUG : LOG_ERR, r,
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to stat \"%s/%s\": %m", parent_name ?: "...", name);
         }
 
