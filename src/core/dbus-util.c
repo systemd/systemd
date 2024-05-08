@@ -150,6 +150,30 @@ int bus_set_transient_usec_internal(
         return 1;
 }
 
+int bus_set_transient_private_tmp(
+                Unit *u,
+                const char *name,
+                PrivateTmp *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        int v, r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "b", &v);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = v ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_DISABLED;
+                unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
+        }
+
+        return 1;
+}
+
 int bus_verify_manage_units_async_full(
                 Unit *u,
                 const char *verb,
