@@ -53,6 +53,14 @@ typedef enum ProcSubset {
         _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
+typedef enum PrivateTmp {
+        PRIVATE_TMP_OFF,
+        PRIVATE_TMP_CONNECTED, /* Bind mounted from the host's filesystem */
+        PRIVATE_TMP_DISCONNECTED, /* A completely private tmpfs, invisible from the host */
+        _PRIVATE_TMP_MAX,
+        _PRIVATE_TMP_INVALID = -EINVAL,
+} PrivateTmp;
+
 struct BindMount {
         char *source;
         char *destination;
@@ -127,7 +135,7 @@ struct NamespaceParameters {
         const char *propagate_dir;
         const char *incoming_dir;
 
-        const char *extension_dir;
+        const char *private_namespace_dir;
         const char *notify_socket;
         const char *host_os_release_stage;
 
@@ -150,6 +158,7 @@ struct NamespaceParameters {
         ProtectSystem protect_system;
         ProtectProc protect_proc;
         ProcSubset proc_subset;
+        PrivateTmp private_tmp;
 };
 
 int setup_namespace(const NamespaceParameters *p, char **error_path);
@@ -183,6 +192,9 @@ ProtectProc protect_proc_from_string(const char *s) _pure_;
 
 const char* proc_subset_to_string(ProcSubset i) _const_;
 ProcSubset proc_subset_from_string(const char *s) _pure_;
+
+const char* private_tmp_to_string(PrivateTmp i) _const_;
+PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
