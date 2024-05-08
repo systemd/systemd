@@ -2547,9 +2547,10 @@ static int item_do(
                                 continue;
 
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-                        if (de_fd < 0)
-                                q = log_error_errno(errno, "Failed to open() file '%s': %m", de->d_name);
-                        else {
+                        if (de_fd < 0) {
+                                if (errno != -ENOENT)
+                                        q = log_error_errno(errno, "Failed to open file '%s': %m", de->d_name);
+                        } else {
                                 _cleanup_free_ char *de_path = NULL;
 
                                 de_path = path_join(path, de->d_name);
