@@ -3986,7 +3986,9 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m) {
 }
 
 unsigned varlink_server_current_connections(VarlinkServer *s) {
-        assert_return(s, UINT_MAX);
+
+        if (!s) /* Unallocated servers have zero connections */
+                return 0;
 
         return s->n_connections;
 }
