@@ -4280,7 +4280,18 @@ int unit_patch_contexts(Unit *u) {
                          * UID/GID around in the file system or on IPC objects. Hence enforce a strict
                          * sandbox. */
 
-                        ec->private_tmp = true;
+                        /* Enforce private tmp directories, either via TemporaryFileSystem= or PrivateTmp=,
+                         * as they have different semantics but are both enough for sanboxing purposes. */
+                        bool tmp_found = false, var_tmp_found = false;
+                        FOREACH_ARRAY(f, ec->temporary_filesystems, ec->n_temporary_filesystems)
+                                if (path_equal(f->path, "/tmp"))
+                                        tmp_found = true;
+                                else if (path_equal(f->path, "/var/tmp"))
+                                        var_tmp_found = true;
+
+                        if (!tmp_found || !var_tmp_found)
+                                ec->private_tmp = true;
+
                         ec->remove_ipc = true;
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
                         if (ec->protect_home == PROTECT_HOME_NO)
