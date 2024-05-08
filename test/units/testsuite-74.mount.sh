@@ -32,8 +32,9 @@ systemd-mount --list --quiet
 
 # Set up a simple block device for further tests
 dd if=/dev/zero of="$WORK_DIR/simple.img" bs=1M count=16
+mkfs.ext4 -L sd-mount-test "$WORK_DIR/simple.img"
 LOOP="$(losetup --show --find "$WORK_DIR/simple.img")"
-mkfs.ext4 -L sd-mount-test "$LOOP"
+udevadm wait --timeout 60 --settle "$LOOP"
 mkdir "$WORK_DIR/mnt"
 mount "$LOOP" "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/foo.bar"
@@ -130,8 +131,9 @@ systemd-umount "$WORK_DIR/simple.img"
 # Create a vfat image, as ext4 doesn't support uid=/gid= fixating for all
 # files/directories
 dd if=/dev/zero of="$WORK_DIR/owner-vfat.img" bs=1M count=16
+mkfs.vfat -n owner-vfat "$WORK_DIR/owner-vfat.img"
 LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
-mkfs.vfat -n owner-vfat "$LOOP"
+udevadm wait --timeout 60 --settle "$LOOP"
 # Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
 systemd-mount --owner=testuser "$LOOP" "$WORK_DIR/mnt"
