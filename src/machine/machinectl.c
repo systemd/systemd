@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "escape.h"
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -1350,6 +1351,79 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
+static int attempt_chainload_ssh(sd_bus *bus, const char *name, const char *uid, const char *path, char **cmdline) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *ssh_path = NULL;
+        _cleanup_strv_free_ char **ssh_cmdline = NULL;
+        const char *address, *private_key_path;
+        int r;
+
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineSSHInfo", NULL, &reply, "s", name);
+        if (r < 0)
+                return log_error_errno(r, "Could not get SSH info: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "ss", &address, &private_key_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = find_executable("ssh", &ssh_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find SSH binary: %m");
+
+        ssh_cmdline = strv_new("ssh", "-o", "IdentitiesOnly yes");
+        if (!ssh_cmdline)
+                return -ENOMEM;
+
+        r = strv_extend(&ssh_cmdline, "-o");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(&ssh_cmdline, "IdentityFile=%s", private_key_path);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(envvar, arg_setenv) {
+                r = strv_extend(&ssh_cmdline, "-o");
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf(&ssh_cmdline, "SetEnv %s", *envvar);
+                if (r < 0)
+                        return r;
+        }
+
+        if (uid)
+                r = strv_extendf(&ssh_cmdline, "%s@%s", uid, address);
+        else
+                r = strv_extendf(&ssh_cmdline, "%s", address);
+        if (r < 0)
+                return r;
+
+        if (path) {
+                r = strv_extend(&ssh_cmdline, path);
+                if (r < 0)
+                        return r;
+
+        }
+
+        if (!strv_isempty(cmdline)) {
+                r = strv_extend_strv(&ssh_cmdline, strv_skip(cmdline, 1), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *c = quote_command_line(ssh_cmdline, 0);
+                if (!c)
+                        return log_oom();
+
+                log_debug("Chainloading SSH: %s", c);
+        }
+
+        return execv(ssh_path, ssh_cmdline);
+}
+
 static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1359,6 +1433,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         int master = -1, r;
         sd_bus *bus = ASSERT_PTR(userdata);
         const char *match, *machine, *path;
+        char **cmdline;
         _cleanup_free_ char *uid = NULL;
 
         if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
@@ -1411,7 +1486,8 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(m, strv_length(argv) <= 3 ? NULL : argv + 2);
+        cmdline = strv_length(argv) <= 3 ? NULL : argv + 2;
+        r = sd_bus_message_append_strv(m, cmdline);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1420,6 +1496,10 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r == -EOPNOTSUPP) {
+                log_debug("Failed to open machine shell, attemping to chainload SSH instead.");
+                return attempt_chainload_ssh(bus, machine, uid, path, cmdline);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get shell PTY: %s", bus_error_message(&error, r));
 

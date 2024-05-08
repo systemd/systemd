@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
+#include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.UserDatabase.h"
 
 typedef struct LookupParameters {
@@ -378,13 +380,13 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-int manager_varlink_init(Manager *m) {
+static int manager_varlink_init_userdb(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
 
         assert(m);
 
-        if (m->varlink_server)
+        if (m->varlink_userdb_server)
                 return 0;
 
         r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
@@ -415,12 +417,64 @@ int manager_varlink_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        m->varlink_server = TAKE_PTR(s);
+        m->varlink_userdb_server = TAKE_PTR(s);
+        return 0;
+}
+
+static int manager_varlink_init_machine(Manager *m) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->varlink_machine_server)
+                return 0;
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface(s, &vl_interface_io_systemd_Machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
+
+        r = varlink_server_bind_method(s, "io.systemd.Machine.Register", vl_method_register);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        (void) mkdir_p("/run/systemd/machine", 0755);
+
+        r = varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_machine_server = TAKE_PTR(s);
+        return 0;
+}
+
+int manager_varlink_init(Manager *m) {
+        int r;
+
+        r = manager_varlink_init_userdb(m);
+        if (r < 0)
+                return r;
+
+        r = manager_varlink_init_machine(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
 void manager_varlink_done(Manager *m) {
         assert(m);
 
-        m->varlink_server = varlink_server_unref(m->varlink_server);
+        m->varlink_userdb_server = varlink_server_unref(m->varlink_userdb_server);
+        m->varlink_machine_server = varlink_server_unref(m->varlink_machine_server);
 }
