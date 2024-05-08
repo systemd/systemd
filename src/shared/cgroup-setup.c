@@ -615,6 +615,10 @@ int cg_migrate(
                         return RET_GATHER(ret, r);
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
+                        /* Ignore unmappable PIDs. We can't migrate those processes anyway. */
+                        if (pid == 0)
+                                continue;
+
                         /* This might do weird stuff if we aren't a single-threaded program. However, we
                          * luckily know we are. */
                         if (FLAGS_SET(flags, CGROUP_IGNORE_SELF) && pid == getpid_cached())
@@ -625,7 +629,8 @@ int cg_migrate(
 
                         /* Ignore kernel threads. Since they can only exist in the root cgroup, we only
                          * check for them there. */
-                        if (cfrom && empty_or_root(pfrom) &&
+                        if (cfrom &&
+                            empty_or_root(pfrom) &&
                             pid_is_kernel_thread(pid) > 0)
                                 continue;
 
