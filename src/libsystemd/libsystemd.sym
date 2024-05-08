@@ -851,6 +851,7 @@ global:
         sd_json_buildv;
         sd_json_dispatch;
         sd_json_dispatch_const_string;
+        sd_json_dispatch_double;
         sd_json_dispatch_full;
         sd_json_dispatch_id128;
         sd_json_dispatch_int16;
