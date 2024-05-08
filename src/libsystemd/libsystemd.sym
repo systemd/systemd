@@ -843,3 +843,8 @@ global:
         sd_journal_stream_fd_with_namespace;
         sd_event_source_get_inotify_path;
 } LIBSYSTEMD_255;
+
+LIBSYSTEMD_257 {
+global:
+        sd_bus_pending_method_calls;
+} LIBSYSTEMD_256;
