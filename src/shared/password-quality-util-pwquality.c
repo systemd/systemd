@@ -24,6 +24,11 @@ DLSYM_FUNCTION(pwquality_set_int_value);
 DLSYM_FUNCTION(pwquality_strerror);
 
 int dlopen_pwquality(void) {
+        ELF_NOTE_DLOPEN("pwquality",
+                        "Support for password quality checks",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpwquality.so.1");
+
         return dlopen_many_sym_or_warn(
                         &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
                         DLSYM_ARG(pwquality_check),
