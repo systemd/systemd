@@ -130,24 +130,24 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
         return true;
 }
 
-char *utf8_is_valid_n(const char *str, size_t len_bytes) {
+char* utf8_is_valid_n(const char *str, size_t len_bytes) {
         /* Check if the string is composed of valid utf8 characters. If length len_bytes is given, stop after
          * len_bytes. Otherwise, stop at NUL. */
 
         assert(str);
 
-        for (const char *p = str; len_bytes != SIZE_MAX ? (size_t) (p - str) < len_bytes : *p != '\0'; ) {
+        for (size_t i = 0; len_bytes != SIZE_MAX ? i < len_bytes : str[i] != '\0'; ) {
                 int len;
 
-                if (_unlikely_(*p == '\0') && len_bytes != SIZE_MAX)
+                if (_unlikely_(str[i] == '\0'))
                         return NULL; /* embedded NUL */
 
-                len = utf8_encoded_valid_unichar(p,
-                                                 len_bytes != SIZE_MAX ? len_bytes - (p - str) : SIZE_MAX);
+                len = utf8_encoded_valid_unichar(str + i,
+                                                 len_bytes != SIZE_MAX ? len_bytes - i : SIZE_MAX);
                 if (_unlikely_(len < 0))
                         return NULL; /* invalid character */
 
-                p += len;
+                i += len;
         }
 
         return (char*) str;
