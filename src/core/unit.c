@@ -2218,16 +2218,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2239,7 +2239,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(
@@ -4292,8 +4292,8 @@ int unit_patch_contexts(Unit *u) {
                         ec->restrict_suid_sgid = true;
                 }
 
-                for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                        exec_directory_sort(ec->directories + dt);
+                FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
+                        exec_directory_sort(d);
         }
 
         cc = unit_get_cgroup_context(u);
