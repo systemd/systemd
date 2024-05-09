@@ -2057,9 +2057,9 @@ static bool root_read_only(
 }
 
 static bool home_read_only(
-                char** read_only_paths,
-                char** inaccessible_paths,
-                char** empty_directories,
+                char * const *read_only_paths,
+                char * const *inaccessible_paths,
+                char * const *empty_directories,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
@@ -2078,13 +2078,13 @@ static bool home_read_only(
             prefixed_path_strv_contains(empty_directories, "/home"))
                 return true;
 
-        for (size_t i = 0; i < n_temporary_filesystems; i++)
-                if (path_equal(temporary_filesystems[i].path, "/home"))
+        FOREACH_ARRAY(i, temporary_filesystems, n_temporary_filesystems)
+                if (path_equal(i->path, "/home"))
                         return true;
 
         /* If /home is overmounted with some dir from the host it's not writable. */
-        for (size_t i = 0; i < n_bind_mounts; i++)
-                if (path_equal(bind_mounts[i].destination, "/home"))
+        FOREACH_ARRAY(i, bind_mounts, n_bind_mounts)
+                if (path_equal(i->destination, "/home"))
                         return true;
 
         return false;
