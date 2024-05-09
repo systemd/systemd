@@ -63,6 +63,7 @@ typedef struct {
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
+        bool initrd_arg;
         char16_t key;
         EFI_STATUS (*call)(void);
         int tries_done;
@@ -1497,6 +1498,9 @@ static void boot_entry_add_type1(
                                 entry->options = s;
                         } else
                                 entry->options = TAKE_PTR(new);
+
+                } else if (streq8(key, "initrd-arg")) {
+                        entry->initrd_arg = streq8(value, "yes");
                 }
 
         if (entry->type == LOADER_UNDEFINED)
@@ -2374,7 +2378,7 @@ static EFI_STATUS image_start(
         /* If we had to append an initrd= entry to the command line, we have to pass it, and measure it.
          * Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
          * so). */
-        _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
+        _cleanup_free_ char16_t *options = xstrdup16((entry->initrd_arg && options_initrd) ? options_initrd : entry->options_implied ? NULL : entry->options);
 
         if (entry->type == LOADER_LINUX && !is_confidential_vm()) {
                 const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
