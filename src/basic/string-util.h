@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "string-util-fundamental.h"
+#include "utf8.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE          " \t\n\r"
@@ -234,6 +235,9 @@ static inline int strdup_to(char **ret, const char *src) {
 }
 
 bool string_is_safe(const char *p) _pure_;
+static inline bool string_is_safe_ascii(const char *p) {
+        return ascii_is_valid(p) && string_is_safe(p);
+}
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
