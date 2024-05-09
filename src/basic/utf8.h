@@ -18,8 +18,11 @@ char* utf8_is_valid_n(const char *str, size_t len_bytes) _pure_;
 static inline char* utf8_is_valid(const char *str) {
         return utf8_is_valid_n(str, SIZE_MAX);
 }
-char *ascii_is_valid(const char *s) _pure_;
-char *ascii_is_valid_n(const char *str, size_t len);
+
+char* ascii_is_valid_n(const char *str, size_t len) _pure_;
+static inline char* ascii_is_valid(const char *str) {
+        return ascii_is_valid_n(str, SIZE_MAX);
+}
 
 int utf8_to_ascii(const char *str, char replacement_char, char **ret);
 
