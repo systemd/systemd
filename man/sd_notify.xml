@@ -258,10 +258,18 @@
         <term>BUSERROR=…</term>
 
         <listitem><para>If a service fails, the D-Bus error-style error code. Example:
-        <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal>. Note that this assignment is
-        currently not used by <command>systemd</command>.</para>
+        <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>VARLINKERROR=…</term>
+
+        <listitem><para>If a service fails, the Varlink error-style error code. Example:
+        <literal>VARLINKERROR=org.varlink.service.InvalidParameter</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
