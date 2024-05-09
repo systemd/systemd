@@ -341,7 +341,7 @@ All tools:
   for cases where we don't need to track given unit type, e.g. `--user` manager
   often doesn't need to deal with device or swap units because they are
   handled by the `--system` manager (PID 1). Note that setting certain unit
-  type as unsupported may not prevent loading some units of that type if they
+  type as unsupported might not prevent loading some units of that type if they
   are referenced by other units of another supported type.
 
 * `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST` — can be set to override the mount

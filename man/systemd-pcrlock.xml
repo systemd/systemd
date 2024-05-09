@@ -105,7 +105,7 @@
         <term><command>cel</command></term>
 
         <listitem><para>This reads the combined TPM2 event log and writes it to STDOUT in <ulink
-        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log
+        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log
         Format (CEL-JSON)</ulink> format.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>

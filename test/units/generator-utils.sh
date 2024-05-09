@@ -72,7 +72,7 @@ run_and_list() {
     ls -lR "$out_dir"
 
     if [[ -n "${environ:-}" ]]; then
-        umount /proc/1/environ
+        umount /proc/1/environ --lazy
         rm -f "$environ"
     fi
 }

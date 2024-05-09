@@ -350,7 +350,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             "fragment" and "drop-ins" (source files) of units. Each
             file is preceded by a comment which includes the file
             name. Note that this shows the contents of the backing files
-            on disk, which may not match the system manager's
+            on disk, which might not match the system manager's
             understanding of these units if any unit files were
             updated on disk and the <command>daemon-reload</command>
             command wasn't issued since.</para>
@@ -1843,6 +1843,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Suspend the system. This will trigger activation of the special target unit
             <filename>suspend.target</filename>. This command is asynchronous, and will return after the suspend
             operation is successfully enqueued. It will not wait for the suspend/resume cycle to complete.</para>
+
+            <para>If <option>--force</option> is specified, and <command>systemd-logind</command> returned
+            error for the operation, the error will be ignored and the operation will be tried again directly
+            through starting the target unit.</para>
           </listitem>
         </varlistentry>
 
@@ -1853,6 +1857,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Hibernate the system. This will trigger activation of the special target unit
             <filename>hibernate.target</filename>. This command is asynchronous, and will return after the hibernation
             operation is successfully enqueued. It will not wait for the hibernate/thaw cycle to complete.</para>
+
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -1864,6 +1870,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <filename>hybrid-sleep.target</filename>. This command is asynchronous, and will return after the hybrid
             sleep operation is successfully enqueued. It will not wait for the sleep/wake-up cycle to complete.</para>
 
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
+
             <xi:include href="version-info.xml" xpointer="v196"/>
           </listitem>
         </varlistentry>
@@ -1872,12 +1880,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>suspend-then-hibernate</command></term>
 
           <listitem>
-            <para>Suspend the system and hibernate it after the delay specified in <filename>systemd-sleep.conf</filename>.
-            This will trigger activation of the special target unit <filename>suspend-then-hibernate.target</filename>.
-            This command is asynchronous, and will return after the hybrid sleep operation is successfully enqueued.
+            <para>Suspend the system and hibernate it when the battery is low, or when the delay specified
+            in <filename>systemd-sleep.conf</filename> elapsed. This will trigger activation of the special
+            target unit <filename>suspend-then-hibernate.target</filename>. This command is asynchronous,
+            and will return after the hybrid sleep operation is successfully enqueued.
             It will not wait for the sleep/wake-up or hibernate/thaw cycle to complete.</para>
 
-          <xi:include href="version-info.xml" xpointer="v240"/>
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2531,25 +2542,27 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--force</option></term>
 
         <listitem>
-          <para>When used with <command>enable</command>, overwrite
-          any existing conflicting symlinks.</para>
+          <para>When used with <command>enable</command>, overwrite any existing conflicting symlinks.</para>
 
-          <para>When used with <command>edit</command>, create all of the
-          specified units which do not already exist.</para>
+          <para>When used with <command>edit</command>, create all of the specified units which do not already exist.</para>
 
-          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command> or
-          <command>kexec</command>, execute the selected operation without shutting down all units. However, all
-          processes will be killed forcibly and all file systems are unmounted or remounted read-only. This is hence a
-          drastic but relatively safe option to request an immediate reboot. If <option>--force</option> is specified
-          twice for these operations (with the exception of <command>kexec</command>), they will be executed
-          immediately, without terminating any processes or unmounting any file systems.</para>
+          <para>When used with <command>suspend</command>, <command>hibernate</command>, <command>hybrid-sleep</command>,
+          or <command>suspend-then-hibernate</command>, the error returned by <command>systemd-logind</command>
+          will be ignored, and the operation will be performed directly through starting the corresponding units.
+          </para>
+
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
+          or <command>kexec</command>, execute the selected operation without shutting down all units. However,
+          all processes will be killed forcibly and all file systems are unmounted or remounted read-only.
+          This is hence a drastic but relatively safe option to request an immediate reboot. If <option>--force</option>
+          is specified twice for these operations (with the exception of <command>kexec</command>), they will
+          be executed immediately, without terminating any processes or unmounting any file systems.</para>
 
           <warning>
-            <para>Specifying
-            <option>--force</option> twice with any of these operations might result in data loss. Note that when
-            <option>--force</option> is specified twice the selected operation is executed by
-            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager has crashed.</para>
+            <para>Specifying <option>--force</option> twice with any of these operations might result in data loss.
+            Note that when <option>--force</option> is specified twice the selected operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command
+            should succeed even when the system manager has crashed.</para>
           </warning>
         </listitem>
       </varlistentry>
