@@ -123,7 +123,7 @@ static inline bool path_equal_ptr(const char *a, const char *b) {
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
 
-char* path_startswith_strv(const char *p, char **set);
+char* path_startswith_strv(const char *p, char * const *strv);
 #define PATH_STARTSWITH_SET(p, ...) path_startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
 int path_strv_make_absolute_cwd(char **l);
@@ -233,7 +233,7 @@ static inline const char* empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
 
-bool path_strv_contains(char **l, const char *path);
-bool prefixed_path_strv_contains(char **l, const char *path);
+bool path_strv_contains(char * const *l, const char *path);
+bool prefixed_path_strv_contains(char * const *l, const char *path);
 
 int path_glob_can_match(const char *pattern, const char *prefix, char **ret);
