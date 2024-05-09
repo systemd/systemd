@@ -2021,8 +2021,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install restart timer: %m");
-                        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
-                        return;
+                        return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
                 }
 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
@@ -2547,8 +2546,6 @@ static void service_enter_restart(Service *s) {
          * the counter explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts++;
         s->flush_n_restarts = false;
-
-        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
 
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
