@@ -1300,7 +1300,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
                  * readable in the subtree proper. */
 
-                r = cg_read_pidref(f, &pidref);
+                r = cg_read_pidref(f, &pidref, /* flags = */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
