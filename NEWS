@@ -416,7 +416,7 @@ CHANGES WITH 256-rc1:
 
         * systemd-nspawn will tint the terminal background for containers in a
           blueish color. This can be controller with the new --background=
-          switch.
+          switch or the new $SYSTEMD_TINT_BACKGROUND environment variable.
 
         * systemd-nspawn gained support for the 'owneridmap' option for --bind=
           mounts to map the target directory owner from inside the container to
@@ -566,7 +566,7 @@ CHANGES WITH 256-rc1:
 
         * systemd-boot's automatic SecureBoot enrollment support gained support
           for enrolling "dbx" too (Previously, only db/KEK/PK enrollment was
-          supported). It also now supports UEFI "Custom" mode.
+          supported). It also now supports UEFI "Custom" and "Audit" modes.
 
         * The pcrlock policy is saved in an unencrypted credential file
           "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
@@ -611,7 +611,8 @@ CHANGES WITH 256-rc1:
         * systemd-run/run0 will now tint the terminal background on supported
           terminals: in a reddish tone when invoking a root service, in a
           yellowish tone otherwise. This may be controlled and turned off via
-          the new --background= switch.
+          the new --background= switch or the new $SYSTEMD_TINT_BACKGROUND
+          environment variable.
 
         * systemd-run gained a new option '--ignore-failure' to suppress
           command failures.
@@ -695,6 +696,14 @@ CHANGES WITH 256-rc1:
         * A new environment variable $SYSTEMD_VMSPAWN_QEMU_EXTRA may carry
           additional qemu command line options to pass to qemu.
 
+        * systemd-machined gained a new GetMachineSSHInfo() D-Bus method that is
+          used by systemd-vmspawn to fetch the information needed to ssh into the
+          machine.
+
+        * systemd-machined gained a new Varlink interface that is used by
+          systemd-vmspawn to register machines with additional information and
+          metadata.
+
         systemd-repart:
 
         * systemd-repart gained new options --generate-fstab= and
@@ -729,6 +738,15 @@ CHANGES WITH 256-rc1:
           pulled in when ELF dependencies are resolved. In particular lack of
           libkmod might cause problems with boot. This affects dracut <= 101,
           see https://github.com/dracut-ng/dracut-ng/commit/04b362d713235459cf.
+
+        * systemd ELF binaries that use libraries via dlopen() are now built with
+          a new ELF header note section, following a new specification defined at
+          docs/ELF_DLOPEN_METADATA.md, that provides information about which
+          sonames are loaded and used if found at runtime. This allows tools and
+          packagers to programmatically discover the list of optional
+          dependencies used by all systemd ELF binaries. A parser with packaging
+          integration tools is available at
+          https://github.com/systemd/package-notes
 
         * The sd-journal API gained a new call
           sd_journal_stream_fd_with_namespace() which is just like
