@@ -932,37 +932,35 @@ finish:
         return r;
 }
 
-static bool dangerous_hardlinks(void) {
-        _cleanup_free_ char *value = NULL;
+static bool hardlinks_protected(void) {
         static int cached = -1;
         int r;
 
         /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off,
-         * as that's what the upstream default is. */
+         * as that's what the kernel default is.
+         * Note that we ship 50-default.conf where it is enabled, but better be safe than sorry. */
 
         if (cached >= 0)
                 return cached;
 
-        r = read_one_line_file("/proc/sys/fs/protected_hardlinks", &value);
+        _cleanup_free_ char *value = NULL;
+
+        r = sysctl_read("fs/protected_hardlinks", &value);
         if (r < 0) {
-                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl: %m");
-                return true;
+                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl, assuming disabled: %m");
+                return false;
         }
 
-        r = parse_boolean(value);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse fs.protected_hardlinks sysctl: %m");
-                return true;
-        }
-
-        cached = r == 0;
-        return cached;
+        cached = parse_boolean(value);
+        if (cached < 0)
+                log_debug_errno(cached, "Failed to parse fs.protected_hardlinks sysctl, assuming disabled: %m");
+        return cached > 0;
 }
 
 static bool hardlink_vulnerable(const struct stat *st) {
         assert(st);
 
-        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
+        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && !hardlinks_protected();
 }
 
 static mode_t process_mask_perms(mode_t mode, mode_t current) {
