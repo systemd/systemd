@@ -106,6 +106,8 @@ struct NamespaceParameters {
         const TemporaryFileSystem *temporary_filesystems;
         size_t n_temporary_filesystems;
 
+        bool private_tmp_as_tmpfs;
+
         const MountImage *mount_images;
         size_t n_mount_images;
         const ImagePolicy *mount_image_policy;

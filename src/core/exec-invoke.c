@@ -3205,6 +3205,10 @@ static int apply_mount_namespace(
                 .temporary_filesystems = context->temporary_filesystems,
                 .n_temporary_filesystems = context->n_temporary_filesystems,
 
+                /* When DynamicUser=yes enforce that /tmp/ and /var/tmp/ are disconnected from the host's
+                 * directories, as they are world writable and ephemeral uid/gid will be used. */
+                .private_tmp_as_tmpfs = context->dynamic_user,
+
                 .mount_images = context->mount_images,
                 .n_mount_images = context->n_mount_images,
                 .mount_image_policy = context->mount_image_policy ?: &image_policy_service,
