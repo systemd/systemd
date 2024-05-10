@@ -405,4 +405,55 @@ TEST(in_addr_prefixlen_to_netmask) {
         }
 }
 
+static void in_addr_prefix_covers_full_one(const char *prefix, const char *address, int expected) {
+        union in_addr_union p, a;
+        unsigned char plen, alen;
+        int family, r;
+
+        assert_se(in_addr_prefix_from_string_auto(prefix, &family, &p, &plen) >= 0);
+        assert_se(in_addr_prefix_from_string(address, family, &a, &alen) >= 0);
+        r = in_addr_prefix_covers_full(family, &p, plen, &a, alen);
+        if (r != expected)
+                log_error("in_addr_prefix_covers_full(%s, %s)=%i (expected=%i)", prefix, address, r, expected);
+        assert_se(r == expected);
+}
+
+TEST(in_addr_prefix_covers_full) {
+        /* From issue #32715. */
+        in_addr_prefix_covers_full_one("192.168.235.129/32", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("192.168.235.130/32", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("169.254.0.0/17", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("169.254.128.0/17", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("0.0.0.0/1", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("128.0.0.0/1", "192.168.0.128/32", 1);
+        in_addr_prefix_covers_full_one("0.0.0.0/0", "192.168.0.128/32", 1);
+
+        for (unsigned i = 0; i <= 32; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "192.168.0.128/%u", i) >= 0);
+
+                for (unsigned j = 0; j <= 32; j++) {
+                        _cleanup_free_ char *address = NULL;
+
+                        assert_se(asprintf(&address, "192.168.0.128/%u", j) >= 0);
+                        in_addr_prefix_covers_full_one(prefix, address, i <= j);
+                }
+        }
+
+        for (unsigned i = 0; i <= 32; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "192.168.235.129/%u", i) >= 0);
+                in_addr_prefix_covers_full_one(prefix, "192.168.0.128/32", i <= 16);
+        }
+
+        for (unsigned i = 0; i <= 128; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "dead:beef::/%u", i) >= 0);
+                in_addr_prefix_covers_full_one(prefix, "dead:0:beef::1/128", i <= 16);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
