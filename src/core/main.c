@@ -1280,8 +1280,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                k = (unsigned)(nr_open);
-                if (k >= v) { /* Already larger */
+                if (unsigned(nr_open) >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
