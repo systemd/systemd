@@ -2121,6 +2121,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositi
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
  KEYBOARD_KEY_dd=search
 
+# Positivo (N15EPE, N14EPE)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnN1[45]EPE*
+ KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_6e=search
+
 # Positivo (CG15D)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCG15D*
 # Positivo Motion (N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
