@@ -114,7 +114,7 @@ static char* systemd_crypt_ra(const char *phrase, const char *setting, void **da
         if (!*data) {
                 *data = new0(struct crypt_data, 1);
                 if (!*data) {
-                        errno = -ENOMEM;
+                        errno = ENOMEM;
                         return NULL;
                 }
 
