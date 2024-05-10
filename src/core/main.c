@@ -1253,8 +1253,6 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        unsigned v = INT_MAX;
-
         /* cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
 	 * for the progeny of the below value for `sysctl_nr_open_max`. Note
 	 * that the below logic was first introduced in `git` commit
@@ -1269,7 +1267,7 @@ static void bump_file_max_and_nr_open(void) {
         for (;;) {
                 unsigned k;
 
-                v &= sysctl_nr_open_max;
+                unsigned v &= sysctl_nr_open_max;
 
                 if (v < 1024) {
                         log_warning("Can't bump fs.nr_open, value too small.");
@@ -1282,8 +1280,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                k = (unsigned)(nr_open);
-                if (k >= v) { /* Already larger */
+                if (unsigned(nr_open) >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
