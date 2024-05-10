@@ -1253,19 +1253,19 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        int v = INT_MAX;
+        unsigned int v = INT_MAX;
 
-        /* Argh! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know
-         * what they are. The expression by which the maximum is determined is dependent on the architecture,
-         * and is something we don't really want to copy to userspace, as it is dependent on implementation
-         * details of the kernel. Since the kernel doesn't expose the maximum value to us, we can only try
-         * and hope. Hence, let's start with INT_MAX, and then keep halving the value until we find one that
-         * works. Ugly? Yes, absolutely, but kernel APIs are kernel APIs, so what do can we do... 🤯 */
+        // cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
+        unsigned int sysctl_nr_open_min = BITS_PER_LONG;
+        #define __const_min(x, y) ((x) < (y) ? (x) : (y))
+        unsigned int sysctl_nr_open_max =
+            __const_min(INT_MAX, ~(size_t)0/sizeof(void *)) & -BITS_PER_LONG;
 
         for (;;) {
                 int k;
 
-                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
+                v &= sysctl_nr_open_max;
+
                 if (v < 1024) {
                         log_warning("Can't bump fs.nr_open, value too small.");
                         break;
