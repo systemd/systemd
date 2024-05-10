@@ -680,8 +680,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(h = hashmap_new(&unit_file_list_hash_ops_free));
-        assert_se(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL) >= 0);
+        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, NULL, NULL, &h));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
