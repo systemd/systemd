@@ -1253,16 +1253,16 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        unsigned int v = INT_MAX;
+        unsigned v = INT_MAX;
 
         // cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
 	#define BITS_PER_LONG __WORDSIZE
         #define __const_min(x, y) ((x) < (y) ? (x) : (y))
-        unsigned int sysctl_nr_open_max =
+        unsigned sysctl_nr_open_max =
             __const_min(INT_MAX, ~(size_t)0/sizeof(void *)) & -BITS_PER_LONG;
 
         for (;;) {
-                unsigned int k;
+                unsigned k;
 
                 v &= sysctl_nr_open_max;
 
@@ -1277,7 +1277,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                k = (unsigned int)(nr_open);
+                k = (unsigned)(nr_open);
                 if (k >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
