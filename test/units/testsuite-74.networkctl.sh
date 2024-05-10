@@ -106,6 +106,7 @@ networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
 EDITOR='cp' script -ec 'networkctl edit @test2 --drop-in test2.conf' /dev/null
 cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test2.conf"
 
+SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-networkd-wait-online -i test2:carrier --timeout 20
 (! EDITOR='true' script -ec 'networkctl edit @test2 --runtime --drop-in test2.conf' /dev/null)
 
 ip_link="$(ip link show test2)"
