@@ -1923,7 +1923,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *sd_journal_remote = NULL, *listen_address = NULL, *cred = NULL;
-                r = find_executable("systemd-journal-remote", &sd_journal_remote);
+
+                r = find_executable_full(
+                                "systemd-journal-remote",
+                                /* root = */ NULL,
+                                STRV_MAKE(LIBEXECDIR),
+                                /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
+                                                               * LIBEXECDIR, but for supporting fancy setups. */
+                                &sd_journal_remote,
+                                /* ret_fd = */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
