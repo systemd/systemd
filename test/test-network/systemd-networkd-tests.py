@@ -192,8 +192,10 @@ def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
 
 def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
     def f(func):
-        rc = call_quiet('ip rule add not from 192.168.100.19 ipproto tcp table 7')
-        call_quiet('ip rule del not from 192.168.100.19 ipproto tcp table 7')
+        # IP protocol name is parsed by getprotobyname(), and it requires /etc/protocols.
+        # Hence. here we use explicit number: 6 == tcp.
+        rc = call_quiet('ip rule add not from 192.168.100.19 ipproto 6 table 7')
+        call_quiet('ip rule del not from 192.168.100.19 ipproto 6 table 7')
         return func if rc == 0 else unittest.expectedFailure(func)
 
     return f
@@ -3295,12 +3297,12 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip rule')
         print(output)
-        self.assertRegex(output, '111')
-        self.assertRegex(output, 'from 192.168.100.18')
-        self.assertRegex(output, '1123-1150')
-        self.assertRegex(output, '3224-3290')
-        self.assertRegex(output, 'tcp')
-        self.assertRegex(output, 'lookup 7')
+        self.assertIn('111:', output)
+        self.assertIn('from 192.168.100.18 ', output)
+        self.assertIn('sport 1123-1150 ', output)
+        self.assertIn('dport 3224-3290 ', output)
+        self.assertRegex(output, 'ipproto (tcp|ipproto-6) ')
+        self.assertIn('lookup 7 ', output)
 
     @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
@@ -3310,10 +3312,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip rule')
         print(output)
-        self.assertRegex(output, '111')
-        self.assertRegex(output, 'not.*?from.*?192.168.100.18')
-        self.assertRegex(output, 'tcp')
-        self.assertRegex(output, 'lookup 7')
+        self.assertIn('111:', output)
+        self.assertIn('not ', output)
+        self.assertIn('from 192.168.100.18 ', output)
+        self.assertRegex(output, 'ipproto (tcp|ipproto-6) ')
+        self.assertIn('lookup 7 ', output)
 
     @expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable()
     def test_routing_policy_rule_l3mdev(self):
@@ -3334,10 +3337,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip rule')
         print(output)
-        self.assertRegex(output, '111')
-        self.assertRegex(output, 'from 192.168.100.18')
-        self.assertRegex(output, 'lookup 7')
-        self.assertRegex(output, 'uidrange 100-200')
+        self.assertIn('111:', output)
+        self.assertIn('from 192.168.100.18 ', output)
+        self.assertIn('lookup 7 ', output)
+        self.assertIn('uidrange 100-200 ', output)
 
     def _test_route_static(self, manage_foreign_routes):
         if not manage_foreign_routes:
