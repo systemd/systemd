@@ -259,7 +259,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 struct timespec tspec;
                 timespec_store(&tspec, ts);
 
-                if (futimens(dfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
+                if (futimens(dfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
                         return -errno;
 
                 if (futimens(nfd, (const struct timespec[2]) { tspec, tspec }) < 0)
