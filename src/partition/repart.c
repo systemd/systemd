@@ -4936,7 +4936,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 struct timespec tspec;
                                 timespec_store(&tspec, ts);
 
-                                if (futimens(pfd, (const struct timespec[2]) { { .tv_nsec = UTIME_OMIT }, tspec }) < 0)
+                                if (futimens(pfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
                                         return -errno;
                         }
                 }
