@@ -1711,7 +1711,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertIn(' mtu 2000 ', output)
                 self.assertIn(f' macvlan mode {mode} ', output)
                 self.assertIn(' bcqueuelen 1234 ', output)
-                self.assertIn(' bclim 2147483647 ', output)
+                if ' bclim ' in output: # This is new in kernel and iproute2 v6.4
+                    self.assertIn(' bclim 2147483647 ', output)
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
