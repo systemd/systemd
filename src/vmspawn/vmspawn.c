@@ -929,7 +929,7 @@ static int start_tpm(
         return 0;
 }
 
-static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned port, const char *sd_journal_remote, char **listen_address) {
+static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned port, const char *sd_journal_remote, char **ret_listen_address) {
         _cleanup_free_ char *scope_prefix = NULL;
         _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
                 .socket_type = SOCK_STREAM,
@@ -952,7 +952,8 @@ static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned
         if (r < 0)
                 return log_oom();
 
-        ssp.exec_start = strv_new(sd_journal_remote,
+        ssp.exec_start = strv_new(
+                        sd_journal_remote,
                         "--output", arg_forward_journal,
                         "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
         if (!ssp.exec_start)
@@ -962,8 +963,8 @@ static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned
         if (r < 0)
                 return r;
 
-        if (listen_address)
-                *listen_address = TAKE_PTR(ssp.listen_address);
+        if (ret_listen_address)
+                *ret_listen_address = TAKE_PTR(ssp.listen_address);
 
         return 0;
 }
