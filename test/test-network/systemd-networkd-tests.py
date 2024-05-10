@@ -1666,6 +1666,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 print(output)
                 self.assertRegex(output, 'macvtap mode ' + mode + ' ')
 
+    @expectedFailureIfModuleIsNotAvailable('macvlan')
     def test_macvlan(self):
         first = True
         for mode in ['private', 'vepa', 'bridge', 'passthru']:
