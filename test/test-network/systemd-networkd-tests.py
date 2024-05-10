@@ -73,6 +73,7 @@ asan_options = None
 lsan_options = None
 ubsan_options = None
 with_coverage = False
+show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
 protected_links = {
@@ -265,6 +266,22 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
             return finalize(func, False)
 
         return finalize(func, os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'))
+
+    return f
+
+def expectedFailureIfKernelReturnsInvalidFlags():
+    '''
+    This checks the kernel bug caused by 3ddc2231c8108302a8229d3c5849ee792a63230d.
+    It will be fixed by the following patch:
+    https://patchwork.kernel.org/project/netdevbpf/patch/20240510072932.2678952-1-edumazet@google.com/
+    '''
+    def f(func):
+        call_quiet('ip link add dummy98 type dummy')
+        call_quiet('ip link set up dev dummy98')
+        call_quiet('ip address add 192.0.2.1/24 dev dummy98 noprefixroute')
+        output = check_output('ip address show dev dummy98')
+        remove_link('dummy98')
+        return func if 'noprefixroute' in output else unittest.expectedFailure(func)
 
     return f
 
@@ -843,6 +860,8 @@ def networkd_is_failed():
     return call_quiet('systemctl is-failed -q systemd-networkd.service') != 1
 
 def stop_networkd(show_logs=True):
+    global show_journal
+    show_logs = show_logs and show_journal
     if show_logs:
         invocation_id = networkd_invocation_id()
     check_output('systemctl stop systemd-networkd.socket')
@@ -856,6 +875,8 @@ def start_networkd():
     check_output('systemctl start systemd-networkd')
 
 def restart_networkd(show_logs=True):
+    global show_journal
+    show_logs = show_logs and show_journal
     if show_logs:
         invocation_id = networkd_invocation_id()
     check_output('systemctl restart systemd-networkd.service')
@@ -2818,6 +2839,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         check_json(networkctl_json())
 
+    @expectedFailureIfKernelReturnsInvalidFlags()
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         self.setup_nftset('addr4', 'ipv4_addr')
@@ -6290,6 +6312,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertIn('sent size:  0 option: 14 rapid-commit', output)
 
+    @expectedFailureIfKernelReturnsInvalidFlags()
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
 
@@ -7749,6 +7772,7 @@ if __name__ == '__main__':
     parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     parser.add_argument('--with-coverage', help='Loosen certain sandbox restrictions to make gcov happy', dest='with_coverage', type=bool, nargs='?', const=True, default=with_coverage)
+    parser.add_argument('--no-journal', help='Do not show journal of systemd-networkd on stop', dest='show_journal', action='store_false')
     ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
@@ -7776,6 +7800,7 @@ if __name__ == '__main__':
     lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
     with_coverage = ns.with_coverage
+    show_journal = ns.show_journal
 
     if use_valgrind:
         # Do not forget the trailing space.
