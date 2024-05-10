@@ -555,8 +555,11 @@ def clear_system_units():
     check_output('systemctl daemon-reload')
     check_output('systemctl restart systemd-udevd.service')
 
-def link_exists(link):
-    return call_quiet(f'ip link show {link}') == 0
+def link_exists(*links):
+    for link in links:
+        if call_quiet(f'ip link show {link}') != 0:
+            return False
+    return True
 
 def link_resolve(link):
     return check_output(f'ip link show {link}').split(':')[1].strip()
@@ -989,11 +992,11 @@ def tearDownModule():
 class Utilities():
     # pylint: disable=no-member
 
-    def check_link_exists(self, link, expected=True):
+    def check_link_exists(self, *link, expected=True):
         if expected:
-            self.assertTrue(link_exists(link))
+            self.assertTrue(link_exists(*link))
         else:
-            self.assertFalse(link_exists(link))
+            self.assertFalse(link_exists(*link))
 
     def check_link_attr(self, *args):
         self.assertEqual(read_link_attr(*args[:-1]), args[-1])
@@ -1015,17 +1018,11 @@ class Utilities():
         self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
     def wait_links(self, *links, timeout=20, fail_assert=True):
-        def links_exist(*links):
-            for link in links:
-                if not link_exists(link):
-                    return False
-            return True
-
         for iteration in range(timeout + 1):
             if iteration > 0:
                 time.sleep(1)
 
-            if links_exist(*links):
+            if link_exists(*links):
                 return True
         if fail_assert:
             self.fail('Timed out waiting for all links to be created: ' + ', '.join(list(links)))
@@ -1422,16 +1419,11 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertIn('Network File: n/a', output)
 
     def test_delete_links(self):
-        copy_network_unit('11-dummy.netdev', '11-dummy.network',
-                          '25-veth.netdev', '26-netdev-link-local-addressing-yes.network')
+        copy_network_unit('11-dummy.netdev', '25-veth.netdev')
         start_networkd()
-
-        self.wait_online('test1:degraded', 'veth99:degraded', 'veth-peer:degraded')
-
+        self.wait_links('test1', 'veth99', 'veth-peer')
         networkctl('delete', 'test1', 'veth99')
-        self.check_link_exists('test1', expected=False)
-        self.check_link_exists('veth99', expected=False)
-        self.check_link_exists('veth-peer', expected=False)
+        self.check_link_exists('test1', 'veth99', 'veth-peer', expected=False)
 
     def test_label(self):
         networkctl('label')
