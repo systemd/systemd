@@ -1311,27 +1311,26 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
          * is run first. */
 
         if (c->log_namespace) {
-                FOREACH_STRING(s, "systemd-journald", "systemd-journald-varlink") {
-                        _cleanup_free_ char *socket_unit = NULL;
+                static const struct {
+                        const char *template;
+                        UnitType type;
+                } deps[] = {
+                        { .template = "systemd-journald",         .type = UNIT_SOCKET,  },
+                        { .template = "systemd-journald-varlink", .type = UNIT_SOCKET,  },
+                        { .template = "systemd-journald-sync",    .type = UNIT_SERVICE, },
+                };
 
-                        r = unit_name_build_from_type(s, c->log_namespace, UNIT_SOCKET, &socket_unit);
+                FOREACH_ELEMENT(i, deps) {
+                        _cleanup_free_ char *unit = NULL;
+
+                        r = unit_name_build_from_type(i->template, c->log_namespace, i->type, &unit);
                         if (r < 0)
                                 return r;
 
-                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, socket_unit, true, UNIT_DEPENDENCY_FILE);
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, unit, true, UNIT_DEPENDENCY_FILE);
                         if (r < 0)
                                 return r;
                 }
-
-                _cleanup_free_ char *sync_unit = NULL;
-
-                r = unit_name_build_from_type("systemd-journald-sync", c->log_namespace, UNIT_SERVICE, &sync_unit);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, sync_unit, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
         } else {
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
