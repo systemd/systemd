@@ -73,6 +73,7 @@ asan_options = None
 lsan_options = None
 ubsan_options = None
 with_coverage = False
+show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
 protected_links = {
@@ -843,6 +844,8 @@ def networkd_is_failed():
     return call_quiet('systemctl is-failed -q systemd-networkd.service') != 1
 
 def stop_networkd(show_logs=True):
+    global show_journal
+    show_logs = show_logs and show_journal
     if show_logs:
         invocation_id = networkd_invocation_id()
     check_output('systemctl stop systemd-networkd.socket')
@@ -856,6 +859,8 @@ def start_networkd():
     check_output('systemctl start systemd-networkd')
 
 def restart_networkd(show_logs=True):
+    global show_journal
+    show_logs = show_logs and show_journal
     if show_logs:
         invocation_id = networkd_invocation_id()
     check_output('systemctl restart systemd-networkd.service')
@@ -7749,6 +7754,7 @@ if __name__ == '__main__':
     parser.add_argument('--lsan-options', help='LSAN options', dest='lsan_options')
     parser.add_argument('--ubsan-options', help='UBSAN options', dest='ubsan_options')
     parser.add_argument('--with-coverage', help='Loosen certain sandbox restrictions to make gcov happy', dest='with_coverage', type=bool, nargs='?', const=True, default=with_coverage)
+    parser.add_argument('--no-journal', help='Do not show journal of systemd-networkd on stop', dest='show_journal', action='store_false')
     ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
@@ -7776,6 +7782,7 @@ if __name__ == '__main__':
     lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
     with_coverage = ns.with_coverage
+    show_journal = ns.show_journal
 
     if use_valgrind:
         # Do not forget the trailing space.
