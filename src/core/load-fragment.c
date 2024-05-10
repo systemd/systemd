@@ -4883,8 +4883,11 @@ int config_parse_load_credential(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *word = NULL, *k = NULL, *q = NULL;
         ExecContext *context = ASSERT_PTR(data);
-        const Unit *u = ASSERT_PTR(userdata);
+        bool encrypted = ltype;
+        Unit *u = userdata;
+        const char *p;
         int r;
 
         assert(filename);
@@ -4897,10 +4900,7 @@ int config_parse_load_credential(
                 return 0;
         }
 
-        _cleanup_free_ char *word = NULL, *id = NULL, *path = NULL;
-        const char *p = rvalue;
-        bool encrypted = ltype;
-
+        p = rvalue;
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r == -ENOMEM)
                 return log_oom();
@@ -4909,35 +4909,35 @@ int config_parse_load_credential(
                 return 0;
         }
 
-        r = unit_cred_printf(u, word, &id);
+        r = unit_cred_printf(u, word, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
                 return 0;
         }
-        if (!credential_name_valid(id)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", id);
+        if (!credential_name_valid(k)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", k);
                 return 0;
         }
 
         if (isempty(p)) {
                 /* If only one field is specified take it as shortcut for inheriting a credential named
                  * the same way from our parent */
-                path = strdup(id);
-                if (!path)
+                q = strdup(k);
+                if (!q)
                         return log_oom();
         } else {
-                r = unit_path_printf(u, p, &path);
+                r = unit_path_printf(u, p, &q);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
                         return 0;
                 }
-                if (path_is_absolute(path) ? !path_is_normalized(path) : !credential_name_valid(path)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential source \"%s\" not valid, ignoring.", path);
+                if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential source \"%s\" not valid, ignoring.", q);
                         return 0;
                 }
         }
 
-        r = hashmap_put_credential(&context->load_credentials, id, path, encrypted);
+        r = hashmap_put_credential(&context->load_credentials, k, q, encrypted);
         if (r < 0)
                 return log_error_errno(r, "Failed to store load credential '%s': %m", rvalue);
 
