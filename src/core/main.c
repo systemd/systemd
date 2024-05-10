@@ -1267,8 +1267,6 @@ static void bump_file_max_and_nr_open(void) {
         unsigned v = sysctl_nr_open_max;
 
         for (;;) {
-                unsigned k;
-
                 if (v < 1024) {
                         log_warning("Can't bump fs.nr_open, value too small.");
                         break;
@@ -1280,8 +1278,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                k = (unsigned)(nr_open);
-                if (k >= v) { /* Already larger */
+                if (unsigned(nr_open) >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
