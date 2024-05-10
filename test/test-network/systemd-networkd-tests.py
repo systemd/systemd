@@ -555,8 +555,11 @@ def clear_system_units():
     check_output('systemctl daemon-reload')
     check_output('systemctl restart systemd-udevd.service')
 
-def link_exists(link):
-    return call_quiet(f'ip link show {link}') == 0
+def link_exists(*links):
+    for link in links:
+        if call_quiet(f'ip link show {link}') != 0:
+            return False
+    return True
 
 def link_resolve(link):
     return check_output(f'ip link show {link}').split(':')[1].strip()
@@ -989,11 +992,11 @@ def tearDownModule():
 class Utilities():
     # pylint: disable=no-member
 
-    def check_link_exists(self, link, expected=True):
+    def check_link_exists(self, *link, expected=True):
         if expected:
-            self.assertTrue(link_exists(link))
+            self.assertTrue(link_exists(*link))
         else:
-            self.assertFalse(link_exists(link))
+            self.assertFalse(link_exists(*link))
 
     def check_link_attr(self, *args):
         self.assertEqual(read_link_attr(*args[:-1]), args[-1])
@@ -1014,38 +1017,26 @@ class Utilities():
     def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
-    def wait_links(self, *links, timeout=20, fail_assert=True):
-        def links_exist(*links):
-            for link in links:
-                if not link_exists(link):
-                    return False
-            return True
-
-        for iteration in range(timeout + 1):
-            if iteration > 0:
-                time.sleep(1)
-
-            if links_exist(*links):
-                return True
-        if fail_assert:
+    def wait_links(self, *links, trial=40):
+        for _ in range(trial):
+            if link_exists(*links):
+                break
+            time.sleep(0.5)
+        else:
             self.fail('Timed out waiting for all links to be created: ' + ', '.join(list(links)))
-        return False
 
-    def wait_activated(self, link, state='down', timeout=20, fail_assert=True):
+    def wait_activated(self, link, state='down', trial=40):
         # wait for the interface is activated.
         needle = f'{link}: Bringing link {state}'
         flag = state.upper()
-        for iteration in range(timeout + 1):
-            if iteration != 0:
-                time.sleep(1)
-            if not link_exists(link):
-                continue
-            output = read_networkd_log()
-            if needle in output and flag in check_output(f'ip link show {link}'):
-                return True
-        if fail_assert:
+        self.wait_links(link, trial=trial)
+        self.check_networkd_log(needle, trial=trial)
+        for _ in range(trial):
+            if flag in check_output(f'ip link show {link}'):
+                break
+            time.sleep(0.5)
+        else:
             self.fail(f'Timed out waiting for {link} activated.')
-        return False
 
     def wait_operstate(self, link, operstate='degraded', setup_state='configured', setup_timeout=5, fail_assert=True):
         """Wait for the link to reach the specified operstate and/or setup state.
@@ -1066,14 +1057,13 @@ class Utilities():
         if not setup_state:
             setup_state = r'\S+'
 
-        for secs in range(setup_timeout + 1):
-            if secs != 0:
-                time.sleep(1)
+        for _ in range(setup_timeout * 2):
             if not link_exists(link):
                 continue
             output = networkctl_status(link)
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
                 return True
+            time.sleep(0.5)
 
         if fail_assert:
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
@@ -1129,42 +1119,38 @@ class Utilities():
                 self.wait_operstate(link.split(':')[0], None, setup_state, setup_timeout)
 
     def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
-        for i in range(timeout_sec):
-            if i > 0:
-                time.sleep(1)
+        for _ in range(timeout_sec * 2):
             output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
             if re.search(address_regex, output) and 'tentative' not in output:
                 break
+            time.sleep(0.5)
 
         self.assertRegex(output, address_regex)
 
     def wait_address_dropped(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
-        for i in range(timeout_sec):
-            if i > 0:
-                time.sleep(1)
+        for _ in range(timeout_sec * 2):
             output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
             if not re.search(address_regex, output):
                 break
+            time.sleep(0.5)
 
         self.assertNotRegex(output, address_regex)
 
     def wait_route(self, link, route_regex, table='main', ipv='', timeout_sec=100):
-        for i in range(timeout_sec):
-            if i > 0:
-                time.sleep(1)
+        for _ in range(timeout_sec * 2):
             output = check_output(f'ip {ipv} route show dev {link} table {table}')
             if re.search(route_regex, output):
                 break
+            time.sleep(0.5)
 
         self.assertRegex(output, route_regex)
 
     def wait_route_dropped(self, link, route_regex, table='main', ipv='', timeout_sec=100):
-        for i in range(timeout_sec):
-            if i > 0:
-                time.sleep(1)
+        for _ in range(timeout_sec * 2):
             output = check_output(f'ip {ipv} route show dev {link} table {table}')
             if not re.search(route_regex, output):
                 break
+            time.sleep(0.5)
 
         self.assertNotRegex(output, route_regex)
 
@@ -1422,16 +1408,11 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertIn('Network File: n/a', output)
 
     def test_delete_links(self):
-        copy_network_unit('11-dummy.netdev', '11-dummy.network',
-                          '25-veth.netdev', '26-netdev-link-local-addressing-yes.network')
+        copy_network_unit('11-dummy.netdev', '25-veth.netdev')
         start_networkd()
-
-        self.wait_online('test1:degraded', 'veth99:degraded', 'veth-peer:degraded')
-
+        self.wait_links('test1', 'veth99', 'veth-peer')
         networkctl('delete', 'test1', 'veth99')
-        self.check_link_exists('test1', expected=False)
-        self.check_link_exists('veth99', expected=False)
-        self.check_link_exists('veth-peer', expected=False)
+        self.check_link_exists('test1', 'veth99', 'veth-peer', expected=False)
 
     def test_label(self):
         networkctl('label')
@@ -1863,25 +1844,23 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
         self.assertRegex(output, r'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
 
-        for i in range(10):
-            if i != 0:
-                time.sleep(1)
+        for _ in range(20):
             output = check_output('ip -d link show testtun99')
             print(output)
             self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
             if 'NO-CARRIER' in output:
                 break
+            time.sleep(0.5)
         else:
             self.fail()
 
-        for i in range(10):
-            if i != 0:
-                time.sleep(1)
+        for _ in range(20):
             output = check_output('ip -d link show testtap99')
             print(output)
             self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
             if 'NO-CARRIER' in output:
                 break
+            time.sleep(0.5)
         else:
             self.fail()
 
@@ -5414,14 +5393,12 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth99:degraded', 'veth-peer:degraded')
 
-        for trial in range(10):
-            if trial > 0:
-                time.sleep(1)
-
+        for _ in range(20):
             output = networkctl('lldp')
             print(output)
             if re.search(r'veth99 .* veth-peer .* .......a...', output):
                 break
+            time.sleep(0.5)
         else:
             self.fail()
 
@@ -5468,14 +5445,12 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.wait_online('veth-peer:degraded')
 
-        for trial in range(10):
-            if trial > 0:
-                time.sleep(1)
-
+        for _ in range(20):
             output = networkctl('lldp')
             print(output)
             if re.search(r'veth99 .* veth-peer .* ....r......', output):
                 break
+            time.sleep(0.5)
         else:
             self.fail()
 
