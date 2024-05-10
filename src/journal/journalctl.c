@@ -104,15 +104,21 @@ STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset) {
+static int parse_id_descriptor(const char *x, sd_id128_t *ret_id, int *ret_offset) {
         sd_id128_t id = SD_ID128_NULL;
         int off = 0, r;
 
+        assert(x);
+        assert(ret_id);
+        assert(ret_offset);
+
         if (streq(x, "all")) {
-                *boot_id = SD_ID128_NULL;
-                *offset = 0;
+                *ret_id = SD_ID128_NULL;
+                *ret_offset = 0;
                 return 0;
-        } else if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
+        }
+
+        if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
                 char *t;
 
                 t = strndupa_safe(x, SD_ID128_STRING_MAX - 1);
@@ -134,12 +140,8 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
                         return r;
         }
 
-        if (boot_id)
-                *boot_id = id;
-
-        if (offset)
-                *offset = off;
-
+        *ret_id = id;
+        *ret_offset = off;
         return 1;
 }
 
@@ -517,19 +519,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_boot_offset = 0;
 
                         if (optarg) {
-                                r = parse_boot_descriptor(optarg, &arg_boot_id, &arg_boot_offset);
+                                r = parse_id_descriptor(optarg, &arg_boot_id, &arg_boot_offset);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse boot descriptor '%s'", optarg);
 
                                 arg_boot = r;
 
-                        /* Hmm, no argument? Maybe the next
-                         * word on the command line is
-                         * supposed to be the argument? Let's
-                         * see if there is one and is parsable
-                         * as a boot descriptor... */
                         } else if (optind < argc) {
-                                r = parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset);
+                                /* Hmm, no argument? Maybe the next word on the command line is supposed to be the
+                                 * argument? Let's see if there is one and is parsable as a boot descriptor... */
+                                r = parse_id_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset);
                                 if (r >= 0) {
                                         arg_boot = r;
                                         optind++;
@@ -958,7 +957,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --reverse or --follow, not both.");
 
-        if (arg_lines >= 0 && arg_lines_oldest && (arg_reverse || arg_follow))
+        if (arg_action == ACTION_SHOW && arg_lines >= 0 && arg_lines_oldest && (arg_reverse || arg_follow))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--lines=+N is unsupported when --reverse or --follow is specified.");
 
