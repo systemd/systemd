@@ -1253,37 +1253,39 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        int v = INT_MAX;
+        unsigned int v = INT_MAX;
 
-        /* Argh! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know
-         * what they are. The expression by which the maximum is determined is dependent on the architecture,
-         * and is something we don't really want to copy to userspace, as it is dependent on implementation
-         * details of the kernel. Since the kernel doesn't expose the maximum value to us, we can only try
-         * and hope. Hence, let's start with INT_MAX, and then keep halving the value until we find one that
-         * works. Ugly? Yes, absolutely, but kernel APIs are kernel APIs, so what do can we do... 🤯 */
+        // cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
+	#define BITS_PER_LONG __WORDSIZE
+        #define __const_min(x, y) ((x) < (y) ? (x) : (y))
+        unsigned int sysctl_nr_open_max =
+            __const_min(INT_MAX, ~(size_t)0/sizeof(void *)) & -BITS_PER_LONG;
 
         for (;;) {
-                int k;
+                unsigned int k;
 
-                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
+                v &= sysctl_nr_open_max;
+
                 if (v < 1024) {
                         log_warning("Can't bump fs.nr_open, value too small.");
                         break;
                 }
 
-                k = read_nr_open();
-                if (k < 0) {
+                int nr_open = read_nr_open();
+                if (nr_open < 0) {
                         log_error_errno(k, "Failed to read fs.nr_open: %m");
                         break;
                 }
+
+                k = (unsigned int)(nr_open);
                 if (k >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
 
-                r = sysctl_writef("fs/nr_open", "%i", v);
+                r = sysctl_writef("fs/nr_open", "%u", v);
                 if (r == -EINVAL) {
-                        log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
+                        log_debug("Couldn't write fs.nr_open as %u, halving it.", v);
                         v /= 2;
                         continue;
                 }
@@ -1292,7 +1294,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                log_debug("Successfully bumped fs.nr_open to %i", v);
+                log_debug("Successfully bumped fs.nr_open to %u", v);
                 break;
         }
 #endif
