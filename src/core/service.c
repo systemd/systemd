@@ -2441,10 +2441,8 @@ static void service_enter_start(Service *s) {
                 return service_set_state(s, SERVICE_START);
 
         default:
-                ;
+                assert_not_reached();
         }
-
-        assert_not_reached();
 
 fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
