@@ -185,12 +185,6 @@ static int process_unit_credentials(const char *credentials_dir) {
                 if (!unit && !dropin)
                         continue;
 
-                if (!unit_name_is_valid(unit ?: dropin, UNIT_NAME_ANY)) {
-                        log_warning("Invalid unit name '%s' in credential '%s', ignoring.",
-                                    unit ?: dropin, de->d_name);
-                        continue;
-                }
-
                 _cleanup_free_ char *d = NULL;
 
                 r = read_credential_with_decryption(de->d_name, (void**) &d, NULL);
@@ -201,6 +195,12 @@ static int process_unit_credentials(const char *credentials_dir) {
 
                 if (unit) {
                         _cleanup_free_ char *p = NULL;
+
+                        if (!unit_name_is_valid(unit, UNIT_NAME_ANY)) {
+                                log_warning("Invalid unit name '%s' in credential '%s', ignoring.",
+                                            unit, de->d_name);
+                                continue;
+                        }
 
                         p = path_join(arg_dest, unit);
                         if (!p)
@@ -216,14 +216,33 @@ static int process_unit_credentials(const char *credentials_dir) {
                         log_debug("Wrote unit file '%s' from credential '%s'", unit, de->d_name);
 
                 } else if (dropin) {
-                        r = write_drop_in(arg_dest, dropin, 50, "credential", d);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to write drop-in for unit '%s' from credential '%s', ignoring: %m",
-                                                  dropin, de->d_name);
+                        _cleanup_free_ char *dropin_unit = NULL;
+                        const char *tilde, *dropin_name;
+
+                        tilde = strchrnul(dropin, '~');
+                        dropin_unit = strndup(dropin, tilde - dropin);
+
+                        if (!unit_name_is_valid(dropin_unit, UNIT_NAME_ANY)) {
+                                log_warning("Invalid unit name '%s' in credential '%s', ignoring.",
+                                            dropin_unit, de->d_name);
                                 continue;
                         }
 
-                        log_debug("Wrote drop-in for unit '%s' from credential '%s'", dropin, de->d_name);
+                        dropin_name = isempty(tilde) ? "50-credential" : tilde + 1;
+                        if (isempty(dropin_name)) {
+                                log_warning("Empty drop-in name for unit '%s' in credential '%s', ignoring.",
+                                            dropin_unit, de->d_name);
+                                continue;
+                        }
+
+                        r = write_drop_in(arg_dest, dropin_unit, /* level = */ UINT_MAX, dropin_name, d);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to write drop-in '%s' for unit '%s' from credential '%s', ignoring: %m",
+                                                  dropin_name, dropin_unit, de->d_name);
+                                continue;
+                        }
+
+                        log_debug("Wrote drop-in '%s' for unit '%s' from credential '%s'", dropin_name, dropin_unit, de->d_name);
                 } else
                         assert_not_reached();
         }
