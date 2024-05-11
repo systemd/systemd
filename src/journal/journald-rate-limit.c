@@ -23,7 +23,7 @@ static const int priority_map[] = {
         [LOG_WARNING] = 2,
         [LOG_NOTICE]  = 3,
         [LOG_INFO]    = 3,
-        [LOG_DEBUG]   = 4
+        [LOG_DEBUG]   = 4,
 };
 
 typedef struct JournalRateLimitPool JournalRateLimitPool;
