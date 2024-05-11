@@ -16,10 +16,33 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(sshAddress,        VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(sshPrivateKeyPath, VARLINK_STRING, VARLINK_NULLABLE));
 
+static VARLINK_DEFINE_STRUCT_TYPE(
+                Timestamp,
+                VARLINK_DEFINE_FIELD(realtime, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD(monotonic, VARLINK_INT, VARLINK_NULLABLE));
+
+static VARLINK_DEFINE_METHOD(
+                List,
+                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_OUTPUT(id, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(service, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(class, VARLINK_STRING, 0),
+                VARLINK_DEFINE_OUTPUT(leader, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(rootDirectory, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(unit, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(timestamp, Timestamp, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(vSockCid, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(sshAddress, VARLINK_STRING, VARLINK_NULLABLE));
+
+static VARLINK_DEFINE_ERROR(NoSuchMachine);
 static VARLINK_DEFINE_ERROR(MachineExists);
 
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
                 "io.systemd.Machine",
+                &vl_type_Timestamp,
                 &vl_method_Register,
+                &vl_method_List,
+                &vl_error_NoSuchMachine,
                 &vl_error_MachineExists);
