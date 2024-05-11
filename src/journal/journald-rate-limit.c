@@ -121,10 +121,15 @@ static void journal_ratelimit_vacuum(JournalRateLimit *r, usec_t ts) {
                 journal_ratelimit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup* journal_ratelimit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
+static JournalRateLimitGroup* journal_ratelimit_group_new(
+                JournalRateLimit *rl,
+                const char *id,
+                usec_t interval,
+                usec_t ts) {
+
         JournalRateLimitGroup *g;
 
-        assert(r);
+        assert(rl);
         assert(id);
 
         g = new0(JournalRateLimitGroup, 1);
@@ -135,19 +140,19 @@ static JournalRateLimitGroup* journal_ratelimit_group_new(JournalRateLimit *r, c
         if (!g->id)
                 goto fail;
 
-        g->hash = siphash24_string(g->id, r->hash_key);
+        g->hash = siphash24_string(g->id, rl->hash_key);
 
         g->interval = interval;
 
-        journal_ratelimit_vacuum(r, ts);
+        journal_ratelimit_vacuum(rl, ts);
 
-        LIST_PREPEND(bucket, r->buckets[g->hash % BUCKETS_MAX], g);
-        LIST_PREPEND(lru, r->lru, g);
+        LIST_PREPEND(bucket, rl->buckets[g->hash % BUCKETS_MAX], g);
+        LIST_PREPEND(lru, rl->lru, g);
         if (!g->lru_next)
-                r->lru_tail = g;
-        r->n_groups++;
+                rl->lru_tail = g;
+        rl->n_groups++;
 
-        g->parent = r;
+        g->parent = rl;
         return g;
 
 fail:
@@ -183,7 +188,14 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         return burst;
 }
 
-int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
+int journal_ratelimit_test(
+                JournalRateLimit *rl,
+                const char *id,
+                usec_t rl_interval,
+                unsigned rl_burst,
+                int priority,
+                uint64_t available) {
+
         JournalRateLimitGroup *g, *found = NULL;
         JournalRateLimitPool *p;
         unsigned burst;
@@ -199,13 +211,13 @@ int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interv
          * < 0   → error
          */
 
-        if (!r)
+        if (!rl)
                 return 1;
 
         ts = now(CLOCK_MONOTONIC);
 
-        h = siphash24_string(id, r->hash_key);
-        g = r->buckets[h % BUCKETS_MAX];
+        h = siphash24_string(id, rl->hash_key);
+        g = rl->buckets[h % BUCKETS_MAX];
 
         LIST_FOREACH(bucket, i, g)
                 if (streq(i->id, id)) {
@@ -214,7 +226,7 @@ int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interv
                 }
 
         if (!found) {
-                found = journal_ratelimit_group_new(r, id, rl_interval, ts);
+                found = journal_ratelimit_group_new(rl, id, rl_interval, ts);
                 if (!found)
                         return -ENOMEM;
         } else
