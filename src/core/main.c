@@ -1259,10 +1259,8 @@ static void bump_file_max_and_nr_open(void) {
         * designed to prevent overflows when determining the maximum number of possible file descriptors. */
         #define BITS_PER_LONG __WORDSIZE
         #define __const_min(x, y) ((x) < (y) ? (x) : (y))
-        unsigned sysctl_nr_open_max =
+        unsigned v =
             __const_min(INT_MAX, ~(size_t)0/sizeof(void *)) & -BITS_PER_LONG;
-
-        unsigned v = sysctl_nr_open_max;
 
         for (;;) {
                 if (v < 1024) {
