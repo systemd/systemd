@@ -1253,12 +1253,10 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        /* cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
-	 * for the progeny of the below value for `sysctl_nr_open_max`. Note
-	 * that the below logic was first introduced in `git` commit
-	 * eceea0b3df05ed262ae32e0c6340cc7a3626632d of the `linux` kernel and
-	 * was designed to prevent overflows when determining the maximum
-	 * number of possible file descriptors. */
+       /* cf. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/file.c?h=v6.8#n27
+        * for the progeny of the below value for sysctl_nr_open_max. Note that the below logic was first
+        * introduced in git commit eceea0b3df05ed262ae32e0c6340cc7a3626632d of the linux kernel and was
+        * designed to prevent overflows when determining the maximum number of possible file descriptors. */
 	#define BITS_PER_LONG __WORDSIZE
         #define __const_min(x, y) ((x) < (y) ? (x) : (y))
         unsigned sysctl_nr_open_max =
