@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Issue 14566 Repro
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-07-PID1.units/%N.sh
+ExecStopPost=/bin/true
+KillMode=mixed
