@@ -53,13 +53,13 @@ static void server_process_entry_meta(
         else if (l == 17 &&
                  startswith(p, "SYSLOG_FACILITY=") &&
                  p[16] >= '0' && p[16] <= '9')
-                *priority = (*priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
+                *priority = LOG_PRI(*priority) | ((p[16] - '0') << 3);
 
         else if (l == 18 &&
                  startswith(p, "SYSLOG_FACILITY=") &&
                  p[16] >= '0' && p[16] <= '9' &&
                  p[17] >= '0' && p[17] <= '9')
-                *priority = (*priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
+                *priority = LOG_PRI(*priority) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
 
         else if (l >= 19 &&
                  startswith(p, "SYSLOG_IDENTIFIER=")) {
