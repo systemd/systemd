@@ -248,9 +248,8 @@ Features:
   from, tracing through overlayfs, DM, loopback block device.
 
 * importd/importctl
-  - import generator
   - port tar handling to libarchive
-  - add varlink interface
+  - complete varlink interface
   - download images into .v/ dirs
 
 * in os-release define a field that can be initialized at build time from
