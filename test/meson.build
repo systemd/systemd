@@ -426,7 +426,7 @@ foreach integration_test : integration_tests
         integration_test_args = [
                 '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
-                '--test-name', integration_test['name'],
+                '--name', integration_test['name'],
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
         ]
