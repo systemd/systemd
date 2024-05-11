@@ -8,3 +8,5 @@ integration_tests += [
                 'storage' : 'persistent',
         },
 ]
+
+testdata_subdirs += [meson.current_source_dir() / 'TEST-04-JOURNAL.units']

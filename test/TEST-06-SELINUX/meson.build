@@ -10,3 +10,5 @@ integration_tests += [
                 'firmware' : 'uefi',
         },
 ]
+
+testdata_subdirs += [meson.current_source_dir() / 'TEST-06-SELINUX.units']

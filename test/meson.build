@@ -1,75 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if install_tests
-        foreach subdir : [
-                'auxv',
-                'journal-data',
-                'knot-data',
-                'test-journals',
-                'units',
-                'test-execute',
-                'test-fstab-generator',
-                'test-path',
-                'test-path-util',
-                'test-umount',
-                'test-network',
-                'test-network-generator-conversion',
-                'testsuite-03.units',
-                'testsuite-04.units',
-                'testsuite-06.units',
-                'testsuite-07.units',
-                'testsuite-16.units',
-                'testsuite-23.units',
-                'testsuite-30.units',
-                'testsuite-52.units',
-                'testsuite-63.units',
-                'testsuite-80.units',
-        ]
-                # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
-                # instead of copying the symlink) so we use rsync instead.
-                if meson.version().version_compare('<1.3.0')
-                        if not rsync.found()
-                                error('rsync is required to install the integration test data')
-                        endif
-
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
-                        meson.add_install_script(sh, '-c',
-                                                 rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
-                else
-                        install_subdir(subdir,
-                                       exclude_files : ['.gitattributes', '25-default.link'],
-                                       install_dir : testdata_dir,
-                                       follow_symlinks : false)
-                endif
-        endforeach
-
-        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
-        # exclude it and create the correct symlink here.
-        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
-                                                       testdata_dir / 'test-network/conf/25-default.link'))
-
-        install_data(kbd_model_map,
-                     install_dir : testdata_dir + '/test-keymap-util')
-
-        if conf.get('HAVE_ZSTD') == 1 and efi_arch != ''
-                install_subdir('test-bcd',
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
-        endif
-        if conf.get('ENABLE_RESOLVE') == 1
-                install_subdir('test-resolve',
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
-        endif
-
-        # The unit tests implemented as shell scripts expect to find testdata/
-        # in the directory where they are stored.
-        meson.add_install_script(sh, '-c', ln_s.format(testdata_dir,
-                                                       unittestsdir / 'testdata'))
-endif
-
-############################################################
-
 if conf.get('ENABLE_SYSUSERS') == 1
         test_sysusers_sh = configure_file(
                 input : 'test-sysusers.sh.in',
@@ -353,6 +283,20 @@ integration_test_template = {
         'firmware' : 'linux',
         'slow' : false,
 }
+testdata_subdirs = [
+        'auxv',
+        'journal-data',
+        'knot-data',
+        'test-journals',
+        'units',
+        'test-execute',
+        'test-fstab-generator',
+        'test-path',
+        'test-path-util',
+        'test-umount',
+        'test-network',
+        'test-network-generator-conversion',
+]
 
 foreach dirname : [
         'TEST-01-BASIC',
@@ -423,13 +367,10 @@ foreach dirname : [
 endforeach
 
 foreach integration_test : integration_tests
-        integration_test_number = integration_test['name'].split('-')[1]
-
         integration_test_args = [
                 '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
                 '--test-name', integration_test['name'],
-                '--test-number', integration_test_number,
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
         ]
@@ -463,3 +404,48 @@ foreach integration_test : integration_tests
                 suite : 'integration-tests',
         )
 endforeach
+
+if install_tests
+        foreach subdir : testdata_subdirs
+                # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
+                # instead of copying the symlink) so we use rsync instead.
+                if meson.version().version_compare('<1.3.0')
+                        if not rsync.found()
+                                error('rsync is required to install the integration test data')
+                        endif
+
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
+                        meson.add_install_script(sh, '-c',
+                                                 rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
+                else
+                        install_subdir(subdir,
+                                       exclude_files : ['.gitattributes', '25-default.link'],
+                                       install_dir : testdata_dir,
+                                       follow_symlinks : false)
+                endif
+        endforeach
+
+        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
+        # exclude it and create the correct symlink here.
+        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
+                                                       testdata_dir / 'test-network/conf/25-default.link'))
+
+        install_data(kbd_model_map,
+                     install_dir : testdata_dir + '/test-keymap-util')
+
+        if conf.get('HAVE_ZSTD') == 1 and efi_arch != ''
+                install_subdir('test-bcd',
+                               exclude_files : '.gitattributes',
+                               install_dir : testdata_dir)
+        endif
+        if conf.get('ENABLE_RESOLVE') == 1
+                install_subdir('test-resolve',
+                               exclude_files : '.gitattributes',
+                               install_dir : testdata_dir)
+        endif
+
+        # The unit tests implemented as shell scripts expect to find testdata/
+        # in the directory where they are stored.
+        meson.add_install_script(sh, '-c', ln_s.format(testdata_dir,
+                                                       unittestsdir / 'testdata'))
+endif

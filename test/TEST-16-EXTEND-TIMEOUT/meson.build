@@ -5,3 +5,5 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
         },
 ]
+
+testdata_subdirs += [meson.current_source_dir() / 'TEST-16-EXTEND-TIMEOUT.units']
