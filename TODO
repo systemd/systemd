@@ -171,8 +171,6 @@ Features:
 * insert the new pidfs inode number as a third field into PidRef, so that
   PidRef are reasonably serializable without having to pass around fds.
 
-* systemd-analyze smbios11 to dump smbios type 11 vendor strings
-
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
   various man pages that so far embed the whole list again and again, in an
