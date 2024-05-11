@@ -84,7 +84,8 @@ static char *arg_header = NULL;
 static unsigned arg_tries = 3;
 static bool arg_readonly = false;
 static bool arg_verify = false;
-static AskPasswordFlags arg_ask_password_flags = 0;
+static bool arg_password_cache_set = false; /* Not the actual argument value, just an indicator that some value is set */
+static AskPasswordFlags arg_ask_password_flags = ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE;
 static bool arg_discards = false;
 static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
@@ -298,6 +299,21 @@ static int parse_one_option(const char *option) {
 
                         SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_ECHO, r);
                         SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_SILENT, !r);
+                }
+        } else if ((val = startswith(option, "password-cache="))) {
+                arg_password_cache_set = true;
+
+                if (streq(val, "read-only")) {
+                        arg_ask_password_flags |= ASK_PASSWORD_ACCEPT_CACHED;
+                        arg_ask_password_flags &= ~ASK_PASSWORD_PUSH_CACHE;
+                } else {
+                        r = parse_boolean(val);
+                        if (r < 0) {
+                                log_warning_errno(r, "Invalid password-cache= option \"%s\", ignoring.", val);
+                                return 0;
+                        }
+
+                        SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, r);
                 }
         } else if (STR_IN_SET(option, "allow-discards", "discard"))
                 arg_discards = true;
@@ -649,6 +665,17 @@ static int parse_crypt_config(const char *options) {
                       log_warning("skip= ignored with type %s", arg_type);
         }
 
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
+                /* If password-cache was not configured explicitly, default to no cache for PKCS#11 */
+                if (!arg_password_cache_set)
+                        arg_ask_password_flags &= ~(ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE);
+
+                /* This prevents future backward-compatibility issues if we decide to allow caching for PKCS#11 */
+                if (FLAGS_SET(arg_ask_password_flags, ASK_PASSWORD_ACCEPT_CACHED))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Password cache is not supported for PKCS#11 security tokens.");
+        }
+
         return 0;
 }
 
@@ -847,13 +874,13 @@ static int get_password(
                 const char *vol,
                 const char *src,
                 usec_t until,
-                bool accept_cached,
+                bool ignore_cached,
                 PassphraseType passphrase_type,
                 char ***ret) {
 
         _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL, *id = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
-        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE;
+        AskPasswordFlags flags = arg_ask_password_flags;
         int r;
 
         assert(vol);
@@ -886,11 +913,10 @@ static int get_password(
                 .credential = "cryptsetup.passphrase",
         };
 
-        r = ask_password_auto(
-                        &req,
-                        until,
-                        flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
-                        &passwords);
+        if (ignore_cached)
+                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+
+        r = ask_password_auto(&req, until, flags, &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -1349,7 +1375,7 @@ static int crypt_activate_by_token_pin_ask_password(
                 const char *credential) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        AskPasswordFlags flags = arg_ask_password_flags;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
@@ -2521,7 +2547,13 @@ static int run(int argc, char *argv[]) {
                                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                         }
 
-                                        r = get_password(volume, source, until, use_cached_passphrase && !arg_verify, passphrase_type, &passwords);
+                                        r = get_password(
+                                                        volume,
+                                                        source,
+                                                        until,
+                                                        /* ignore_cached= */ !use_cached_passphrase || arg_verify,
+                                                        passphrase_type,
+                                                        &passwords);
                                         use_cached_passphrase = false;
                                         if (r == -EAGAIN)
                                                 continue;
