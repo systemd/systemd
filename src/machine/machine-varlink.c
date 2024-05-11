@@ -132,7 +132,7 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
                 { "leader",            JSON_VARIANT_UNSIGNED, machine_leader,              offsetof(Machine, leader),               0 },
                 { "rootDirectory",     JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, root_directory),       0 },
                 { "ifIndices",         JSON_VARIANT_ARRAY,    machine_ifindices,           0,                                       0 },
-                { "vsockCid",          JSON_VARIANT_UNSIGNED, machine_cid,                 offsetof(Machine, vsock_cid),            0 },
+                { "vSockCid",          JSON_VARIANT_UNSIGNED, machine_cid,                 offsetof(Machine, vsock_cid),            0 },
                 { "sshAddress",        JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, ssh_address),          JSON_SAFE },
                 { "sshPrivateKeyPath", JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, ssh_private_key_path), 0 },
                 {}
