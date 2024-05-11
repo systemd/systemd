@@ -72,8 +72,9 @@ JournalRateLimit *journal_ratelimit_new(void) {
         return r;
 }
 
-static void journal_ratelimit_group_free(JournalRateLimitGroup *g) {
-        assert(g);
+static JournalRateLimitGroup* journal_ratelimit_group_free(JournalRateLimitGroup *g) {
+        if (!g)
+                return NULL;
 
         if (g->parent) {
                 assert(g->parent->n_groups > 0);
@@ -88,7 +89,7 @@ static void journal_ratelimit_group_free(JournalRateLimitGroup *g) {
         }
 
         free(g->id);
-        free(g);
+        return mfree(g);
 }
 
 void journal_ratelimit_free(JournalRateLimit *r) {
