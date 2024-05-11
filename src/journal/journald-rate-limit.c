@@ -162,6 +162,38 @@ static int journal_ratelimit_group_new(
         return 0;
 }
 
+static int journal_ratelimit_group_acquire(
+                JournalRateLimit *rl,
+                const char *id,
+                usec_t interval,
+                usec_t ts,
+                JournalRateLimitGroup **ret) {
+
+        JournalRateLimitGroup *head, *g = NULL;
+        uint64_t h;
+
+        assert(rl);
+        assert(id);
+        assert(ret);
+
+        h = siphash24_string(id, rl->hash_key);
+        head = rl->buckets[h % BUCKETS_MAX];
+
+        LIST_FOREACH(bucket, i, head)
+                if (streq(i->id, id)) {
+                        g = i;
+                        break;
+                }
+
+        if (!g)
+                return journal_ratelimit_group_new(rl, id, interval, ts, ret);
+
+        g->interval = interval;
+
+        *ret = g;
+        return 0;
+}
+
 static unsigned burst_modulate(unsigned burst, uint64_t available) {
         unsigned k;
 
@@ -198,10 +230,9 @@ int journal_ratelimit_test(
                 int priority,
                 uint64_t available) {
 
-        JournalRateLimitGroup *g, *found = NULL;
+        JournalRateLimitGroup *g;
         JournalRateLimitPool *p;
         unsigned burst;
-        uint64_t h;
         usec_t ts;
         int r;
 
@@ -219,28 +250,16 @@ int journal_ratelimit_test(
 
         ts = now(CLOCK_MONOTONIC);
 
-        h = siphash24_string(id, rl->hash_key);
-        g = rl->buckets[h % BUCKETS_MAX];
-
-        LIST_FOREACH(bucket, i, g)
-                if (streq(i->id, id)) {
-                        found = i;
-                        break;
-                }
-
-        if (!found) {
-                r = journal_ratelimit_group_new(rl, id, rl_interval, ts, &found);
-                if (r < 0)
-                        return r;
-        } else
-                found->interval = rl_interval;
+        r = journal_ratelimit_group_acquire(rl, id, rl_interval, ts, &g);
+        if (r < 0)
+                return r;
 
         if (rl_interval == 0 || rl_burst == 0)
                 return 1;
 
         burst = burst_modulate(rl_burst, available);
 
-        p = &found->pools[priority_map[priority]];
+        p = &g->pools[priority_map[priority]];
 
         if (p->begin <= 0) {
                 p->suppressed = 0;
