@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Testsuite: Fail Start (EXTEND_TIMEOUT_USEC Didn't occur in sufficient time after TimeoutStartSec.)
+
+[Service]
+
+# EXTEND_TIMEOUT_USEC on startup and 7 seconds from start. Systemd will expect one at 7+5 (extend_timeout_interval)
+# seconds  this won't happen until 7 + 7 (sleep interval) seconds. Therefore timeout at 12 seconds.
+Type=notify
+TimeoutStartSec=10
+TimeoutStopSec=4
+RuntimeMaxSec=4
+Environment=SERVICE=fail_start extend_timeout_interval=5 sleep_interval=7 start_intervals=2 run_intervals=0 stop_intervals=0
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-16-EXTEND-TIMEOUT.units/extend-timeout.sh
