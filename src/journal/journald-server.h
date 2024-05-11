@@ -14,7 +14,6 @@ typedef struct Server Server;
 #include "hashmap.h"
 #include "journal-file.h"
 #include "journald-context.h"
-#include "journald-rate-limit.h"
 #include "journald-stream.h"
 #include "list.h"
 #include "prioq.h"
@@ -108,7 +107,7 @@ struct Server {
 
         char *buffer;
 
-        JournalRateLimit *ratelimit;
+        OrderedHashmap *ratelimit_groups_by_id;
         usec_t sync_interval_usec;
         usec_t ratelimit_interval;
         unsigned ratelimit_burst;
