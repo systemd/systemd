@@ -1273,7 +1273,7 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) server_determine_space(s, &available, /* limit= */ NULL);
 
-                rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, priority & LOG_PRIMASK, available);
+                rl = journal_ratelimit_test(s, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, LOG_PRI(priority), available);
                 if (rl == 0)
                         return;
 
@@ -2803,10 +2803,6 @@ int server_init(Server *s, const char *namespace) {
         if (r < 0)
                 return r;
 
-        s->ratelimit = journal_ratelimit_new();
-        if (!s->ratelimit)
-                return log_oom();
-
         r = cg_get_root_path(&s->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire cgroup root path: %m");
@@ -2907,8 +2903,7 @@ Server* server_free(Server *s) {
         safe_close(s->notify_fd);
         safe_close(s->forward_socket_fd);
 
-        if (s->ratelimit)
-                journal_ratelimit_free(s->ratelimit);
+        ordered_hashmap_free(s->ratelimit_groups_by_id);
 
         server_unmap_seqnum_file(s->seqnum, sizeof(*s->seqnum));
         server_unmap_seqnum_file(s->kernel_seqnum, sizeof(*s->kernel_seqnum));

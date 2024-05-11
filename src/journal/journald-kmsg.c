@@ -260,7 +260,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=kernel");
 
         char syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)];
-        xsprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(syslog_priority, "PRIORITY=%i", LOG_PRI(priority));
         iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
         char syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
