@@ -151,6 +151,7 @@ shared_sources = files(
         'service-util.c',
         'sleep-util.c',
         'smack-util.c',
+        'smbios11.c',
         'socket-label.c',
         'socket-netlink.c',
         'spawn-ask-password-agent.c',
