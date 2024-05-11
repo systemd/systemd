@@ -2229,9 +2229,6 @@ static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
-        if (arg_register && !arg_privileged)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--register= requires root privileges, refusing.");
-
         return 0;
 }
 
