@@ -249,7 +249,7 @@ int journal_ratelimit_test(
                 return 1;
         }
 
-        if (p->begin + rl_interval < ts) {
+        if (usec_add(p->begin, rl_interval) < ts) {
                 unsigned suppressed = p->suppressed;
 
                 p->suppressed = 0;
