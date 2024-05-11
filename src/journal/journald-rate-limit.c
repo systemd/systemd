@@ -92,6 +92,8 @@ static JournalRateLimitGroup* journal_ratelimit_group_free(JournalRateLimitGroup
         return mfree(g);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(JournalRateLimitGroup*, journal_ratelimit_group_free);
+
 void journal_ratelimit_free(JournalRateLimit *r) {
         assert(r);
 
@@ -121,24 +123,26 @@ static void journal_ratelimit_vacuum(JournalRateLimit *r, usec_t ts) {
                 journal_ratelimit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup* journal_ratelimit_group_new(
+static int journal_ratelimit_group_new(
                 JournalRateLimit *rl,
                 const char *id,
                 usec_t interval,
-                usec_t ts) {
+                usec_t ts,
+                JournalRateLimitGroup **ret) {
 
-        JournalRateLimitGroup *g;
+        _cleanup_(journal_ratelimit_group_freep) JournalRateLimitGroup *g = NULL;
 
         assert(rl);
         assert(id);
+        assert(ret);
 
         g = new0(JournalRateLimitGroup, 1);
         if (!g)
-                return NULL;
+                return -ENOMEM;
 
         g->id = strdup(id);
         if (!g->id)
-                goto fail;
+                return -ENOMEM;
 
         g->hash = siphash24_string(g->id, rl->hash_key);
 
@@ -153,11 +157,9 @@ static JournalRateLimitGroup* journal_ratelimit_group_new(
         rl->n_groups++;
 
         g->parent = rl;
-        return g;
 
-fail:
-        journal_ratelimit_group_free(g);
-        return NULL;
+        *ret = TAKE_PTR(g);
+        return 0;
 }
 
 static unsigned burst_modulate(unsigned burst, uint64_t available) {
@@ -201,6 +203,7 @@ int journal_ratelimit_test(
         unsigned burst;
         uint64_t h;
         usec_t ts;
+        int r;
 
         assert(id);
 
@@ -226,9 +229,9 @@ int journal_ratelimit_test(
                 }
 
         if (!found) {
-                found = journal_ratelimit_group_new(rl, id, rl_interval, ts);
-                if (!found)
-                        return -ENOMEM;
+                r = journal_ratelimit_group_new(rl, id, rl_interval, ts, &found);
+                if (r < 0)
+                        return r;
         } else
                 found->interval = rl_interval;
 
