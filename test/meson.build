@@ -14,16 +14,16 @@ if install_tests
                 'test-umount',
                 'test-network',
                 'test-network-generator-conversion',
-                'testsuite-03.units',
-                'testsuite-04.units',
-                'testsuite-06.units',
-                'testsuite-07.units',
-                'testsuite-16.units',
-                'testsuite-23.units',
-                'testsuite-30.units',
-                'testsuite-52.units',
-                'testsuite-63.units',
-                'testsuite-80.units',
+                'TEST-03-JOBS.units',
+                'TEST-04-JOURNAL.units',
+                'TEST-06-SELINUX.units',
+                'TEST-07-PID1.units',
+                'TEST-16-EXTEND-TIMEOUT.units',
+                'TEST-23-UNIT-FILE.units',
+                'TEST-30-ONCLOCKCHANGE.units',
+                'TEST-52-HONORFIRSTSHUTDOWN.units',
+                'TEST-63-PATH.units',
+                'TEST-80-NOTIFYACCESS.units',
         ]
                 # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
                 # instead of copying the symlink) so we use rsync instead.
@@ -423,13 +423,10 @@ foreach dirname : [
 endforeach
 
 foreach integration_test : integration_tests
-        integration_test_number = integration_test['name'].split('-')[1]
-
         integration_test_args = [
                 '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
                 '--test-name', integration_test['name'],
-                '--test-number', integration_test_number,
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
         ]

@@ -43,7 +43,6 @@ def main():
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--test-name', required=True)
-    parser.add_argument('--test-number', required=True)
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
@@ -59,7 +58,7 @@ def main():
         exit(77)
 
     name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
-    test_unit = f"testsuite-{args.test_number}.service"
+    test_unit = f"{args.test_name}.service"
 
     dropin = textwrap.dedent(
         """\
@@ -130,7 +129,7 @@ def main():
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
-            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
+            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/{args.test_name}.units:/usr/lib/systemd/tests/testdata/units:",
             f"systemd.unit={test_unit}",
             'systemd.mask=systemd-networkd-wait-online.service',
             *(
