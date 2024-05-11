@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-16-EXTEND-TIMEOUT
+# Testsuite: Assess all other testsuite-*.services worked as expected
+
+Wants=success-all.service
+Wants=success-start.service
+Wants=success-runtime.service
+Wants=success-stop.service
+Wants=fail-start.service
+Wants=fail-stop.service
+Wants=fail-runtime.service
+StopWhenUnneeded=yes
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+Type=exec
+TimeoutStartSec=infinity
+ExecStartPre=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStart=true
