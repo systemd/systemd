@@ -947,6 +947,9 @@ systemd-analyze architectures x86-64
 systemd-analyze architectures native
 systemd-analyze architectures uname
 
+systemd-analyze smbios11
+systemd-analyze smbios11 -q
+
 systemd-analyze log-level info
 
 touch /testok
