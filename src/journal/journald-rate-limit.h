@@ -7,4 +7,10 @@ typedef struct JournalRateLimit JournalRateLimit;
 
 JournalRateLimit *journal_ratelimit_new(void);
 void journal_ratelimit_free(JournalRateLimit *r);
-int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available);
+int journal_ratelimit_test(
+                JournalRateLimit *rl,
+                const char *id,
+                usec_t rl_interval,
+                unsigned rl_burst,
+                int priority,
+                uint64_t available);
