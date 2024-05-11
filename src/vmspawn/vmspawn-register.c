@@ -58,7 +58,6 @@ int register_machine(
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
 
-
         return varlink_callb_and_log(vl,
                         "io.systemd.Machine.Register",
                         NULL,

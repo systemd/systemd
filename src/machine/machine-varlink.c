@@ -153,6 +153,8 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
         }
 
         r = machine_link(manager, machine);
+        if (r == -EEXIST)
+                return varlink_error(link, "io.systemd.Machine.MachineExists", NULL);
         if (r < 0)
                 return r;
 
