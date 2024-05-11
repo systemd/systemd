@@ -55,6 +55,8 @@ static VARLINK_DEFINE_STRUCT_TYPE(
 
 static VARLINK_DEFINE_METHOD(
                 ListTransfers,
+                VARLINK_FIELD_COMMENT("Image class to filter by"),
+                VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, VARLINK_NULLABLE),
                 VARLINK_FIELD_COMMENT("A unique numeric identifier for the ongoing transfer"),
                 VARLINK_DEFINE_OUTPUT(id, VARLINK_INT, 0),
                 VARLINK_FIELD_COMMENT("The type of transfer"),
@@ -64,7 +66,7 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_FIELD_COMMENT("The local image name"),
                 VARLINK_DEFINE_OUTPUT(local, VARLINK_STRING, 0),
                 VARLINK_FIELD_COMMENT("The class of the image"),
-                VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, 0),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(class, ImageClass, 0),
                 VARLINK_FIELD_COMMENT("Progress in percent"),
                 VARLINK_DEFINE_OUTPUT(percent, VARLINK_FLOAT, 0));
 

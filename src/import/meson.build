@@ -110,6 +110,11 @@ executables += [
                 'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : files('importctl.c'),
         },
+        generator_template + {
+                'name' : 'systemd-import-generator',
+                'sources' : files('import-generator.c'),
+                'conditions' : ['ENABLE_IMPORTD'],
+        },
         test_template + {
                 'sources' : files(
                         'test-qcow2.c',
