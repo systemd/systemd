@@ -282,6 +282,7 @@ integration_test_template = {
         'priority' : 0,
         'firmware' : 'linux',
         'slow' : false,
+        'enabled' : true,
 }
 testdata_subdirs = [
         'auxv',
@@ -306,7 +307,7 @@ foreach dirname : [
         'TEST-05-RLIMITS',
         'TEST-06-SELINUX',
         'TEST-07-PID1',
-        # 'TEST-08-INITRD',
+        'TEST-08-INITRD',
         'TEST-09-REBOOT',
         'TEST-13-NSPAWN',
         'TEST-15-DROPIN',
@@ -317,7 +318,7 @@ foreach dirname : [
         'TEST-21-DFUZZER',
         'TEST-22-TMPFILES',
         'TEST-23-UNIT-FILE',
-        # 'TEST-24-CRYPTSETUP',
+        'TEST-24-CRYPTSETUP',
         'TEST-25-IMPORT',
         'TEST-26-SYSTEMCTL',
         'TEST-29-PORTABLE',
@@ -335,19 +336,19 @@ foreach dirname : [
         'TEST-50-DISSECT',
         'TEST-52-HONORFIRSTSHUTDOWN',
         'TEST-53-ISSUE-16347',
-        # 'TEST-54-CREDS',
+        'TEST-54-CREDS',
         'TEST-55-OOMD',
         'TEST-58-REPART',
         'TEST-59-RELOADING-RESTART',
         'TEST-60-MOUNT-RATELIMIT',
         'TEST-62-RESTRICT-IFACES',
         'TEST-63-PATH',
-        # 'TEST-64-UDEV-STORAGE',
+        'TEST-64-UDEV-STORAGE',
         'TEST-65-ANALYZE',
         'TEST-66-DEVICE-ISOLATION',
         'TEST-67-INTEGRITY',
         'TEST-68-PROPAGATE-EXIT-STATUS',
-        # 'TEST-69-SHUTDOWN',
+        'TEST-69-SHUTDOWN',
         'TEST-70-TPM2',
         'TEST-71-HOSTNAME',
         'TEST-72-SYSUPDATE',
@@ -359,7 +360,7 @@ foreach dirname : [
         'TEST-79-MEMPRESS',
         'TEST-80-NOTIFYACCESS',
         'TEST-81-GENERATORS',
-        # 'TEST-82-SOFTREBOOT',
+        'TEST-82-SOFTREBOOT',
         'TEST-83-BTRFS',
         'TEST-84-STORAGETM',
 ]
@@ -389,6 +390,10 @@ foreach integration_test : integration_tests
 
         if want_slow_tests
                 integration_test_env += {'SYSTEMD_SLOW_TESTS': '1'}
+        endif
+
+        if not integration_test['enabled']
+                continue
         endif
 
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt on every
