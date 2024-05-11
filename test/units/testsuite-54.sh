@@ -210,7 +210,9 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
 
     # Verify that adding a unit and drop-in via credentials worked
     systemctl start my-service
+    test -f /tmp/unit-cred
     test -f /tmp/unit-dropin
+    test -f /tmp/unit-named-dropin
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""

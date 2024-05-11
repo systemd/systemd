@@ -91,8 +91,9 @@
 
         <listitem><para>Credentials prefixed with <literal>systemd.unit-dropin.</literal> add drop-ins for
         the corresponding units in the final system. Each credential must be suffixed with the full unit name
-        including the unit extension. Its contents must be a valid unit drop-in file. Only one drop-in per
-        unit can be specified. The name of the generated drop-in will be
+        including the unit extension. Its contents must be a valid unit drop-in file. Optionally, the unit
+        name may be followed with <literal>~</literal>, followed by the drop-in name without the
+        <literal>.conf</literal> suffix. If not specified, the name of the generated drop-in will be
         <literal>50-credential.conf</literal>. Note that these additional drop-ins are added to both the
         initrd and the final system.</para>
 

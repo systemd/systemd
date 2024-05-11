@@ -26,7 +26,7 @@
 int drop_in_file(const char *dir, const char *unit, unsigned level,
                  const char *name, char **ret_p, char **ret_q) {
 
-        char prefix[DECIMAL_STR_MAX(unsigned)];
+        char prefix[DECIMAL_STR_MAX(unsigned)] = {};
         _cleanup_free_ char *b = NULL, *p = NULL, *q = NULL;
 
         assert(unit);
@@ -34,7 +34,8 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
         assert(ret_p);
         assert(ret_q);
 
-        sprintf(prefix, "%u", level);
+        if (level != UINT_MAX)
+                sprintf(prefix, "%u", level);
 
         b = xescape(name, "/.");
         if (!b)
