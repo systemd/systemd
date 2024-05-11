@@ -125,6 +125,9 @@ done
 if systemctl status TEST-55-OOMD-testbloat.service; then exit 42; fi
 if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
 
+# Start user instance.
+systemctl start user@4711.service
+
 # Make sure we also work correctly on user units.
 loginctl enable-linger testuser
 

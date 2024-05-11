@@ -15,6 +15,9 @@ fi
 
 systemd-analyze log-level debug
 
+# Start user instance
+systemctl start user@4711.service
+
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
