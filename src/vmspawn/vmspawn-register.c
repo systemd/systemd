@@ -69,7 +69,8 @@ int register_machine(
                                         JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", JSON_BUILD_UNSIGNED(cid)),
                                         JSON_BUILD_PAIR_CONDITION(directory, "rootDirectory", JSON_BUILD_STRING(directory)),
                                         JSON_BUILD_PAIR_CONDITION(address, "sshAddress", JSON_BUILD_STRING(address)),
-                                        JSON_BUILD_PAIR_CONDITION(key_path, "sshPrivateKeyPath", JSON_BUILD_STRING(key_path))));
+                                        JSON_BUILD_PAIR_CONDITION(key_path, "sshPrivateKeyPath", JSON_BUILD_STRING(key_path)),
+                                        JSON_BUILD_PAIR_CONDITION(isatty(STDIN_FILENO), "allowInteractiveAuthentication", JSON_BUILD_BOOLEAN(true))));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {
