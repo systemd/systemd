@@ -102,12 +102,10 @@ void journal_ratelimit_free(JournalRateLimit *r) {
 }
 
 static bool journal_ratelimit_group_expired(JournalRateLimitGroup *g, usec_t ts) {
-        unsigned i;
-
         assert(g);
 
-        for (i = 0; i < POOLS_MAX; i++)
-                if (g->pools[i].begin + g->interval >= ts)
+        FOREACH_ELEMENT(p, g->pools)
+                if (usec_add(p->begin, g->interval) >= ts)
                         return false;
 
         return true;
@@ -236,7 +234,7 @@ int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interv
                 return 1;
         }
 
-        if (p->begin + rl_interval < ts) {
+        if (usec_add(p->begin, rl_interval) < ts) {
                 unsigned s;
 
                 s = p->suppressed;
