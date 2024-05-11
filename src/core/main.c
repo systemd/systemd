@@ -1268,9 +1268,9 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                int nr_open = read_nr_open();
-                if (nr_open < 0) {
-                        log_error_errno(nr_open, "Failed to read fs.nr_open: %m");
+                int k = read_nr_open();
+                if (k < 0) {
+                        log_error_errno(k, "Failed to read fs.nr_open: %m");
                         break;
                 }
 
