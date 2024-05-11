@@ -5,6 +5,7 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
+#include "bus-polkit.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "machine-varlink.h"
@@ -136,6 +137,7 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
                 { "vSockCid",          SD_JSON_VARIANT_UNSIGNED, machine_cid,             offsetof(Machine, vsock_cid),            0                 },
                 { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
                 { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,   json_dispatch_path,      offsetof(Machine, ssh_private_key_path), 0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -145,6 +147,16 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
 
         r = varlink_dispatch(link, parameters, dispatch_table, machine);
         if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.create-machine",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "class", machine_class_to_string(machine->class)),
+                        &manager->polkit_registry);
+        if (r <= 0)
                 return r;
 
         if (!pidref_is_set(&machine->leader)) {
