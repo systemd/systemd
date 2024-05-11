@@ -17,8 +17,12 @@ EOF
 )
 DROPIN_CRED=$(base64 -w 0 <<EOF
 [Service]
-ExecStart=
 ExecStart=touch /tmp/unit-dropin
+EOF
+)
+NAMED_DROPIN_CRED=$(base64 -w 0 <<EOF
+[Service]
+ExecStart=touch /tmp/unit-named-dropin
 EOF
 )
 
@@ -32,6 +36,7 @@ QEMU_CREDS=(
     "-smbios type=11,value=io.systemd.credential:getty.ttys.container=idontexist"
     "-smbios type=11,value=io.systemd.credential.binary:systemd.extra-unit.my-service.service=$UNIT_CRED"
     "-smbios type=11,value=io.systemd.credential.binary:systemd.unit-dropin.my-service.service=$DROPIN_CRED"
+    "-smbios type=11,value=io.systemd.credential.binary:systemd.unit-dropin.my-service.service~30-named=$NAMED_DROPIN_CRED"
 )
 QEMU_OPTIONS="${QEMU_OPTIONS:-} ${QEMU_CREDS[*]}"
 
