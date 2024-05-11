@@ -34,6 +34,7 @@
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
+#include "analyze-smbios11.h"
 #include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
@@ -241,6 +242,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  image-policy POLICY...     Analyze image policy string\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
+               "  smbios11                   List strings passed via SMBIOS Type #11\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -657,6 +659,7 @@ static int run(int argc, char *argv[]) {
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
+                { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
                 {}
         };
 
