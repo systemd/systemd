@@ -1273,7 +1273,7 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) server_determine_space(s, &available, /* limit= */ NULL);
 
-                rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, priority & LOG_PRIMASK, available);
+                rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, LOG_PRI(priority), available);
                 if (rl == 0)
                         return;
 
