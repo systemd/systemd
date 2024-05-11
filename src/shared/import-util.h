@@ -5,6 +5,13 @@
 
 #include "macro.h"
 
+typedef enum ImportType {
+        IMPORT_RAW,
+        IMPORT_TAR,
+        _IMPORT_TYPE_MAX,
+        _IMPORT_TYPE_INVALID = -EINVAL,
+} ImportType;
+
 typedef enum ImportVerify {
         IMPORT_VERIFY_NO,
         IMPORT_VERIFY_CHECKSUM,
@@ -24,6 +31,9 @@ static inline int import_url_change_last_component(const char *url, const char *
 static inline int import_url_append_component(const char *url, const char *suffix, char **ret) {
         return import_url_change_suffix(url, 0, suffix, ret);
 }
+
+const char* import_type_to_string(ImportType v) _const_;
+ImportType import_type_from_string(const char *s) _pure_;
 
 const char* import_verify_to_string(ImportVerify v) _const_;
 ImportVerify import_verify_from_string(const char *s) _pure_;
