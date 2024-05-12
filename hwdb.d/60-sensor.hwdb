@@ -425,6 +425,10 @@ sensor:modalias:acpi:NSA2513*:dmi:*:svnDigitek:*
 sensor:modalias:acpi:NSA2513*:dmi:*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+# N12 / Juno Tablet 3
+sensor:modalias:acpi:MXC6655*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvr*:svnDefaultstring:pnS1105ANR100:pvr*:rvn*:rnS1105ANR100:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
+
 #########################################
 # DEXP
 #########################################
