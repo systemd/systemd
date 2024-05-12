@@ -42,8 +42,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
-    parser.add_argument('--test-name', required=True)
-    parser.add_argument('--test-number', required=True)
+    parser.add_argument('--name', required=True)
+    parser.add_argument('--unit', required=True)
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
@@ -51,21 +51,18 @@ def main():
     args = parser.parse_args()
 
     if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
-        print(f"SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        print(f"SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
     if args.slow and not bool(int(os.getenv("SYSTEMD_SLOW_TESTS", "0"))):
-        print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
-    name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
-    test_unit = f"testsuite-{args.test_number}.service"
+    name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
         """\
         [Unit]
-        After=multi-user.target network.target
-        Requires=multi-user.target
         SuccessAction=exit
         SuccessActionExitStatus=123
 
@@ -122,7 +119,7 @@ def main():
             else []
         ),
         '--credential',
-        f"systemd.unit-dropin.{test_unit}={shlex.quote(dropin)}",
+        f"systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
         '--runtime-scratch=no',
         '--append',
@@ -130,8 +127,8 @@ def main():
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
-            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
-            f"systemd.unit={test_unit}",
+            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/{args.name}.units:/usr/lib/systemd/tests/testdata/units:",
+            f"systemd.unit={args.unit}",
             'systemd.mask=systemd-networkd-wait-online.service',
             *(
                 [
@@ -184,7 +181,7 @@ def main():
             ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
             journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
 
-        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {test_unit} -p info"]
+        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info"]
 
         print("Test failed, relevant logs can be viewed with: \n\n"
               f"{(' && '.join(ops))}\n", file=sys.stderr)

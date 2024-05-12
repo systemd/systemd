@@ -14,16 +14,16 @@ if install_tests
                 'test-umount',
                 'test-network',
                 'test-network-generator-conversion',
-                'testsuite-03.units',
-                'testsuite-04.units',
-                'testsuite-06.units',
-                'testsuite-07.units',
-                'testsuite-16.units',
-                'testsuite-23.units',
-                'testsuite-30.units',
-                'testsuite-52.units',
-                'testsuite-63.units',
-                'testsuite-80.units',
+                'TEST-03-JOBS.units',
+                'TEST-04-JOURNAL.units',
+                'TEST-06-SELINUX.units',
+                'TEST-07-PID1.units',
+                'TEST-16-EXTEND-TIMEOUT.units',
+                'TEST-23-UNIT-FILE.units',
+                'TEST-30-ONCLOCKCHANGE.units',
+                'TEST-52-HONORFIRSTSHUTDOWN.units',
+                'TEST-63-PATH.units',
+                'TEST-80-NOTIFYACCESS.units',
         ]
                 # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
                 # instead of copying the symlink) so we use rsync instead.
@@ -344,102 +344,115 @@ endif
 ############################################################
 
 integration_test_wrapper = find_program('integration-test-wrapper.py')
-integration_tests = {
-        '01': 'TEST-01-BASIC',
-        '02': 'TEST-02-UNITTESTS',
-        '03': 'TEST-03-JOBS',
-        '04': 'TEST-04-JOURNAL',
-        '05': 'TEST-05-RLIMITS',
-        '06': 'TEST-06-SELINUX',
-        '07': 'TEST-07-PID1',
-        # '08': 'TEST-08-INITRD',
-        '09': 'TEST-09-REBOOT',
-        '13': 'TEST-13-NSPAWN',
-        '15': 'TEST-15-DROPIN',
-        '16': 'TEST-16-EXTEND-TIMEOUT',
-        '17': 'TEST-17-UDEV',
-        '18': 'TEST-18-FAILUREACTION',
-        '19': 'TEST-19-CGROUP',
-        '21': 'TEST-21-DFUZZER',
-        '22': 'TEST-22-TMPFILES',
-        '23': 'TEST-23-UNIT-FILE',
-        # '24': 'TEST-24-CRYPTSETUP',
-        '25': 'TEST-25-IMPORT',
-        '26': 'TEST-26-SYSTEMCTL',
-        '29': 'TEST-29-PORTABLE',
-        '30': 'TEST-30-ONCLOCKCHANGE',
-        '31': 'TEST-31-DEVICE-ENUMERATION',
-        '32': 'TEST-32-OOMPOLICY',
-        '34': 'TEST-34-DYNAMICUSERMIGRATE',
-        '35': 'TEST-35-LOGIN',
-        '36': 'TEST-36-NUMAPOLICY',
-        '38': 'TEST-38-FREEZER',
-        '43': 'TEST-43-PRIVATEUSER-UNPRIV',
-        '44': 'TEST-44-LOG-NAMESPACE',
-        '45': 'TEST-45-TIMEDATE',
-        '46': 'TEST-46-HOMED',
-        '50': 'TEST-50-DISSECT',
-        '52': 'TEST-52-HONORFIRSTSHUTDOWN',
-        '53': 'TEST-53-ISSUE-16347',
-        # '54': 'TEST-54-CREDS',
-        '55': 'TEST-55-OOMD',
-        '58': 'TEST-58-REPART',
-        '59': 'TEST-59-RELOADING-RESTART',
-        '60': 'TEST-60-MOUNT-RATELIMIT',
-        '62': 'TEST-62-RESTRICT-IFACES',
-        '63': 'TEST-63-PATH',
-        # '64': 'TEST-64-UDEV-STORAGE',
-        '65': 'TEST-65-ANALYZE',
-        '66': 'TEST-66-DEVICE-ISOLATION',
-        '67': 'TEST-67-INTEGRITY',
-        '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
-        # '69': 'TEST-69-SHUTDOWN',
-        '70': 'TEST-70-TPM2',
-        '71': 'TEST-71-HOSTNAME',
-        '72': 'TEST-72-SYSUPDATE',
-        '73': 'TEST-73-LOCALE',
-        '74': 'TEST-74-AUX-UTILS',
-        '75': 'TEST-75-RESOLVED',
-        '76': 'TEST-76-SYSCTL',
-        '78': 'TEST-78-SIGQUEUE',
-        '79': 'TEST-79-MEMPRESS',
-        '80': 'TEST-80-NOTIFYACCESS',
-        '81': 'TEST-81-GENERATORS',
-        # '82': 'TEST-82-SOFTREBOOT',
-        '83': 'TEST-83-BTRFS',
-        '84': 'TEST-84-STORAGETM',
+integration_tests = []
+integration_test_template = {
+        'mkosi-args' : [],
+        'timeout' : 1800,
+        'storage' : 'volatile',
+        'priority' : 0,
+        'firmware' : 'linux',
+        'slow' : false,
+        'enabled' : true,
+        'configuration' : {
+                'memory-accounting' : 'no',
+        },
 }
-foreach test_number, dirname : integration_tests
-        test_params = {
-                'mkosi_args' : [],
-                'timeout' : 1800,
-                'storage' : 'volatile',
-                'priority' : 0,
-                'firmware' : 'linux',
-                'slow' : false,
-        }
 
-        # TODO: This fs.exists call isn't included in rebuild logic
-        # so if you add a new meson.build in a subdir
-        # you need to touch another build file to get it to reparse.
-        if fs.exists(dirname / 'meson.build')
-                subdir(dirname)
-        endif
+foreach dirname : [
+        'TEST-01-BASIC',
+        'TEST-02-UNITTESTS',
+        'TEST-03-JOBS',
+        'TEST-04-JOURNAL',
+        'TEST-05-RLIMITS',
+        'TEST-06-SELINUX',
+        'TEST-07-PID1',
+        'TEST-08-INITRD',
+        'TEST-09-REBOOT',
+        'TEST-13-NSPAWN',
+        'TEST-15-DROPIN',
+        'TEST-16-EXTEND-TIMEOUT',
+        'TEST-17-UDEV',
+        'TEST-18-FAILUREACTION',
+        'TEST-19-CGROUP',
+        'TEST-21-DFUZZER',
+        'TEST-22-TMPFILES',
+        'TEST-23-UNIT-FILE',
+        'TEST-24-CRYPTSETUP',
+        'TEST-25-IMPORT',
+        'TEST-26-SYSTEMCTL',
+        'TEST-29-PORTABLE',
+        'TEST-30-ONCLOCKCHANGE',
+        'TEST-31-DEVICE-ENUMERATION',
+        'TEST-32-OOMPOLICY',
+        'TEST-34-DYNAMICUSERMIGRATE',
+        'TEST-35-LOGIN',
+        'TEST-36-NUMAPOLICY',
+        'TEST-38-FREEZER',
+        'TEST-43-PRIVATEUSER-UNPRIV',
+        'TEST-44-LOG-NAMESPACE',
+        'TEST-45-TIMEDATE',
+        'TEST-46-HOMED',
+        'TEST-50-DISSECT',
+        'TEST-52-HONORFIRSTSHUTDOWN',
+        'TEST-53-ISSUE-16347',
+        'TEST-54-CREDS',
+        'TEST-55-OOMD',
+        'TEST-58-REPART',
+        'TEST-59-RELOADING-RESTART',
+        'TEST-60-MOUNT-RATELIMIT',
+        'TEST-62-RESTRICT-IFACES',
+        'TEST-63-PATH',
+        'TEST-64-UDEV-STORAGE',
+        'TEST-65-ANALYZE',
+        'TEST-66-DEVICE-ISOLATION',
+        'TEST-67-INTEGRITY',
+        'TEST-68-PROPAGATE-EXIT-STATUS',
+        'TEST-69-SHUTDOWN',
+        'TEST-70-TPM2',
+        'TEST-71-HOSTNAME',
+        'TEST-72-SYSUPDATE',
+        'TEST-73-LOCALE',
+        'TEST-74-AUX-UTILS',
+        'TEST-75-RESOLVED',
+        'TEST-76-SYSCTL',
+        'TEST-78-SIGQUEUE',
+        'TEST-79-MEMPRESS',
+        'TEST-80-NOTIFYACCESS',
+        'TEST-81-GENERATORS',
+        'TEST-82-SOFTREBOOT',
+        'TEST-83-BTRFS',
+        'TEST-84-STORAGETM',
+]
+        subdir(dirname)
+endforeach
 
-        args = [
+foreach integration_test : integration_tests
+        integration_test_args = [
                 '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
-                '--test-name', dirname,
-                '--test-number', test_number,
-                '--storage', test_params['storage'],
-                '--firmware', test_params['firmware'],
+                '--name', integration_test['name'],
+                '--storage', integration_test['storage'],
+                '--firmware', integration_test['firmware'],
         ]
 
-        if test_params['slow']
-                args += ['--slow']
+        if 'unit' in integration_test
+                integration_test_unit = integration_test['unit']
+        else
+                integration_test_unit = configure_file(
+                        input : 'test.service.in',
+                        output : '@0@.service'.format(integration_test['name']),
+                        configuration : integration_test['configuration'],
+                )
         endif
 
-        args += ['--'] + test_params['mkosi_args']
+        integration_test_args += ['--unit', fs.name(integration_test_unit)]
+        install_data(integration_test_unit, install_dir : testdata_dir / 'units')
+
+        if integration_test['slow']
+                integration_test_args += ['--slow']
+        endif
+
+        integration_test_args += ['--'] + integration_test['mkosi-args']
 
         integration_test_env = {}
 
@@ -451,14 +464,20 @@ foreach test_number, dirname : integration_tests
                 integration_test_env += {'SYSTEMD_SLOW_TESTS': '1'}
         endif
 
-        # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
-        # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
-        # running the integration tests with mkosi.
-        test(dirname,
-             integration_test_wrapper,
-             env : integration_test_env,
-             args : args,
-             timeout : test_params['timeout'],
-             priority : test_params['priority'],
-             suite : 'integration-tests')
+        if not integration_test['enabled']
+                continue
+        endif
+
+        # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt on every
+        # "ninja -C build". Instead, the mkosi target has to be rebuilt manually before running the
+        # integration tests with mkosi.
+        test(
+                integration_test['name'],
+                integration_test_wrapper,
+                env : integration_test_env,
+                args : integration_test_args,
+                timeout : integration_test['timeout'],
+                priority : integration_test['priority'],
+                suite : 'integration-tests',
+        )
 endforeach
