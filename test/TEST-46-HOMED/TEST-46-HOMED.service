@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-46-HOMED
+Wants=basic.target multi-user.target systemd-homed.service systemd-userdbd.socket
+After=basic.target systemd-homed.service systemd-userdbd.socket
+Before=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
+NotifyAccess=all

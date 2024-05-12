@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=%N
+Wants=basic.target network.target tpm2.target multi-user.target
+After=basic.target network.target tpm2.target
+Before=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/@script@.sh
+Type=oneshot
+MemoryAccounting=@memory-accounting@

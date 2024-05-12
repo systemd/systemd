@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-82-SOFTREBOOT
+DefaultDependencies=no
+Wants=basic.target multi-user.target
+After=basic.target
+Before=getty-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+FileDescriptorStoreMax=3
+NotifyAccess=all
