@@ -43,6 +43,7 @@ def main():
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
+    parser.add_argument('--unit', required=True)
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
@@ -58,13 +59,10 @@ def main():
         exit(77)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
-    unit = f"{args.name}.service"
 
     dropin = textwrap.dedent(
         """\
         [Unit]
-        After=multi-user.target network.target
-        Requires=multi-user.target
         SuccessAction=exit
         SuccessActionExitStatus=123
 
@@ -121,7 +119,7 @@ def main():
             else []
         ),
         '--credential',
-        f"systemd.unit-dropin.{unit}={shlex.quote(dropin)}",
+        f"systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
         '--runtime-scratch=no',
         '--append',
@@ -130,7 +128,7 @@ def main():
         ' '.join([
             'systemd.hostname=H',
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/{args.name}.units:/usr/lib/systemd/tests/testdata/units:",
-            f"systemd.unit={unit}",
+            f"systemd.unit={args.unit}",
             'systemd.mask=systemd-networkd-wait-online.service',
             *(
                 [
@@ -183,7 +181,7 @@ def main():
             ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
             journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
 
-        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {unit} -p info"]
+        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info"]
 
         print("Test failed, relevant logs can be viewed with: \n\n"
               f"{(' && '.join(ops))}\n", file=sys.stderr)

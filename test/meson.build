@@ -283,6 +283,10 @@ integration_test_template = {
         'firmware' : 'linux',
         'slow' : false,
         'enabled' : true,
+        'configuration' : {
+                'memory-accounting' : 'no',
+                'command' : testdata_dir / 'units/%N.sh',
+        },
 }
 testdata_subdirs = [
         'auxv',
@@ -375,6 +379,21 @@ foreach integration_test : integration_tests
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
         ]
+
+        if 'unit' in integration_test
+                integration_test_unit = integration_test['unit']
+        else
+                integration_test_unit = configure_file(
+                        input : 'test.service.in',
+                        output : '@0@.service'.format(integration_test['name']),
+                        configuration : integration_test['configuration'],
+                )
+        endif
+
+        integration_test_args += ['--unit', fs.name(integration_test_unit)]
+        if install_tests
+                install_data(integration_test_unit, install_dir : testdata_dir / 'units')
+        endif
 
         if integration_test['slow']
                 integration_test_args += ['--slow']

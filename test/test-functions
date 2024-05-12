@@ -147,11 +147,6 @@ if ! [[ "$TESTNAME" =~ ^TEST\-([0-9]+)\-.+$ ]]; then
     exit 1
 fi
 
-if [[ ! -f "$TEST_UNITS_DIR/$TESTNAME.service" ]]; then
-    echo "ERROR: Test '$TESTNAME' is missing its service file '$TEST_UNITS_DIR/$TESTNAME.service" >&2
-    exit 1
-fi
-
 BASICTOOLS=(
     awk
     base64

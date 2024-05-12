@@ -3,6 +3,7 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
+                'unit' : files('TEST-07-PID1.service'),
         },
 ]
 
