@@ -240,7 +240,6 @@ testcase_nvme_subsystem() {
 
 testcase_virtio_scsi_identically_named_partitions() {
     local num_part num_disk i j
-    local alphabet='abcdefghijklmnopqrstuvwxyz'
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=4
@@ -251,7 +250,7 @@ testcase_virtio_scsi_identically_named_partitions() {
     fi
 
     for ((i = 0; i < num_disk; i++)); do
-        sfdisk "/dev/sd${alphabet:$i:1}" <<EOF
+        sfdisk "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drivenamedpart$i" <<EOF
 label: gpt
 
 $(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done)
@@ -282,14 +281,14 @@ blacklist {
 }
 EOF
 
-    sfdisk /dev/sda <<EOF
+    sfdisk /dev/disk/by-id/wwn-0xdeaddeadbeef0000 <<EOF
 label: gpt
 
 name="first_partition", size=5M
 uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
 EOF
     udevadm settle
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "/dev/sda2"
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2
 
     modprobe -v dm_multipath
     systemctl start multipathd.service
