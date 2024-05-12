@@ -276,7 +276,7 @@ endif
 integration_test_wrapper = find_program('integration-test-wrapper.py')
 integration_tests = []
 integration_test_template = {
-        'mkosi_args' : [],
+        'mkosi-args' : [],
         'timeout' : 1800,
         'storage' : 'volatile',
         'priority' : 0,
@@ -380,7 +380,7 @@ foreach integration_test : integration_tests
                 integration_test_args += ['--slow']
         endif
 
-        integration_test_args += ['--'] + integration_test['mkosi_args']
+        integration_test_args += ['--'] + integration_test['mkosi-args']
 
         integration_test_env = {}
 
