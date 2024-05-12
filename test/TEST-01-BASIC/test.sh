@@ -23,7 +23,7 @@ test_append_files() {
     # Install tests manually so the test is functional even when -Dinstall-tests=false
     dst="$workspace/usr/lib/systemd/tests/testdata/units/"
     mkdir -p "$dst"
-    cp -v "$TEST_UNITS_DIR"/{testsuite-01,end}.service "$TEST_UNITS_DIR/testsuite.target" "$dst"
+    cp -v "$TEST_UNITS_DIR"/{TEST-01-BASIC,end}.service "$TEST_UNITS_DIR/testsuite.target" "$dst"
 }
 
 do_test "$@"

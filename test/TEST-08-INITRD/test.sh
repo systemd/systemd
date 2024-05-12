@@ -80,7 +80,7 @@ check_result_qemu_hook() {
 
 # Setup a one shot service in initrd that creates a dummy bind mount under /run
 # to check if the mount persists though the initrd transition. The "check" part
-# is in the respective testsuite-08.sh script.
+# is in the respective TEST-08-INITRD.sh script.
 #
 # See: https://github.com/systemd/systemd/issues/28452
 run_qemu_hook() {
