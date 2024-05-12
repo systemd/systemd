@@ -1,8 +1,31 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-integration_tests += [
-        integration_test_template + {
-                'name' : fs.name(meson.current_source_dir()),
-                'enabled' : false,
-        },
+foreach testcase : [
+        'btrfs_basic',
+        'iscsi_lvm',
+        'long_sysfs_path',
+        'lvm_basic',
+        'mdadm_basic',
+        'mdadm_lvm',
+        'megasas2_basic',
+        'multipath_basic_failover',
+        'nvme_basic',
+        'nvme_subsystem',
+        'simultaneous_events',
+        'virtio_scsi_identically_named_partitions',
 ]
+        integration_tests += [
+                integration_test_template + {
+                        'name' : '@0@-@1@'.format(fs.name(meson.current_source_dir()), testcase),
+                        'configuration' : integration_test_template['configuration'] + {
+                                'script' : fs.name(meson.current_source_dir()),
+                        },
+                        'cmdline' : integration_test_template['cmdline'] + [
+                                'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase)
+                        ],
+                        'mkosi-args' : integration_test_template['mkosi-args'] + [
+                                '--configure-script', files('@0@.configure'.format(testcase)),
+                        ],
+                },
+        ]
+endforeach

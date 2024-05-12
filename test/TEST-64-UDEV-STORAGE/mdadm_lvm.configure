@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+
+import json
+import sys
+
+
+config = json.load(sys.stdin)
+
+config["QemuArgs"] += ["-device", "ahci,id=ahci0"]
+
+for i in range(5):
+    id = f"drivemdadmlvm{i}"
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "64M",
+            "Options": "cache=unsafe",
+        }
+    ]
+    config["QemuArgs"] += [
+        "-device", f"ide-hd,bus=ahci0.{i},drive={id},model=foobar,serial=deadbeefmdadmlvm{i}",
+    ]
+
+json.dump(config, sys.stdout)
