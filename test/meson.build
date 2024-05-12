@@ -355,6 +355,7 @@ integration_test_template = {
         'enabled' : true,
         'configuration' : {
                 'memory-accounting' : 'no',
+                'script' : '%N',
         },
         'cmdline' : [],
 }
