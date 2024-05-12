@@ -122,6 +122,12 @@ executables += [
                         libxz_cflags,
                 ],
         },
+        test_template + {
+                'sources' : files(
+                        'test-journald-rate-limit.c',
+                        'journald-rate-limit.c',
+                ),
+        },
         journal_test_template + {
                 'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
