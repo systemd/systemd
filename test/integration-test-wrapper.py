@@ -122,6 +122,7 @@ def main():
         f"systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
         '--runtime-scratch=no',
+        *args.mkosi_args,
         '--append',
         '--qemu-firmware', args.firmware,
         '--kernel-command-line-extra',
@@ -142,7 +143,6 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *args.mkosi_args,
         'qemu',
     ]
 
