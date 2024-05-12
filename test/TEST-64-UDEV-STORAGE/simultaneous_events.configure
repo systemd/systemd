@@ -1,0 +1,21 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import sys
+
+
+config = json.load(sys.stdin)
+
+for i in range(10):
+    id = f"drivesimultaneousevents{i}"
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "128M",
+            "Options": "cache=unsafe",
+        }
+    ]
+    config["QemuArgs"] += ["-device", f"scsi-hd,drive={id},serial=deadbeeftest{i}"]
+
+json.dump(config, sys.stdout)

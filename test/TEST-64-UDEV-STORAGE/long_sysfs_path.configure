@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import sys
+
+
+config = json.load(sys.stdin)
+
+config["QemuDrives"] += [
+    {
+        "Id": "drive0",
+        "Size": "64M",
+        "Options": "cache=unsafe",
+    }
+]
+config["QemuArgs"] += ["-device", "pci-bridge,id=pci_bridge0,chassis_nr=64"]
+
+# Create 25 additional PCI bridges, each one connected to the previous one
+# (basically a really long extension cable), and attach a virtio drive to
+# the last one. This should force udev into attempting to create a device
+# unit with a _really_ long name.
+for bridge in range(1, 26):
+    config["QemuArgs"] += [
+        "-device",
+        f"pci-bridge,id=pci_bridge{bridge},bus=pci_bridge{bridge - 1},"
+        f"chassis_nr={64 + bridge}"
+    ]
+
+config["QemuArgs"] += ["-device", f"virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge25"]
+
+json.dump(config, sys.stdout)
