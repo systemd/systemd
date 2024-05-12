@@ -177,8 +177,8 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
 
 int syslog_fixup_facility(int priority) {
 
-        if ((priority & LOG_FACMASK) == 0)
-                return (priority & LOG_PRIMASK) | LOG_USER;
+        if (LOG_FAC(priority) == 0)
+                return LOG_PRI(priority) | LOG_USER;
 
         return priority;
 }
@@ -403,10 +403,10 @@ void server_process_syslog_message(
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
 
-        xsprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(syslog_priority, "PRIORITY=%i", LOG_PRI(priority));
         iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
-        if (priority & LOG_FACMASK) {
+        if (LOG_FAC(priority) != 0) {
                 xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
         }
