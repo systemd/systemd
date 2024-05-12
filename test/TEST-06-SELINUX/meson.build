@@ -3,9 +3,7 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
-                'mkosi-args' : integration_test_template['mkosi-args'] + [
-                        '--kernel-command-line-extra=selinux=1 lsm=selinux'
-                ],
+                'cmdline' : integration_test_template['cmdline'] + ['selinux=1', 'lsm=selinux'],
                 # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
                 'firmware' : 'uefi',
         },

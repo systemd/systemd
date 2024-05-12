@@ -3,15 +3,14 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
-                'mkosi-args' : integration_test_template['mkosi-args'] + [
-                        '''--kernel-command-line-extra=
-
-frobnicate!
+                'cmdline' : integration_test_template['cmdline'] + [
+                        '''
 
 systemd.setenv=TEST_CMDLINE_NEWLINE=foo
+                        ''',
+                        '''
 systemd.setenv=TEST_CMDLINE_NEWLINE=bar
-
-''',
+                        ''',
                 ],
         },
 ]

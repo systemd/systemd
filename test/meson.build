@@ -287,6 +287,7 @@ integration_test_template = {
                 'memory-accounting' : 'no',
                 'command' : testdata_dir / 'units/%N.sh',
         },
+        'cmdline' : [],
 }
 testdata_subdirs = [
         'auxv',
@@ -399,7 +400,15 @@ foreach integration_test : integration_tests
                 integration_test_args += ['--slow']
         endif
 
-        integration_test_args += ['--'] + integration_test['mkosi-args']
+        integration_test_args += ['--']
+
+        if integration_test['cmdline'].length() > 0
+                integration_test_args += [
+                        '--kernel-command-line-extra=@0@'.format(' '.join(integration_test['cmdline']))
+                ]
+        endif
+
+        integration_test_args += integration_test['mkosi-args']
 
         integration_test_env = {}
 
