@@ -3,6 +3,10 @@
 Description=TEST-16-EXTEND-TIMEOUT
 # Testsuite: Assess all other testsuite-*.services worked as expected
 
+Wants=basic.target multi-user.target
+After=basic.target
+Before=getty-pre.target
+
 Wants=success-all.service
 Wants=success-start.service
 Wants=success-runtime.service
