@@ -241,6 +241,7 @@ BASICTOOLS=(
     su
     sulogin
     sysctl
+    tac
     tail
     tar
     tee
