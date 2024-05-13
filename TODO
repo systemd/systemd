@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
+  number) for identifying inodes, for example in copy.c when finding hard
+  links, or loop-util.c for tracking backing files, and other places.
+
 * cryptenroll/cryptsetup/homed: add unlock mechanism that combines tpm2 and
   fido2, as well as tpm2 + ssh-agent, insipred by ChromeOS' logic: encrypt the
   volume key with the TPM, with a policy that insists that a nonce is signed by
