@@ -913,10 +913,6 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         if (!link->network->ndisc_use_reachable_time)
                 return 0;
 
-        /* Ignore the reachable time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_reachable_time(rt, &reachable_time);
         if (r < 0)
@@ -951,10 +947,6 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (!link->network->ndisc_use_retransmission_time)
                 return 0;
 
-        /* Ignore the retransmission time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0)
@@ -989,10 +981,6 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         if (!link->network->ndisc_use_hop_limit)
                 return 0;
 
-        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
         if (r < 0)
@@ -1029,10 +1017,6 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
         if (!link->network->ndisc_use_mtu)
                 return 0;
 
-        /* Ignore the MTU option if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_mtu(rt, &mtu);
         if (r == -ENODATA)
