@@ -850,9 +850,17 @@ testcase_iscsi_lvm() {
 
     ls -l "${devices[@]}"
 
-    # Start the target daemon
-    systemctl start tgtd
-    systemctl status tgtd
+    # Start the target daemon (debian names it tgt.service so make sure we handle that)
+    if systemctl list-unit-files tgt.service; then
+        systemctl start tgt
+        systemctl status tgt
+    elif systemctl list-unit-files tgtd.service; then
+        systemctl start tgtd
+        systemctl status tgtd
+    else
+        echo "This test requires tgtd but it is not installed, skipping ..." | tee --append /skipped
+        exit 77
+    fi
 
     echo "iSCSI LUNs backed by devices"
     # See RFC3721 and RFC7143
