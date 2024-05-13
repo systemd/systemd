@@ -541,7 +541,7 @@ testcase_lvm_basic() {
     local i iterations partitions part timeout
     local vgroup="MyTestGroup$RANDOM"
     local devices=(
-        /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeeflvm{0..3}
     )
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
@@ -713,7 +713,7 @@ testcase_lvm_basic() {
 testcase_btrfs_basic() {
     local dev_stub i label mpoint uuid
     local devices=(
-        /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs{0..3}
     )
 
     ls -l "${devices[@]}"
@@ -751,10 +751,10 @@ EOF
     uuid="deadbeef-dead-dead-beef-000000000002"
     label="btrfs_mdisk"
     udevadm lock \
-            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs0 \
-            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs1 \
-            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs2 \
-            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs3 \
+            --device=/dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs0 \
+            --device=/dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs1 \
+            --device=/dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs2 \
+            --device=/dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs3 \
             mkfs.btrfs -f -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
     udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
@@ -844,7 +844,7 @@ testcase_iscsi_lvm() {
     local vgroup="iscsi_lvm$RANDOM"
     local expected_symlinks=()
     local devices=(
-        /dev/disk/by-id/ata-foobar_deadbeefiscsi{0..3}
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeefiscsi{0..3}
     )
 
     ls -l "${devices[@]}"
@@ -1022,7 +1022,7 @@ testcase_mdadm_basic() {
     local i part_name raid_name raid_dev uuid
     local expected_symlinks=()
     local devices=(
-        /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..4}
     )
 
     ls -l "${devices[@]}"
@@ -1039,7 +1039,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a simple RAID 1 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
@@ -1068,7 +1068,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a simple RAID 5 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
@@ -1108,7 +1108,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-id/md-uuid-$uuid-part3"
     )
     # Create a simple RAID 10 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Partition the raid device
     # Here, 'udevadm lock' is meaningless, as udevd does not lock MD devices.
@@ -1142,7 +1142,7 @@ testcase_mdadm_lvm() {
     local part_name raid_name raid_dev uuid vgroup
     local expected_symlinks=()
     local devices=(
-        /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..4}
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadmlvm{0..4}
     )
 
     ls -l "${devices[@]}"
@@ -1161,7 +1161,7 @@ testcase_mdadm_lvm() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a RAID 10 with LVM + ext4
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Create an LVM on the MD
     lvm pvcreate -y "$raid_dev"
