@@ -101,6 +101,9 @@ int server_name_new(
                 return -ENOMEM;
         }
 
+
+        (void) server_name_parse_port(n); // side effect processes port detail from string if present
+
         switch (type) {
         case SERVER_SYSTEM:
                 LIST_APPEND(names, m->system_servers, n);
@@ -127,7 +130,7 @@ int server_name_new(
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new %s server %s.", server_type_to_string(type), string);
+        log_debug("Added new %s server %s.", server_type_to_string(type), n->string);
 
         if (ret)
                 *ret = n;
@@ -174,4 +177,35 @@ void server_name_flush_addresses(ServerName *n) {
 
         while (n->addresses)
                 server_address_free(n->addresses);
+}
+
+int server_name_parse_port(ServerName *n) {
+        const char *sqr = "]", *col = ":";
+        char *ret_sqr, *ret_col, *last_col, *word = strdup(n->string);// copy n->string because strtok changes word
+
+        ret_sqr = strrchr(n->string, *sqr);
+        ret_col = strchr(n->string, *col);
+        last_col = strrchr(n->string, *col);
+
+        if (ret_sqr == NULL && ret_col == NULL) { // server.domain or I.P.v.4
+                return 0;
+        } else if (ret_sqr == NULL && strlen(ret_col) == strlen(last_col)) { // has no ']' and exactly one ":"
+                n->string = strtok(word, col);
+                n->overridden_port = strtok(NULL, col);
+                log_debug("Matched single port: %s / %s", n->string, n->overridden_port);
+                return 1;
+        } else if (ret_sqr == NULL && ret_col != NULL && last_col != NULL && strlen(ret_col) != strlen(last_col)) {
+                // naked IP::v:6, no ']' and more than one ':'
+                return 0;
+        } else if (ret_sqr != NULL && strlen(ret_sqr) == strlen(last_col)+1) { // [IP::v:6]:port with "]:" substring
+                n->string = strcat(strtok(word, sqr), sqr);
+                n->overridden_port = strtok(last_col, col);
+                log_debug("Matched [IP::v:6]:port, output  %s / %s", n->string, n->overridden_port);
+                return 2;
+        } else if (ret_sqr != NULL && last_col != NULL && strlen(ret_sqr) != strlen(last_col)+1) {
+                // [IP::v:6] without port -- no "]:" substring
+                return 0;
+        } else {
+                assert_not_reached();
+        }
 }

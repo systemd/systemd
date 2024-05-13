@@ -780,8 +780,8 @@ static int manager_retry_connect(sd_event_source *source, usec_t usec, void *use
 }
 
 int manager_connect(Manager *m) {
-        _cleanup_free_ char *address = NULL;
-        _cleanup_free_ char *port = NULL;
+        _cleanup_free_ const char *sqo = "[", *sqc = "]", *default_port = "123";
+        _cleanup_free_ char *addr, *port, *temp;
         int r;
 
         assert(m);
@@ -879,18 +879,21 @@ int manager_connect(Manager *m) {
                 };
 
                 /* hardcoded port 123 can be fed an ip address overriding the port number, eg 10.0.0.1:1234 or [fe80::1]:1234
+                 * plus, if the name is [IP::v:6] in brackets, resolve a version without the brackets
                  * r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m); */
-                (void) server_address_pretty(m->current_server_address, false, &address);
-
-                if (m->current_server_address->sockaddr.sa.sa_family == AF_INET && strchr(m->current_server_name->string, ':')) {
-                        (void) asprintf(&port, "%u", be16toh(m->current_server_address->sockaddr.in.sin_port));
-                        r = resolve_getaddrinfo(m->resolve, &m->resolve_query, address, port, &hints, manager_resolve_handler, NULL, m);
-                } else if (m->current_server_address->sockaddr.sa.sa_family == AF_INET6 && strchr(m->current_server_name->string, ']') == strrchr(m->current_server_name->string, ':') - 1) {
-                        (void) asprintf(&port, "%u", be16toh(m->current_server_address->sockaddr.in6.sin6_port));
-                        r = resolve_getaddrinfo(m->resolve, &m->resolve_query, address, port, &hints, manager_resolve_handler, NULL, m);
-                } else {
-                        r = resolve_getaddrinfo(m->resolve, &m->resolve_query, address, "123", &hints, manager_resolve_handler, NULL, m);
+                addr = m->current_server_name->string;
+                if (NULL != strchr(addr, *sqo) && 0 == strcspn(addr, sqo)
+                                               && strlen(addr)-1 == strcspn(addr, sqc)) {
+                        temp = strdup(m->current_server_name->string);
+                        addr = strtok(strtok(temp, sqo), sqc); // remove [IP::v:6] brackets
                 }
+                if (m->current_server_name->overridden_port) {
+                        port = m->current_server_name->overridden_port;
+                } else {
+                        port = default_port;
+                }
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, addr, port, &hints, manager_resolve_handler, NULL, m);
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
