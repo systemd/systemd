@@ -1100,10 +1100,10 @@ static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_rou
                         address->lifetime_valid_usec = existing->lifetime_valid_usec;
                         return 0;
                 }
-        }
 
-        /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
-        address->lifetime_valid_usec = usec_add(t, 2 * USEC_PER_HOUR);
+                /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
+                address->lifetime_valid_usec = usec_add(t, 2 * USEC_PER_HOUR);
+        }
         return 0;
 }
 
