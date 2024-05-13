@@ -94,7 +94,7 @@ check_freezer_state() {
 
         # Ignore the intermediate freezing & thawing states in case we check
         # the unit state too quickly
-        [[ "$state" =~ ^(freezing|thawing)$ ]] || break
+        [[ "$state" =~ ^(freezing|thawing) ]] || break
         sleep .5
     done
 
