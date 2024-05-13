@@ -225,9 +225,8 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         MachineClass c;
         uint32_t leader;
         sd_id128_t id;
-        const void *v;
         Machine *m;
-        size_t n, n_netif = 0;
+        size_t n_netif = 0;
         int r;
 
         assert(manager);
@@ -240,14 +239,8 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         if (!hostname_is_valid(name, 0))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
-        r = sd_bus_message_read_array(message, 'y', &v, &n);
+        r = bus_message_read_id128(message, &id);
         if (r < 0)
-                return r;
-        if (n == 0)
-                id = SD_ID128_NULL;
-        else if (n == 16)
-                memcpy(&id, v, n);
-        else
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine ID parameter");
 
         r = sd_bus_message_read(message, "ssus", &service, &class, &leader, &root_directory);
