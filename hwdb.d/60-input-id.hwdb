@@ -79,3 +79,9 @@ id-input:modalias:input:b0003v068Ep00F2*
 # TEX Shinobi Trackpoint
 id-input:modalias:input:b0003v04D9p0407e0111-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
+
+# ASRock LED Controller
+id-input:modalias:input:b0003v26CEp01A2*
+ ID_INPUT_JOYSTICK=
+ ID_INPUT_KEY=
+ ID_INPUT=
