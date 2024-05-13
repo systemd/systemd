@@ -34,6 +34,7 @@ struct ServerName {
 
         ServerType type;
         char *string;
+        char *overridden_port;
 
         LIST_HEAD(ServerAddress, addresses);
         LIST_FIELDS(ServerName, names);
@@ -41,10 +42,11 @@ struct ServerName {
 
 int server_address_new(ServerName *n, ServerAddress **ret, const union sockaddr_union *sockaddr, socklen_t socklen);
 ServerAddress* server_address_free(ServerAddress *a);
-static inline int server_address_pretty(ServerAddress *a, char **pretty) {
-        return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, true, pretty);
+static inline int server_address_pretty(ServerAddress *a, bool include_port, char **pretty) {
+        return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, include_port, pretty);
 }
 
 int server_name_new(Manager *m, ServerName **ret, ServerType type,const char *string);
 ServerName *server_name_free(ServerName *n);
 void server_name_flush_addresses(ServerName *n);
+int server_name_parse_port(ServerName *n);
