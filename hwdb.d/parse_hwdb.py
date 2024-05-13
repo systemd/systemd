@@ -145,6 +145,7 @@ def property_grammar():
     mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
     mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
+    id_input_setting = Optional(Or((Literal('0'), Literal('1'))))
 
     # Although this set doesn't cover all of characters in database entries, it's enough for test targets.
     name_literal = Word(printables + ' ')
@@ -159,19 +160,19 @@ def property_grammar():
              ('ID_AV_PRODUCTION_CONTROLLER', Or((Literal('0'), Literal('1')))),
              ('ID_PERSIST', Or((Literal('0'), Literal('1')))),
              ('ID_PDA', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_ACCELEROMETER', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_JOYSTICK', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_KEY', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_KEYBOARD', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_MOUSE', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_POINTINGSTICK', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_SWITCH', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_TABLET', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_TABLET_PAD', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_TOUCHPAD', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_TOUCHSCREEN', Or((Literal('0'), Literal('1')))),
-             ('ID_INPUT_TRACKBALL', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT', id_input_setting),
+             ('ID_INPUT_ACCELEROMETER', id_input_setting),
+             ('ID_INPUT_JOYSTICK', id_input_setting),
+             ('ID_INPUT_KEY', id_input_setting),
+             ('ID_INPUT_KEYBOARD', id_input_setting),
+             ('ID_INPUT_MOUSE', id_input_setting),
+             ('ID_INPUT_POINTINGSTICK', id_input_setting),
+             ('ID_INPUT_SWITCH', id_input_setting),
+             ('ID_INPUT_TABLET', id_input_setting),
+             ('ID_INPUT_TABLET_PAD', id_input_setting),
+             ('ID_INPUT_TOUCHPAD', id_input_setting),
+             ('ID_INPUT_TOUCHSCREEN', id_input_setting),
+             ('ID_INPUT_TRACKBALL', id_input_setting),
              ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
