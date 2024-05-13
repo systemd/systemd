@@ -913,7 +913,6 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         if (!link->network->ndisc_use_reachable_time)
                 return 0;
 
-
         r = sd_ndisc_router_get_reachable_time(rt, &reachable_time);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get reachable time from RA: %m");
@@ -947,7 +946,6 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (!link->network->ndisc_use_retransmission_time)
                 return 0;
 
-
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
@@ -980,7 +978,6 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_hop_limit)
                 return 0;
-
 
         r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
         if (r < 0)
@@ -1016,7 +1013,6 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_mtu)
                 return 0;
-
 
         r = sd_ndisc_router_get_mtu(rt, &mtu);
         if (r == -ENODATA)
@@ -2442,7 +2438,6 @@ int ndisc_stop(Link *link) {
 
         return sd_ndisc_stop(link->ndisc);
 }
-
 
 void ndisc_flush(Link *link) {
         assert(link);
