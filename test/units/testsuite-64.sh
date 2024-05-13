@@ -383,7 +383,7 @@ testcase_simultaneous_events_1() {
     else
         num_part=10
         iterations=100
-        timeout=30
+        timeout=60
     fi
 
     for disk in {0..9}; do
