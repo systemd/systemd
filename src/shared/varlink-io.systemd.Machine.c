@@ -15,6 +15,7 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(vSockCid,          VARLINK_INT,    VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(sshAddress,        VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(sshPrivateKeyPath, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(allocateUnit,      VARLINK_BOOL,   VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, VARLINK_BOOL, VARLINK_NULLABLE));
 
 static VARLINK_DEFINE_ERROR(MachineExists);
