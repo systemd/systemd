@@ -545,6 +545,12 @@ testcase_lvm_basic() {
         /dev/disk/by-id/scsi-0systemd_foobar_deadbeeflvm{0..3}
     )
 
+    . /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         timeout=180
     else
@@ -852,6 +858,12 @@ testcase_iscsi_lvm() {
     local devices=(
         /dev/disk/by-id/scsi-0systemd_foobar_deadbeefiscsi{0..3}
     )
+
+    . /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
+        exit 77
+    fi
 
     ls -l "${devices[@]}"
 
