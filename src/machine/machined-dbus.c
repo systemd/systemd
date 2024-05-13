@@ -218,7 +218,13 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
+static int method_create_or_register_machine(
+                Manager *manager,
+                sd_bus_message *message,
+                bool read_network,
+                Machine **ret,
+                sd_bus_error *error) {
+
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *name, *service, *class, *root_directory;
         const int32_t *netif = NULL;
@@ -231,7 +237,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
 
         assert(manager);
         assert(message);
-        assert(_m);
+        assert(ret);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -330,8 +336,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 m->n_netif = n_netif;
         }
 
-        *_m = m;
-
+        *ret = m;
         return 1;
 
 fail:
