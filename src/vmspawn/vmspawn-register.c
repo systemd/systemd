@@ -67,7 +67,7 @@ int register_machine(
                                         JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(uuid), "id", JSON_BUILD_ID128(uuid)),
                                         JSON_BUILD_PAIR_STRING("service", service),
                                         JSON_BUILD_PAIR_STRING("class", "vm"),
-                                        JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vsockCid", JSON_BUILD_UNSIGNED(cid)),
+                                        JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", JSON_BUILD_UNSIGNED(cid)),
                                         JSON_BUILD_PAIR_CONDITION(directory, "rootDirectory", JSON_BUILD_STRING(directory)),
                                         JSON_BUILD_PAIR_CONDITION(address, "sshAddress", JSON_BUILD_STRING(address)),
                                         JSON_BUILD_PAIR_CONDITION(key_path, "sshPrivateKeyPath", JSON_BUILD_STRING(key_path))));
