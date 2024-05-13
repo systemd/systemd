@@ -783,9 +783,11 @@ static int find_cmdline_section(
                 return 0;
 
         r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
-        if (r == -ENXIO) /* cmdline is optional */
+        if (r == -ENXIO) { /* cmdline is optional */
                 *ret_cmdline = NULL;
-        else if (r < 0)
+                return 0;
+        }
+        if (r < 0)
                 return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
 
         word = strdup(cmdline);
