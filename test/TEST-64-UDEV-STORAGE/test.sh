@@ -369,7 +369,7 @@ testcase_lvm_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i
 
     # Attach 4 SATA disks to the VM (and set their model and serial fields
@@ -378,7 +378,7 @@ testcase_lvm_basic() {
         diskpath="${TESTDIR:?}/lvmbasic${i}.img"
         dd if=/dev/zero of="$diskpath" bs=1M count=32
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeeflvm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeeflvm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -396,7 +396,7 @@ testcase_btrfs_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..3}; do
@@ -406,7 +406,7 @@ testcase_btrfs_basic() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count="$size"
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefbtrfs$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefbtrfs$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -424,7 +424,7 @@ testcase_iscsi_lvm() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..3}; do
@@ -435,7 +435,7 @@ testcase_iscsi_lvm() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count="$size"
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefiscsi$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefiscsi$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -479,7 +479,7 @@ testcase_mdadm_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..4}; do
@@ -487,7 +487,7 @@ testcase_mdadm_basic() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count=64
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefmdadm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -505,7 +505,7 @@ testcase_mdadm_lvm() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..4}; do
@@ -513,7 +513,7 @@ testcase_mdadm_lvm() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count=64
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadmlvm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefmdadmlvm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
