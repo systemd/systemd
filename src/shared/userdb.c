@@ -49,6 +49,8 @@ struct UserDBIterator {
         char *found_user_name, *found_group_name; /* when .what == LOOKUP_MEMBERSHIP */
         char **members_of_group;
         size_t index_members_of_group;
+        char **dropin_membership;
+        size_t index_dropin_membership;
         char *filter_user_name, *filter_group_name;
 };
 
@@ -81,6 +83,7 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
                 free(iterator->found_user_name);
                 free(iterator->found_group_name);
                 strv_free(iterator->members_of_group);
+                strv_free(iterator->dropin_membership);
                 free(iterator->filter_user_name);
                 free(iterator->filter_group_name);
 
@@ -1131,9 +1134,9 @@ static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
 
         r = conf_files_list_nulstr(
                         &i->dropins,
-                        ".membership",
                         NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED,
+                        NULL,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
                         USERDB_DROPIN_DIR_NULSTR("userdb"));
         if (r < 0)
                 log_debug_errno(r, "Failed to find membership drop-ins, ignoring: %m");
@@ -1361,37 +1364,133 @@ int membershipdb_iterator_get(
         }
 
         for (; iterator->dropins && iterator->dropins[iterator->current_dropin]; iterator->current_dropin++) {
-                const char *i = iterator->dropins[iterator->current_dropin], *e, *c;
+                const char *i = iterator->dropins[iterator->current_dropin], *s, *e, *c;
+                char *name;
                 _cleanup_free_ char *un = NULL, *gn = NULL;
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                e = endswith(i, ".membership");
-                if (!e)
-                        continue;
+                /* Find the basename of the dropin path. */
+                s = strrchr(i, '/');
+                if (s)
+                        s++;
+                else
+                        s = i;
 
-                c = memchr(i, ':', e - i);
-                if (!c)
-                        continue;
-
-                un = strndup(i, c - i);
-                if (!un)
-                        return -ENOMEM;
-                if (iterator->filter_user_name) {
-                        if (!streq(un, iterator->filter_user_name))
+                if ((e = endswith(i, ".membership"))) {
+                        c = memchr(s, ':', e - s);
+                        if (!c)
                                 continue;
-                } else if (!valid_user_group_name(un, VALID_USER_RELAX))
-                        continue;
 
-                c++; /* skip over ':' */
-                gn = strndup(c, e - c);
-                if (!gn)
-                        return -ENOMEM;
-                if (iterator->filter_group_name) {
-                        if (!streq(gn, iterator->filter_group_name))
+                        un = strndup(s, c - s);
+                        if (!un)
+                                return -ENOMEM;
+                        if (iterator->filter_user_name) {
+                                if (!streq(un, iterator->filter_user_name))
+                                        continue;
+                        } else if (!valid_user_group_name(un, VALID_USER_RELAX))
                                 continue;
-                } else if (!valid_user_group_name(gn, VALID_USER_RELAX))
-                        continue;
 
-                iterator->current_dropin++;
+                        c++; /* skip over ':' */
+                        gn = strndup(c, e - c);
+                        if (!gn)
+                                return -ENOMEM;
+                        if (iterator->filter_group_name) {
+                                if (!streq(gn, iterator->filter_group_name))
+                                        continue;
+                        } else if (!valid_user_group_name(gn, VALID_USER_RELAX))
+                                continue;
+
+                        iterator->current_dropin++;
+                } else if ((e = endswith(i, ".user"))) {
+                        un = strndup(s, e - s);
+                        if (!un)
+                                return -ENOMEM;
+                        /* Skip to the next dropin if we don't care about this one. */
+                        if (iterator->filter_user_name) {
+                                if (!streq(un, iterator->filter_user_name))
+                                        continue;
+                        } else if (!valid_user_group_name(un, VALID_USER_RELAX))
+                                continue;
+
+                        /* Have we not read this user dropin yet? */
+                        if (!iterator->dropin_membership) {
+                                r = dropin_user_record_by_name(un, i, USERDB_SUPPRESS_SHADOW, &ur);
+                                if (r < 0)
+                                        return r;
+
+                                if (!ur->member_of)
+                                        continue;
+
+                                /* Record the groups to avoid reparsing this file. */
+                                iterator->dropin_membership = strv_copy(ur->member_of);
+                                if (!iterator->dropin_membership)
+                                        return -ENOMEM;
+
+                                iterator->index_dropin_membership = 0;
+                        }
+
+                        /* Iterate over the (remaining) groups and go to found if one matches. */
+                        for(; (name = iterator->dropin_membership[iterator->index_dropin_membership]); iterator->index_dropin_membership++) {
+                                if (!iterator->filter_group_name || streq(name, iterator->filter_group_name)) {
+                                        gn = strdup(name);
+                                        if (!gn)
+                                                return -ENOMEM;
+                                        iterator->index_dropin_membership++;
+                                        goto found;
+                                }
+                        }
+
+                        /* No more groups left to match. Skip to the next dropin file. */
+                        iterator->dropin_membership = strv_free(iterator->dropin_membership);
+                        continue;
+                } else if ((e = endswith(i, ".group"))) {
+                        gn = strndup(s, e - s);
+                        if (!gn)
+                                return -ENOMEM;
+                        /* Skip to the next dropin if we don't care about this one. */
+                        if (iterator->filter_group_name) {
+                                if (!streq(gn, iterator->filter_group_name))
+                                        continue;
+                        } else if (!valid_user_group_name(gn, VALID_USER_RELAX))
+                                continue;
+
+                        /* Have we not read this group dropin yet? */
+                        if (!iterator->dropin_membership) {
+                                r = dropin_group_record_by_name(gn, i, USERDB_SUPPRESS_SHADOW, &gr);
+                                if (r < 0)
+                                        return r;
+
+                                if (!gr->members)
+                                        continue;
+
+                                /* Record the users to avoid reparsing this file. */
+                                iterator->dropin_membership = strv_copy(gr->members);
+                                if (!iterator->dropin_membership)
+                                        return -ENOMEM;
+
+                                iterator->index_dropin_membership = 0;
+                        }
+
+                        /* Iterate over the (remaining) users and go to found if one matches. */
+                        for(; (name = iterator->dropin_membership[iterator->index_dropin_membership]); iterator->index_dropin_membership++) {
+                                if (!iterator->filter_user_name || streq(name, iterator->filter_user_name)) {
+                                        un = strdup(name);
+                                        if (!un)
+                                                return -ENOMEM;
+                                        iterator->index_dropin_membership++;
+                                        goto found;
+                                }
+                        }
+
+                        /* No more users left to match. Skip to the next dropin file. */
+                        iterator->dropin_membership = strv_free(iterator->dropin_membership);
+                        continue;
+                } else {
+                        continue;
+                }
+
+found:
                 iterator->n_found++;
 
                 if (ret_user)
