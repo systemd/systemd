@@ -257,6 +257,7 @@ $(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done
 EOF
     done
 
+    udevadm settle
     lsblk --noheadings -a -o NAME,PARTLABEL
     [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$((num_part * num_disk))" ]]
 }
