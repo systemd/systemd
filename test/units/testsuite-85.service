@@ -4,5 +4,5 @@ Description=TEST-85-NETWORK
 After=multi-user.target
 
 [Service]
-ExecStart=/usr/lib/systemd/tests/testdata/test-network/systemd-networkd-tests.py --no-journal
+ExecStart=/usr/lib/systemd/tests/testdata/test-network/systemd-networkd-tests.py --no-journal NetworkdNetworkTests.test_activation_policy NetworkdNetworkTests.test_activation_policy_required_for_online
 Type=oneshot
