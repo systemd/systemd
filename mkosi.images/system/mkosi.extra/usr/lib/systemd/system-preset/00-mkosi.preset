@@ -31,3 +31,6 @@ disable auditd.service
 
 # systemd-timesyncd is not enabled by default in the default systemd preset so enable it here instead.
 enable systemd-timesyncd.service
+
+# Skipped if selinux is not enabled, required for TEST-06-SELINUX.
+enable autorelabel.service
