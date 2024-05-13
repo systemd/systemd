@@ -57,6 +57,7 @@ struct Machine {
         bool started:1;
         bool stopping:1;
         bool referenced:1;
+        bool allocate_unit;
 
         sd_bus_message *create_message;
 

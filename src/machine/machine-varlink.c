@@ -127,16 +127,17 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",              SD_JSON_VARIANT_STRING,   machine_name,            offsetof(Machine, name),                 SD_JSON_MANDATORY },
-                { "id",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_id128,  offsetof(Machine, id),                   0                 },
-                { "service",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(Machine, service),              0                 },
-                { "class",             SD_JSON_VARIANT_STRING,   dispatch_machine_class,  offsetof(Machine, class),                SD_JSON_MANDATORY },
-                { "leader",            SD_JSON_VARIANT_UNSIGNED, machine_leader,          offsetof(Machine, leader),               0                 },
-                { "rootDirectory",     SD_JSON_VARIANT_STRING,   json_dispatch_path,      offsetof(Machine, root_directory),       0                 },
-                { "ifIndices",         SD_JSON_VARIANT_ARRAY,    machine_ifindices,       0,                                       0                 },
-                { "vSockCid",          SD_JSON_VARIANT_UNSIGNED, machine_cid,             offsetof(Machine, vsock_cid),            0                 },
-                { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
-                { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,   json_dispatch_path,      offsetof(Machine, ssh_private_key_path), 0                 },
+                { "name",              SD_JSON_VARIANT_STRING,   machine_name,             offsetof(Machine, name),                 SD_JSON_MANDATORY },
+                { "id",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
+                { "service",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
+                { "class",             SD_JSON_VARIANT_STRING,   dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
+                { "leader",            SD_JSON_VARIANT_UNSIGNED, machine_leader,           offsetof(Machine, leader),               0                 },
+                { "rootDirectory",     SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
+                { "ifIndices",         SD_JSON_VARIANT_ARRAY,    machine_ifindices,        0,                                       0                 },
+                { "vSockCid",          SD_JSON_VARIANT_UNSIGNED, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
+                { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
+                { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
+                { "allocateUnit",      SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -171,11 +172,13 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
         if (r < 0)
                 return r;
 
-        r = cg_pidref_get_unit(&machine->leader, &machine->unit);
-        if (r < 0)
-                return r;
+        if (!machine->allocate_unit) {
+                r = cg_pidref_get_unit(&machine->leader, &machine->unit);
+                if (r < 0)
+                        return r;
+        }
 
-        r = machine_start(machine, NULL, NULL);
+        r = machine_start(machine, /* properties= */ NULL, /* error= */ NULL);
         if (r < 0)
                 return r;
 
