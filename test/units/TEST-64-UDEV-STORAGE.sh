@@ -717,6 +717,11 @@ testcase_btrfs_basic() {
         /dev/disk/by-id/scsi-0systemd_foobar_deadbeefbtrfs{0..3}
     )
 
+    if ! modinfo btrfs; then
+        echo "This test requires the btrfs kernel module but it is not installed, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     ls -l "${devices[@]}"
 
     echo "Single device: default settings"
