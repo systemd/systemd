@@ -288,22 +288,14 @@ static int method_create_or_register_machine(
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
-                        return r;
-
-                assert_cc(sizeof(uint32_t) == sizeof(pid_t));
-
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
+        } else {
+                r = pidref_set_pid(&pidref, leader);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
         }
-
-        r = pidref_set_pid(&pidref, leader);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", pidref.pid);
 
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
