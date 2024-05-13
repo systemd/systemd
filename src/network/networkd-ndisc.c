@@ -1081,25 +1081,26 @@ static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_rou
         if (t > 2 * USEC_PER_HOUR)
                 return 0;
 
+        if (address_get(link, address, &existing) < 0 || existing->source == NETWORK_CONFIG_SOURCE_NDISC)
+                return 0;
+
+        if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
+                return 0;
+
+        /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information option
+         *    with regards to the valid lifetime, unless the Router Advertisement from which this option was
+         *    obtained has been authenticated (e.g., via Secure Neighbor Discovery [RFC3971]). If the Router
+         *    Advertisement was authenticated, the valid lifetime of the corresponding address should be set
+         *    to the Valid Lifetime in the received option.
+         *
+         * Currently, authentication is not supported. So check the lifetime of the existing address. */
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &t);
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, &existing) >= 0 && existing->source == NETWORK_CONFIG_SOURCE_NDISC) {
-                if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
-                        return 0;
-
-                /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information
-                 *    option with regards to the valid lifetime, unless the Router Advertisement from which
-                 *    this option was obtained has been authenticated (e.g., via Secure Neighbor Discovery
-                 *    [RFC3971]). If the Router Advertisement was authenticated, the valid lifetime of the
-                 *    corresponding address should be set to the Valid Lifetime in the received option.
-                 *
-                 * Currently, authentication is not supported. So check the lifetime of the existing address. */
-                if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
-                        address->lifetime_valid_usec = existing->lifetime_valid_usec;
-                        return 0;
-                }
+        if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
+                address->lifetime_valid_usec = existing->lifetime_valid_usec;
+                return 0;
         }
 
         /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
