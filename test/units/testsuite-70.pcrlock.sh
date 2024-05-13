@@ -74,10 +74,12 @@ if [[ -n "$SD_STUB" ]]; then
     "$SD_PCRLOCK" lock-uki <"$SD_STUB"
 fi
 
-PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
-# Repeat immediately (this call will have to reuse the nvindex, rather than create it)
-"$SD_PCRLOCK" make-policy --pcr="$PCRS"
-"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+if "$SD_PCRLOCK" is-supported; then
+	PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
+	# Repeat immediately (this call will have to reuse the nvindex, rather than create it)
+	"$SD_PCRLOCK" make-policy --pcr="$PCRS"
+	"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+fi
 
 img="/tmp/pcrlock.img"
 truncate -s 20M "$img"
