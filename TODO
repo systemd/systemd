@@ -135,7 +135,7 @@ Features:
   links, or loop-util.c for tracking backing files, and other places.
 
 * cryptenroll/cryptsetup/homed: add unlock mechanism that combines tpm2 and
-  fido2, as well as tpm2 + ssh-agent, insipred by ChromeOS' logic: encrypt the
+  fido2, as well as tpm2 + ssh-agent, inspired by ChromeOS' logic: encrypt the
   volume key with the TPM, with a policy that insists that a nonce is signed by
   the fido2 device's key or ssh-agent key. Thus, add unlock/login time the TPM
   generates a nonce, which is sent as a challenge to the fido2/ssh-agent, which
