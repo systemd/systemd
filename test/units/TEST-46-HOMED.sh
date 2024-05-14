@@ -35,6 +35,8 @@ wait_for_state() {
 
 FSTYPE="$(stat --file-system --format "%T" /)"
 
+systemctl start systemd-homed.service systemd-userdbd.socket
+
 systemd-analyze log-level debug
 systemctl service-log-level systemd-homed debug
 
