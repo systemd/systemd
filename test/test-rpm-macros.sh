@@ -131,13 +131,17 @@ done
 # - *_create_package macros do work correctly
 # - shell syntax is correct (https://github.com/systemd/systemd/commit/93406fd37)
 # - RPM macros, loaded from macros.in, are actually expanded
+
+# if a build directory is specified, add it to pkgconfig search path
+pkg_config_path="${BUILD_DIR:?}/src/core/"
+
 echo "=== Test %*_create_package macros ==="
 for i in sysusers tmpfiles; do
     echo "== Macro: ${i}_create_package =="
 
     PKG_DATA_FILE="$(mktemp "$WORK_DIR/pkg-data-XXX")"
     EXP_OUT="$(mktemp "$WORK_DIR/exp-out-XXX.log")"
-    CONF_DIR="$(pkg-config --variable="${i}dir" systemd)"
+    CONF_DIR="$(PKG_CONFIG_PATH=$pkg_config_path  pkg-config --variable="${i}dir" systemd)"
     EXTRA_ARGS=()
 
     if [[ "$i" == tmpfiles ]]; then
