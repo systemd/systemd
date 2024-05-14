@@ -880,19 +880,22 @@ static int insert_boot_entry_addon(
                 char *location,
                 char *cmdline) {
 
+        assert(addons);
+
         if (!GREEDY_REALLOC(addons->items, addons->n_items + 1))
                 return log_oom();
 
-        addons->items[addons->n_items] = (BootEntryAddon) {
+        addons->items[addons->n_items++] = (BootEntryAddon) {
                 .location = location,
                 .cmdline = cmdline,
         };
-        addons->n_items++;
 
         return 0;
 }
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
+        assert(addons);
+
         FOREACH_ARRAY(addon, addons->items, addons->n_items) {
                 free(addon->cmdline);
                 free(addon->location);
@@ -1542,7 +1545,11 @@ static int json_addon(
 
         int r;
 
-        r = json_variant_append_arrayb(array,
+        assert(addon);
+        assert(addon_str);
+
+        r = json_variant_append_arrayb(
+                        array,
                         JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR(addon_str, JSON_BUILD_STRING(addon->location)),
                                 JSON_BUILD_PAIR("options", JSON_BUILD_STRING(addon->cmdline))));
