@@ -113,6 +113,9 @@ elif [ -f /run/testsuite82.touch ]; then
     cat /run/testsuite82.signal
     test "$(jq -r '.payload.data[1].type.data' </run/testsuite82.signal)" = "soft-reboot"
 
+    # Check that the system credentials survived the soft reboot.
+    test "$(systemd-creds cat --system kernelcmdlinecred)" = "uff"
+
     # Upload another entry
     T="/dev/shm/fdstore.$RANDOM"
     echo "miaumiau" >"$T"
