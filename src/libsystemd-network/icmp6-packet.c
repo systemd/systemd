@@ -88,6 +88,11 @@ static int icmp6_packet_verify(ICMP6Packet *p) {
         if (hdr->icmp6_code != 0)
                 return -EBADMSG;
 
+        /* Drop any overly large packets early. We are not interested in jumbograms,
+         * which could cause excessive processing. */
+        if (p->raw_size > ICMP6_MAX_NORMAL_PAYLOAD_SIZE)
+                return -EMSGSIZE;
+
         return 0;
 }
 
