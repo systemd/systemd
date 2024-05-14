@@ -290,6 +290,8 @@ integration_test_template = {
                 'after' : '',
         },
         'cmdline' : [],
+        'credentials' : [],
+        'qemu-args' : [],
 }
 testdata_subdirs = [
         'auxv',
@@ -408,6 +410,14 @@ foreach integration_test : integration_tests
                 integration_test_args += [
                         '--kernel-command-line-extra=@0@'.format(' '.join(integration_test['cmdline']))
                 ]
+        endif
+
+        foreach credential : integration_test['credentials']
+                integration_test_args += ['--credential', credential]
+        endforeach
+
+        if integration_test['qemu-args'].length() > 0
+                integration_test_args += ['--qemu-args=@0@'.format(' '.join(integration_test['qemu-args']))]
         endif
 
         integration_test_args += integration_test['mkosi-args']
