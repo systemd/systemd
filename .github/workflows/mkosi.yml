@@ -61,6 +61,8 @@ jobs:
           - distro: ubuntu
             release: noble
           - distro: fedora
+            release: "40"
+          - distro: fedora
             release: rawhide
           - distro: opensuse
             release: tumbleweed
