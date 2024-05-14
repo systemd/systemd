@@ -463,10 +463,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
-        } else if (mount_is_credentials(m))
-                after = before = NULL;
-
-        else if (mount_is_network(p)) {
+        } else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
 
@@ -651,6 +648,11 @@ static int mount_add_extras(Mount *m) {
                 r = unit_set_description(u, m->where);
                 if (r < 0)
                         return r;
+        }
+
+        if (mount_is_credentials(m)) {
+                u->ignore_on_isolate = true;
+                u->default_dependencies = false;
         }
 
         r = unit_patch_contexts(u);
