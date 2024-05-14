@@ -10,6 +10,7 @@ TEST_SKIP_SHUTDOWN=yes
 IMAGE_NAME="softreboot"
 TEST_NO_NSPAWN=1
 TEST_INSTALL_VERITY_MINIMAL=1
+KERNEL_APPEND="${KERNEL_APPEND:-} systemd.set_credential=kernelcmdlinecred:uff"
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
