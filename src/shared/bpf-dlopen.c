@@ -24,6 +24,7 @@ DLSYM_FUNCTION(bpf_link__open);
 DLSYM_FUNCTION(bpf_link__pin);
 DLSYM_FUNCTION(bpf_map__fd);
 DLSYM_FUNCTION(bpf_map__name);
+DLSYM_FUNCTION(bpf_map__reuse_fd);
 DLSYM_FUNCTION(bpf_map__set_inner_map_fd);
 DLSYM_FUNCTION(bpf_map__set_max_entries);
 DLSYM_FUNCTION(bpf_map__set_pin_path);
@@ -41,6 +42,7 @@ DLSYM_FUNCTION(bpf_object__pin_maps);
 DLSYM_FUNCTION(bpf_program__attach);
 DLSYM_FUNCTION(bpf_program__attach_cgroup);
 DLSYM_FUNCTION(bpf_program__attach_lsm);
+DLSYM_FUNCTION(bpf_program__fd);
 DLSYM_FUNCTION(bpf_program__name);
 DLSYM_FUNCTION(libbpf_get_error);
 DLSYM_FUNCTION(libbpf_set_print);
@@ -139,6 +141,7 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(bpf_link__pin),
                         DLSYM_ARG(bpf_map__fd),
                         DLSYM_ARG(bpf_map__name),
+                        DLSYM_ARG(bpf_map__reuse_fd),
                         DLSYM_ARG(bpf_map__set_inner_map_fd),
                         DLSYM_ARG(bpf_map__set_max_entries),
                         DLSYM_ARG(bpf_map__set_pin_path),
@@ -163,6 +166,7 @@ int dlopen_bpf(void) {
                         DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
+                        DLSYM_ARG(bpf_program__fd),
                         DLSYM_ARG(bpf_program__name),
                         DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),
