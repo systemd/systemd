@@ -12,7 +12,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-05-14 17:01+0100\n"
 "PO-Revision-Date: 2024-05-07 17:36+0000\n"
 "Last-Translator: Jarne Förster <fedora@mymailclient.de>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
@@ -172,7 +172,7 @@ msgstr ""
 "benötigte Speichermedium oder Dateisystem ein."
 
 #: src/home/pam_systemd_home.c:298
-#, c-format, fuzzy
+#, fuzzy, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Zu häufige Loginversuche für %s. Bitte später erneut probieren."
 
@@ -240,7 +240,7 @@ msgid "Please confirm presence on security token of user %s."
 msgstr "Bitte Präsenz auf Sicherheitstoken für %s bestätigen."
 
 #: src/home/pam_systemd_home.c:420
-#, c-format, fuzzy
+#, fuzzy, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Bitte Benutzer auf Sicherheitstoken für %s verifizieren."
 
@@ -291,41 +291,41 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Zu viele erfolglose Anmeldeversuche für %s, lehne ab."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Benutzerdaten sind blockiert, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Benutzerdaten sind noch nicht gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Benutzerdaten nicht mehr gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Benutzerdaten nicht gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Zu viele Anmeldungen, bitte erneut in %s probieren."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Passwortänderung erforderlich."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Passwort abgelaufen, Änderung erforderlich."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Passwort ist abgelaufen, aber ändern nicht möglich, verweigere Anmeldung."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "Passwort wird demnächst ablaufen, bitte ändern."
 

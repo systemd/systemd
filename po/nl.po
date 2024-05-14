@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-05-14 17:01+0100\n"
 "PO-Revision-Date: 2023-08-21 17:21+0000\n"
 "Last-Translator: Maarten <maarten@posteo.de>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
@@ -296,50 +296,50 @@ msgstr ""
 "Er zijn te veel aanmeldpogingen voor gebruiker %s niet succesvol geweest. "
 "Verdere aanmelding voor die gebruiker wordt geweigerd."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker wordt geblokkeerd, waardoor zijn toegang tot "
 "het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is nog niet geldig, waardoor zijn toegang "
 "tot het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is niet meer geldig, waardoor zijn toegang "
 "tot het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is niet geldig, waardoor zijn toegang tot "
 "het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Er zijn te veel aanmeldingen. Probeer het nog eens over %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Wijziging van uw wachtwoord is vereist."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Het wachtwoord is verlopen. Wijziging van het wachtwoord is vereist."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Het wachtwoord is verlopen maar kan niet worden gewijzigd. Daarom wordt de "
 "aanmelding geweigerd."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr ""
 "Het wachtwoord zal spoedig verlopen. Gelieve het wachtwoord te wijzigen."
