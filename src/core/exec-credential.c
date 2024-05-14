@@ -504,8 +504,7 @@ static int load_credential(
                  *
                  * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
                  * we are fine, too. */
-                log_full_errno(hashmap_contains(context->set_credentials, id) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Couldn't read inherited credential '%s', skipping: %m", path);
+                log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", path);
                 return 0;
         }
         if (r < 0)
