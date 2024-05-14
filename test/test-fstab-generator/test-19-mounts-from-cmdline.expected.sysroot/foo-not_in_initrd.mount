@@ -6,6 +6,7 @@ SourcePath=/proc/cmdline
 Before=local-fs.target
 Requires=systemd-fsck@dev-sdx7.service
 After=systemd-fsck@dev-sdx7.service
+ConditionPathExists=!/run/initramfs/fsck-foo-not_in_initrd
 After=blockdev@dev-sdx7.target
 
 [Mount]
