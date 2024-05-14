@@ -3,8 +3,8 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
-                'mkosi-args' : integration_test_template['mkosi-args'] + [
-                        '--credential=@0@'.format(meson.current_source_dir() / 'systemd.unit-dropin.init.scope')
+                'credentials' : integration_test_template['credentials'] + [
+                        files('systemd.unit-dropin.init.scope'),
                 ]
         },
 ]
