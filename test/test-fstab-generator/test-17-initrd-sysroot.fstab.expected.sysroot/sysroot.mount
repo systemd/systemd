@@ -6,6 +6,7 @@ SourcePath=/etc/fstab
 Before=local-fs.target
 Requires=systemd-fsck@dev-sdx1.service
 After=systemd-fsck@dev-sdx1.service
+ConditionPathExists=!/run/initramfs/fsck-sysroot
 After=blockdev@dev-sdx1.target
 
 [Mount]
