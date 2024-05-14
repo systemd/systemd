@@ -1986,6 +1986,9 @@ acpi:DDV*:
 acpi:DEC*:
  ID_VENDOR_FROM_DATABASE=Digital Equipment Corporation
 
+acpi:DEF*:
+ ID_VENDOR_FROM_DATABASE=DEIF A/S
+
 acpi:DEI*:
  ID_VENDOR_FROM_DATABASE=Deico Electronics
 
@@ -6101,6 +6104,9 @@ acpi:ROS*:
 
 acpi:RPI*:
  ID_VENDOR_FROM_DATABASE=RoomPro Technologies
+
+acpi:RPL*:
+ ID_VENDOR_FROM_DATABASE=Raspberry PI
 
 acpi:RPT*:
  ID_VENDOR_FROM_DATABASE=R.P.T.Intergroups
