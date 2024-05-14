@@ -119,31 +119,6 @@ int exec_context_get_credential_directory(
         return get_credential_directory(params->prefix[EXEC_DIRECTORY_RUNTIME], unit, ret);
 }
 
-int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *p = NULL, *m = NULL;
-        int r;
-
-        assert(u);
-        assert(c);
-
-        if (!exec_context_has_credentials(c))
-                return 0;
-
-        /* Let's make sure the credentials directory of this service is unmounted *after* the service itself
-         * shuts down. This only matters if mount namespacing is not used for the service, and hence the
-         * credentials mount appears on the host. */
-
-        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &p);
-        if (r <= 0)
-                return r;
-
-        r = unit_name_from_path(p, ".mount", &m);
-        if (r < 0)
-                return r;
-
-        return unit_add_dependency_by_name(u, UNIT_AFTER, m, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
-}
-
 int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
         _cleanup_free_ char *p = NULL;
         int r;
