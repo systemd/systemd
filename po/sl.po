@@ -1398,15 +1398,14 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za zamrznitev ali odmrzovanje postopkov "
 "enote »$(enota)«."
 
-#: src/home/org.freedesktop.home1.policy:73
 #, fuzzy
-msgid "Inhibit automatic lock of a home area"
-msgstr "Zaviranje samodejnega zaklepanja domačega območja"
+#~ msgid "Inhibit automatic lock of a home area"
+#~ msgstr "Zaviranje samodejnega zaklepanja domačega območja"
 
-#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Preverjanje pristnosti je potrebno za preprečevanje samodejnega zaklepanja "
-"uporabnikovega domačega območja."
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr ""
+#~ "Preverjanje pristnosti je potrebno za preprečevanje samodejnega "
+#~ "zaklepanja uporabnikovega domačega območja."
