@@ -95,7 +95,7 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **ret)
         return cg_enumerate_items(controller, path, ret, "cgroup.procs");
 }
 
-int cg_read_pid(FILE *f, pid_t *ret) {
+int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags) {
         unsigned long ul;
 
         /* Note that the cgroup.procs might contain duplicates! See cgroups.txt for details. */
@@ -103,27 +103,33 @@ int cg_read_pid(FILE *f, pid_t *ret) {
         assert(f);
         assert(ret);
 
-        errno = 0;
-        if (fscanf(f, "%lu", &ul) != 1) {
+        for (;;) {
+                errno = 0;
+                if (fscanf(f, "%lu", &ul) != 1) {
 
-                if (feof(f)) {
-                        *ret = 0;
-                        return 0;
+                        if (feof(f)) {
+                                *ret = 0;
+                                return 0;
+                        }
+
+                        return errno_or_else(EIO);
                 }
 
-                return errno_or_else(EIO);
+                if (ul > PID_T_MAX)
+                        return -EIO;
+
+                /* In some circumstances (e.g. WSL), cgroups might contain unmappable PIDs from other
+                 * contexts. These show up as zeros, and depending on the caller, can either be plain
+                 * skipped over, or returned as-is. */
+                if (ul == 0 && !FLAGS_SET(flags, CGROUP_DONT_SKIP_UNMAPPED))
+                        continue;
+
+                *ret = (pid_t) ul;
+                return 1;
         }
-
-        if (ul <= 0)
-                return -EIO;
-        if (ul > PID_T_MAX)
-                return -EIO;
-
-        *ret = (pid_t) ul;
-        return 1;
 }
 
-int cg_read_pidref(FILE *f, PidRef *ret) {
+int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
         int r;
 
         assert(f);
@@ -132,13 +138,16 @@ int cg_read_pidref(FILE *f, PidRef *ret) {
         for (;;) {
                 pid_t pid;
 
-                r = cg_read_pid(f, &pid);
+                r = cg_read_pid(f, &pid, flags);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         *ret = PIDREF_NULL;
                         return 0;
                 }
+
+                if (pid == 0)
+                        return -EREMOTE;
 
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
@@ -343,7 +352,7 @@ static int cg_kill_items(
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                        r = cg_read_pidref(f, &pidref);
+                        r = cg_read_pidref(f, &pidref, /* flags = */ 0);
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                         if (r == 0)
@@ -938,7 +947,7 @@ int cg_is_empty(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        r = cg_read_pid(f, &pid);
+        r = cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED);
         if (r < 0)
                 return r;
 

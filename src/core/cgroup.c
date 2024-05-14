@@ -3627,7 +3627,9 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
         for (;;) {
                 _cleanup_(pidref_done) PidRef npidref = PIDREF_NULL;
 
-                r = cg_read_pidref(f, &npidref);
+                /* cg_read_pidref() will return an error on unmapped PIDs.
+                 * We can't reasonably deal with units that contain those. */
+                r = cg_read_pidref(f, &npidref, CGROUP_DONT_SKIP_UNMAPPED);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -3669,7 +3671,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
 
-                        r = cg_read_pidref(f, &pid);
+                        r = cg_read_pidref(f, &pid, /* flags = */ 0);
                         if (r == 0)
                                 break;
                         if (r < 0) {
