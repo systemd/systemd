@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "icmp6-util-unix.h"
+#include "icmp6-test-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"

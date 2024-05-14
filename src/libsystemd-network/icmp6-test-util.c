@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "icmp6-util-unix.h"
+#include "icmp6-test-util.h"
 
 int test_fd[2] = EBADF_PAIR;
 
