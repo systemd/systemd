@@ -137,7 +137,7 @@ for i in sysusers tmpfiles; do
 
     PKG_DATA_FILE="$(mktemp "$WORK_DIR/pkg-data-XXX")"
     EXP_OUT="$(mktemp "$WORK_DIR/exp-out-XXX.log")"
-    CONF_DIR="$(pkg-config --variable="${i}dir" systemd)"
+    CONF_DIR="$(PKG_CONFIG_PATH="${BUILD_DIR}/src/core" pkg-config --variable="${i}dir" systemd)"
     EXTRA_ARGS=()
 
     if [[ "$i" == tmpfiles ]]; then
