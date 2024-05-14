@@ -264,7 +264,7 @@ static int process_dmesg_files(PStoreList *list) {
 
                         if (safe_atollu_full(p, 10, &record_id) < 0)
                                 continue;
-                        if (last_record_id - 1 != record_id)
+                        if (record_id - 1 != last_record_id)
                                 /* A discontinuity in the number has been detected, this current record id
                                  * will become the directory name for all pieces of the dmesg in this
                                  * series. */
