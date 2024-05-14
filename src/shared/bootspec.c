@@ -787,7 +787,7 @@ static int find_cmdline_section(
 
         /* Quick test to check if there is actual content in the addon cmdline */
         t = delete_chars(word, NULL);
-        if (t[0] == 0)
+        if (isempty(t))
                 *ret_cmdline = NULL;
         else
                 *ret_cmdline = TAKE_PTR(cmdline);
