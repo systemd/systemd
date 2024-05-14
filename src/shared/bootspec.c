@@ -79,10 +79,7 @@ static int mangle_path(
         assert(ret);
 
         /* Spec leaves open if prefixed with "/" or not, let's normalize that */
-        if (path_is_absolute(p))
-                c = strdup(p);
-        else
-                c = strjoin("/", p);
+        c = path_make_absolute(p, "/");
         if (!c)
                 return -ENOMEM;
 
