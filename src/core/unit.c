@@ -1337,10 +1337,6 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        r = unit_add_default_credential_dependencies(u, c);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
