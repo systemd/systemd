@@ -75,7 +75,7 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
 
 /* The 'priority' must be one of 'required', 'recommended' or 'suggested' as per specification, use the
  * macro defined above to specify it.
- * Multiple sonames can be passed and they will be automatically contructed into a json array (but note that
+ * Multiple sonames can be passed and they will be automatically constructed into a json array (but note that
  * due to preprocessor language limitations if more than the limit defined above is used, a new
  * _SONAME_ARRAY<X+1> will need to be added). */
 #define ELF_NOTE_DLOPEN(feature, description, priority, ...) \
