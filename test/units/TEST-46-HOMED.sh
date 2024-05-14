@@ -44,6 +44,9 @@ systemctl service-log-level systemd-homed debug
 mkdir -p /home
 mount -t tmpfs tmpfs /home -o size=290M
 
+TMP_SKEL=$(mktemp -d)
+echo hogehoge >"$TMP_SKEL"/hoge
+
 # we enable --luks-discard= since we run our tests in a tight VM, hence don't
 # needlessly pressure for storage. We also set the cheapest KDF, since we don't
 # want to waste CI CPU cycles on it. We also effectively disable rate-limiting on
@@ -55,7 +58,8 @@ NEWPASSWORD=xEhErW0ndafV4s homectl create test-user \
            --luks-pbkdf-type=pbkdf2 \
            --luks-pbkdf-time-cost=1ms \
            --rate-limit-interval=1s \
-           --rate-limit-burst=1000
+           --rate-limit-burst=1000 \
+           --skel="$TMP_SKEL"
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
@@ -211,6 +215,8 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
+[[ $(PASSWORD=xEhErW0ndafV4s homectl with test-user -- stat -c %U /home/test-user/hoge) == "test-user" ]]
+[[ $(PASSWORD=xEhErW0ndafV4s homectl with test-user -- cat /home/test-user/hoge) == "$(cat "$TMP_SKEL"/hoge)" ]]
 
 # Regression tests
 wait_for_state test-user inactive
