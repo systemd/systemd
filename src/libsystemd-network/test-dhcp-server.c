@@ -62,7 +62,7 @@ static int test_basic(bool bind_to_interface) {
         test_pool(&address_lo, 1, 0);
 
         r = sd_dhcp_server_start(server);
-        if (r == -EPERM)
+        if (r == -EPERM || r == -EAFNOSUPPORT)
                 return r;
         assert_se(r >= 0);
 
