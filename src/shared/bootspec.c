@@ -421,8 +421,8 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_default);
         free(config->entry_selected);
 
-        for (size_t i = 0; i < config->n_entries; i++)
-                boot_entry_free(config->entries + i);
+        FOREACH_ARRAY(i, config->entries, config->n_entries)
+                boot_entry_free(i);
         free(config->entries);
         free(config->global_addons.items);
 
@@ -586,8 +586,8 @@ static int boot_entries_find_type1(
         if (r < 0)
                 return log_error_errno(r, "Failed to read directory '%s': %m", full);
 
-        for (size_t i = 0; i < dentries->n_entries; i++) {
-                const struct dirent *de = dentries->entries[i];
+        FOREACH_ARRAY(i, dentries->entries, dentries->n_entries) {
+                const struct dirent *de = *i;
                 _cleanup_fclose_ FILE *f = NULL;
 
                 if (!dirent_is_file(de))
@@ -610,7 +610,7 @@ static int boot_entries_find_type1(
 
                 r = boot_config_load_type1(config, f, root, full, de->d_name);
                 if (r == -ENOMEM) /* ignore all other errors */
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -1781,7 +1781,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 }
 
                 return json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-        } else {
+        } else
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
@@ -1795,7 +1795,6 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         if (n+1 < config->n_entries)
                                 putchar('\n');
                 }
-        }
 
         return 0;
 }
