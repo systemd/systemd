@@ -113,20 +113,14 @@ int icmp6_packet_receive(int fd, ICMP6Packet **ret) {
                 return -ENOMEM;
 
         r = icmp6_receive(fd, p->raw_packet, p->raw_size, &p->sender_address, &p->timestamp);
+        if (r == -EADDRNOTAVAIL)
+                return log_debug_errno(r, "ICMPv6: Received a packet from neither link-local nor null address.");
+        if (r == -EMULTIHOP)
+                return log_debug_errno(r, "ICMPv6: Received a packet with an invalid hop limit.");
+        if (r == -EPFNOSUPPORT)
+                return log_debug_errno(r, "ICMPv6: Received a packet with an invalid source address.");
         if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        return log_debug_errno(r, "ICMPv6: Received a packet from neither link-local nor null address.");
-
-                case -EMULTIHOP:
-                        return log_debug_errno(r, "ICMPv6: Received a packet with an invalid hop limit.");
-
-                case -EPFNOSUPPORT:
-                        return log_debug_errno(r, "ICMPv6: Received a packet with an invalid source address.");
-
-                default:
-                        return log_debug_errno(r, "ICMPv6: Unexpected error while receiving a packet: %m");
-                }
+                return log_debug_errno(r, "ICMPv6: Unexpected error while receiving a packet: %m");
 
         r = icmp6_packet_verify(p);
         if (r < 0)
