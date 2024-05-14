@@ -62,7 +62,9 @@ static int test_basic(bool bind_to_interface) {
         test_pool(&address_lo, 1, 0);
 
         r = sd_dhcp_server_start(server);
-        if (r == -EPERM)
+        /* skip test if running in an environment with no full networking support, CONFIG_PACKET not
+         * compiled in kernel, nor af_packet module available. */
+        if (r == -EPERM || r == -EAFNOSUPPORT)
                 return r;
         assert_se(r >= 0);
 
