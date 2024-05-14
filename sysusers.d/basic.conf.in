@@ -4,38 +4,43 @@
 #  under the terms of the GNU Lesser General Public License as published by
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
+{% macro group(name, value, comment='') %}
+  {% if name not in SUPPRESS_SYSUSERS %}
+    {% if comment %}
+      {{- '# ' + comment }}
+    {% endif %}
+    {{- 'g' }} {{name}}   {{value}}    -           -
+  {%- endif %}
+{%- endmacro %}
 
+{% if 'root' not in SUPPRESS_SYSUSERS %}
 # The superuser
 g root    0       -            -
 u root    0:0     "Super User" /root
+{% endif %}
 
-# The nobody user/group for NFS file systems
+{% if 'nobody' not in SUPPRESS_SYSUSERS %}
+# The nobody group/user for NFS file systems
 g {{NOBODY_GROUP_NAME}} 65534       -            -
 u {{NOBODY_USER_NAME }} 65534:65534 "Kernel Overflow User"     -
+{% endif %}
 
-# Administrator group: can *see* more than normal users
-g adm     {{ADM_GID    }}     -            -
-
-# Administrator group: can *do* more than normal users
-g wheel   {{WHEEL_GID  }}     -            -
-
-# Access to shared database of users on the system
-g utmp    {{UTMP_GID   }}     -            -
+{{group('adm',     ADM_GID,   'Administrator group: can *see* more than normal users' )}}
+{{group('wheel',   WHEEL_GID, 'Administrator group: can *do* more than normal users' )}}
+{{group('utmp',    UTMP_GID,  'Access to shared database of users on the system' )}}
+{{group('users',   USERS_GID, 'Default group for normal users' )}}
 
 # Physical and virtual hardware access groups
-g audio   {{AUDIO_GID  }}     -            -
-g cdrom   {{CDROM_GID  }}     -            -
-g dialout {{DIALOUT_GID}}     -            -
-g disk    {{DISK_GID   }}     -            -
-g input   {{INPUT_GID  }}     -            -
-g kmem    {{KMEM_GID   }}     -            -
-g kvm     {{KVM_GID    }}     -            -
-g lp      {{LP_GID     }}     -            -
-g render  {{RENDER_GID }}     -            -
-g sgx     {{SGX_GID    }}     -            -
-g tape    {{TAPE_GID   }}     -            -
-g tty     {{TTY_GID    }}     -            -
-g video   {{VIDEO_GID  }}     -            -
-
-# Default group for normal users
-g users   {{USERS_GID  }}     -            -
+{{group('audio',   AUDIO_GID  )}}
+{{group('cdrom',   CDROM_GID  )}}
+{{group('dialout', DIALOUT_GID)}}
+{{group('disk',    DISK_GID   )}}
+{{group('input',   INPUT_GID  )}}
+{{group('kmem',    KMEM_GID   )}}
+{{group('kvm',     KVM_GID    )}}
+{{group('lp',      LP_GID     )}}
+{{group('render',  RENDER_GID )}}
+{{group('sgx',     SGX_GID    )}}
+{{group('tape',    TAPE_GID   )}}
+{{group('tty',     TTY_GID    )}}
+{{group('video',   VIDEO_GID  )}}

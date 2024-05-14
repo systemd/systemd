@@ -317,6 +317,8 @@ option('systemd-resolve-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-resolve user')
 option('systemd-timesync-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-timesync user')
+option('suppress-sysusers', type : 'string',
+       description : 'list of users/groups to omit in sysusers config')
 
 option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
