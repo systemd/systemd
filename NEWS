@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 256-rc1:
+CHANGES WITH 256-rc2:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -1043,7 +1043,7 @@ CHANGES WITH 256-rc1:
         zzywysm, İ. Ensar Gülşen, Łukasz Stelmach, Štěpán Němec,
         我超厉害, 김인수
 
-        — Edinburgh, 2024-04-25
+        — Edinburgh, 2024-05-15
 
 CHANGES WITH 255:
 
