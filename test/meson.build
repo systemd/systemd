@@ -286,6 +286,8 @@ integration_test_template = {
         'configuration' : {
                 'memory-accounting' : 'no',
                 'command' : testdata_dir / 'units/%N.sh',
+                'wants' : '',
+                'after' : '',
         },
         'cmdline' : [],
 }
