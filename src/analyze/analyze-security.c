@@ -2729,7 +2729,7 @@ static int offline_security_checks(
 
                 /* When a portable image is analyzed, the profile is what provides a good chunk of
                  * the security-related settings, but they are obviously not shipped with the image.
-                 * This allows to take them in consideration. */
+                 * This allows them to be taken into consideration. */
                 if (profile) {
                         _cleanup_free_ char *unit_name = NULL, *dropin = NULL, *profile_path = NULL;
 

@@ -3186,8 +3186,8 @@ int unit_add_dependency(
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
 
-        /* Note that ordering a device unit after a unit is permitted since it allows to start its job
-         * running timeout at a specific time. */
+        /* Note that ordering a device unit after a unit is permitted since it allows its job running
+         * timeout to be started at a specific time. */
         if (FLAGS_SET(a, UNIT_ATOM_BEFORE) && other->type == UNIT_DEVICE) {
                 log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
