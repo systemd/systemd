@@ -128,10 +128,10 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < ELEMENTSOF(managed_oom_mode_properties); i++) {
+        FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                 _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
 
-                r = build_managed_oom_json_array_element(u, managed_oom_mode_properties[i], &e);
+                r = build_managed_oom_json_array_element(u, *i, &e);
                 if (r < 0)
                         return r;
 
@@ -182,16 +182,16 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
                         if (!c)
                                 continue;
 
-                        for (size_t j = 0; j < ELEMENTSOF(managed_oom_mode_properties); j++) {
+                        FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                                 _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
 
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
-                                if (!(streq(managed_oom_mode_properties[j], "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
-                                    !(streq(managed_oom_mode_properties[j], "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
+                                if (!(streq(*i, "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
+                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
                                         continue;
 
-                                r = build_managed_oom_json_array_element(u, managed_oom_mode_properties[j], &e);
+                                r = build_managed_oom_json_array_element(u, *i, &e);
                                 if (r < 0)
                                         return r;
 
@@ -368,7 +368,7 @@ static int build_group_json(const char *group_name, gid_t gid, JsonVariant **ret
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
                                        JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
-    }
+}
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
         assert(p);
