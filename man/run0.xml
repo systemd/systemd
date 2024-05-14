@@ -244,7 +244,8 @@
     <variablelist>
       <varlistentry>
         <term><varname>$TERM</varname></term>
-        <listitem><para>Copied from the <varname>$TERM</varname> of the caller. Can be overriden with <option>--setenv=</option></para>
+        <listitem><para>Copied from the <varname>$TERM</varname> of the caller. Can be overridden with
+        <option>--setenv=</option></para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
