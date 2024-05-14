@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-test_params += {
-        # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
-        'firmware' : 'uefi',
-}
+integration_tests += [
+        integration_test_template + {
+                'name' : fs.name(meson.current_source_dir()),
+                # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
+                'firmware' : 'uefi',
+        },
+]

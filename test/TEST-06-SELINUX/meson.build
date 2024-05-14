@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-test_params += {
-        'mkosi_args' : ['--kernel-command-line-extra=apparmor=0 selinux=1 enforcing=0 lsm=selinux systemd.wants=autorelabel.service systemd.wants=firstboot-autorelabel.service'],
-        # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
-        'firmware' : 'uefi',
-}
+integration_tests += [
+        integration_test_template + {
+                'name' : fs.name(meson.current_source_dir()),
+                'cmdline' : integration_test_template['cmdline'] + ['selinux=1', 'lsm=selinux'],
+                # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
+                'firmware' : 'uefi',
+        },
+]
+
+testdata_subdirs += [meson.current_source_dir() / 'TEST-06-SELINUX.units']
