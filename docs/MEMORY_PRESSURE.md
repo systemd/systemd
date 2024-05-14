@@ -169,7 +169,7 @@ pressure handling:
   setting controls whether to enable the memory pressure protocol for the
   service in question.
 
-* The `MemoryPressureThresholdSec=` setting allows to configure the threshold
+* The `MemoryPressureThresholdSec=` setting allows configuring the threshold
   when to signal memory pressure to the services. It takes a time value
   (usually in the millisecond range) that defines a threshold per 1s time
   window: if memory allocation latencies grow beyond this threshold

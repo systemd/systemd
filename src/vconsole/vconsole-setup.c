@@ -390,13 +390,11 @@ static int font_load_and_wait(const char *vc, Context *c) {
 }
 
 /*
- * A newly allocated VT uses the font from the source VT. Here
- * we update all possibly already allocated VTs with the configured
- * font. It also allows to restart systemd-vconsole-setup.service,
- * to apply a new font to all VTs.
+ * A newly allocated VT uses the font from the source VT. Here we update all possibly already allocated VTs
+ * with the configured font. It also allows systemd-vconsole-setup.service to be restarted to apply a new
+ * font to all VTs.
  *
- * We also setup per-console utf8 related stuff: kbdmode, term
- * processing, stty iutf8.
+ * We also setup per-console utf8 related stuff: kbdmode, term processing, stty iutf8.
  */
 static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct console_font_op cfo = {
