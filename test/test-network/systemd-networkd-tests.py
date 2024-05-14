@@ -7805,5 +7805,11 @@ if __name__ == '__main__':
     if enable_debug:
         wait_online_env.update({'SYSTEMD_LOG_LEVEL': 'debug'})
 
-    sys.argv[1:] = unknown_args
-    unittest.main(verbosity=3)
+    unittest.main(
+        verbosity=3,
+        argv=[
+            sys.argv[0],
+            *unknown_args,
+            *(["-k", match] if (match := os.getenv("TEST_MATCH_TESTCASE")) else [])
+        ],
+    )
