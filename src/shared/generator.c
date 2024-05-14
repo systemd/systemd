@@ -326,7 +326,7 @@ int generator_write_fsck_deps(
 
         } else {
                 _cleanup_free_ char *_fsck = NULL;
-                const char *fsck, *dep;
+                const char *fsck, *dep, *initramfs_check = "";
 
                 if (in_initrd() && path_equal(where, "/sysroot")) {
                         r = write_fsck_sysroot_service(SPECIAL_FSCK_ROOT_SERVICE, dir, what, SPECIAL_INITRD_ROOT_DEVICE_TARGET);
@@ -355,13 +355,32 @@ int generator_write_fsck_deps(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create fsck service name: %m");
 
+                        /* initramfs-tools (used in Debian/Ubuntu and derivatives) already runs fsck in the
+                         * initrd phase, and leaves a marker file. Avoid duplicated checks. */
+                        if (!in_initrd()) {
+                                _cleanup_free_ char *where_escaped = NULL;
+
+                                r = unit_name_path_escape(where, &where_escaped);
+                                if (r < 0)
+                                        log_warning_errno(
+                                                        r,
+                                                        "Failed to escape path '%s' for initramfs fsck check, ignoring: %m",
+                                                        where);
+                                else
+                                        initramfs_check = strjoina(
+                                                        "ConditionPathExists=!/run/initramfs/fsck-",
+                                                        where_escaped,
+                                                        "\n");
+                        }
+
                         fsck = _fsck;
                 }
 
                 fprintf(f,
                         "%1$s=%2$s\n"
-                        "After=%2$s\n",
-                        dep, fsck);
+                        "After=%2$s\n"
+                        "%3$s",
+                        dep, fsck, initramfs_check);
         }
 
         return 0;
