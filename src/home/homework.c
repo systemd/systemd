@@ -1059,12 +1059,13 @@ static int home_deactivate(UserRecord *h, bool force) {
         return 0;
 }
 
-static int copy_skel(int root_fd, const char *skel) {
+static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
         int r;
 
+        assert(h);
         assert(root_fd >= 0);
 
-        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", UID_INVALID, GID_INVALID, COPY_MERGE|COPY_REPLACE, NULL, NULL);
+        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, h->gid, COPY_MERGE|COPY_REPLACE, NULL, NULL);
         if (r == -ENOENT) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;
@@ -1092,7 +1093,7 @@ int home_populate(UserRecord *h, int dir_fd) {
         assert(h);
         assert(dir_fd >= 0);
 
-        r = copy_skel(dir_fd, user_record_skeleton_directory(h));
+        r = copy_skel(h, dir_fd, user_record_skeleton_directory(h));
         if (r < 0)
                 return r;
 
