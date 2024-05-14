@@ -44,6 +44,9 @@ if [ -f /run/testsuite82.touch3 ]; then
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
+    [[ ! -e /run/credentials/testsuite-82-nosurvive.service ]]
+    assert_eq "$(cat /run/credentials/testsuite-82-survive-argv.service/preserve)" "yay"
+
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
@@ -195,7 +198,7 @@ EOF
     # IgnoreOnIsolate=yes so that they aren't stopped via the "testsuite.target" isolation we do on next boot,
     # and will be killed by the final sigterm/sigkill spree.
     systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
-    systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
+    systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes -p SetCredential=gone:hoge --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Ensure that the unit doesn't get deactivated by dependencies on the source file. Given it's a verity
     # image that is already open, even if the tmpfs with the image goes away, the file will be pinned by the
@@ -212,6 +215,7 @@ EOF
         --property After=basic.target \
         --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
+        --property SetCredential=preserve:yay \
          "$survive_argv"
     systemd-run --service-type=exec --unit=testsuite-82-survive.service \
         --property TemporaryFileSystem="/run /tmp /var" \
