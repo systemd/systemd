@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-05-14 17:01+0100\n"
 "PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
@@ -266,40 +266,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "მომხმარებლისთვის %s შესვლის მეტისმეტად ბევრი მცდელობა. უარყოფა."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "მომხმარებლის ჩანაწერი დაბლოკილია. წვდომა აკრძალულია."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "მომხმარებლის წვდომა ჯერ არასწორია. წვდომა აკრძალულია."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "მომხმარებლის ჩანაწერო უკვე სწორი აღარაა. წვდომა აკრძალულია."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "მომხმარებლის ჩანაწერი არასწორია. წვდომის აკრძალვა."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "მეტისმეტად ხშირი შესვლა. სცადეთ თავიდან %s-ის გასვლის შემდეგ."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "პაროლის შეცვლა აუცილებელია."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "პაროლი ვადაგასულია, გთხოვთ, შეცვალეთ."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr "პაროლი ვადაგასულია, მაგრამ მას ვერ შეცვლით. შესვლა აკრძალულია."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "პაროლს ვადა მალე გაუვა. გთხოვთ, შეცვალეთ."
 
