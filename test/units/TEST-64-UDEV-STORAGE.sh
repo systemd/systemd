@@ -250,7 +250,7 @@ testcase_virtio_scsi_identically_named_partitions() {
     fi
 
     for ((i = 0; i < num_disk; i++)); do
-        sfdisk "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drivenamedpart$i" <<EOF
+        sfdisk "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive$i" <<EOF
 label: gpt
 
 $(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done)
