@@ -289,7 +289,6 @@ static int boot_entry_load_type1(
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF);
-        unsigned line = 1;
         char *c;
         int r;
 
@@ -324,18 +323,16 @@ static int boot_entry_load_type1(
         if (!tmp.root)
                 return log_oom();
 
-        for (;;) {
+        for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
 
                 r = read_stripped_line(f, LONG_LINE_MAX, &buf);
-                if (r == 0)
-                        break;
                 if (r == -ENOBUFS)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Line too long.");
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while reading: %m");
-
-                line++;
+                if (r == 0)
+                        break;
 
                 if (IN_SET(buf[0], '#', '\0'))
                         continue;
@@ -436,25 +433,22 @@ void boot_config_free(BootConfig *config) {
 }
 
 int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
-        unsigned line = 1;
         int r;
 
         assert(config);
         assert(file);
         assert(path);
 
-        for (;;) {
+        for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
 
                 r = read_stripped_line(file, LONG_LINE_MAX, &buf);
-                if (r == 0)
-                        break;
                 if (r == -ENOBUFS)
                         return log_syntax(NULL, LOG_ERR, path, line, r, "Line too long.");
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, line, r, "Error while reading: %m");
-
-                line++;
+                if (r == 0)
+                        break;
 
                 if (IN_SET(buf[0], '#', '\0'))
                         continue;
