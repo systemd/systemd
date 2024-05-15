@@ -37,6 +37,7 @@ foreach testcase : [
                         'cmdline' : integration_test_template['cmdline'] + [
                                 'systemd.setenv=TEST_MATCH_TESTCASE=@0@'.format(testcase)
                         ],
+                        'priority' : -10,
                 },
         ]
 endforeach
