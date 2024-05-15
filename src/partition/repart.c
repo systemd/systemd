@@ -20,6 +20,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "creds-util.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -6858,6 +6859,22 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
+static int parse_credentials(void) {
+        _cleanup_(erase_and_freep) char *data = NULL;
+        size_t n = 0;
+        int r;
+
+        r = read_credential("repart.key-file", (void**) &data, &n);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential repart.key-file, ignoring: %m");
+        else {
+                arg_key = TAKE_PTR(data);
+                arg_key_size = n;
+        }
+
+        return 0;
+}
+
 static int parse_partition_types(const char *p, GptPartitionType **partitions, size_t *n_partitions) {
         int r;
 
@@ -8038,6 +8055,8 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        (void) parse_credentials();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
