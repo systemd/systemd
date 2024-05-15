@@ -9,7 +9,9 @@ set -o pipefail
 
 # We set up an encrypted /var partition which should get mounted automatically
 # on boot
-mountpoint /var
+if [[ -z "$SKIP_VAR_MOUNTPOINT_CHECK" ]]; then
+    mountpoint /var
+fi
 
 systemctl --state=failed --no-legend --no-pager | tee /failed
 if [[ -s /failed ]]; then

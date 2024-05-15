@@ -3,6 +3,8 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
-                'enabled' : false,
+                'cmdline' : integration_test_template['cmdline'] + [
+                        'systemd.setenv=SKIP_VAR_MOUNTPOINT_CHECK=1',
+                ]
         },
 ]
