@@ -377,8 +377,12 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
-        if (getpid_cached() == 1)
-                log_set_always_reopen_console(true);
+        if (getpid_cached() != 1) {
+                log_error("Not executed by init (PID 1). Refusing to operate.");
+                return EXIT_FAILURE;
+        }
+
+        log_set_always_reopen_console(true);
 
         r = parse_argv(argc, argv);
         if (r < 0)
@@ -387,11 +391,6 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
-
-        if (getpid_cached() != 1) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Not executed by init (PID 1).");
-                goto error;
-        }
 
         if (streq(arg_verb, "reboot"))
                 cmd = RB_AUTOBOOT;
@@ -667,7 +666,7 @@ int main(int argc, char *argv[]) {
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
-  error:
+error:
         log_struct_errno(LOG_EMERG, r,
                          LOG_MESSAGE("Critical error while doing system shutdown: %m"),
                          "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_ERROR_STR);
