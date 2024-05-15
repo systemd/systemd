@@ -35,3 +35,5 @@ ExecStart=systemd-repart --dry-run=no
 SuccessExitStatus=76
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77
+
+ImportCredential=repart.*
