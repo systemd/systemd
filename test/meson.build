@@ -372,6 +372,7 @@ foreach dirname : [
         'TEST-82-SOFTREBOOT',
         'TEST-83-BTRFS',
         'TEST-84-STORAGETM',
+        'TEST-85-NETWORK',
 ]
         subdir(dirname)
 endforeach
