@@ -7819,7 +7819,7 @@ static int find_root(Context *context) {
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, p);
                                 if (r != -ENODEV)
-                                        return log_error_errno(r, "Failed to determine backing device of %s: %m", p);
+                                        return log_error_errno(r, "Failed to determine backing device of %s%s: %m", strempty(arg_root), p);
                         } else
                                 return 0;
                 }
