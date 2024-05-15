@@ -79,7 +79,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (const UnitFileList *u = units; u < units + c; u++) {
+        FOREACH_ARRAY(u, units, c) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;
                 bool underline;
 
