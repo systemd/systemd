@@ -85,14 +85,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOG_LEVEL:
                         r = log_set_max_level_from_string(optarg);
                         if (r < 0)
-                                log_error_errno(r, "Failed to parse log level %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", optarg);
 
                         break;
 
                 case ARG_LOG_TARGET:
                         r = log_set_target_from_string(optarg);
                         if (r < 0)
-                                log_error_errno(r, "Failed to parse log target %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", optarg);
 
                         break;
 
@@ -101,7 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse log color setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", optarg);
                         } else
                                 log_show_color(true);
 
@@ -111,7 +111,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_location_from_string(optarg);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
                         } else
                                 log_show_location(true);
 
@@ -122,7 +122,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_time_from_string(optarg);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse log time setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", optarg);
                         } else
                                 log_show_time(true);
 
@@ -131,14 +131,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXIT_CODE:
                         r = safe_atou8(optarg, &arg_exit_code);
                         if (r < 0)
-                                log_error_errno(r, "Failed to parse exit code %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", optarg);
 
                         break;
 
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
-                                log_error_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", optarg);
 
                         break;
 
