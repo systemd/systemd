@@ -34,3 +34,5 @@ enable systemd-timesyncd.service
 
 # Skipped if selinux is not enabled, required for TEST-06-SELINUX.
 enable autorelabel.service
+
+enable systemd-bpfd.service
