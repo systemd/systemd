@@ -33,6 +33,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
@@ -2708,6 +2709,12 @@ static int offline_security_checks(
 
         if (profile) {
                 /* Ensure the temporary directory is in the search path, so that we can add drop-ins. */
+                if (!m->lookup_paths.temporary_dir) {
+                        r = mkdtemp_malloc("/tmp/systemd-temporary-XXXXXX", &m->lookup_paths.temporary_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create temporary directory: %m");
+                }
+
                 r = strv_extend(&m->lookup_paths.search_path, m->lookup_paths.temporary_dir);
                 if (r < 0)
                         return log_oom();
