@@ -25,6 +25,6 @@ mountpoint /run/initrd-mount-target
 # Copy the prepared shutdown initrd to its intended location. Check the respective
 # test.sh file for details
 mkdir -p /run/initramfs
-cp -r /shutdown-initrd/* /run/initramfs/
+cp -r /exitrd/* /run/initramfs/
 
 touch /testok
