@@ -32,6 +32,7 @@ foreach testcase : [
                         'mkosi-args' : integration_test_template['mkosi-args'] + [
                                 '--configure-script', files('@0@.configure'.format(testcase)),
                         ],
+                        'priority' : 10,
                 },
         ]
 endforeach

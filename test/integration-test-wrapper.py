@@ -47,6 +47,7 @@ def main():
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
@@ -148,13 +149,12 @@ def main():
 
     result = subprocess.run(cmd)
 
-    # Return code 123 is the expected success code
-    if result.returncode in (123, 77):
+    if result.returncode in (args.exit_code, 77):
         # Do not keep journal files for tests that don't fail.
         if journal_file:
             journal_file.unlink(missing_ok=True)
 
-        exit(0 if result.returncode == 123 else 77)
+        exit(0 if result.returncode == args.exit_code else 77)
 
     if journal_file:
         ops = []
