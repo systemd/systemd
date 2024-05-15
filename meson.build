@@ -2618,6 +2618,27 @@ foreach executable : ['systemd-journal-remote', 'systemd-measure']
 endforeach
 
 if mkosi.found()
+        keydev = custom_target('keydev',
+                input : [
+                        meson.current_source_dir() / 'test/TEST-24-CRYPTSETUP/keyfile',
+                        meson.current_source_dir() / 'test/TEST-24-CRYPTSETUP/keydev.repart/00-root.conf',
+                ],
+                output : 'keydev.raw',
+                command : [
+                        'sh', '-c',
+                        'rm -f @OUTPUT@ && exec $0 "$@"',
+                        'systemd-repart',
+                        '--empty=create',
+                        '--dry-run=no',
+                        '--size=auto',
+                        '--offline=true',
+                        '--root', meson.current_source_dir() / 'test/TEST-24-CRYPTSETUP',
+                        '--definitions', meson.current_source_dir() / 'test/TEST-24-CRYPTSETUP/keydev.repart',
+                        '@OUTPUT@',
+                ],
+                depends : mkosi_depends,
+        )
+
         custom_target('mkosi',
                 build_always_stale : true,
                 build_by_default: false,
@@ -2632,7 +2653,7 @@ if mkosi.found()
                         '--force',
                         'build',
                 ],
-                depends : mkosi_depends,
+                depends : mkosi_depends + [keydev],
         )
 endif
 
