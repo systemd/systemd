@@ -228,7 +228,7 @@ mkdir -p /run/cryptsetup-keys.d
 cp "$IMAGE_EMPTY_KEYFILE" /run/cryptsetup-keys.d/empty_nokey.key
 cryptsetup_start_and_check empty_nokey
 
-if [[ -r /etc/softhsm2.conf ]]; then
+if [[ -d /usr/lib/softhsm/tokens ]]; then
     # Test unlocking with a PKCS#11 token
     export SOFTHSM2_CONF="/etc/softhsm2.conf"
 
