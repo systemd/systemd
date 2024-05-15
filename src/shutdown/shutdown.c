@@ -52,8 +52,8 @@
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 
-static char* arg_verb;
-static uint8_t arg_exit_code;
+static const char *arg_verb = NULL;
+static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
@@ -146,7 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_verb)
                                 arg_verb = optarg;
                         else
-                                log_error("Excess arguments, ignoring");
+                                log_warning("Got extraneous arguments, ignoring.");
                         break;
 
                 case '?':
@@ -157,8 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!arg_verb)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb argument missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb argument missing.");
 
         return 0;
 }
@@ -361,7 +360,6 @@ int main(int argc, char *argv[]) {
                 NULL
         };
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3];
         int cmd, r;
 
         /* Close random fds we might have get passed, just for paranoia, before we open any new fds, for
@@ -390,8 +388,8 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (getpid_cached() != 1) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Not executed by init (PID 1).");
-                goto error;
+                log_error("Not executed by init (PID 1). Refusing to operate.");
+                return EXIT_FAILURE;
         }
 
         if (streq(arg_verb, "reboot"))
@@ -451,11 +449,11 @@ int main(int argc, char *argv[]) {
         broadcast_signal(SIGKILL, true, false, arg_timeout);
 
         bool need_umount = !in_container, need_swapoff = !in_container, need_loop_detach = !in_container,
-             need_dm_detach = !in_container, need_md_detach = !in_container, can_initrd, last_try = false;
-        can_initrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) == 0;
+             need_dm_detach = !in_container, need_md_detach = !in_container,
+             can_exitrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) >= 0;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
-        for (;;) {
+        for (bool last_try = false;;) {
                 bool changed = false;
 
                 (void) watchdog_ping();
@@ -532,7 +530,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                if (!changed && !last_try && !can_initrd) {
+                if (!changed && !last_try && !can_exitrd) {
                         /* There are things we cannot get rid of. Loop one more time in which we will log
                          * with higher priority to inform the user. Note that we don't need to do this if
                          * there is an initrd to switch to, because that one is likely to get rid of the
@@ -564,14 +562,16 @@ int main(int argc, char *argv[]) {
          * active to guard against any issues during the rest of the shutdown sequence. */
         watchdog_free_device();
 
-        arguments[0] = NULL; /* Filled in by execute_directories(), when needed */
-        arguments[1] = arg_verb;
-        arguments[2] = NULL;
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        const char *arguments[] = {
+                NULL, /* Filled in by execute_directories(), when needed */
+                arg_verb,
+                NULL,
+        };
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char**) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 
-        if (can_initrd) {
+        if (can_exitrd) {
                 r = switch_root_initramfs();
                 if (r >= 0) {
                         argv[0] = (char*) "/shutdown";
@@ -580,7 +580,7 @@ int main(int argc, char *argv[]) {
                         (void) make_console_stdio();
 
                         log_info("Successfully changed into root pivot.\n"
-                                 "Returning to initrd...");
+                                 "Entering exitrd...");
 
                         execv("/shutdown", argv);
                         log_error_errno(errno, "Failed to execute shutdown binary: %m");
@@ -625,13 +625,9 @@ int main(int argc, char *argv[]) {
 
                         r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
                         if (r == 0) {
-                                const char * const args[] = {
-                                        KEXEC, "-e", NULL
-                                };
-
                                 /* Child */
 
-                                execv(args[0], (char * const *) args);
+                                (void) execl(KEXEC, KEXEC, "-e", NULL);
                                 log_debug_errno(errno, "Failed to execute '" KEXEC "' binary, proceeding with reboot(RB_KEXEC): %m");
 
                                 /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
@@ -672,7 +668,7 @@ int main(int argc, char *argv[]) {
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
-  error:
+error:
         log_struct_errno(LOG_EMERG, r,
                          LOG_MESSAGE("Critical error while doing system shutdown: %m"),
                          "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_ERROR_STR);
