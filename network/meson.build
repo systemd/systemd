@@ -5,6 +5,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 '80-6rd-tunnel.network',
                 '80-6rd-tunnel.link',
                 '80-container-host0.network',
+                '80-container-host0-tun.network',
                 '80-container-vb.network',
                 '80-container-vb.link',
                 '80-container-ve.network',
