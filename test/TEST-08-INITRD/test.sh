@@ -65,13 +65,13 @@ check_result_qemu_hook() {
     # [    6.245955] systemd-shutdown[1]: Failed to switch root to "/run/initramfs": Invalid argument
     if grep -qE "systemd-shutdown.+: Failed to move /run/initramfs" "$console_log" ||
        grep -qE "systemd-shutdown.+: Failed to switch root" "$console_log"; then
-        derror "sd-shutdown failed to switch root in shutdown initrd"
+        derror "sd-shutdown failed to switch root in exitrd"
         return 1
     fi
 
-    # Check if the shutdown initrd was executed at all
-    if ! grep -q "Hello from shutdown initrd" "$console_log"; then
-        derror "Missing 'hello' message from shutdown initrd"
+    # Check if the exitrd was executed at all
+    if ! grep -q "Hello from exitrd" "$console_log"; then
+        derror "Missing 'hello' message from exitrd"
         return 1
     fi
 
