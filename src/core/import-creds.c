@@ -519,7 +519,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
                         return log_oom();
 
                 if (!credential_name_valid(cn)) {
-                        log_warning("SMBIOS credential name '%s' is not valid, ignoring: %m", cn);
+                        log_warning("SMBIOS credential name '%s' is not valid, ignoring.", cn);
                         continue;
                 }
 
