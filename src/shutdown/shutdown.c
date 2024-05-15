@@ -391,7 +391,7 @@ int main(int argc, char *argv[]) {
 
         if (getpid_cached() != 1) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Not executed by init (PID 1).");
-                goto error;
+                return EXIT_FAILURE;
         }
 
         if (streq(arg_verb, "reboot"))
@@ -672,7 +672,7 @@ int main(int argc, char *argv[]) {
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
-  error:
+error:
         log_struct_errno(LOG_EMERG, r,
                          LOG_MESSAGE("Critical error while doing system shutdown: %m"),
                          "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_ERROR_STR);
