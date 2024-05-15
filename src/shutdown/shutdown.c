@@ -624,13 +624,9 @@ int main(int argc, char *argv[]) {
 
                         r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
                         if (r == 0) {
-                                const char * const args[] = {
-                                        KEXEC, "-e", NULL
-                                };
-
                                 /* Child */
 
-                                execv(args[0], (char * const *) args);
+                                (void) execl(KEXEC, KEXEC, "-e", NULL);
                                 log_debug_errno(errno, "Failed to execute '" KEXEC "' binary, proceeding with reboot(RB_KEXEC): %m");
 
                                 /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
