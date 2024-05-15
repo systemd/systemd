@@ -236,6 +236,5 @@ bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections) 
 
         return
                 pe_header_find_section(pe_header, sections, ".osrel") &&
-                pe_header_find_section(pe_header, sections, ".linux") &&
-                pe_header_find_section(pe_header, sections, ".initrd");
+                pe_header_find_section(pe_header, sections, ".linux");
 }
