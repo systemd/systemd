@@ -52,8 +52,8 @@
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 
-static char* arg_verb;
-static uint8_t arg_exit_code;
+static const char *arg_verb = NULL;
+static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
@@ -146,7 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_verb)
                                 arg_verb = optarg;
                         else
-                                log_error("Excess arguments, ignoring");
+                                log_warning("Got extraneous arguments, ignoring.");
                         break;
 
                 case '?':
@@ -157,8 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!arg_verb)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb argument missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb argument missing.");
 
         return 0;
 }
@@ -565,7 +564,7 @@ int main(int argc, char *argv[]) {
         watchdog_free_device();
 
         arguments[0] = NULL; /* Filled in by execute_directories(), when needed */
-        arguments[1] = arg_verb;
+        arguments[1] = (char*) arg_verb;
         arguments[2] = NULL;
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
