@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
+
+EXIT_CODE=()
+
+# Translate a successful exit code to 124 so that we can detect that the exitrd was actually used.
+if [[ "$*" == *"--exit-code=123"* ]]; then
+    EXIT_CODE+=("--exit-code=124")
+fi
+
+exec /usr/lib/systemd/systemd-shutdown "$@" "${EXIT_CODE[@]}"
