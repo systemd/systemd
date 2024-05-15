@@ -381,7 +381,10 @@ mkdir -p /run/userdb/
 cat >"/run/userdb/dropingroup.group" <<\EOF
 {
     "groupName" : "dropingroup",
-    "gid"       : 1000000
+    "gid"       : 1000000,
+    "members"   : [
+        "root"
+    ]
 }
 EOF
 cat >"/run/userdb/dropinuser.user" <<\EOF
@@ -390,7 +393,8 @@ cat >"/run/userdb/dropinuser.user" <<\EOF
     "uid"      : 2000000,
     "realName" : "🐱",
     "memberOf" : [
-        "dropingroup"
+        "dropingroup",
+        "users"
     ]
 }
 EOF
@@ -407,6 +411,8 @@ cat >"/run/userdb/dropinuser.user-privileged" <<\EOF
     }
 }
 EOF
+echo >"/run/userdb/dropinuser:nobody.membership"
+echo >"/run/userdb/adm:dropingroup.membership"
 # Set permissions and create necessary symlinks as described in nss-systemd(8)
 chmod 0600 "/run/userdb/dropinuser.user-privileged"
 ln -svrf "/run/userdb/dropingroup.group" "/run/userdb/1000000.group"
@@ -483,6 +489,32 @@ userdbctl groups-of-user -j testuser root | jq
 userdbctl groups-of-user 🐱
 (! userdbctl groups-of-user '')
 (! userdbctl groups-of-user foo '' bar)
+
+userdbctl user dropinuser | tee /tmp/userdbctl
+grep -qFw dropingroup /tmp/userdbctl
+grep -qFw nobody /tmp/userdbctl
+grep -qFw users /tmp/userdbctl
+
+userdbctl group dropingroup | tee /tmp/userdbctl
+grep -qFw adm /tmp/userdbctl
+grep -qFw dropinuser /tmp/userdbctl
+grep -qFw root /tmp/userdbctl
+
+userdbctl user -j dropinuser | jq -e '.memberOf == ["dropingroup", "nobody", "users"]'
+userdbctl group -j dropingroup | jq -e '.members == ["adm", "dropinuser", "root"]'
+
+userdbctl groups-of-user -j dropinuser | jq -e -s 'sort == [
+    {"user": "dropinuser", "group": "dropingroup"},
+    {"user": "dropinuser", "group": "nobody"},
+    {"user": "dropinuser", "group": "users"}
+]'
+userdbctl users-in-group -j dropingroup | jq -e -s 'sort == [
+    {"group": "dropingroup", "user": "adm"},
+    {"group": "dropingroup", "user": "dropinuser"},
+    {"group": "dropingroup", "user": "root"}
+]'
+
+[[ $(userdbctl group --output=classic dropingroup) == dropingroup:x:1000000:adm,dropinuser,root ]]
 
 userdbctl services
 userdbctl services -j | jq
