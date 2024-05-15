@@ -27,7 +27,8 @@ foreach testcase : [
                         # Make sure the service is still named TEST-64-UDEV-STORAGE.service.
                         'unit' : unit,
                         'cmdline' : integration_test_template['cmdline'] + [
-                                'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase)
+                                'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase),
+                                'udev.log_level=info',
                         ],
                         'mkosi-args' : integration_test_template['mkosi-args'] + [
                                 '--configure-script', files('@0@.configure'.format(testcase)),
