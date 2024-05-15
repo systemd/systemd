@@ -93,6 +93,9 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                          imp->buf + imp->filled,
                          MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                 if (n < 0) {
+                        if (errno == ECONNRESET)
+                                return 0;
+
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m",
                                                 imp->fd,
@@ -134,6 +137,9 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
                 n = read(imp->fd, imp->buf + imp->filled,
                          MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                 if (n < 0) {
+                        if (errno == ECONNRESET)
+                                return 0;
+
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m", imp->fd,
                                                 MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
