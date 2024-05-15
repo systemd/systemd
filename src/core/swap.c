@@ -374,7 +374,7 @@ static int swap_setup_unit(
                 int priority,
                 bool set_flags) {
 
-        _cleanup_(unit_freep) Unit *new = NULL;
+        _cleanup_(unit_freep) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
         Unit *u;
         Swap *s;
@@ -398,11 +398,11 @@ static int swap_setup_unit(
                                                     "Swap appeared twice with different device paths %s and %s, refusing.",
                                                     s->parameters_proc_swaps.what, what_proc_swaps);
         } else {
-                r = unit_new_for_name(m, sizeof(Swap), e, &new);
+                r = unit_new_for_name(m, sizeof(Swap), e, &new_unit);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to load swap unit '%s': %m", e);
 
-                u = new;
+                u = new_unit;
                 s = ASSERT_PTR(SWAP(u));
 
                 s->what = strdup(what);
@@ -438,7 +438,7 @@ static int swap_setup_unit(
         p->priority_set = true;
 
         unit_add_to_dbus_queue(u);
-        TAKE_PTR(new);
+        TAKE_PTR(new_unit);
 
         return 0;
 }
