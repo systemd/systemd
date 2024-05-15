@@ -604,6 +604,9 @@ static int mount_add_non_exec_dependencies(Mount *m) {
         if (!m->where)
                 return 0;
 
+        if (mount_is_credentials(m))
+                u->default_dependencies = false;
+
         /* Adds in all dependencies directly responsible for ordering the mount, as opposed to dependencies
          * resulting from the ExecContext and such. */
 
@@ -649,9 +652,6 @@ static int mount_add_extras(Mount *m) {
                 if (r < 0)
                         return r;
         }
-
-        if (mount_is_credentials(m))
-                u->default_dependencies = false;
 
         r = unit_patch_contexts(u);
         if (r < 0)
