@@ -21,6 +21,7 @@
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "utf8.h"
 
 #define DEFAULT_RATELIMIT_BURST 30
@@ -1489,6 +1490,17 @@ static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
         }
 
         return 0;
+}
+
+int user_record_augment_json_membership(UserRecord *h) {
+        int r;
+        _cleanup_strv_free_ char **member_of = NULL;
+
+        r = membershipdb_by_user_strv(h->user_name, USERDB_SUPPRESS_SHADOW, &member_of);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field_strv(&h->json, "memberOf", member_of);
 }
 
 int user_group_record_mangle(
