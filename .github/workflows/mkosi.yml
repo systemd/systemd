@@ -117,6 +117,7 @@ jobs:
                 WITH_DEBUG=1
                 # Enabling optimizations significantly speeds up integration tests.
                 OPTIMIZATION=g
+                SANITIZERS=address,undefined
 
         [Host]
         ToolsTree=default
