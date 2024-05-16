@@ -30,8 +30,8 @@ int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
                 SwitchRootFlags flags) {
 
-        /* Stuff mounted below /run/ we don't save on soft reboot, as it might have lost its relevance, i.e.
-         * credentials, removable media and such, we rather want that the new boot mounts this fresh.  But on
+        /* Stuff mounted below /run/ we don't save on soft reboot, as it might have lost its relevance,
+         * e.g. removable media and such. We rather want that the new boot mounts this fresh. But on
          * the switch from initrd we do use MS_REC, as it is expected that mounts set up in /run/ are
          * maintained. */
         static const struct {
