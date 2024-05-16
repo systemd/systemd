@@ -4011,7 +4011,7 @@ static int unit_kill_one(
 
 int unit_kill(
                 Unit *u,
-                KillWho who,
+                KillWhom whom,
                 int signo,
                 int code,
                 int value,
@@ -4026,8 +4026,8 @@ int unit_kill(
          * stop a service ourselves. */
 
         assert(u);
-        assert(who >= 0);
-        assert(who < _KILL_WHO_MAX);
+        assert(whom >= 0);
+        assert(whom < _KILL_WHOM_MAX);
         assert(SIGNAL_VALID(signo));
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
@@ -4037,27 +4037,27 @@ int unit_kill(
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
                 return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(main_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (!control_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(control_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, control_pid, "control", signo, code, value, ret_error);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
         }
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, main_pid, "main", signo, code, value, ret >= 0 ? ret_error : NULL);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
@@ -4066,7 +4066,7 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
                 if (crt && crt->cgroup_path) {
@@ -4098,7 +4098,7 @@ int unit_kill(
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret >= 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return ret;

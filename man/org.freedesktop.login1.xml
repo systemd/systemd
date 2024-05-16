@@ -113,7 +113,7 @@ node /org/freedesktop/login1 {
       LockSessions();
       UnlockSessions();
       KillSession(in  s session_id,
-                  in  s who,
+                  in  s whom,
                   in  i signal_number);
       KillUser(in  u uid,
                in  i signal_number);
@@ -1140,7 +1140,7 @@ node /org/freedesktop/login1/session/1 {
       Unlock();
       SetIdleHint(in  b idle);
       SetLockedHint(in  b locked);
-      Kill(in  s who,
+      Kill(in  s whom,
            in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
