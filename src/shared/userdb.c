@@ -1508,6 +1508,39 @@ found:
         return r;
 }
 
+int membershipdb_by_user_strv(const char *name, UserDBFlags flags, char ***ret) {
+        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_strv_free_ char **groups = NULL;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        r = membershipdb_by_user(name, flags, &iterator);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *group_name = NULL;
+
+                r = membershipdb_iterator_get(iterator, NULL, &group_name);
+                if (r == -ESRCH)
+                        break;
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(&groups, TAKE_PTR(group_name));
+                if (r < 0)
+                        return r;
+        }
+
+        strv_sort(groups);
+        strv_uniq(groups);
+
+        *ret = TAKE_PTR(groups);
+        return 0;
+}
+
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_strv_free_ char **members = NULL;
