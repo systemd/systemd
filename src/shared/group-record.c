@@ -4,6 +4,7 @@
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "userdb.h"
 
 GroupRecord* group_record_new(void) {
         GroupRecord *h;
@@ -324,4 +325,15 @@ int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **
 
         *ret = TAKE_PTR(c);
         return 0;
+}
+
+int group_record_augment_json_membership(GroupRecord *h) {
+        int r;
+        _cleanup_strv_free_ char **members = NULL;
+
+        r = membershipdb_by_group_strv(h->group_name, USERDB_SUPPRESS_SHADOW, &members);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field_strv(&h->json, "members", members);
 }

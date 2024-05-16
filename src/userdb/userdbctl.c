@@ -86,6 +86,12 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
+                r = user_record_augment_json_membership(ur);
+                if (r == -ENOMEM)
+                        return log_oom();
+                else if (r < 0)
+                        return r;
+
                 json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
@@ -486,6 +492,12 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
+                r = group_record_augment_json_membership(gr);
+                if (r == -ENOMEM)
+                        return log_oom();
+                else if (r < 0)
+                        return r;
+
                 json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
