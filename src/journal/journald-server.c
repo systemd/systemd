@@ -3012,7 +3012,6 @@ int config_parse_compress(
         JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
 
-        assert(unit);
         assert(filename);
         assert(rvalue);
 
@@ -3058,7 +3057,6 @@ int config_parse_forward_to_socket(
         SocketAddress* addr = ASSERT_PTR(data);
         int r;
 
-        assert(unit);
         assert(filename);
         assert(rvalue);
 
