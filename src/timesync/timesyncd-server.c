@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "string-table.h"
 #include "timesyncd-server.h"
 
@@ -181,7 +182,8 @@ void server_name_flush_addresses(ServerName *n) {
 
 int server_name_parse_port(ServerName *n) {
         const char *sqr = "]", *col = ":";
-        char *ret_sqr, *ret_col, *last_col, *word = strdup(n->string);// copy n->string because strtok changes word
+        const char *word = strdup(n->string);
+        char *ret_sqr, *ret_col, *last_col;
 
         ret_sqr = strrchr(n->string, *sqr);
         ret_col = strchr(n->string, *col);
@@ -190,16 +192,18 @@ int server_name_parse_port(ServerName *n) {
         if (ret_sqr == NULL && ret_col == NULL) { // server.domain or I.P.v.4
                 return 0;
         } else if (ret_sqr == NULL && strlen(ret_col) == strlen(last_col)) { // has no ']' and exactly one ":"
-                n->string = strtok(word, col);
-                n->overridden_port = strtok(NULL, col);
+                (void) extract_first_word(&word, &n->string, col, 0);
+                (void) extract_first_word(&word, &n->overridden_port, col, 0);
                 log_debug("Matched single port: %s / %s", n->string, n->overridden_port);
                 return 1;
         } else if (ret_sqr == NULL && ret_col != NULL && last_col != NULL && strlen(ret_col) != strlen(last_col)) {
                 // naked IP::v:6, no ']' and more than one ':'
                 return 0;
         } else if (ret_sqr != NULL && strlen(ret_sqr) == strlen(last_col)+1) { // [IP::v:6]:port with "]:" substring
-                n->string = strcat(strtok(word, sqr), sqr);
-                n->overridden_port = strtok(last_col, col);
+                (void) extract_first_word(&word, &ret_col, sqr, 0);
+                n->string = strcat(ret_col, sqr);
+                word = last_col;
+                (void) extract_first_word(&word, &n->overridden_port, col, 0);
                 log_debug("Matched [IP::v:6]:port, output  %s / %s", n->string, n->overridden_port);
                 return 2;
         } else if (ret_sqr != NULL && last_col != NULL && strlen(ret_sqr) != strlen(last_col)+1) {

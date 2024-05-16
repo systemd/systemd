@@ -55,17 +55,20 @@ TEST(server_name_parse_port) {
 
         n->string = "time1.foobar.com:1234";
         ASSERT_TRUE(server_name_parse_port(n) == 1);
-        ASSERT_TRUE(streq_ptr(n->overridden_port, "1234"));
         ASSERT_STREQ(n->string, "time1.foobar.com");
+        ASSERT_TRUE(streq_ptr(n->overridden_port, "1234"));
         ASSERT_TRUE(server_name_parse_port(n) == 0);
+        ASSERT_STREQ(n->string, "time1.foobar.com");
         ASSERT_STREQ(n->overridden_port, "1234"); //reuse (eg when re-connecting) retains override
 
         n->string = "8.8.8.8:12323";
         ASSERT_TRUE(server_name_parse_port(n) == 1);
+        ASSERT_STREQ(n->string, "8.8.8.8");
         ASSERT_STREQ(n->overridden_port, "12323");
 
         n->string = "[fe80::1]:12345";
         ASSERT_TRUE(server_name_parse_port(n) == 2);
+        ASSERT_STREQ(n->string, "[fe80::1]");
         ASSERT_STREQ(n->overridden_port, "12345");
 }
 
