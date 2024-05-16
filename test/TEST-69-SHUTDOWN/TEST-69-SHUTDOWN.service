@@ -5,6 +5,8 @@ Wants=basic.target multi-user.target
 After=basic.target
 Before=getty-pre.target
 
+ConditionPathExists=/usr/bin/python3
+
 [Service]
 Type=oneshot
-ExecStart=true
+ExecStart=/usr/lib/systemd/tests/testdata/units/TEST-69-SHUTDOWN.py
