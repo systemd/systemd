@@ -29,7 +29,7 @@ TEST(manager_parse_string) {
 TEST(server_name_parse_port) {
         /* When supplied with a port number, use it (and re-use it if we fail to connect), and parse all of
          * host.domain, host.domain:port, I.P.v.4, IP::v:6, [IP::v:6], I.P.v.4:port, [IP::v:6]:port appropriately. */
-        ServerName *n = NULL;
+        _cleanup_(server_name_freep) ServerName *n = NULL;
         n = new(ServerName, 1);
         *n = (ServerName) {
                 .string = strdup("time1.foobar.com"),
