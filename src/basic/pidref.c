@@ -14,7 +14,28 @@
 #include "signal-util.h"
 #include "stat-util.h"
 
-bool pidref_equal(const PidRef *a, const PidRef *b) {
+int pidref_get_pidfd_id(PidRef *pidref) {
+        assert(pidref);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        if (pidref->fd_id > 0)
+                return 0;
+
+        struct stat st;
+
+        if (fstat(pidref->fd, &st) < 0)
+                return -errno;
+
+        pidref->fd_id = st.st_ino;
+        return 0;
+}
+
+bool pidref_equal(PidRef *a, PidRef *b) {
         int r;
 
         if (pidref_is_set(a)) {
@@ -27,14 +48,17 @@ bool pidref_equal(const PidRef *a, const PidRef *b) {
                 if (a->fd < 0 || b->fd < 0)
                         return true;
 
-                /* pidfds live in their own pidfs and each process comes with a unique inode number since
-                 * kernel 6.8. We can safely do this on older kernels too though, as previously anonymous
-                 * inode was used and inode number was the same for all pidfds. */
-                r = fd_inode_same(a->fd, b->fd);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to check whether pidfds for pid " PID_FMT " are equal, assuming yes: %m",
-                                        a->pid);
-                return r != 0;
+                const PidRef *p;
+                FOREACH_ARGUMENT(p, a, b) {
+                        r = pidref_get_pidfd_id(p);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to get inode number of pidfd for pid " PID_FMT ", ignoring: %m",
+                                                p->pid);
+                                return true;
+                        }
+                }
+
+                return a->fd_id == b->fd_id;
         }
 
         return !pidref_is_set(b);
