@@ -7,6 +7,12 @@ set -o pipefail
 mkdir /run/systemd/system/systemd-journald.service.d
 MACHINE_ID="$(</etc/machine-id)"
 
+mkdir -p /run/systemd/journald.conf.d
+cat <<EOF >/run/systemd/journald.conf.d/compress.conf
+[Journal]
+Compress=yes
+EOF
+
 # Reset the start-limit counters, as we're going to restart journald a couple of times
 systemctl reset-failed systemd-journald.service
 
@@ -35,6 +41,7 @@ EOF
     fi
 done
 
+rm /run/systemd/journald.conf.d/compress.conf
 rm /run/systemd/system/systemd-journald.service.d/compress.conf
 systemctl daemon-reload
 systemctl restart systemd-journald.service
