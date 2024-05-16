@@ -609,7 +609,7 @@ MachineState machine_get_state(Machine *s) {
         return MACHINE_RUNNING;
 }
 
-int machine_kill(Machine *m, KillWho who, int signo) {
+int machine_kill(Machine *m, KillWhom whom, int signo) {
         assert(m);
 
         if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
@@ -618,7 +618,7 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         if (!m->unit)
                 return -ESRCH;
 
-        if (who == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
+        if (whom == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
                 return pidref_kill(&m->leader, signo);
 
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
@@ -920,9 +920,9 @@ static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
 
-static const char* const kill_who_table[_KILL_WHO_MAX] = {
+static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_LEADER] = "leader",
         [KILL_ALL] = "all"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
