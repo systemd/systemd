@@ -465,7 +465,7 @@ node /org/freedesktop/machine1/machine/rawhide {
   interface org.freedesktop.machine1.Machine {
     methods:
       Terminate();
-      Kill(in  s who,
+      Kill(in  s whom,
            in  i signal);
       GetAddresses(out a(iay) addresses);
       GetSSHInfo(out s ssh_address,
