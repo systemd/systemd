@@ -734,8 +734,10 @@ TEST(dns_name_is_valid_or_address) {
         assert_se(dns_name_is_valid_or_address("foobar..com") == 0);
         assert_se(dns_name_is_valid_or_address("foobar.com.") > 0);
         assert_se(dns_name_is_valid_or_address("127.0.0.1") > 0);
+        assert_se(dns_name_is_valid_or_address("127.0.0.1:8080") > 0);
         assert_se(dns_name_is_valid_or_address("::") > 0);
         assert_se(dns_name_is_valid_or_address("::1") > 0);
+        assert_se(dns_name_is_valid_or_address("[::1]:8080") > 0);
 }
 
 TEST(dns_name_dot_suffixed) {
