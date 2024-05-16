@@ -3796,7 +3796,7 @@ static const sd_bus_vtable manager_vtable[] = {
                       method_lock_sessions,
                       SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("KillSession",
-                                SD_BUS_ARGS("s", session_id, "s", who, "i", signal_number),
+                                SD_BUS_ARGS("s", session_id, "s", whom, "i", signal_number),
                                 SD_BUS_NO_RESULT,
                                 method_kill_session,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
@@ -4462,7 +4462,7 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret
         return 1;
 }
 
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
+int manager_kill_unit(Manager *manager, const char *unit, KillWhom whom, int signo, sd_bus_error *error) {
         assert(manager);
         assert(unit);
         assert(SIGNAL_VALID(signo));
@@ -4475,7 +4475,7 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
                         NULL,
                         "ssi",
                         unit,
-                        who == KILL_LEADER ? "main" : "all",
+                        whom == KILL_LEADER ? "main" : "all",
                         signo);
 }
 
