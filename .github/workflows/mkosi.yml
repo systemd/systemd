@@ -119,6 +119,7 @@ jobs:
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
+        QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
         EOF
