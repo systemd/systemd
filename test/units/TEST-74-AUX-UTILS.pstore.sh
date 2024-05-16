@@ -64,13 +64,13 @@ prepare_efi_logs() {
     chunk=0
     # The sed in the process substitution below just reverses the file
     while read -r line; do
-        filename="$(printf "dmesg-efi-%0.10d%0.2d%0.3d" "$timestamp" "$chunk" "$count")"
+        filename="$(printf "dmesg-efi_pstore-%0.10d%0.2d%0.3d" "$timestamp" "$chunk" "$count")"
         echo "$line" >"/sys/fs/pstore/$filename"
         chunk=$((chunk + 1))
     done < <(sed '1!G;h;$!d' "$file")
 
     if [[ "$chunk" -eq 0 ]]; then
-        echo >&2 "No dmesg-efi files were created"
+        echo >&2 "No dmesg-efi_pstore files were created"
         exit 1
     fi
 }
