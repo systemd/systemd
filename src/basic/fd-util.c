@@ -896,21 +896,18 @@ int fd_reopen_propagate_append_and_position(int fd, int flags) {
         if (new_fd < 0)
                 return new_fd;
 
-        /* Try to adjust the offset, but ignore errors for now. */
+        /* Try to adjust the offset, but ignore errors. */
         off_t p = lseek(fd, 0, SEEK_CUR);
-        if (p <= 0)
-                return new_fd;
-
-        off_t new_p = lseek(new_fd, p, SEEK_SET);
-        if (new_p == (off_t) -1)
-                log_debug_errno(errno,
-                                "Failed to propagate file position for re-opened fd %d, ignoring: %m",
-                                fd);
-        else if (new_p != p)
-                log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring: %m",
-                          fd,
-                          (long long) new_p,
-                          (long long) p);
+        if (p > 0) {
+                off_t new_p = lseek(new_fd, p, SEEK_SET);
+                if (new_p < 0)
+                        log_debug_errno(errno,
+                                        "Failed to propagate file position for re-opened fd %d, ignoring: %m",
+                                        fd);
+                else if (new_p != p)
+                        log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring.",
+                                  fd, (long long) new_p, (long long) p);
+        }
 
         return new_fd;
 }
