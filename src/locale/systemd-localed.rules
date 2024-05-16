@@ -1,0 +1,12 @@
+// This file is part of systemd.
+// See systemd-localed.service(8) and polkit(8) for more information.
+
+// These actions are always queried for permissions, even for root,
+// so automatically allow root to perform them
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.locale1.set-keyboard" ||
+         action.id == "org.freedesktop.locale1.set-locale") &&
+        subject.user == "root") {
+        return polkit.Result.YES;
+    }
+});
