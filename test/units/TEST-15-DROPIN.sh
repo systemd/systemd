@@ -258,6 +258,8 @@ EOF
                'MemoryMax' t 1000000002 \
                0
 
+        timeout 1m bash -c 'until systemctl is-active a-b-c.slice; do sleep 1s; done'
+
         # The override takes precedence for MemoryMax
         check_ok a-b-c.slice MemoryMax "1000000000"
         # The transient setting replaces the default
@@ -274,6 +276,8 @@ EOF
                org.freedesktop.systemd1.Manager \
                StopUnit 'ss' \
                'a-b-c.slice' 'replace'
+
+        timeout 1m bash -c 'while systemctl is-active a-b-c.slice; do sleep 1s; done'
 
         rm -f "/run/systemd/system/$dropin/override.conf"
     done
