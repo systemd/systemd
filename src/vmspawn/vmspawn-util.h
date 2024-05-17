@@ -52,11 +52,11 @@ typedef struct OvmfConfig {
         bool supports_sb;
 } OvmfConfig;
 
-static inline const char *ovmf_config_format(const OvmfConfig *c) {
+static inline const char* ovmf_config_format(const OvmfConfig *c) {
         return ASSERT_PTR(c)->format ?: "raw";
 }
 
-static inline const char *ovmf_config_vars_format(const OvmfConfig *c) {
+static inline const char* ovmf_config_vars_format(const OvmfConfig *c) {
         return ASSERT_PTR(c)->vars_format ?: "raw";
 }
 

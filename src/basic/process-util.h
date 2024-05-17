@@ -113,12 +113,12 @@ bool oom_score_adjust_is_valid(int oa);
 #define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
 unsigned long personality_from_string(const char *p);
-const char *personality_to_string(unsigned long);
+const char* personality_to_string(unsigned long);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
 
-const char *sigchld_code_to_string(int i) _const_;
+const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
 int sched_policy_to_string_alloc(int i, char **s);

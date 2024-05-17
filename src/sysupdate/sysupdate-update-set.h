@@ -28,5 +28,5 @@ UpdateSet *update_set_free(UpdateSet *us);
 
 int update_set_cmp(UpdateSet *const*a, UpdateSet *const*b);
 
-const char *update_set_flags_to_color(UpdateSetFlags flags);
-const char *update_set_flags_to_glyph(UpdateSetFlags flags);
+const char* update_set_flags_to_color(UpdateSetFlags flags);
+const char* update_set_flags_to_glyph(UpdateSetFlags flags);

@@ -253,7 +253,7 @@ static bool relaxed_equal_char(char a, char b) {
                 (a == '-' && b == '_');
 }
 
-char *proc_cmdline_key_startswith(const char *s, const char *prefix) {
+char* proc_cmdline_key_startswith(const char *s, const char *prefix) {
         assert(s);
         assert(prefix);
 

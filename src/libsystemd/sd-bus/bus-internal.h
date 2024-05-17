@@ -360,7 +360,7 @@ bool service_name_is_valid(const char *p) _pure_;
 bool member_name_is_valid(const char *p) _pure_;
 bool object_path_is_valid(const char *p) _pure_;
 
-char *object_path_startswith(const char *a, const char *b) _pure_;
+char* object_path_startswith(const char *a, const char *b) _pure_;
 
 bool namespace_complex_pattern(const char *pattern, const char *value) _pure_;
 bool path_complex_pattern(const char *pattern, const char *value) _pure_;
@@ -369,7 +369,7 @@ bool namespace_simple_pattern(const char *pattern, const char *value) _pure_;
 bool path_simple_pattern(const char *pattern, const char *value) _pure_;
 
 int bus_message_type_from_string(const char *s, uint8_t *u);
-const char *bus_message_type_to_string(uint8_t u) _pure_;
+const char* bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
@@ -385,7 +385,7 @@ int bus_rqueue_make_room(sd_bus *bus);
 
 bool bus_origin_changed(sd_bus *bus);
 
-char *bus_address_escape(const char *v);
+char* bus_address_escape(const char *v);
 
 int bus_attach_io_events(sd_bus *b);
 int bus_attach_inotify_event(sd_bus *b);

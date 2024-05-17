@@ -123,7 +123,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         Machine *m = ASSERT_PTR(userdata);
         const char *swho;
         int32_t signo;
-        KillWho who;
+        KillWhom whom;
         int r;
 
         assert(message);
@@ -133,10 +133,10 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (isempty(swho))
-                who = KILL_ALL;
+                whom = KILL_ALL;
         else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
+                whom = kill_whom_from_string(swho);
+                if (whom < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
@@ -160,7 +160,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = machine_kill(m, who, signo);
+        r = machine_kill(m, whom, signo);
         if (r < 0)
                 return r;
 
@@ -1231,7 +1231,7 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         return 1;
 }
 
-char *machine_bus_path(Machine *m) {
+char* machine_bus_path(Machine *m) {
         _cleanup_free_ char *e = NULL;
 
         assert(m);
@@ -1293,7 +1293,7 @@ static const sd_bus_vtable machine_vtable[] = {
                       bus_machine_method_terminate,
                       SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
-                                SD_BUS_ARGS("s", who, "i", signal),
+                                SD_BUS_ARGS("s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),

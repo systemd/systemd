@@ -892,7 +892,7 @@ void json_variant_unref_many(JsonVariant **array, size_t n) {
         free(array);
 }
 
-const char *json_variant_string(JsonVariant *v) {
+const char* json_variant_string(JsonVariant *v) {
         if (!v)
                 return NULL;
         if (v == JSON_VARIANT_MAGIC_EMPTY_STRING)

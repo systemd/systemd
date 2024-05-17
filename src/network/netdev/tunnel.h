@@ -123,7 +123,7 @@ extern const NetDevVTable ip6gretap_vtable;
 extern const NetDevVTable ip6tnl_vtable;
 extern const NetDevVTable erspan_vtable;
 
-const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
+const char* ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
 Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ip6tnl_mode);

@@ -359,7 +359,7 @@ close_and_fail:
         return r;
 }
 
-const char *watchdog_get_device(void) {
+const char* watchdog_get_device(void) {
         return watchdog_device;
 }
 

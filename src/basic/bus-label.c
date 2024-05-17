@@ -7,7 +7,7 @@
 #include "hexdecoct.h"
 #include "macro.h"
 
-char *bus_label_escape(const char *s) {
+char* bus_label_escape(const char *s) {
         char *r, *t;
         const char *f;
 
@@ -42,7 +42,7 @@ char *bus_label_escape(const char *s) {
         return r;
 }
 
-char *bus_label_unescape_n(const char *f, size_t l) {
+char* bus_label_unescape_n(const char *f, size_t l) {
         char *r, *t;
         size_t i;
 

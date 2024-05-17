@@ -235,7 +235,7 @@ int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);
 
 int partition_pick_mount_options(PartitionDesignator d, const char *fstype, bool rw, bool discard, char **ret_options, unsigned long *ret_ms_flags);
 
-static inline const char *dissected_partition_fstype(const DissectedPartition *m) {
+static inline const char* dissected_partition_fstype(const DissectedPartition *m) {
         assert(m);
 
         return m->decrypted_node ? m->decrypted_fstype : m->fstype;
