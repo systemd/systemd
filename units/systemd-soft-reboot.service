@@ -11,6 +11,5 @@
 Description=Reboot System Userspace
 Documentation=man:systemd-soft-reboot.service(8)
 DefaultDependencies=no
-Requires=shutdown.target umount.target final.target
-After=shutdown.target umount.target final.target
+Requires=soft-reboot.target
 SuccessAction=soft-reboot-force
