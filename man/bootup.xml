@@ -312,21 +312,23 @@ emergency.service    |              |              |
                                         v
                                   final.target
                                         |
-            ___________________________/ \_________________
-           /               |               |               \
-           |               |               |               |
-           v               |               |               |
-systemd-reboot.service     |               |               |
-           |               v               |               |
-           |    systemd-poweroff.service   |               |
-           v               |               v               |
-     <emphasis>reboot.target</emphasis>         |      systemd-halt.service     |
-                           v               |               v
-                   <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service
-                                           v               |
-                                      <emphasis>halt.target</emphasis>          |
-                                                           v
-                                                     <emphasis>kexec.target</emphasis></programlisting>
+            ___________________________/ \_________________________________
+           /               |               |               |               \
+           |               |               |               |               |
+           v               |               |               |               |
+systemd-reboot.service     |               |               |               |
+           |               v               |               |               |
+           |    systemd-poweroff.service   |               |               |
+           v               |               v               |               |
+     <emphasis>reboot.target</emphasis>         |      systemd-halt.service     |               |
+                           v               |               v               |
+                   <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service      |
+                                           v               |               |
+                                      <emphasis>halt.target</emphasis>          |       <emphasis>soft-reboot.target</emphasis>
+                                                           v               |
+                                                     <emphasis>kexec.target</emphasis>          |
+                                                                           v
+                                                             systemd-soft-reboot.service</programlisting>
 
     <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
 
@@ -350,6 +352,7 @@ systemd-reboot.service     |               |               |
       <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
