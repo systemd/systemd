@@ -223,6 +223,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
                         /* ret_name= */ NULL,
                         /* ret_qname= */ NULL,
                         NULL);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to get or create SRK: %m");
         if (r > 0)
@@ -289,6 +291,11 @@ static int run(int argc, char *argv[]) {
         }
 
         r = load_public_key_tpm2(&tpm2_key);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                log_info("TPM is locked, cannot generate SRK.");
+                return 76; /* Special return value which means "TPM is locked, so not doing anything". This
+                            * isn't really an error when called at boot. */;
+        }
         if (r < 0)
                 return r;
 

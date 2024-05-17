@@ -2119,6 +2119,8 @@ int tpm2_create_primary(
                         /* creationData= */ NULL,
                         /* creationHash= */ NULL,
                         /* creationTicket= */ NULL);
+        if (rc == TPM2_RC_BAD_AUTH)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "TPM is locked, cannot generate primary key.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate primary key in TPM: %s",
