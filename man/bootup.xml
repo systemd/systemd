@@ -312,34 +312,38 @@ emergency.service    |              |              |
                                         v
                                   final.target
                                         |
-            ___________________________/ \_________________
-           /               |               |               \
-           |               |               |               |
-           v               |               |               |
-systemd-reboot.service     |               |               |
-           |               v               |               |
-           |    systemd-poweroff.service   |               |
-           v               |               v               |
-     <emphasis>reboot.target</emphasis>         |      systemd-halt.service     |
-                           v               |               v
-                   <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service
-                                           v               |
-                                      <emphasis>halt.target</emphasis>          |
-                                                           v
-                                                     <emphasis>kexec.target</emphasis></programlisting>
+            ___________________________/ \_________________________________
+           /               |               |               |               \
+           |               |               |               |               |
+           v               |               |               |               |
+     <emphasis>reboot.target</emphasis>         |               |               |               |
+           |               v               |               |               |
+           |       <emphasis>poweroff.target</emphasis>         |               |               |
+           v               |               v               |               |
+systemd-reboot.service     |          <emphasis>halt.target</emphasis>          |               |
+                           v               |               v               |
+                systemd-poweroff.service   |         <emphasis>kexec.target</emphasis>          |
+                                           v               |               |
+                                  systemd-halt.service     |       <emphasis>soft-reboot.target</emphasis>
+                                                           v               |
+                                                systemd-kexec.service      |
+                                                                           v
+                                                              systemd-soft-reboot.service</programlisting>
 
     <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
 
     <para>Note that
     <citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    <filename>systemd-reboot.service</filename>, <filename>systemd-poweroff.service</filename> and
-    <filename>systemd-kexec.service</filename> will transition the system and server manager (PID 1) into the second
-    phase of system shutdown (implemented in the <filename>systemd-shutdown</filename> binary), which will unmount any
-    remaining file systems, kill any remaining processes and release any other remaining resources, in a simple and
-    robust fashion, without taking any service or unit concept into account anymore. At that point, regular
-    applications and resources are generally terminated and released already, the second phase hence operates only as
-    safety net for everything that couldn't be stopped or released for some reason during the primary, unit-based
-    shutdown phase described above.</para>
+    <filename>systemd-reboot.service</filename>, <filename>systemd-poweroff.service</filename>,
+    <filename>systemd-kexec.service</filename>, and
+    <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will transition the system and server manager (PID 1) into the second phase of system shutdown
+    (implemented in the <filename>systemd-shutdown</filename> binary), which will unmount any remaining file
+    systems, kill any remaining processes and release any other remaining resources, in a simple and robust
+    fashion, without taking any service or unit concept into account anymore. At that point, regular
+    applications and resources are generally terminated and released already, the second phase hence operates
+    only as safety net for everything that couldn't be stopped or released for some reason during the
+    primary, unit-based shutdown phase described above.</para>
   </refsect1>
 
   <refsect1>
