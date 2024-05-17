@@ -1277,6 +1277,7 @@ int image_read_only(Image *i, bool b) {
                 return -EOPNOTSUPP;
         }
 
+        i->read_only = b;
         return 0;
 }
 
