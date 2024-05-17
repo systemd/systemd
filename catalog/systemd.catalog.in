@@ -780,3 +780,12 @@ Documentation: https://systemd.io/PORTABLE_SERVICES/
 A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
 detached from the system and is no longer available for use. The list of attached
 Portable Services can be queried with 'portablectl list'.
+
+-- ad7089f928ac4f7ea00c07457d47ba8a
+Subject: Could not enroll SRK because the TPM is locked
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+systemd-tpm2-setup.service could not enroll an SRK into the TPM because the TPM is
+locked.
