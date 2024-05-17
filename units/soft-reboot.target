@@ -11,8 +11,10 @@
 Description=Reboot System Userspace
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
+Requires=shutdown.target umount.target final.target
+After=shutdown.target umount.target final.target
 Requires=systemd-soft-reboot.service
-After=systemd-soft-reboot.service
+Before=systemd-soft-reboot.service
 AllowIsolate=yes
 JobTimeoutSec=30min
 JobTimeoutAction=soft-reboot-force
