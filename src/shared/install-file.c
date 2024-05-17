@@ -12,7 +12,7 @@
 #include "rm-rf.h"
 #include "sync-util.h"
 
-int fs_make_very_read_only(int fd) {
+static int fs_make_very_read_only(int fd) {
         struct stat st;
         int r;
 
