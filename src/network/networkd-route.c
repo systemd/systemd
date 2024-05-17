@@ -1430,16 +1430,16 @@ static int link_mark_routes(Link *link, bool foreign) {
                                 }
                         }
                 }
-        }
 
-        /* Also unmark routes requested in .netdev file. */
-        if (foreign && link->netdev && link->netdev->kind == NETDEV_KIND_WIREGUARD) {
-                Wireguard *w = WIREGUARD(link->netdev);
+                /* Also unmark routes requested in .netdev file. */
+                if (other->netdev && other->netdev->kind == NETDEV_KIND_WIREGUARD) {
+                        Wireguard *w = WIREGUARD(other->netdev);
 
-                SET_FOREACH(route, w->routes) {
-                        r = link_unmark_route(link, route, NULL);
-                        if (r < 0)
-                                return r;
+                        SET_FOREACH(route, w->routes) {
+                                r = link_unmark_route(other, route, NULL);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 

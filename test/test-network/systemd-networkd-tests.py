@@ -3445,11 +3445,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('dev dummy98 weight 10', output)
         self.assertIn('dev dummy98 weight 5', output)
 
-        print('### ip -6 route show 2001:1234:5:7fff:ff:ff:ff:ff')
-        output = check_output('ip -6 route show 2001:1234:5:7fff:ff:ff:ff:ff')
+        print('### ip -6 route show 2001:1234:5:bfff:ff:ff:ff:ff')
+        output = check_output('ip -6 route show 2001:1234:5:bfff:ff:ff:ff:ff')
         print(output)
         # old ip command does not show 'nexthop' keyword and weight...
-        self.assertIn('2001:1234:5:7fff:ff:ff:ff:ff', output)
+        self.assertIn('2001:1234:5:bfff:ff:ff:ff:ff', output)
         self.assertIn('via 2001:1234:5:6fff:ff:ff:ff:ff dev test1', output)
         self.assertIn('via 2001:1234:5:7fff:ff:ff:ff:ff dev test1', output)
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
