@@ -550,8 +550,8 @@ static int method_get_machine_uid_shift(sd_bus_message *message, void *userdata,
 }
 
 static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
-        _cleanup_(image_unrefp) Image* i = NULL;
         const char *name;
+        Image *i;
         int r;
 
         assert(message);
@@ -565,13 +565,12 @@ static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_
         if (!image_name_is_valid(name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
-        r = image_find(IMAGE_MACHINE, name, NULL, &i);
+        r = manager_acquire_image(m, name, &i);
         if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
 
-        i->userdata = m;
         return method(message, i, error);
 }
 
