@@ -674,7 +674,7 @@ uint16_t dns_server_port(const DnsServer *s) {
         return 53;
 }
 
-const char *dns_server_string(DnsServer *server) {
+const char* dns_server_string(DnsServer *server) {
         assert(server);
 
         if (!server->server_string)
@@ -683,7 +683,7 @@ const char *dns_server_string(DnsServer *server) {
         return server->server_string;
 }
 
-const char *dns_server_string_full(DnsServer *server) {
+const char* dns_server_string_full(DnsServer *server) {
         assert(server);
 
         if (!server->server_string_full)

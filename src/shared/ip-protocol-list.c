@@ -14,7 +14,7 @@ static const struct ip_protocol_name* lookup_ip_protocol(register const char *st
 #include "ip-protocol-from-name.h"
 #include "ip-protocol-to-name.h"
 
-const char *ip_protocol_to_name(int id) {
+const char* ip_protocol_to_name(int id) {
 
         if (id < 0)
                 return NULL;
@@ -73,7 +73,7 @@ int parse_ip_protocol_full(const char *s, bool relaxed) {
         return p;
 }
 
-const char *ip_protocol_to_tcp_udp(int id) {
+const char* ip_protocol_to_tcp_udp(int id) {
         return IN_SET(id, IPPROTO_TCP, IPPROTO_UDP) ?
                 ip_protocol_to_name(id) : NULL;
 }

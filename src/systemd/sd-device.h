@@ -90,16 +90,16 @@ int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret);
 int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret);
 
-const char *sd_device_get_tag_first(sd_device *device);
-const char *sd_device_get_tag_next(sd_device *device);
-const char *sd_device_get_current_tag_first(sd_device *device);
-const char *sd_device_get_current_tag_next(sd_device *device);
-const char *sd_device_get_devlink_first(sd_device *device);
-const char *sd_device_get_devlink_next(sd_device *device);
-const char *sd_device_get_property_first(sd_device *device, const char **value);
-const char *sd_device_get_property_next(sd_device *device, const char **value);
-const char *sd_device_get_sysattr_first(sd_device *device);
-const char *sd_device_get_sysattr_next(sd_device *device);
+const char* sd_device_get_tag_first(sd_device *device);
+const char* sd_device_get_tag_next(sd_device *device);
+const char* sd_device_get_current_tag_first(sd_device *device);
+const char* sd_device_get_current_tag_next(sd_device *device);
+const char* sd_device_get_devlink_first(sd_device *device);
+const char* sd_device_get_devlink_next(sd_device *device);
+const char* sd_device_get_property_first(sd_device *device, const char **value);
+const char* sd_device_get_property_next(sd_device *device, const char **value);
+const char* sd_device_get_sysattr_first(sd_device *device);
+const char* sd_device_get_sysattr_next(sd_device *device);
 sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix);
 sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix);
 

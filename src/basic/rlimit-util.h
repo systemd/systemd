@@ -6,7 +6,7 @@
 #include "macro.h"
 #include "missing_resource.h"
 
-const char *rlimit_to_string(int i) _const_;
+const char* rlimit_to_string(int i) _const_;
 int rlimit_from_string(const char *s) _pure_;
 int rlimit_from_string_harder(const char *s) _pure_;
 
