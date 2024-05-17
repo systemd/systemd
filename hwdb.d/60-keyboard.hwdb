@@ -916,6 +916,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY*6.0/7.0:*
  KEYBOARD_KEY_f4=prog1
 
 ###########################################################
+# JP-IK
+###########################################################
+
+# LEAP W502
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnJP-IK:pnLEAPW502:pvr*
+ KEYBOARD_KEY_76=f21                                    # touchpad toggle
+
+###########################################################
 # Kvadra
 ###########################################################
 
