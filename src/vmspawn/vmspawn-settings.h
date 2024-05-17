@@ -24,5 +24,5 @@ typedef enum SettingsMask {
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
-const char *console_mode_to_string(ConsoleMode m) _const_;
+const char* console_mode_to_string(ConsoleMode m) _const_;
 ConsoleMode console_mode_from_string(const char *s) _pure_;

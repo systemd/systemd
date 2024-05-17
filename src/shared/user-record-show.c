@@ -17,7 +17,7 @@
 #include "user-util.h"
 #include "userdb.h"
 
-const char *user_record_state_color(const char *state) {
+const char* user_record_state_color(const char *state) {
         if (STR_IN_SET(state, "unfixated", "absent"))
                 return ansi_grey();
         else if (streq(state, "active"))

@@ -77,7 +77,7 @@ DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 /* Do this only on new enough compilers that actually support the "symver" attribute. Given this is a debug
  * feature, let's simply not bother on older compilers */
 #if BUILD_MODE_DEVELOPER && defined(__has_attribute) && __has_attribute(symver)
-const char *my_crypt_token_external_path(void); /* prototype for our own implementation */
+const char* my_crypt_token_external_path(void); /* prototype for our own implementation */
 
 /* We use the "symver" attribute to mark this implementation as the default implementation, and drop the
  * SD_SHARED namespace we by default attach to our symbols via a version script. */

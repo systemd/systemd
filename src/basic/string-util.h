@@ -49,7 +49,7 @@ static inline const char* strnull(const char *s) {
         return s ?: "(null)";
 }
 
-static inline const char *strna(const char *s) {
+static inline const char* strna(const char *s) {
         return s ?: "n/a";
 }
 
@@ -81,11 +81,11 @@ static inline const char* enabled_disabled(bool b) {
                 (typeof(p)) (isempty(_p) ? NULL : _p);  \
         })
 
-static inline const char *empty_to_na(const char *p) {
+static inline const char* empty_to_na(const char *p) {
         return isempty(p) ? "n/a" : p;
 }
 
-static inline const char *empty_to_dash(const char *str) {
+static inline const char* empty_to_dash(const char *str) {
         return isempty(str) ? "-" : str;
 }
 
@@ -95,7 +95,7 @@ static inline bool empty_or_dash(const char *str) {
                 (str[0] == '-' && str[1] == 0);
 }
 
-static inline const char *empty_or_dash_to_null(const char *p) {
+static inline const char* empty_or_dash_to_null(const char *p) {
         return empty_or_dash(p) ? NULL : p;
 }
 #define empty_or_dash_to_null(p)                                \

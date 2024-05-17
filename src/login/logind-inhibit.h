@@ -72,8 +72,8 @@ static inline bool inhibit_what_is_valid(InhibitWhat w) {
         return w > 0 && w < _INHIBIT_WHAT_MAX;
 }
 
-const char *inhibit_what_to_string(InhibitWhat k);
+const char* inhibit_what_to_string(InhibitWhat k);
 int inhibit_what_from_string(const char *s);
 
-const char *inhibit_mode_to_string(InhibitMode k);
+const char* inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);

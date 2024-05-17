@@ -12,7 +12,7 @@ static const struct errno_name* lookup_errno(register const char *str,
 #include "errno-from-name.h"
 #include "errno-to-name.h"
 
-const char *errno_to_name(int id) {
+const char* errno_to_name(int id) {
 
         if (id < 0)
                 id = -id;

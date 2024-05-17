@@ -144,8 +144,8 @@ int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **r
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
-const char *tpm2_userspace_log_path(void);
-const char *tpm2_firmware_log_path(void);
+const char* tpm2_userspace_log_path(void);
+const char* tpm2_firmware_log_path(void);
 
 typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_PHASE,
@@ -426,16 +426,16 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 
-const char *tpm2_hash_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_hash_alg_to_string(uint16_t alg) _const_;
 int tpm2_hash_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_asym_alg_to_string(uint16_t alg) _const_;
 int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_sym_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_sym_alg_to_string(uint16_t alg) _const_;
 int tpm2_sym_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_sym_mode_to_string(uint16_t mode) _const_;
+const char* tpm2_sym_mode_to_string(uint16_t mode) _const_;
 int tpm2_sym_mode_from_string(const char *mode) _pure_;
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
@@ -483,7 +483,7 @@ enum {
 };
 
 int tpm2_pcr_index_from_string(const char *s) _pure_;
-const char *tpm2_pcr_index_to_string(int pcr) _const_;
+const char* tpm2_pcr_index_to_string(int pcr) _const_;
 
 /* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
  * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */

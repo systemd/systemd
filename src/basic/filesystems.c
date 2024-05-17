@@ -3,7 +3,7 @@
 #include "filesystems-gperf.h"
 #include "stat-util.h"
 
-const char *fs_type_to_string(statfs_f_type_t magic) {
+const char* fs_type_to_string(statfs_f_type_t magic) {
 
         switch (magic) {
 #include "filesystem-switch-case.h"

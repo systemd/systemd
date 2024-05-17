@@ -163,7 +163,7 @@ char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, 
 
 int proc_fd_enoent_errno(void);
 
-const char *accmode_to_string(int flags);
+const char* accmode_to_string(int flags);
 
 /* Like ASSERT_PTR, but for fds */
 #define ASSERT_FD(fd)                           \
