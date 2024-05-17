@@ -980,7 +980,7 @@ static int measured_crypt_activate_by_volume_key(
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
 
         r = crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return r;
 
         if (volume_key_size == 0) {
@@ -1116,7 +1116,7 @@ static int attach_tcrypt(
         }
 
         r = measured_crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate tcrypt device %s: %m", crypt_get_device_name(cd));
 
         return 0;
@@ -1279,6 +1279,8 @@ static int crypt_activate_by_token_pin_ask_password(
         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
+        if (r == -EEXIST) /* volume is already unlocked */
+                return 0;
         if (r != -ENOANO) /* needs pin or pin is wrong */
                 return r;
 
@@ -1289,6 +1291,8 @@ static int crypt_activate_by_token_pin_ask_password(
         STRV_FOREACH(p, pins) {
                 r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
+                        return 0;
+                if (r == -EEXIST) /* volume is already unlocked */
                         return 0;
                 if (r != -ENOANO) /* needs pin or pin is wrong */
                         return r;
@@ -1314,6 +1318,8 @@ static int crypt_activate_by_token_pin_ask_password(
                 STRV_FOREACH(p, pins) {
                         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
+                                return 0;
+                        if (r == -EEXIST) /* volume is already unlocked */
                                 return 0;
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
@@ -1474,7 +1480,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
                 return -EAGAIN; /* log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate with FIDO2 acquired key: %m");
 
         return 0;
@@ -1503,6 +1509,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
+                r = 0;
+        else if (r == -EEXIST) /* volume is already unlocked */
                 r = 0;
 
         return r;
@@ -1635,7 +1643,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
                 return -EAGAIN; /* log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
 
         return 0;
@@ -1939,7 +1947,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
                 return -EAGAIN; /* log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate with TPM2 acquired key: %m");
 
         return 0;
@@ -1967,7 +1975,7 @@ static int attach_luks_or_plain_or_bitlk_by_key_data(
                 log_error_errno(r, "Failed to activate. (Key incorrect?)");
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate: %m");
 
         return 0;
@@ -2020,7 +2028,7 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
                 log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
 
         return 0;
@@ -2044,14 +2052,14 @@ static int attach_luks_or_plain_or_bitlk_by_passphrase(
                         r = measured_crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
                 else
                         r = measured_crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
-                if (r >= 0)
+                if (r >= 0 || r == -EEXIST)
                         break;
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
                 return -EAGAIN; /* log actual error, but return EAGAIN */
         }
-        if (r < 0)
+        if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to activate with specified passphrase: %m");
 
         return 0;
