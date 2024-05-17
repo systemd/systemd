@@ -1159,7 +1159,8 @@
         <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to
         take when the timeout is hit, see description of <varname>JobTimeoutSec=</varname> and
         <varname>JobRunningTimeoutSec=</varname> above. It takes the same values as
-        <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.</para>
+        <varname>FailureAction=</varname>/<varname>SuccessAction=</varname>. Defaults to
+        <option>none</option>.</para>
 
         <para><varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to
         the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
