@@ -713,7 +713,7 @@ static int session_object_find(sd_bus *bus, const char *path, const char *interf
         return 1;
 }
 
-char *session_bus_path(Session *s) {
+char* session_bus_path(Session *s) {
         _cleanup_free_ char *t = NULL;
 
         assert(s);

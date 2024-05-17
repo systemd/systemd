@@ -3337,7 +3337,7 @@ int set_unit_path(const char *p) {
         return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
 }
 
-char *unit_dbus_path(Unit *u) {
+char* unit_dbus_path(Unit *u) {
         assert(u);
 
         if (!u->id)
@@ -3346,7 +3346,7 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-char *unit_dbus_path_invocation_id(Unit *u) {
+char* unit_dbus_path_invocation_id(Unit *u) {
         assert(u);
 
         if (sd_id128_is_null(u->invocation_id))

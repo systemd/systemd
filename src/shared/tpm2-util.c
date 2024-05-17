@@ -1458,7 +1458,7 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
                 FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)
 
-char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
+char* tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
         assert(s);
 
         const char *algstr = strna(tpm2_hash_alg_to_string(s->hash));
@@ -1648,7 +1648,7 @@ void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
                 tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(a, selection_b);
 }
 
-char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
+char* tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
         assert(l);
 
         _cleanup_free_ char *banks = NULL;
@@ -1942,7 +1942,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
 /* Return a string for the PCR value. The format is described in tpm2_pcr_value_from_string(). Note that if
  * the hash algorithm is not recognized, neither hash name nor hash digest value is included in the
  * string. This does not check for validity. */
-char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
+char* tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
         _cleanup_free_ char *index = NULL, *value = NULL;
 
         if (asprintf(&index, "%u", pcr_value->index) < 0)
@@ -1999,7 +1999,7 @@ int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, 
 
 /* Return a string representing the array of PCR values. The format is as described in
  * tpm2_pcr_values_from_string(). This does not check for validity. */
-char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+char* tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         _cleanup_free_ char *s = NULL;
 
         FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
@@ -7277,7 +7277,7 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
 }
 #endif
 
-char *tpm2_pcr_mask_to_string(uint32_t mask) {
+char* tpm2_pcr_mask_to_string(uint32_t mask) {
         _cleanup_free_ char *s = NULL;
 
         FOREACH_PCR_IN_MASK(n, mask)

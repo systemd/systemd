@@ -1197,7 +1197,7 @@ void job_add_to_dbus_queue(Job *j) {
         j->in_dbus_queue = true;
 }
 
-char *job_dbus_path(Job *j) {
+char* job_dbus_path(Job *j) {
         char *p;
 
         assert(j);
