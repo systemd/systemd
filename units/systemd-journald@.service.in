@@ -13,11 +13,6 @@ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 Requires=systemd-journald@%i.socket systemd-journald-varlink@%i.socket
 After=systemd-journald@%i.socket systemd-journald-varlink@%i.socket
 
-# To avoid journald SIGKILLed during soft-reboot and corrupting journals.
-# See https://github.com/systemd/systemd/issues/30195
-Before=soft-reboot.target
-Conflicts=soft-reboot.target
-
 [Service]
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 DevicePolicy=closed
