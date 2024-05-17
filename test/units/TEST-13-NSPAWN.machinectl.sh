@@ -35,7 +35,7 @@ done
 # Create one "long running" container with some basic signal handling
 create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
-#!/usr/bin/bash -x
+#!/usr/bin/bash
 
 PID=0
 
