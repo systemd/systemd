@@ -95,7 +95,7 @@ MachineClass machine_class_from_string(const char *s) _pure_;
 const char* machine_state_to_string(MachineState t) _const_;
 MachineState machine_state_from_string(const char *s) _pure_;
 
-const char *kill_whom_to_string(KillWhom k) _const_;
+const char* kill_whom_to_string(KillWhom k) _const_;
 KillWhom kill_whom_from_string(const char *s) _pure_;
 
 int machine_openpt(Machine *m, int flags, char **ret_slave);

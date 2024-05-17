@@ -1282,7 +1282,7 @@ DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) 
         }
 }
 
-const char *dns_query_string(DnsQuery *q) {
+const char* dns_query_string(DnsQuery *q) {
         const char *name;
         int r;
 

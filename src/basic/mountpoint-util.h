@@ -70,7 +70,7 @@ int mount_nofollow(
                 unsigned long mountflags,
                 const void *data);
 
-const char *mount_propagation_flag_to_string(unsigned long flags);
+const char* mount_propagation_flag_to_string(unsigned long flags);
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
 bool mount_propagation_flag_is_valid(unsigned long flag);
 

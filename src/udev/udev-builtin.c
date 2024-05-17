@@ -67,7 +67,7 @@ void udev_builtin_list(void) {
                         fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
 }
 
-const char *udev_builtin_name(UdevBuiltinCommand cmd) {
+const char* udev_builtin_name(UdevBuiltinCommand cmd) {
         assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
 
         if (!builtins[cmd])

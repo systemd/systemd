@@ -204,7 +204,7 @@ SessionType session_type_from_string(const char *s) _pure_;
 const char* session_class_to_string(SessionClass t) _const_;
 SessionClass session_class_from_string(const char *s) _pure_;
 
-const char *kill_whom_to_string(KillWhom k) _const_;
+const char* kill_whom_to_string(KillWhom k) _const_;
 KillWhom kill_whom_from_string(const char *s) _pure_;
 
 const char* tty_validity_to_string(TTYValidity t) _const_;

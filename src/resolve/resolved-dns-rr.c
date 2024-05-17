@@ -971,7 +971,7 @@ static char *format_svc_params(DnsSvcParam *first) {
         return strv_join(params, " ");
 }
 
-const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
+const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
         _cleanup_free_ char *s = NULL, *t = NULL;
         char k[DNS_RESOURCE_KEY_STRING_MAX];
         int r;

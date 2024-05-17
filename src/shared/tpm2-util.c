@@ -6227,11 +6227,11 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
-const char *tpm2_userspace_log_path(void) {
+const char* tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
 
-const char *tpm2_firmware_log_path(void) {
+const char* tpm2_firmware_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_FIRMWARE") ?: "/sys/kernel/security/tpm0/binary_bios_measurements";
 }
 
@@ -7599,7 +7599,7 @@ int tpm2_hash_alg_to_size(uint16_t alg) {
         }
 }
 
-const char *tpm2_hash_alg_to_string(uint16_t alg) {
+const char* tpm2_hash_alg_to_string(uint16_t alg) {
         switch (alg) {
         case TPM2_ALG_SHA1:
                 return "sha1";
@@ -7627,7 +7627,7 @@ int tpm2_hash_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm name '%s'", alg);
 }
 
-const char *tpm2_asym_alg_to_string(uint16_t alg) {
+const char* tpm2_asym_alg_to_string(uint16_t alg) {
         switch (alg) {
         case TPM2_ALG_ECC:
                 return "ecc";
@@ -7647,7 +7647,7 @@ int tpm2_asym_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown asymmetric algorithm name '%s'", alg);
 }
 
-const char *tpm2_sym_alg_to_string(uint16_t alg) {
+const char* tpm2_sym_alg_to_string(uint16_t alg) {
         switch (alg) {
 #if HAVE_TPM2
         case TPM2_ALG_AES:
@@ -7667,7 +7667,7 @@ int tpm2_sym_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric algorithm name '%s'", alg);
 }
 
-const char *tpm2_sym_mode_to_string(uint16_t mode) {
+const char* tpm2_sym_mode_to_string(uint16_t mode) {
         switch (mode) {
 #if HAVE_TPM2
         case TPM2_ALG_CTR:
