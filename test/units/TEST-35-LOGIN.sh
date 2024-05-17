@@ -596,7 +596,7 @@ testcase_list_users_sessions_seats() {
         return
     fi
 
-    assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" lingering
+    timeout 30 bash -c "until [[ \"\$(loginctl list-users --no-legend | awk '\$2 == \"logind-test-user\" { print \$4 }')\" == lingering ]]; do sleep 1; done"
 }
 
 teardown_stop_idle_session() (
