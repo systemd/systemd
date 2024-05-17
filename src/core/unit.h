@@ -886,8 +886,8 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 
 int set_unit_path(const char *p);
 
-char *unit_dbus_path(Unit *u);
-char *unit_dbus_path_invocation_id(Unit *u);
+char* unit_dbus_path(Unit *u);
+char* unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 

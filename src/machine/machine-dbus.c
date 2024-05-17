@@ -1231,7 +1231,7 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         return 1;
 }
 
-char *machine_bus_path(Machine *m) {
+char* machine_bus_path(Machine *m) {
         _cleanup_free_ char *e = NULL;
 
         assert(m);

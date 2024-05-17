@@ -8,7 +8,7 @@
 
 extern const BusObjectImplementation link_object;
 
-char *link_bus_path(const Link *link);
+char* link_bus_path(const Link *link);
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error);

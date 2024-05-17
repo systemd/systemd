@@ -130,7 +130,7 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
         return true;
 }
 
-char *utf8_is_valid_n(const char *str, size_t len_bytes) {
+char* utf8_is_valid_n(const char *str, size_t len_bytes) {
         /* Check if the string is composed of valid utf8 characters. If length len_bytes is given, stop after
          * len_bytes. Otherwise, stop at NUL. */
 
@@ -153,7 +153,7 @@ char *utf8_is_valid_n(const char *str, size_t len_bytes) {
         return (char*) str;
 }
 
-char *utf8_escape_invalid(const char *str) {
+char* utf8_escape_invalid(const char *str) {
         char *p, *s;
 
         assert(str);
@@ -192,7 +192,7 @@ static int utf8_char_console_width(const char *str) {
         return unichar_iswide(c) ? 2 : 1;
 }
 
-char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
+char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
         char *p, *s, *prev_s;
         size_t n = 0; /* estimated print width */
 
@@ -268,7 +268,7 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool
         return str_realloc(p);
 }
 
-char *ascii_is_valid(const char *str) {
+char* ascii_is_valid(const char *str) {
         /* Check whether the string consists of valid ASCII bytes,
          * i.e values between 0 and 127, inclusive. */
 
@@ -281,7 +281,7 @@ char *ascii_is_valid(const char *str) {
         return (char*) str;
 }
 
-char *ascii_is_valid_n(const char *str, size_t len) {
+char* ascii_is_valid_n(const char *str, size_t len) {
         /* Very similar to ascii_is_valid(), but checks exactly len
          * bytes and rejects any NULs in that range. */
 
@@ -369,7 +369,7 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
         return 0;
 }
 
-char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
+char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 

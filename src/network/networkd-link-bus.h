@@ -10,7 +10,7 @@ typedef struct Link Link;
 
 extern const BusObjectImplementation link_object;
 
-char *link_bus_path(Link *link);
+char* link_bus_path(Link *link);
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 int link_send_changed_strv(Link *link, char **properties);

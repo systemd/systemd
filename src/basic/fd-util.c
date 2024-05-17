@@ -1132,7 +1132,7 @@ const char* accmode_to_string(int flags) {
         }
 }
 
-char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
+char* format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
         assert(buf);
         assert(fd >= 0);
         assert(pid >= 0);
