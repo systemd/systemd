@@ -373,7 +373,7 @@ $imgs/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79
     fi
 
     loop="$(losetup -P --show --find "$imgs/zzz")"
-    udevadm wait --timeout 60 --settle "${loop:?}"
+    udevadm wait --timeout 60 --settle "${loop:?}p7"
 
     volume="test-repart-$RANDOM"
 
