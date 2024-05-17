@@ -15,7 +15,7 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-char *sysctl_normalize(char *s) {
+char* sysctl_normalize(char *s) {
         char *n;
 
         n = strpbrk(s, "/.");
