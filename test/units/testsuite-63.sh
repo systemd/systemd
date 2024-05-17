@@ -118,7 +118,7 @@ timeout 30 bash -c 'until test "$(systemctl show test63-pr-30768.service -P Acti
 diff /tmp/copyme /tmp/copied
 echo test2 > /tmp/copyme
 exec {lock}<&-
-timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied; do sleep .2; done'
+timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
 
 systemctl log-level info
 
