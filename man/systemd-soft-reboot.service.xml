@@ -115,7 +115,7 @@ IgnoreOnIsolate=yes
 DefaultDependencies=no
 After=basic.target
 Conflicts=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
-Before=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
+Before=shutdown.target rescue.target emergency.target
 
 [Service]
 Type=oneshot
