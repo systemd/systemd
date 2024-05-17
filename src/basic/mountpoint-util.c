@@ -495,16 +495,30 @@ bool fstype_can_discard(const char *fstype) {
         return mount_option_supported(fstype, "discard", NULL) > 0;
 }
 
-bool fstype_can_norecovery(const char *fstype) {
+const char* fstype_norecovery_option(const char *fstype) {
+        int r;
+
         assert(fstype);
 
         /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
          * not be allowed in our MAC context. */
-        if (STR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
-                return true;
+        if (STR_IN_SET(fstype, "ext3", "ext4", "xfs"))
+                return "norecovery";
+
+        /* btrfs dropped support for the "norecovery" option in 6.8
+         * (https://github.com/torvalds/linux/commit/a1912f712188291f9d7d434fba155461f1ebef66) and replaced
+         * it with rescue=nologreplay, so we check for the new name first and fall back to checking for the
+         * old name if the new name doesn't work. */
+        if (streq(fstype, "btrfs")) {
+                r = mount_option_supported(fstype, "rescue=nologreplay", NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check for btrfs rescue=nologreplay option, assuming it is not supported: %m");
+                if (r > 0)
+                        return "rescue=nologreplay";
+        }
 
         /* On new kernels we can just ask the kernel */
-        return mount_option_supported(fstype, "norecovery", NULL) > 0;
+        return mount_option_supported(fstype, "norecovery", NULL) > 0 ? "norecovery" : NULL;
 }
 
 bool fstype_can_umask(const char *fstype) {
