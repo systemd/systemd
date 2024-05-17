@@ -8,7 +8,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-char *sysctl_normalize(char *s);
+char* sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);
 int sysctl_write(const char *property, const char *value);
 int sysctl_writef(const char *property, const char *format, ...) _printf_(2, 3);

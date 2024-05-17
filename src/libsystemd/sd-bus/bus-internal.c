@@ -286,7 +286,7 @@ const char* bus_message_type_to_string(uint8_t u) {
                 return NULL;
 }
 
-char *bus_address_escape(const char *v) {
+char* bus_address_escape(const char *v) {
         const char *a;
         char *r, *b;
 
