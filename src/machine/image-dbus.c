@@ -127,9 +127,24 @@ int bus_image_method_rename(
         if (r == 0)
                 return 1; /* Will call us back */
 
+        /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
+        Image *removed = hashmap_remove(m->image_cache, image->name);
+
         r = image_rename(image, new_name);
         if (r < 0)
                 return r;
+
+        /* Then save the object again in the cache. */
+        if (removed) {
+                if (removed != image)
+                        image_unref(removed);
+
+                r = hashmap_put(m->image_cache, image->name, image);
+                if (r < 0) {
+                        image_unref(image);
+                        return r;
+                }
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
