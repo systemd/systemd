@@ -1911,9 +1911,12 @@ int partition_pick_mount_options(
          * access that actually modifies stuff work on such image files. Or to say this differently: if
          * people want their file systems to be fixed up they should just open them in writable mode, where
          * all these problems don't exist. */
-        if (!rw && fstype && fstype_can_norecovery(fstype))
-                if (!strextend_with_separator(&options, ",", "norecovery"))
+        if (!rw && fstype) {
+                const char *option = fstype_norecovery_option(fstype);
+
+                if (option && !strextend_with_separator(&options, ",", option))
                         return -ENOMEM;
+        }
 
         if (discard && fstype && fstype_can_discard(fstype))
                 if (!strextend_with_separator(&options, ",", "discard"))
