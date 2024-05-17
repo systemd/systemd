@@ -196,7 +196,6 @@ BASICTOOLS=(
     login
     losetup
     ls
-    lsattr
     lsblk
     lz4cat
     mkdir

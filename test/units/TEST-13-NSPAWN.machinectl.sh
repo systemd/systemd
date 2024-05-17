@@ -132,13 +132,11 @@ machinectl show-image clone1
 machinectl rename clone1 clone2
 (! machinectl show-image clone1)
 machinectl show-image clone2
-if lsattr -d /var/lib/machines >/dev/null; then
-    [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
-    machinectl read-only clone2 yes
-    [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == yes ]]
-    machinectl read-only clone2 no
-    [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
-fi
+[[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
+machinectl read-only clone2 yes
+[[ "$(machinectl show-image --property=ReadOnly --value clone2)" == yes ]]
+machinectl read-only clone2 no
+[[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
 machinectl remove clone2
 for i in {0..4}; do
     machinectl clone container1 "clone$i"
