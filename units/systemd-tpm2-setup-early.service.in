@@ -21,3 +21,6 @@ ConditionPathExists=!/run/systemd/tpm2-srk-public-key.pem
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --early=yes --graceful
+
+# The tool returns 76 if the TPM cannot be accessed due to an authorization failure and we can't generate an SRK.
+SuccessExitStatus=76
