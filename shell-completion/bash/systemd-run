@@ -34,21 +34,17 @@ __get_machines() {
 
 _systemd_run() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-    local OPTS='--no-ask-password --scope -u --unit -p --property --description --slice --slice-inherit
-                -r --remain-after-exit --send-sighup --service-type --uid --gid --nice
-                --working-directory -d --same-dir -E --setenv -t --pty -P --pipe -S --shell -q --quiet
-                --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar
-                --on-clock-change --on-timezone-change --path-property --socket-property
-                --timer-property --no-block --wait -G --collect --user --system -H --host -M --machine
-                -h --help --version'
-
-    local mode=--system
-    local i
     local opts_with_values=(
         --unit -p --property --slice --description --service-type --uid --gid --nice --working-directory
         -E --setenv --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar
-        --path-property --socket-property --timer-property -H --host -M --machine
+        --path-property --socket-property --timer-property -H --host -M --machine --expand-environment
+        --background
     )
+    local OPTS="${opts_with_values[*]} --no-ask-password --scope -u --slice-inherit -r --remain-after-exit
+                --send-sighup -d --same-dir -t --pty -P --pipe -S --shell -q --quiet --ignore-failure
+                --on-clock-change --on-timezone-change --no-block --wait -G --collect --user --system -h --help --version"
+    local mode=--system
+    local i
     for (( i=1; i <= COMP_CWORD; i++ )); do
         if [[ ${COMP_WORDS[i]} != -* ]]; then
             local root_command=${COMP_WORDS[i]}
@@ -58,13 +54,19 @@ _systemd_run() {
 
         [[ ${COMP_WORDS[i]} == "--user" ]] && mode=--user
 
-        [[ $i -lt $COMP_CWORD && " ${opts_with_values[@]} " =~ " ${COMP_WORDS[i]} " ]] && ((i++))
+        [[ $i -lt $COMP_CWORD && " ${opts_with_values[*]} " =~ " ${COMP_WORDS[i]} " ]] && ((i++))
     done
 
     case "$prev" in
-        --unit|--description|--on-active|--on-boot|--on-startup|--on-unit-active|--on-unit-inactive|--on-calendar)
+        --unit|--description|--on-active|--on-boot|--on-startup|--on-unit-active|--on-unit-inactive|--on-calendar|--background)
             # argument required but no completions available
             return
+            ;;
+        --expand-environment)
+            local comps='yes no'
+
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
             ;;
         --slice)
             local comps=$(__get_slice_units $mode)
