@@ -61,7 +61,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                 return 0;
         }
 
-        if (isempty(root) && running_in_chroot() <= 0) {
+        if (empty_or_root(root) && running_in_chroot() <= 0) {
                 /* Let's use a system credential for the machine ID if we can */
                 r = acquire_machine_id_from_credential(ret);
                 if (r >= 0)
