@@ -22,6 +22,11 @@ get_last_timestamp() {
     journalctl -b "${1:?}" -o json -n 1 | jq -r '.__REALTIME_TIMESTAMP'
 }
 
+# There may be huge amount of pending messages in sockets. Processing them may cause journal rotation.
+# If the journal is rotated in the loop below, some journal file may not be loaded and an unexpected
+# result may be provided. To mitigate such, sync before reading journals. Workaround for #32890.
+journalctl --sync
+
 # Issue: #29275, second part
 # Now let's check if the boot entries are in the correct/expected order
 index=0

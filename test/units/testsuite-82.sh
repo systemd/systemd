@@ -42,6 +42,10 @@ if [ -f /run/testsuite82.touch3 ]; then
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
+    # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation and
+    # removal of old archived journal files. If a journal file is removed during journalctl reading it,
+    # the command may fail. To mitigate such, sync before reading journals. Workaround for #32834.
+    journalctl --sync
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
