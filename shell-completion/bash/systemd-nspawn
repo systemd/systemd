@@ -69,19 +69,19 @@ _systemd_nspawn() {
                       --keep-unit -n --network-veth -j -x --ephemeral -a --as-pid2 -U --suppress-sync=yes'
         [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro
                       -M --machine -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context
-                      --register --network-interface --network-bridge --personality -i --image --tmpfs
+                      --register --network-interface --network-bridge --personality -i --image --image-policy --tmpfs
                       --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash --chdir
                       --pivot-root --property --private-users --private-users-ownership --network-namespace-path
                       --network-ipvlan --network-veth-extra --network-zone -p --port --system-call-filter --overlay
                       --overlay-ro --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
-                      --resolv-conf --timezone --root-hash-sig --background'
+                      --resolv-conf --timezone --root-hash-sig --background --oci-bundle --verity-data'
     )
 
     _init_completion || return
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --directory|-D|--template)
+            --directory|-D|--template|--oci-bundle)
                 compopt -o nospace
                 comps=$(compgen -S/ -A directory -- "$cur" )
                 ;;
