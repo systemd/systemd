@@ -1083,9 +1083,8 @@
         <option>exit-force</option>, <option>soft-reboot</option>, <option>soft-reboot-force</option>,
         <option>kexec</option>, <option>kexec-force</option>, <option>halt</option>,
         <option>halt-force</option> and <option>halt-immediate</option>. In system mode, all options are
-        allowed. In user mode, only <option>none</option>, <option>exit</option>,
-        <option>exit-force</option>, <option>soft-reboot</option> and <option>soft-reboot-force</option> are
-        allowed. Both options default to <option>none</option>.</para>
+        allowed. In user mode, only <option>none</option>, <option>exit</option>, and
+        <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
 
         <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a
         reboot following the normal shutdown procedure (i.e. equivalent to <command>systemctl
@@ -1160,7 +1159,8 @@
         <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to
         take when the timeout is hit, see description of <varname>JobTimeoutSec=</varname> and
         <varname>JobRunningTimeoutSec=</varname> above. It takes the same values as
-        <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.</para>
+        <varname>FailureAction=</varname>/<varname>SuccessAction=</varname>. Defaults to
+        <option>none</option>.</para>
 
         <para><varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to
         the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
