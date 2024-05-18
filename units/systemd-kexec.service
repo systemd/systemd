@@ -11,6 +11,5 @@
 Description=Reboot via kexec
 Documentation=man:systemd-kexec.service(8)
 DefaultDependencies=no
-Requires=shutdown.target umount.target final.target
-After=shutdown.target umount.target final.target
+Requires=kexec.target
 SuccessAction=kexec-force

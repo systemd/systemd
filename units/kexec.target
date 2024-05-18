@@ -11,8 +11,10 @@
 Description=Reboot via kexec
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
+Requires=shutdown.target umount.target final.target
+After=shutdown.target umount.target final.target
 Requires=systemd-kexec.service
-After=systemd-kexec.service
+Before=systemd-kexec.service
 AllowIsolate=yes
 JobTimeoutSec=30min
 JobTimeoutAction=kexec-force
