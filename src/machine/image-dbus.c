@@ -127,9 +127,17 @@ int bus_image_method_rename(
         if (r == 0)
                 return 1; /* Will call us back */
 
+        /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
+        assert_se(hashmap_remove_value(m->image_cache, image->name, image));
+
         r = image_rename(image, new_name);
-        if (r < 0)
+        if (r < 0) {
+                image_unref(image);
                 return r;
+        }
+
+        /* Then save the object again in the cache. */
+        assert_se(hashmap_put(m->image_cache, image->name, image) > 0);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -378,30 +386,17 @@ static int image_flush_cache(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-static int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        _cleanup_free_ char *e = NULL;
-        Manager *m = userdata;
-        Image *image = NULL;
-        const char *p;
+int manager_acquire_image(Manager *m, const char *name, Image **ret) {
         int r;
 
-        assert(bus);
-        assert(path);
-        assert(interface);
-        assert(found);
+        assert(m);
+        assert(name);
 
-        p = startswith(path, "/org/freedesktop/machine1/image/");
-        if (!p)
+        Image *existing = hashmap_get(m->image_cache, name);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
                 return 0;
-
-        e = bus_label_unescape(p);
-        if (!e)
-                return -ENOMEM;
-
-        image = hashmap_get(m->image_cache, e);
-        if (image) {
-                *found = image;
-                return 1;
         }
 
         if (!m->image_cache_defer_event) {
@@ -418,19 +413,49 @@ static int image_object_find(sd_bus *bus, const char *path, const char *interfac
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, e, NULL, &image);
-        if (r == -ENOENT)
-                return 0;
+        _cleanup_(image_unrefp) Image *image = NULL;
+        r = image_find(IMAGE_MACHINE, name, NULL, &image);
         if (r < 0)
                 return r;
 
         image->userdata = m;
 
         r = hashmap_ensure_put(&m->image_cache, &image_hash_ops, image->name, image);
-        if (r < 0) {
-                image_unref(image);
+        if (r < 0)
                 return r;
-        }
+
+        if (ret)
+                *ret = image;
+
+        TAKE_PTR(image);
+        return 0;
+}
+
+static int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *e = NULL;
+        Manager *m = userdata;
+        Image *image;
+        const char *p;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+
+        p = startswith(path, "/org/freedesktop/machine1/image/");
+        if (!p)
+                return 0;
+
+        e = bus_label_unescape(p);
+        if (!e)
+                return -ENOMEM;
+
+        r = manager_acquire_image(m, e, &image);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
 
         *found = image;
         return 1;
