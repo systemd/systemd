@@ -47,6 +47,10 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     [[ ! -e /run/credentials/TEST-82-SOFTREBOOT-nosurvive.service ]]
     assert_eq "$(cat /run/credentials/TEST-82-SOFTREBOOT-survive-argv.service/preserve)" "yay"
 
+    # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation and
+    # removal of old archived journal files. If a journal file is removed during journalctl reading it,
+    # the command may fail. To mitigate such, sync before reading journals. Workaround for #32834.
+    journalctl --sync
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
