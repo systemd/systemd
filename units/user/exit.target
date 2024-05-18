@@ -11,6 +11,8 @@
 Description=Exit the Session
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
+Requires=shutdown.target
+After=shutdown.target
 Requires=systemd-exit.service
-After=systemd-exit.service
+Before=systemd-exit.service
 AllowIsolate=yes
