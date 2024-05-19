@@ -54,14 +54,21 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
 
         assert(ret);
 
-        /* First, try reading the D-Bus machine id, unless it is a symlink */
+        /* First, try reading the machine ID from /run/machine-id, which may not be mounted on
+         * /etc/machine-id yet. This is important on switching root, Otherwise, machine ID may be changed
+         * after the transition. */
+        if (empty_or_root(root) && running_in_chroot() <= 0 &&
+            id128_read("/run/machine-id", ID128_FORMAT_PLAIN, ret) >= 0)
+                return 0;
+
+        /* Then, try reading the D-Bus machine id, unless it is a symlink */
         fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT | CHASE_NOFOLLOW, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
         if (fd >= 0 && id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret) >= 0) {
                 log_info("Initializing machine ID from D-Bus machine ID.");
                 return 0;
         }
 
-        if (isempty(root) && running_in_chroot() <= 0) {
+        if (empty_or_root(root) && running_in_chroot() <= 0) {
                 /* Let's use a system credential for the machine ID if we can */
                 r = acquire_machine_id_from_credential(ret);
                 if (r >= 0)
