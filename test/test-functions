@@ -203,6 +203,7 @@ BASICTOOLS=(
     mkfifo
     mknod
     mktemp
+    modinfo
     modprobe
     mount
     mountpoint
