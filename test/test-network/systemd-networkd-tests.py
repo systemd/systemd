@@ -5268,17 +5268,23 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def setup_netdevsim(self, id=99, num_ports=1, num_vfs=0):
+        call('modprobe netdevsim')
+
+        # Create netdevsim device.
+        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
+            f.write(f'{id} {num_ports}')
+
+        # Create VF.
+        if num_vfs > 0:
+            with open(f'/sys/bus/netdevsim/devices/netdevsim{id}/sriov_numvfs', mode='w', encoding='utf-8') as f:
+                f.write(f'{num_vfs}')
+
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov(self):
         copy_network_unit('25-default.link', '25-sriov.network')
 
-        call('modprobe netdevsim')
-
-        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
-            f.write('99 1')
-
-        with open('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs', mode='w', encoding='utf-8') as f:
-            f.write('3')
+        self.setup_netdevsim(num_vfs=3)
 
         start_networkd()
         self.wait_online('eni99np1:routable')
@@ -5295,10 +5301,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     def test_sriov_udev(self):
         copy_network_unit('25-sriov.link', '25-sriov-udev.network')
 
-        call('modprobe netdevsim')
-
-        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
-            f.write('99 1')
+        self.setup_netdevsim()
 
         start_networkd()
         self.wait_online('eni99np1:routable')
