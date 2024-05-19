@@ -203,7 +203,7 @@ EOF
 }
 
 test_issue_23796() {
-    local mount_path mount_mytmpfs
+    local mount_path mount_mytmpfs since
 
     mount_path="$(command -v mount 2>/dev/null)"
     mount_mytmpfs="${mount_path/\/bin/\/sbin}.mytmpfs"
@@ -225,6 +225,9 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -f /run/systemd/system/tmp-hoge.mount '$mount_mytmpfs'" RETURN
 
+    journalctl --sync
+    since="$(date '+%H:%M:%S')"
+
     for _ in {1..10}; do
         systemctl --no-block start tmp-hoge.mount
         sleep ".$RANDOM"
@@ -233,7 +236,7 @@ EOF
         sleep 1
 
         if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] || \
-           journalctl -u tmp-hoge.mount -q --grep "but there is no mount"; then
+           journalctl --since="$since" -u tmp-hoge.mount -q --grep "but there is no mount"; then
                 exit 1
         fi
 
@@ -249,6 +252,8 @@ NUM_DIRS=20
 # make sure we can handle mounts at very long paths such that mount unit name must be hashed to fall within our unit name limit
 LONGPATH="$(printf "/$(printf "x%0.s" {1..255})%0.s" {1..7})"
 LONGMNT="$(systemd-escape --suffix=mount --path "$LONGPATH")"
+
+journalctl --sync
 TS="$(date '+%H:%M:%S')"
 
 mkdir -p "$LONGPATH"
@@ -271,6 +276,9 @@ for ((i = 0; i < NUM_DIRS; i++)); do
     mkdir "/tmp/meow${i}"
 done
 
+# The following loop may produce many journal entries.
+# Let's process all pending entries before testing.
+journalctl --sync
 TS="$(date '+%H:%M:%S')"
 
 for ((i = 0; i < NUM_DIRS; i++)); do
@@ -286,7 +294,9 @@ done
 
 # Figure out if we have entered the rate limit state.
 # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
+journalctl --sync
 if timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) entered rate limit'; do journalctl --sync; sleep 1; done"; then
+    journalctl --sync
     timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) left rate limit'; do journalctl --sync; sleep 1; done"
 fi
 
