@@ -3295,8 +3295,7 @@ int main(int argc, char *argv[]) {
                              &switch_root_dir,
                              &switch_root_init,
                              &error_message);
-        assert(r < 0 || IN_SET(r, MANAGER_EXIT,          /* MANAGER_OK is not expected here. */
-                                  MANAGER_RELOAD,
+        assert(r < 0 || IN_SET(r, MANAGER_EXIT,          /* MANAGER_OK and MANAGER_RELOAD are not expected here. */
                                   MANAGER_REEXECUTE,
                                   MANAGER_REBOOT,
                                   MANAGER_SOFT_REBOOT,
