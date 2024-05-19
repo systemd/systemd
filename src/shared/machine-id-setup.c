@@ -48,13 +48,22 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
         return 0;
 }
 
-static int generate_machine_id(const char *root, sd_id128_t *ret) {
+static int acquire_machine_id(const char *root, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(ret);
 
-        /* First, try reading the D-Bus machine id, unless it is a symlink */
+        /* First, try reading the machine ID from /run/machine-id, which may not be mounted on
+         * /etc/machine-id yet. This is important on switching root, Otherwise, machine ID may be changed
+         * after the transition. */
+        if (empty_or_root(root) && running_in_chroot() <= 0 &&
+            id128_read("/run/machine-id", ID128_FORMAT_PLAIN, ret) >= 0) {
+                log_info("Reusing machine ID stored in /run/machine-id.");
+                return 0;
+        }
+
+        /* Then, try reading the D-Bus machine id, unless it is a symlink */
         fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT | CHASE_NOFOLLOW, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
         if (fd >= 0 && id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret) >= 0) {
                 log_info("Initializing machine ID from D-Bus machine ID.");
@@ -146,8 +155,8 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                 if (id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id) >= 0)
                         goto finish;
 
-                /* Hmm, so, the id currently stored is not useful, then let's generate one */
-                r = generate_machine_id(root, &machine_id);
+                /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
+                r = acquire_machine_id(root, &machine_id);
                 if (r < 0)
                         return r;
         }
