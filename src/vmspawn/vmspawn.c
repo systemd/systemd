@@ -1572,16 +1572,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         case CONSOLE_INTERACTIVE:  {
                 _cleanup_free_ char *pty_path = NULL;
 
-                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                master = openpt_allocate(O_RDWR|O_NONBLOCK, &pty_path);
                 if (master < 0)
-                        return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
-
-                r = ptsname_malloc(master, &pty_path);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine tty name: %m");
-
-                if (unlockpt(master) < 0)
-                        return log_error_errno(errno, "Failed to unlock tty: %m");
+                        return log_error_errno(master, "Failed to setup pty: %m");
 
                 if (strv_extend_many(
                                 &cmdline,
