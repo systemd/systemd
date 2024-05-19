@@ -570,7 +570,7 @@ static int do_shovel(PTYForward *f) {
 
                                         f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                                 } else
-                                        return log_error_errno(errno, "read(): %m");
+                                        return log_error_errno(errno, "Failed to read from pty input fd: %m");
                         } else if (k == 0) {
                                 /* EOF on stdin */
                                 f->stdin_readable = false;
@@ -625,7 +625,7 @@ static int do_shovel(PTYForward *f) {
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
                                 } else
-                                        return log_error_errno(errno, "read(): %m");
+                                        return log_error_errno(errno, "Failed to read from pty master fd: %m");
                         } else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;
@@ -649,7 +649,7 @@ static int do_shovel(PTYForward *f) {
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
                                 } else
-                                        return log_error_errno(errno, "write(): %m");
+                                        return log_error_errno(errno, "Failed to write to pty output fd: %m");
 
                         } else {
 
@@ -767,7 +767,7 @@ int pty_forward_new(
         if (!f)
                 return -ENOMEM;
 
-        *f = (struct PTYForward) {
+        *f = (PTYForward) {
                 .flags = flags,
                 .master = -EBADF,
                 .input_fd = -EBADF,
@@ -845,14 +845,15 @@ int pty_forward_new(
 
         (void) ioctl(master, TIOCSWINSZ, &ws);
 
-        if (!(flags & PTY_FORWARD_READ_ONLY)) {
-                int same;
+        if (!FLAGS_SET(flags, PTY_FORWARD_READ_ONLY)) {
+                bool same;
 
                 assert(f->input_fd >= 0);
 
-                same = fd_inode_same(f->input_fd, f->output_fd);
-                if (same < 0)
-                        return same;
+                r = fd_inode_same(f->input_fd, f->output_fd);
+                if (r < 0)
+                        return r;
+                same = r > 0;
 
                 if (tcgetattr(f->input_fd, &f->saved_stdin_attr) >= 0) {
                         struct termios raw_stdin_attr;
@@ -917,10 +918,12 @@ int pty_forward_new(
 PTYForward *pty_forward_free(PTYForward *f) {
         if (!f)
                 return NULL;
+
         pty_forward_disconnect(f);
         free(f->background_color);
         free(f->title);
         free(f->title_prefix);
+
         return mfree(f);
 }
 
@@ -940,15 +943,14 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
 
         assert(f);
 
-        if (!!(f->flags & PTY_FORWARD_IGNORE_VHANGUP) == b)
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
                 return 0;
 
         SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
 
         if (!ignore_vhangup(f)) {
 
-                /* We shall now react to vhangup()s? Let's check
-                 * immediately if we might be in one */
+                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
 
                 f->master_readable = true;
                 r = shovel(f);
@@ -962,7 +964,7 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
 bool pty_forward_get_ignore_vhangup(PTYForward *f) {
         assert(f);
 
-        return !!(f->flags & PTY_FORWARD_IGNORE_VHANGUP);
+        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
 }
 
 bool pty_forward_is_done(PTYForward *f) {
@@ -994,6 +996,7 @@ bool pty_forward_drain(PTYForward *f) {
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
         int r;
+
         assert(f);
 
         if (f->stdin_event_source) {
