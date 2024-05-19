@@ -282,6 +282,44 @@ static int extract_image_basename(
         return 0;
 }
 
+static int image_update_quota(Image *i, int fd) {
+        _cleanup_close_ int fd_close = -EBADF;
+        int r;
+
+        assert(i);
+
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+                return -EROFS;
+
+        if (i->type != IMAGE_SUBVOLUME)
+                return -EOPNOTSUPP;
+
+        if (fd < 0) {
+                fd_close = open(i->path, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                if (fd_close < 0)
+                        return -errno;
+                fd = fd_close;
+        }
+
+        r = btrfs_quota_scan_ongoing(fd);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        BtrfsQuotaInfo quota;
+        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
+        if (r < 0)
+                return r;
+
+        i->usage = quota.referenced;
+        i->usage_exclusive = quota.exclusive;
+        i->limit = quota.referenced_max;
+        i->limit_exclusive = quota.exclusive_max;
+
+        return 1;
+}
+
 static int image_make(
                 ImageClass c,
                 const char *pretty,
@@ -375,19 +413,7 @@ static int image_make(
                                 if (r < 0)
                                         return r;
 
-                                if (btrfs_quota_scan_ongoing(fd) == 0) {
-                                        BtrfsQuotaInfo quota;
-
-                                        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
-                                        if (r >= 0) {
-                                                (*ret)->usage = quota.referenced;
-                                                (*ret)->usage_exclusive = quota.exclusive;
-
-                                                (*ret)->limit = quota.referenced_max;
-                                                (*ret)->limit_exclusive = quota.exclusive_max;
-                                        }
-                                }
-
+                                (void) image_update_quota(*ret, fd);
                                 return 0;
                         }
                 }
@@ -1287,6 +1313,7 @@ int image_read_only(Image *i, bool b) {
                 return -EOPNOTSUPP;
         }
 
+        i->read_only = b;
         return 0;
 }
 
@@ -1395,6 +1422,8 @@ int image_path_lock(
 }
 
 int image_set_limit(Image *i, uint64_t referenced_max) {
+        int r;
+
         assert(i);
 
         if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
@@ -1410,7 +1439,12 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 
         (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
         (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
-        return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        r = btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        if (r < 0)
+                return r;
+
+        (void) image_update_quota(i, -EBADF);
+        return 0;
 }
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
