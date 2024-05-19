@@ -152,6 +152,12 @@ void bus_close_inotify_fd(sd_bus *b) {
         b->n_inotify_watches = 0;
 }
 
+static void bus_close_peer_pidfd(sd_bus *b) {
+        assert(b);
+
+        b->pidfd = safe_close(b->pidfd);
+}
+
 static void bus_reset_queues(sd_bus *b) {
         assert(b);
 
@@ -194,6 +200,7 @@ static sd_bus* bus_free(sd_bus *b) {
 
         bus_close_io_fds(b);
         bus_close_inotify_fd(b);
+        bus_close_peer_pidfd(b);
 
         free(b->label);
         free(b->groups);
@@ -1128,6 +1135,7 @@ static int bus_start_address(sd_bus *b) {
         for (;;) {
                 bus_close_io_fds(b);
                 bus_close_inotify_fd(b);
+                bus_close_peer_pidfd(b);
 
                 bus_kill_exec(b);
 
@@ -1804,6 +1812,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
 
         bus_close_io_fds(bus);
         bus_close_inotify_fd(bus);
+        bus_close_peer_pidfd(bus);
 }
 
 _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
