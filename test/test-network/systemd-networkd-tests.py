@@ -562,7 +562,7 @@ def link_exists(*links):
     return True
 
 def link_resolve(link):
-    return check_output(f'ip link show {link}').split(':')[1].strip()
+    return check_output(f'ip link show {link}').split(':')[1].strip().split('@')[0]
 
 def remove_link(*links, protect=False):
     for link in links:
@@ -5282,14 +5282,14 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov(self):
-        copy_network_unit('25-default.link', '25-sriov.network')
+        copy_network_unit('25-netdevsim.link', '25-sriov.network')
 
         self.setup_netdevsim(num_vfs=3)
 
         start_networkd()
-        self.wait_online('eni99np1:routable')
+        self.wait_online('sim99:routable')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
@@ -5304,12 +5304,12 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.setup_netdevsim()
 
         start_networkd()
-        self.wait_online('eni99np1:routable')
+        self.wait_online('sim99:routable')
 
-        # the name eni99np1 may be an alternative name.
-        ifname = link_resolve('eni99np1')
+        # The name sim99 is an alternative name, and cannot be used by udevadm below.
+        ifname = link_resolve('sim99')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
@@ -5325,7 +5325,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         udevadm_reload()
         udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
@@ -5341,7 +5341,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         udevadm_reload()
         udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
@@ -5357,7 +5357,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         udevadm_reload()
         udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
@@ -5373,7 +5373,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         udevadm_reload()
         udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
-        output = check_output('ip link show dev eni99np1')
+        output = check_output('ip link show dev sim99')
         print(output)
         self.assertRegex(output,
                          'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
