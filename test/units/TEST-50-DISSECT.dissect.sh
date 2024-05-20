@@ -722,8 +722,9 @@ systemd-sysext merge --no-reload
 (! systemctl --quiet is-active foo.service)
 systemd-sysext unmerge --no-reload
 systemd-sysext merge
+journalctl --sync
 # shellcheck disable=SC2016
-timeout 30s bash -xec 'until [[ $(journalctl -b -u foo.service _TRANSPORT=stdout -o cat) == foo ]]; do sleep .5; done'
+timeout 30s bash -xec 'until [[ $(journalctl -b -u foo.service _TRANSPORT=stdout -o cat) == foo ]]; do sleep 1; journalctl --sync; done'
 systemd-sysext unmerge --no-reload
 # Grep on the Warning to find the warning helper mentioning the daemon reload.
 systemctl status foo.service 2>&1 | grep -q -F "Warning"
