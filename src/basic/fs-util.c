@@ -691,6 +691,14 @@ int access_fd(int fd, int mode) {
 
         /* Like access() but operates on an already open fd */
 
+        if (faccessat(fd, "", mode, AT_EMPTY_PATH) >= 0)
+                return 0;
+        if (errno != EINVAL)
+                return -errno;
+
+        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
+         * if unavailable. */
+
         if (access(FORMAT_PROC_FD_PATH(fd), mode) < 0) {
                 if (errno != ENOENT)
                         return -errno;
