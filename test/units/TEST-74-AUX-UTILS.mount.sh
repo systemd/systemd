@@ -142,7 +142,12 @@ LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
 udevadm wait --timeout 60 --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
-timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
+if ! timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"; then
+    # For debugging https://github.com/systemd/systemd/issues/32680#issuecomment-2120959238
+    udevadm info "$LOOP"
+    udevadm info --attribute-walk "$LOOP"
+    false
+fi
 # Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
 systemd-mount --owner=testuser "$LOOP" "$WORK_DIR/mnt"
