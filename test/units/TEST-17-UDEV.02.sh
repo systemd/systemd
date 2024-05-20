@@ -145,6 +145,7 @@ EOF
     # make sure that 'udevadm monitor' actually monitor uevents
     sleep 1
 
+    journalctl --sync
     since="$(date '+%H:%M:%S')"
 
     # add another interface which will conflict with an existing interface
@@ -172,7 +173,8 @@ EOF
     done
     test -n "$found"
 
-    timeout 30 bash -c "until journalctl _PID=1 _COMM=systemd --since $since | grep -q 'foobar: systemd-udevd failed to process the device, ignoring: File exists'; do sleep 1; done"
+    journalctl --sync
+    timeout 30 bash -c "until journalctl _PID=1 _COMM=systemd --since $since | grep -q 'foobar: systemd-udevd failed to process the device, ignoring: File exists'; do sleep 1; journalctl --sync; done"
     # check if the invalid SYSTEMD_ALIAS property for the interface foobar is ignored by PID1
     assert_eq "$(systemctl show --property=SysFSPath --value /sys/subsystem/net/devices/hoge)" "/sys/devices/virtual/net/hoge"
 }
