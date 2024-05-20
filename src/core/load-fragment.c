@@ -81,7 +81,7 @@ static int parse_socket_protocol(const char *s) {
         r = parse_ip_protocol(s);
         if (r < 0)
                 return r;
-        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
+        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP))
                 return -EPROTONOSUPPORT;
 
         return r;
