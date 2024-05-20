@@ -9,6 +9,7 @@
 
 #include "macro.h"
 #include "missing_fcntl.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -160,6 +161,21 @@ char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, 
 /* Kinda the same as FORMAT_PROC_FD_PATH(), but goes by PID rather than "self" symlink */
 #define FORMAT_PROC_PID_FD_PATH(pid, fd)                                \
         format_proc_pid_fd_path((char[PROC_PID_FD_PATH_MAX]) {}, (pid), (fd))
+
+static inline int proc_fd_enoent_errno(void) {
+        int r;
+
+        /* When ENOENT is returned during the use of FORMAT_PROC_FD_PATH, it can mean two things:
+         * that the fd does not exist or that /proc/ is not mounted.
+         * Let's make things debuggable and figure out the most appropriate errno. */
+
+        r = proc_mounted();
+        if (r == 0)
+                return -ENOSYS;  /* /proc/ is not available or not set up properly, we're most likely
+                                    in some chroot environment. */
+        return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                            not valid, otherwise let's propagate the original ENOENT. */
+}
 
 const char *accmode_to_string(int flags);
 
