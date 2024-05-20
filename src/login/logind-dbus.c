@@ -907,7 +907,10 @@ static int create_session(
         /* Check if we are already in a logind session, and if so refuse. */
         r = manager_get_session_by_pidref(m, &leader, /* ret_session= */ NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(
+                                r,
+                                "Failed to check if process " PID_FMT " is already in a session: %m",
+                                leader.pid);
         if (r > 0)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY,
                                          "Already running in a session or user slice");
