@@ -58,6 +58,7 @@ ListenMessageQueue=
 ListenUSBFunction=
 SocketProtocol=udplite
 SocketProtocol=sctp
+SocketProtocol=mptcp
 SocketProtocol=
 BindIPv6Only=false
 Backlog=33
