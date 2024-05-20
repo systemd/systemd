@@ -1646,7 +1646,8 @@ static int socket_open_fds(Socket *orig_s) {
 
                         case SOCK_STREAM:
                         case SOCK_SEQPACKET:
-                                if (s->socket_protocol == IPPROTO_SCTP)
+                                if (s->socket_protocol == IPPROTO_SCTP ||
+                                    s->socket_protocol == IPPROTO_MPTCP)
                                         p->address.protocol = s->socket_protocol;
                                 break;
 
