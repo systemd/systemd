@@ -23,23 +23,20 @@ static int list_dependencies_print(
                 UnitTimes *times,
                 BootTimes *boot) {
 
-        for (unsigned i = level; i != 0; i--)
+        for (unsigned i = level; i > 0; i--)
                 printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
 
         printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
 
-        if (times) {
+        if (times && times->activating >= boot->userspace_time) {
                 if (timestamp_is_set(times->time))
-                        printf("%s%s @%s +%s%s", ansi_highlight_red(), name,
+                        printf("%s%s @%s +%s%s\n", ansi_highlight_red(), name,
                                FORMAT_TIMESPAN(times->activating - boot->userspace_time, USEC_PER_MSEC),
                                FORMAT_TIMESPAN(times->time, USEC_PER_MSEC), ansi_normal());
-                else if (times->activated > boot->userspace_time)
-                        printf("%s @%s", name, FORMAT_TIMESPAN(times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
-                        printf("%s", name);
+                        printf("%s @%s\n", name, FORMAT_TIMESPAN(times->activated - boot->userspace_time, USEC_PER_MSEC));
         } else
-                printf("%s", name);
-        printf("\n");
+                printf("%s\n", name);
 
         return 0;
 }
