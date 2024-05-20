@@ -58,6 +58,9 @@ mount "$LOOP" "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/foo.bar"
 umount "$LOOP"
 (! mountpoint "$WORK_DIR/mnt")
+# Wait for the mount unit to be unloaded. Otherwise, creation of the transient unit below may fail.
+MOUNT_UNIT=$(systemd-escape --path --suffix=mount "$WORK_DIR/mnt")
+timeout 60 bash -c "while [[ -n \$(systemctl list-units --all --no-legend $MOUNT_UNIT) ]]; do sleep 1; done"
 
 # Mount with both source and destination set
 systemd-mount "$LOOP" "$WORK_DIR/mnt"
