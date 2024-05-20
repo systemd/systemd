@@ -43,6 +43,9 @@ mount "$LOOP" "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/foo.bar"
 umount "$LOOP"
 (! mountpoint "$WORK_DIR/mnt")
+# Wait for the mount unit unloaded. Otherwise, creating transient unit below may be failed.
+MOUNT_UNIT=$(systemd-escape --path --suffix=mount "$WORK_DIR/mnt")
+timeout 60 bash -c "while [[ -n \$\(systemctl list-units --all --no-legend $MOUNT_UNIT\) ]]; do sleep 1; done"
 
 # Mount with both source and destination set
 systemd-mount "$LOOP" "$WORK_DIR/mnt"
@@ -139,7 +142,12 @@ LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
 udevadm wait --timeout 60 --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
-timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
+if ! timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"; then
+    # For debugging https://github.com/systemd/systemd/issues/32680#issuecomment-2120959238
+    udevadm info "$LOOP"
+    udevadm info --attribute-walk "$LOOP"
+    false
+fi
 # Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
 systemd-mount --owner=testuser "$LOOP" "$WORK_DIR/mnt"
