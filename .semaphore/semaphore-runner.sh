@@ -7,6 +7,7 @@ set -o pipefail
 # default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
+SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
 BRANCH="${BRANCH:-debian/master}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
@@ -72,7 +73,7 @@ for phase in "${PHASES[@]}"; do
         ;;
         RUN)
             # add current debian/ packaging
-            git fetch --depth=1 https://salsa.debian.org/systemd-team/systemd.git "$BRANCH"
+            git fetch --depth=1 "$SALSA_URL" "$BRANCH"
             git checkout FETCH_HEAD debian
 
             # craft changelog
