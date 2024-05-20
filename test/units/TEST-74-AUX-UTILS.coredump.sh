@@ -105,6 +105,7 @@ EOF
     # Wait a bit for the coredumps to get processed
     timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
 
+    machinectl stop "$CONTAINER"
     rm -rf "/var/lib/machines/$CONTAINER"
 fi
 
