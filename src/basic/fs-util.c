@@ -291,6 +291,8 @@ int fchmod_umask(int fd, mode_t m) {
 }
 
 int fchmod_opath(int fd, mode_t m) {
+        int r;
+
         /* This function operates also on fd that might have been opened with
          * O_PATH. The tool set we have is non-intuitive:
          * - fchmod(2) only operates on open files (i. e., fds with an open file description);
@@ -313,16 +315,20 @@ int fchmod_opath(int fd, mode_t m) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
-                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
-
-                return -ENOENT;
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely
+                                            in some chroot environment. */
+                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                                    not valid, otherwise let's propagate the original error */
         }
 
         return 0;
 }
 
 int futimens_opath(int fd, const struct timespec ts[2]) {
+        int r;
+
         /* Similar to fchmod_opath() but for futimens() */
 
         assert(fd >= 0);
@@ -339,10 +345,12 @@ int futimens_opath(int fd, const struct timespec ts[2]) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
-                        return -ENOSYS;
-
-                return -ENOENT;
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely
+                                            in some chroot environment. */
+                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                                    not valid, otherwise let's propagate the original error */
         }
 
         return 0;
@@ -633,17 +641,18 @@ static int tmp_dir_internal(const char *def, const char **ret) {
                 return 0;
         }
 
-        k = is_dir(def, true);
+        k = is_dir(def, /* follow = */ true);
         if (k == 0)
                 k = -ENOTDIR;
         if (k < 0)
-                return r < 0 ? r : k;
+                return RET_GATHER(r, k);
 
         *ret = def;
         return 0;
 }
 
 int var_tmp_dir(const char **ret) {
+        assert(ret);
 
         /* Returns the location for "larger" temporary files, that is backed by physical storage if available, and thus
          * even might survive a boot: /var/tmp. If $TMPDIR (or related environment variables) are set, its value is
@@ -654,6 +663,7 @@ int var_tmp_dir(const char **ret) {
 }
 
 int tmp_dir(const char **ret) {
+        assert(ret);
 
         /* Similar to var_tmp_dir() above, but returns the location for "smaller" temporary files, which is usually
          * backed by an in-memory file system: /tmp. */
@@ -662,6 +672,8 @@ int tmp_dir(const char **ret) {
 }
 
 int unlink_or_warn(const char *filename) {
+        assert(filename);
+
         if (unlink(filename) < 0 && errno != ENOENT)
                 /* If the file doesn't exist and the fs simply was read-only (in which
                  * case unlink() returns EROFS even if the file doesn't exist), don't
@@ -673,26 +685,41 @@ int unlink_or_warn(const char *filename) {
 }
 
 int access_fd(int fd, int mode) {
+        int r;
+
+        assert(fd >= 0);
+
         /* Like access() but operates on an already open fd */
+
+        if (faccessat(fd, "", mode, AT_EMPTY_PATH) >= 0)
+                return 0;
+        if (errno != EINVAL)
+                return -errno;
+
+        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
+         * if unavailable. */
 
         if (access(FORMAT_PROC_FD_PATH(fd), mode) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
-                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's
-                 * make things debuggable and distinguish the two. */
+                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted.
+                 * Let's make things debuggable and distinguish the two. */
 
-                if (proc_mounted() == 0)
-                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
-                                          * environment. */
-
-                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely
+                                            in some chroot environment. */
+                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
+                                                    not valid, otherwise let's propagate the original error */
         }
 
         return 0;
 }
 
 void unlink_tempfilep(char (*p)[]) {
+        assert(p);
+
         /* If the file is created with mkstemp(), it will (almost always)
          * change the suffix. Treat this as a sign that the file was
          * successfully created. We ignore both the rare case where the
@@ -706,6 +733,8 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
         struct stat st;
         off_t l, bs;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(name);
         assert((flags & ~(UNLINK_REMOVEDIR|UNLINK_ERASE)) == 0);
 
         /* Operates like unlinkat() but also deallocates the file contents if it is a regular file and there's no other
