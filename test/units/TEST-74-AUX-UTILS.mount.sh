@@ -6,13 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# We're going to play around with block/loop devices, so bail out early
-# if we're running in nspawn
-if systemd-detect-virt --container >/dev/null; then
-    echo "Container detected, skipping the test"
-    exit 0
-fi
-
 at_exit() {
     set +e
 
@@ -23,12 +16,35 @@ at_exit() {
 trap at_exit EXIT
 
 WORK_DIR="$(mktemp -d)"
+mkdir -p "$WORK_DIR/mnt"
 
 systemd-mount --list
 systemd-mount --list --full
 systemd-mount --list --no-legend
 systemd-mount --list --no-pager
 systemd-mount --list --quiet
+
+# tmpfs
+mkdir -p "$WORK_DIR/mnt/foo/bar"
+systemd-mount --tmpfs "$WORK_DIR/mnt/foo"
+test ! -d "$WORK_DIR/mnt/foo/bar"
+touch "$WORK_DIR/mnt/foo/baz"
+systemd-umount "$WORK_DIR/mnt/foo"
+test -d "$WORK_DIR/mnt/foo/bar"
+test ! -e "$WORK_DIR/mnt/foo/baz"
+
+# overlay
+systemd-mount --type=overlay --options="lowerdir=/etc,upperdir=$WORK_DIR/upper,workdir=$WORK_DIR/work" /etc "$WORK_DIR/overlay"
+touch "$WORK_DIR/overlay/foo"
+test -e "$WORK_DIR/upper/foo"
+systemd-umount "$WORK_DIR/overlay"
+
+# We're going to play around with block/loop devices, so bail out early
+# if we're running in nspawn
+if systemd-detect-virt --container >/dev/null; then
+    echo "Container detected, skipping the test"
+    exit 0
+fi
 
 # Set up a simple block device for further tests
 dd if=/dev/zero of="$WORK_DIR/simple.img" bs=1M count=16
@@ -38,7 +54,6 @@ udevadm wait --timeout 60 --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
 timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
-mkdir "$WORK_DIR/mnt"
 mount "$LOOP" "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/foo.bar"
 umount "$LOOP"
@@ -148,18 +163,3 @@ systemctl status "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/hello"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt/hello")" == "testuser:testuser" ]]
 systemd-umount LABEL=owner-vfat
-
-# tmpfs
-mkdir -p "$WORK_DIR/mnt/foo/bar"
-systemd-mount --tmpfs "$WORK_DIR/mnt/foo"
-test ! -d "$WORK_DIR/mnt/foo/bar"
-touch "$WORK_DIR/mnt/foo/baz"
-systemd-umount "$WORK_DIR/mnt/foo"
-test -d "$WORK_DIR/mnt/foo/bar"
-test ! -e "$WORK_DIR/mnt/foo/baz"
-
-# overlay
-systemd-mount --type=overlay --options="lowerdir=/etc,upperdir=$WORK_DIR/upper,workdir=$WORK_DIR/work" /etc "$WORK_DIR/overlay"
-touch "$WORK_DIR/overlay/foo"
-test -e "$WORK_DIR/upper/foo"
-systemd-umount "$WORK_DIR/overlay"
