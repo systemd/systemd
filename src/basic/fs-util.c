@@ -644,6 +644,7 @@ static int tmp_dir_internal(const char *def, const char **ret) {
 }
 
 int var_tmp_dir(const char **ret) {
+        assert(ret);
 
         /* Returns the location for "larger" temporary files, that is backed by physical storage if available, and thus
          * even might survive a boot: /var/tmp. If $TMPDIR (or related environment variables) are set, its value is
@@ -654,6 +655,7 @@ int var_tmp_dir(const char **ret) {
 }
 
 int tmp_dir(const char **ret) {
+        assert(ret);
 
         /* Similar to var_tmp_dir() above, but returns the location for "smaller" temporary files, which is usually
          * backed by an in-memory file system: /tmp. */
@@ -662,6 +664,8 @@ int tmp_dir(const char **ret) {
 }
 
 int unlink_or_warn(const char *filename) {
+        assert(filename);
+
         if (unlink(filename) < 0 && errno != ENOENT)
                 /* If the file doesn't exist and the fs simply was read-only (in which
                  * case unlink() returns EROFS even if the file doesn't exist), don't
@@ -673,6 +677,8 @@ int unlink_or_warn(const char *filename) {
 }
 
 int access_fd(int fd, int mode) {
+        assert(fd >= 0);
+
         /* Like access() but operates on an already open fd */
 
         if (access(FORMAT_PROC_FD_PATH(fd), mode) < 0) {
@@ -693,6 +699,8 @@ int access_fd(int fd, int mode) {
 }
 
 void unlink_tempfilep(char (*p)[]) {
+        assert(p);
+
         /* If the file is created with mkstemp(), it will (almost always)
          * change the suffix. Treat this as a sign that the file was
          * successfully created. We ignore both the rare case where the
@@ -706,6 +714,8 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
         struct stat st;
         off_t l, bs;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(name);
         assert((flags & ~(UNLINK_REMOVEDIR|UNLINK_ERASE)) == 0);
 
         /* Operates like unlinkat() but also deallocates the file contents if it is a regular file and there's no other
