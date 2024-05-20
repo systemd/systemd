@@ -54,6 +54,8 @@ TEST(string) {
 TEST(parse_ip_protocol) {
         assert_se(parse_ip_protocol("sctp") == IPPROTO_SCTP);
         assert_se(parse_ip_protocol("ScTp") == IPPROTO_SCTP);
+        assert_se(parse_ip_protocol("mptcp") == IPPROTO_MPTCP);
+        assert_se(parse_ip_protocol("MPTCP") == IPPROTO_MPTCP);
         assert_se(parse_ip_protocol("ip") == IPPROTO_IP);
         assert_se(parse_ip_protocol("") == IPPROTO_IP);
         assert_se(parse_ip_protocol("1") == 1);

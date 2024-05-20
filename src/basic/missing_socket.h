@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 
 #if HAVE_LINUX_VM_SOCKETS_H
@@ -96,6 +97,10 @@ struct sockaddr_vm {
 
 #ifndef IPV6_RECVFRAGSIZE
 #define IPV6_RECVFRAGSIZE 77
+#endif
+
+#ifndef IPPROTO_MPTCP
+#define IPPROTO_MPTCP 262
 #endif
 
 /* linux/sockios.h */
