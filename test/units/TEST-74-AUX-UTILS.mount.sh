@@ -135,14 +135,9 @@ systemd-umount "$WORK_DIR/simple.img"
 # files/directories
 dd if=/dev/zero of="$WORK_DIR/owner-vfat.img" bs=1M count=16
 mkfs.vfat -n owner-vfat "$WORK_DIR/owner-vfat.img"
-LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
-udevadm wait --timeout 60 --settle "$LOOP"
-# Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
-# that is triggered by the .mount unit introduced by systemd-mount below may time out.
-timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
 # Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
-systemd-mount --owner=testuser "$LOOP" "$WORK_DIR/mnt"
+systemd-mount --owner=testuser "$WORK_DIR/owner-vfat.img" "$WORK_DIR/mnt"
 systemctl status "$WORK_DIR/mnt"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "testuser:testuser" ]]
 touch "$WORK_DIR/mnt/hello"
