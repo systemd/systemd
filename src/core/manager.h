@@ -511,6 +511,9 @@ struct Manager {
         int executor_fd;
 
         unsigned soft_reboots_count;
+
+        /* Ambient capability set for use with *some* forked processes */
+        uint64_t starting_ambient_set;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
