@@ -627,41 +627,12 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_unrefp) Operation *o = NULL;
-        bool waiting = false;
-        Manager *m = ASSERT_PTR(userdata);
-        Home *h;
-        int r;
+        /* This used to be called from sd-sleep to lock all homes before entering system suspend,
+         * but all of this functionality has since been moved directly into logind. Nothing should
+         * be calling this method anymore, but in case someone still does let's return an error. */
 
-        /* This is called from logind when we are preparing for system suspend. We enqueue a lock operation
-         * for every suitable home we have and only when all of them completed we send a reply indicating
-         * completion. */
-
-        HASHMAP_FOREACH(h, m->homes_by_name) {
-
-                if (!home_shall_suspend(h))
-                        continue;
-
-                if (!o) {
-                        o = operation_new(OPERATION_LOCK_ALL, message);
-                        if (!o)
-                                return -ENOMEM;
-                }
-
-                log_info("Automatically locking home of user %s.", h->user_name);
-
-                r = home_schedule_operation(h, o, error);
-                if (r < 0)
-                        return r;
-
-                waiting = true;
-        }
-
-        if (waiting) /* At least one lock operation was enqeued, let's leave here without a reply: it will
-                      * be sent as soon as the last of the lock operations completed. */
-                return 1;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED,
+                                          "LockAllHomes() has been removed.");
 }
 
 static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -901,7 +872,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                 0),
 
         /* An operation that acts on all homes that allow it */
-        SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),
+        SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_METHOD("DeactivateAllHomes", NULL, NULL, method_deactivate_all_homes, 0),
         SD_BUS_METHOD("Rebalance", NULL, NULL, method_rebalance, 0),
 

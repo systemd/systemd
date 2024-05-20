@@ -298,14 +298,16 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
-                "LEADER_FD_SAVED=%s\n",
+                "LEADER_FD_SAVED=%s\n"
+                "CAN_SECURE_LOCK=%s\n",
                 s->user->user_record->uid,
                 s->user->user_record->user_name,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
-                one_zero(s->leader_fd_saved));
+                one_zero(s->leader_fd_saved),
+                one_zero(s->can_secure_lock));
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -475,7 +477,8 @@ int session_load(Session *s) {
                 *controller = NULL,
                 *active = NULL,
                 *devices = NULL,
-                *is_display = NULL;
+                *is_display = NULL,
+                *can_secure_lock = NULL;
 
         int k, r;
 
@@ -508,7 +511,8 @@ int session_load(Session *s) {
                            "CONTROLLER",      &controller,
                            "ACTIVE",          &active,
                            "DEVICES",         &devices,
-                           "IS_DISPLAY",      &is_display);
+                           "IS_DISPLAY",      &is_display,
+                           "CAN_SECURE_LOCK", &can_secure_lock);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
@@ -674,6 +678,12 @@ int session_load(Session *s) {
                         r = session_set_leader_consume(s, TAKE_PIDREF(p));
                 if (r < 0)
                         log_warning_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+        }
+
+        if (can_secure_lock) {
+                k = parse_boolean(can_secure_lock);
+                if (k >= 0)
+                        s->can_secure_lock = k;
         }
 
         return r;

@@ -835,7 +835,8 @@ However, it is recommended to stick to a basic vocabulary here:
 `inactive` for a home directory currently not mounted, `absent` for a home
 directory that cannot be mounted currently because it does not exist on the
 local system, `active` for a home directory that is currently mounted and
-accessible.
+accessible, and `locked` for a home directory that is active but temporarily
+made inaccessibile by a secure lock.
 
 `service` → A string identifying the service that manages this user record.
 For example `systemd-homed.service` sets this to `io.systemd.Home` to all user records it manages.
@@ -902,6 +903,12 @@ enable subsystems such as SSH to allow logins into user accounts, whose homed
 directories need further unlocking (because the SSH native authentication
 cannot release a suitabable disk encryption key), which the fallback shell
 provides.
+
+`canSecureLock` → A boolean. If true, the service reports that it supports
+secure locking this user via logind. If false or unset, the service reports
+that it does not support secure locking this user. While a user is active,
+the service should not modify this field - it is only checked by logind
+when the user first logs in.
 
 ## Fields in the `signature` section
 

@@ -29,6 +29,8 @@
 
 static void inhibitor_remove_fifo(Inhibitor *i);
 
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(inhibitor_hash_ops, char, string_hash_func, string_compare_func, Inhibitor, inhibitor_free);
+
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         int r;
@@ -46,6 +48,7 @@ int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
                 .id = strdup(id),
                 .state_file = path_join("/run/systemd/inhibit/", id),
                 .what = _INHIBIT_WHAT_INVALID,
+                .what_user = _INHIBIT_WHAT_USER_INVALID,
                 .mode = _INHIBIT_MODE_INVALID,
                 .uid = UID_INVALID,
                 .fifo_fd = -EBADF,
@@ -56,6 +59,43 @@ int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
                 return -ENOMEM;
 
         r = hashmap_put(m->inhibitors, i->id, i);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(i);
+        return 0;
+}
+
+int inhibitor_new_user(User *u, const char* id, Inhibitor **ret) {
+        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        int r;
+
+        assert(u);
+        assert(id);
+        assert(ret);
+
+        i = new(Inhibitor, 1);
+        if (!i)
+                return -ENOMEM;
+
+        *i = (Inhibitor) {
+                .user = u,
+                .manager = u->manager,
+                .id = strdup(id),
+                .what = _INHIBIT_WHAT_INVALID,
+                .mode = _INHIBIT_MODE_INVALID,
+                .uid = UID_INVALID,
+                .fifo_fd = -EBADF,
+                .pid = PIDREF_NULL,
+        };
+
+        if (!i->id)
+                return -ENOMEM;
+
+        if (asprintf(&i->state_file, "/run/systemd/user-inhibit/"UID_FMT"/%s", u->user_record->uid, id) < 0)
+                return -ENOMEM;
+
+        r = hashmap_put(u->inhibitors, i->id, i);
         if (r < 0)
                 return r;
 
@@ -74,7 +114,10 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
         sd_event_source_unref(i->event_source);
         safe_close(i->fifo_fd);
 
-        hashmap_remove(i->manager->inhibitors, i->id);
+        if (i->user)
+                hashmap_remove(i->user->inhibitors, i->id);
+        else
+                hashmap_remove(i->manager->inhibitors, i->id);
 
         /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
          * survive daemon restarts */
@@ -88,13 +131,24 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 }
 
 static int inhibitor_save(Inhibitor *i) {
+        _cleanup_free_ char *user_base_path = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        const char *base_path;
         int r;
 
         assert(i);
 
-        r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+        if (i->user) {
+                if (asprintf(&user_base_path, "/run/systemd/user-inhibit/"UID_FMT"/", i->user->user_record->uid) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                base_path = user_base_path;
+        } else
+                base_path = "/run/systemd/inhibit";
+
+        r = mkdir_safe_label(base_path, 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -106,14 +160,21 @@ static int inhibitor_save(Inhibitor *i) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "WHAT=%s\n"
                 "MODE=%s\n"
                 "UID="UID_FMT"\n"
                 "PID="PID_FMT"\n",
-                inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
                 i->uid,
                 i->pid.pid);
+
+        if (!i->user)
+                fprintf(f, "WHAT=%s\n", inhibit_what_to_string(i->what));
+        else
+                fprintf(f,
+                        "USER="UID_FMT"\n"
+                        "WHAT_USER=%s\n",
+                        i->user->user_record->uid,
+                        inhibit_what_user_to_string(i->what_user));
 
         if (i->who) {
                 _cleanup_free_ char *cc = NULL;
@@ -178,16 +239,26 @@ int inhibitor_start(Inhibitor *i) {
 
         dual_timestamp_now(&i->since);
 
-        log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s started.",
-                  strna(i->who), strna(i->why),
-                  i->pid.pid, i->uid,
-                  inhibit_mode_to_string(i->mode));
+        if (!i->user)
+                log_debug("Inhibitor %s (%s) what=%s pid="PID_FMT" uid="UID_FMT" mode=%s started.",
+                          strna(i->who), strna(i->why),
+                          inhibit_what_to_string(i->what),
+                          i->pid.pid, i->uid,
+                          inhibit_mode_to_string(i->mode));
+        else
+                log_debug("User inhibitor %s (%s) (for %s) what=%s pid="PID_FMT" uid="UID_FMT" mode=%s started.",
+                          strna(i->who), strna(i->why),
+                          i->user->user_record->user_name,
+                          inhibit_what_user_to_string(i->what_user),
+                          i->pid.pid, i->uid,
+                          inhibit_mode_to_string(i->mode));
 
         i->started = true;
 
         inhibitor_save(i);
 
-        bus_manager_send_inhibited_change(i);
+        if (!i->user)
+                bus_manager_send_inhibited_change(i);
 
         return 0;
 }
@@ -195,11 +266,21 @@ int inhibitor_start(Inhibitor *i) {
 void inhibitor_stop(Inhibitor *i) {
         assert(i);
 
-        if (i->started)
-                log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
-                          strna(i->who), strna(i->why),
-                          i->pid.pid, i->uid,
-                          inhibit_mode_to_string(i->mode));
+        if (i->started) {
+                if (!i->user)
+                        log_debug("Inhibitor %s (%s) what=%s pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
+                                  strna(i->who), strna(i->why),
+                                  inhibit_what_to_string(i->what),
+                                  i->pid.pid, i->uid,
+                                  inhibit_mode_to_string(i->mode));
+                else
+                        log_debug("User inhibitor %s (%s) (for %s) what=%s pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
+                                  strna(i->who), strna(i->why),
+                                  i->user->user_record->user_name,
+                                  inhibit_what_user_to_string(i->what_user),
+                                  i->pid.pid, i->uid,
+                                  inhibit_mode_to_string(i->mode));
+        }
 
         inhibitor_remove_fifo(i);
 
@@ -208,12 +289,15 @@ void inhibitor_stop(Inhibitor *i) {
 
         i->started = false;
 
-        bus_manager_send_inhibited_change(i);
+        if (!i->user)
+                bus_manager_send_inhibited_change(i);
 }
 
 int inhibitor_load(Inhibitor *i) {
-        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
+        _cleanup_free_ char *what = NULL, *what_user = NULL, *uid = NULL, *pid = NULL,
+                            *who = NULL, *why = NULL, *mode = NULL, *user = NULL;
         InhibitWhat w;
+        InhibitWhatUser wu;
         InhibitMode mm;
         char *cc;
         ssize_t l;
@@ -221,18 +305,24 @@ int inhibitor_load(Inhibitor *i) {
 
         r = parse_env_file(NULL, i->state_file,
                            "WHAT", &what,
+                           "WHAT_USER", &what_user,
                            "UID", &uid,
                            "PID", &pid,
                            "WHO", &who,
                            "WHY", &why,
                            "MODE", &mode,
-                           "FIFO", &i->fifo_path);
+                           "FIFO", &i->fifo_path,
+                           "USER", &user);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", i->state_file);
 
         w = what ? inhibit_what_from_string(what) : 0;
-        if (w >= 0)
+        if (w > 0)
                 i->what = w;
+
+        wu = what_user ? inhibit_what_user_from_string(what_user) : 0;
+        if (wu > 0)
+                i->what_user = wu;
 
         mm = mode ? inhibit_mode_from_string(mode) : INHIBIT_BLOCK;
         if  (mm >= 0)
@@ -276,6 +366,21 @@ int inhibitor_load(Inhibitor *i) {
                         return log_error_errno(fd, "Failed to reopen FIFO: %m");
         }
 
+        if (user) {
+                uid_t user_uid;
+                User *u;
+
+                r = parse_uid(user, &user_uid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse UID of user: %s", uid);
+
+                u = hashmap_get(i->manager->users, UID_TO_PTR(user_uid));
+                if (!u)
+                        return log_debug_errno(r, "Failed to find user %s: %m", user);
+
+                i->user = u;
+        }
+
         return 0;
 }
 
@@ -286,6 +391,10 @@ static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents,
         assert(fd == i->fifo_fd);
 
         inhibitor_stop(i);
+
+        if (i->user)
+                user_inhibitor_dropped(i->user, i);
+
         inhibitor_free(i);
 
         return 0;
@@ -298,11 +407,22 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Create FIFO */
         if (!i->fifo_path) {
-                r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+                _cleanup_free_ char *user_base_path = NULL;
+                const char *base_path;
+
+                if (i->user) {
+                        if (asprintf(&user_base_path, "/run/systemd/user-inhibit/"UID_FMT"/", i->user->user_record->uid) < 0) {
+                                return -ENOMEM;
+                        }
+                        base_path = user_base_path;
+                } else
+                        base_path = "/run/systemd/inhibit/";
+
+                r = mkdir_safe_label(base_path, 0755, 0, 0, MKDIR_WARN_MODE);
                 if (r < 0)
                         return r;
 
-                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref");
+                i->fifo_path = strjoin(base_path, i->id, ".ref");
                 if (!i->fifo_path)
                         return -ENOMEM;
 
@@ -370,6 +490,19 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         assert(m);
 
         HASHMAP_FOREACH(i, m->inhibitors)
+                if (i->mode == mm && i->started)
+                        what |= i->what;
+
+        return what;
+}
+
+InhibitWhatUser user_inhibit_what(User *u, InhibitMode mm) {
+        Inhibitor *i;
+        InhibitWhatUser what = 0;
+
+        assert(u);
+
+        HASHMAP_FOREACH(i, u->inhibitors)
                 if (i->mode == mm && i->started)
                         what |= i->what;
 
@@ -519,6 +652,59 @@ int inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_HANDLE_LID_SWITCH;
                 else if (streq(word, "handle-reboot-key"))
                         what |= INHIBIT_HANDLE_REBOOT_KEY;
+                else
+                        return _INHIBIT_WHAT_INVALID;
+        }
+}
+
+const char *inhibit_what_user_to_string(InhibitWhatUser w) {
+        static thread_local char buffer[STRLEN(
+            "secure-lock:"
+            "suspend-secure-lock:"
+            "inactive-secure-lock:")+1];
+        char *p;
+
+        if (!inhibit_what_user_is_valid(w))
+                return NULL;
+
+        p = buffer;
+        if (w & INHIBIT_SECURE_LOCK)
+                p = stpcpy(p, "secure-lock:");
+        if (w & INHIBIT_SUSPEND_SECURE_LOCK)
+                p = stpcpy(p, "suspend-secure-lock:");
+        if (w & INHIBIT_INACTIVE_SECURE_LOCK)
+                p = stpcpy(p, "inactive-secure-lock:");
+
+        if (p > buffer)
+                *(p-1) = 0;
+        else
+                *p = 0;
+
+        return buffer;
+}
+
+int inhibit_what_user_from_string(const char *s) {
+        InhibitWhatUser what = 0;
+
+        for (const char *p = s;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
+
+                /* A sanity check that our return values fit in an int */
+                assert_cc((int) _INHIBIT_WHAT_USER_MAX == _INHIBIT_WHAT_USER_MAX);
+
+                r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return what;
+
+                if (streq(word, "secure-lock"))
+                        what |= INHIBIT_SECURE_LOCK;
+                else if (streq(word, "suspend-secure-lock"))
+                        what |= INHIBIT_SUSPEND_SECURE_LOCK;
+                else if (streq(word, "inactive-secure-lock"))
+                        what |= INHIBIT_INACTIVE_SECURE_LOCK;
                 else
                         return _INHIBIT_WHAT_INVALID;
         }

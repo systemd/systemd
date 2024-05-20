@@ -54,7 +54,7 @@ _loginctl_$fun() {
 done
 
 # Completion functions for USERS
-for fun in user-status show-user enable-linger disable-linger terminate-user kill-user ; do
+for fun in user-status show-user enable-linger disable-linger terminate-user kill-user secure-lock-user ; do
     (( $+functions[_loginctl_$fun] )) ||
 _loginctl_$fun() {
     local -a _sys_all_users{,_descr}
@@ -114,7 +114,7 @@ _loginctl_attach() {
 }
 
 # no loginctl completion for:
-# [STANDALONE]='list-sessions list-users list-seats flush-devices'
+# [STANDALONE]='list-sessions list-users list-seats flush-devices secure-lock-users'
 
 (( $+functions[_loginctl_commands] )) ||
 _loginctl_commands() {
@@ -137,6 +137,8 @@ _loginctl_commands() {
         "disable-linger:Disable linger state of one or more users"
         "terminate-user:Terminate all sessions of one or more users"
         "kill-user:Send signal to processes of a user"
+        "secure-lock-user:Secure lock one or more users"
+        "secure-lock-users:Secure lock all users that support it"
         "list-seats:List seats"
         "seat-status:Show seat status"
         "show-seat:Show properties of one or more seats"

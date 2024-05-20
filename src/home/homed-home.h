@@ -139,12 +139,8 @@ struct Home {
         bool unregister_on_failure;
 
         /* The reading side of a FIFO stored in /run/systemd/home/, the writing side being used for reference
-         * counting. The references dropped to zero as soon as we see EOF. This concept exists twice: once
-         * for clients that are fine if we suspend the home directory on system suspend, and once for clients
-         * that are not ok with that. This allows us to determine for each home whether there are any clients
-         * that support unsuspend. */
-        sd_event_source *ref_event_source_please_suspend;
-        sd_event_source *ref_event_source_dont_suspend;
+         * counting. The references dropped to zero as soon as we see EOF. */
+        sd_event_source *ref_event_source;
 
         /* Any pending operations we still need to execute. These are for operations we want to queue if we
          * can't execute them right-away. */
@@ -199,7 +195,6 @@ int home_lock(Home *h, sd_bus_error *error);
 int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error);
 
 bool home_is_referenced(Home *h);
-bool home_shall_suspend(Home *h);
 HomeState home_get_state(Home *h);
 
 int home_get_disk_status(
@@ -218,7 +213,7 @@ int home_killall(Home *h);
 
 int home_augment_status(Home *h, UserRecordLoadFlags flags, UserRecord **ret);
 
-int home_create_fifo(Home *h, bool please_suspend);
+int home_create_ref(Home *h);
 int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error);
 
 int home_auto_login(Home *h, char ***ret_seats);

@@ -331,6 +331,7 @@ typedef struct UserRecord {
         uint64_t disk_floor;
 
         bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
+        bool can_secure_lock;
 
         char *state;
         char *service;
