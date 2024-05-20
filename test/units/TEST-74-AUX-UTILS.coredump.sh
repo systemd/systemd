@@ -107,6 +107,7 @@ EOF
 
     machinectl stop "$CONTAINER"
     rm -rf "/var/lib/machines/$CONTAINER"
+    unset CONTAINER
 fi
 
 coredumpctl
