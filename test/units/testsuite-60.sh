@@ -295,9 +295,9 @@ done
 # Figure out if we have entered the rate limit state.
 # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
 journalctl --sync
-if timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) entered rate limit'; do journalctl --sync; sleep 1; done"; then
+if timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) entered rate limit'; do sleep 1; journalctl --sync; done"; then
     journalctl --sync
-    timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) left rate limit'; do journalctl --sync; sleep 1; done"
+    timeout 2m bash -c "until journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) left rate limit'; do sleep 1; journalctl --sync; done"
 fi
 
 # Verify that the mount units are always cleaned up at the end.
