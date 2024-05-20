@@ -313,10 +313,7 @@ int fchmod_opath(int fd, mode_t m) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
-                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
-
-                return -ENOENT;
+                return proc_fd_enoent_errno();
         }
 
         return 0;
@@ -339,10 +336,7 @@ int futimens_opath(int fd, const struct timespec ts[2]) {
                 if (errno != ENOENT)
                         return -errno;
 
-                if (proc_mounted() == 0)
-                        return -ENOSYS;
-
-                return -ENOENT;
+                return proc_fd_enoent_errno();
         }
 
         return 0;
@@ -685,14 +679,7 @@ int access_fd(int fd, int mode) {
                 if (errno != ENOENT)
                         return -errno;
 
-                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's
-                 * make things debuggable and distinguish the two. */
-
-                if (proc_mounted() == 0)
-                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
-                                          * environment. */
-
-                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
+                return proc_fd_enoent_errno();
         }
 
         return 0;

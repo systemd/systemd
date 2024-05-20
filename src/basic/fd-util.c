@@ -617,16 +617,8 @@ int fd_get_path(int fd, char **ret) {
                 return safe_getcwd(ret);
 
         r = readlink_malloc(FORMAT_PROC_FD_PATH(fd), ret);
-        if (r == -ENOENT) {
-                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
-                 * things debuggable and distinguish the two. */
-
-                if (proc_mounted() == 0)
-                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
-                                          * environment. */
-                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
-        }
-
+        if (r == -ENOENT)
+                return proc_fd_enoent_errno();
         return r;
 }
 
@@ -860,13 +852,7 @@ int fd_reopen(int fd, int flags) {
                 if (errno != ENOENT)
                         return -errno;
 
-                r = proc_mounted();
-                if (r == 0)
-                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
-
-                return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
-                                                  * not valid, otherwise let's propagate the original
-                                                  * error */
+                return proc_fd_enoent_errno();
         }
 
         return new_fd;
