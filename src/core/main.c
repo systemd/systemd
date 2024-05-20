@@ -1921,6 +1921,7 @@ static int do_reexecute(
                 FDSet *fds,
                 const char *switch_root_dir,
                 const char *switch_root_init,
+                uint64_t capability_ambient_set,
                 const char **ret_error_message) {
 
         size_t i, args_size;
@@ -1980,6 +1981,12 @@ static int do_reexecute(
                                              (objective == MANAGER_SOFT_REBOOT ? 0 : SWITCH_ROOT_RECURSIVE_RUN));
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
+        }
+
+        if (getpid_cached() != 1) {
+                r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to apply the starting ambient set: %m");
         }
 
         args_size = argc + 5;
@@ -2951,6 +2958,7 @@ int main(int argc, char *argv[]) {
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
         const char *error_message = NULL;
+        uint64_t original_ambient_set;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
         FDSet *fds = NULL;
@@ -3130,16 +3138,26 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
 
-                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
-                 * not affect the permitted and effective sets which are important for the manager itself to
-                 * operate. */
-                capability_ambient_set_apply(0, /* also_inherit= */ false);
-
                 if (mac_init() < 0) {
                         error_message = "Failed to initialize MAC support";
                         goto finish;
                 }
         }
+
+        /* The two operations on the ambient set are meant for a user serssion manager. They do not affect
+         * system manager operation, because by default it starts with an empty ambient set.
+         *
+         * Preserve the ambient set for later use with sd-executor processes. */
+        r = capability_get_ambient(&original_ambient_set);
+        if (r < 0) {
+                error_message = "Failed to save ambient capabilities";
+                goto finish;
+        }
+
+        /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does not
+         * affect the permitted and effective sets which may be important for a session manager itself to
+         * operate. */
+        capability_ambient_set_apply(0, /* also_inherit= */ false);
 
         /* Save the original RLIMIT_NOFILE/RLIMIT_MEMLOCK so that we can reset it later when
          * transitioning from the initrd to the main systemd or suchlike. */
@@ -3249,6 +3267,8 @@ int main(int argc, char *argv[]) {
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_START)] = security_start_timestamp;
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_FINISH)] = security_finish_timestamp;
 
+        m->original_ambient_set = original_ambient_set;
+
         set_manager_defaults(m);
         set_manager_settings(m);
         manager_set_first_boot(m, first_boot);
@@ -3324,6 +3344,7 @@ finish:
                                  fds,
                                  switch_root_dir,
                                  switch_root_init,
+                                 m->original_ambient_set,
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
