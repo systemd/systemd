@@ -633,11 +633,11 @@ static int tmp_dir_internal(const char *def, const char **ret) {
                 return 0;
         }
 
-        k = is_dir(def, true);
+        k = is_dir(def, /* follow = */ true);
         if (k == 0)
                 k = -ENOTDIR;
         if (k < 0)
-                return r < 0 ? r : k;
+                return RET_GATHER(r, k);
 
         *ret = def;
         return 0;
