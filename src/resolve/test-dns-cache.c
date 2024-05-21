@@ -39,7 +39,7 @@ static PutArgs mk_put_args(void) {
                 .protocol = DNS_PROTOCOL_DNS,
                 .key = NULL,
                 .rcode = DNS_RCODE_SUCCESS,
-                .answer = NULL,
+                .answer = dns_answer_new(0),
                 .full_packet = NULL,
                 .query_flags = SD_RESOLVED_AUTHENTICATED | SD_RESOLVED_CONFIDENTIAL,
                 .dnssec_result = DNSSEC_UNSIGNED,
@@ -76,22 +76,22 @@ static void put_args_unrefp(PutArgs *args) {
         dns_packet_unref(args->full_packet);
 }
 
+static void answer_add_a(PutArgs *args, DnsResourceKey *key, int addr, int ttl, DnsAnswerFlags flags) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        rr->a.in_addr.s_addr = htobe32(addr);
+        rr->ttl = ttl;
+        dns_answer_add(args->answer, rr, 1, flags, NULL);
+}
+
 TEST(dns_a_success_is_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        DnsAnswerFlags flags;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_SUCCESS;
-
-        put_args.answer = dns_answer_new(1);
-
-        rr = dns_resource_record_new(put_args.key);
-        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        rr->ttl = 3600;
-        flags = DNS_ANSWER_CACHEABLE;
-        dns_answer_add(put_args.answer, rr, 1, flags, NULL);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_FALSE(dns_cache_is_empty(&cache));
@@ -103,7 +103,6 @@ TEST(dns_a_success_empty_answer_is_not_cached) {
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_SUCCESS;
-        put_args.answer = dns_answer_new(0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -115,7 +114,6 @@ TEST(dns_a_nxdomain_is_cached) {
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        put_args.answer = dns_answer_new(1);
         dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
@@ -128,7 +126,6 @@ TEST(dns_a_servfail_is_cached) {
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_SERVFAIL;
-        put_args.answer = dns_answer_new(0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_FALSE(dns_cache_is_empty(&cache));
@@ -140,7 +137,6 @@ TEST(dns_a_refused_is_not_cached) {
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_REFUSED;
-        put_args.answer = dns_answer_new(0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -149,19 +145,10 @@ TEST(dns_a_refused_is_not_cached) {
 TEST(dns_a_success_zero_ttl_is_not_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        DnsAnswerFlags flags;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_SUCCESS;
-
-        put_args.answer = dns_answer_new(1);
-
-        rr = dns_resource_record_new(put_args.key);
-        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        rr->ttl = 0;
-        flags = DNS_ANSWER_CACHEABLE;
-        dns_answer_add(put_args.answer, rr, 1, flags, NULL);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 0, DNS_ANSWER_CACHEABLE);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -170,19 +157,10 @@ TEST(dns_a_success_zero_ttl_is_not_cached) {
 TEST(dns_a_success_not_cacheable_is_not_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        DnsAnswerFlags flags;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         put_args.rcode = DNS_RCODE_SUCCESS;
-
-        put_args.answer = dns_answer_new(1);
-
-        rr = dns_resource_record_new(put_args.key);
-        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        rr->ttl = 3600;
-        flags = 0;
-        dns_answer_add(put_args.answer, rr, 1, flags, NULL);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
