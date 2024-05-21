@@ -5340,6 +5340,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
                 return r;
 
         p->runtime_scope = u->manager->runtime_scope;
+        p->virtualization = detect_virtualization();
 
         r = strdup_to(&p->confirm_spawn, manager_get_confirm_spawn(u->manager));
         if (r < 0)
