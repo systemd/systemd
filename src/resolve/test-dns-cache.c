@@ -104,6 +104,20 @@ TEST(dns_a_success_is_cached) {
         ASSERT_FALSE(dns_cache_is_empty(&cache));
 }
 
+TEST(dns_a_success_empty_answer_is_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        put_args.answer = dns_answer_new(0);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
 TEST(dns_a_nxdomain_is_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
