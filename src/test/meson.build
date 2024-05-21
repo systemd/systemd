@@ -198,7 +198,7 @@ common_test_dependencies = [
         libmount,
         librt,
         libseccomp,
-        libselinux,
+        libselinux_cflags,
         threads,
 ]
 
@@ -405,7 +405,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-selinux.c'),
-                'dependencies' : libselinux,
+                'dependencies' : libselinux_cflags,
         },
         test_template + {
                 'sources' : files('test-set-disable-mempool.c'),

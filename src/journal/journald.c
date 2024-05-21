@@ -46,6 +46,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
+        r = dlopen_libselinux();
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         sigbus_install();
 
         r = server_new(&s);

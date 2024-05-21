@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
@@ -20,6 +16,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "selinux-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "unaligned.h"
@@ -263,7 +260,7 @@ static int client_context_read_label(
 
                 /* If we got no SELinux label passed in, let's try to acquire one */
 
-                if (getpidcon(c->pid, &con) >= 0 && con) {
+                if (sym_getpidcon && sym_getpidcon(c->pid, &con) >= 0 && con) {
                         free_and_replace(c->label, con);
                         c->label_size = strlen(c->label);
                 }

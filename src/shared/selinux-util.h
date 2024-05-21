@@ -48,8 +48,8 @@ extern DLSYM_PROTOTYPE(string_to_security_class);
 
 int dlopen_libselinux(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
-#define _cleanup_freecon_ _cleanup_(freeconp)
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, sym_freecon, NULL);
+#define _cleanup_freecon_ _cleanup_(sym_freeconp)
 
 #else
 static inline int dlopen_libselinux(void) {
