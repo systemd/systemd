@@ -1187,6 +1187,8 @@ static int copy_quota_hierarchy(int fd, uint64_t old_subvol_id, uint64_t new_sub
         if (n_old_qgroups <= 0) /* Nothing to copy */
                 return n_old_qgroups;
 
+        assert(old_qgroups); /* Coverity gets confused by the macro iterator allocating this, add a hint */
+
         r = btrfs_subvol_get_parent(fd, old_subvol_id, &old_parent_id);
         if (r == -ENXIO)
                 /* We have no parent, hence nothing to copy. */
