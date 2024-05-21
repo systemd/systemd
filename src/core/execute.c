@@ -891,6 +891,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sRuntimeScope: %s\n"
+                "%sContainerManager: %s\n"
                 "%sExecFlags: %u\n"
                 "%sSELinuxContextNetwork: %s\n"
                 "%sCgroupSupportedMask: %u\n"
@@ -903,6 +904,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sNotifySocket: %s\n"
                 "%sFallbackSmackProcessLabel: %s\n",
                 prefix, runtime_scope_to_string(p->runtime_scope),
+                prefix, virtualization_to_string(p->container),
                 prefix, p->flags,
                 prefix, yes_no(p->selinux_context_net),
                 prefix, p->cgroup_supported,

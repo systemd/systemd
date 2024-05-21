@@ -30,6 +30,7 @@ typedef struct Manager Manager;
 #include "runtime-scope.h"
 #include "set.h"
 #include "time-util.h"
+#include "virt.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
 
@@ -413,6 +414,7 @@ typedef enum ExecFlags {
  * executed. */
 struct ExecParameters {
         RuntimeScope runtime_scope;
+        Virtualization container;
 
         char **environment;
 
