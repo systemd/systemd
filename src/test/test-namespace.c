@@ -84,6 +84,7 @@ TEST(tmpdir) {
 
 static void test_shareable_ns(unsigned long nsflag) {
         _cleanup_close_pair_ int s[2] = EBADF_PAIR;
+        bool permission_denied = false;
         pid_t pid1, pid2, pid3;
         int r, n = 0;
         siginfo_t si;
@@ -100,8 +101,8 @@ static void test_shareable_ns(unsigned long nsflag) {
 
         if (pid1 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
-                _exit(r);
+                assert_se(r >= 0 || ERRNO_IS_NEG_PRIVILEGE(r));
+                _exit(r >= 0 ? r : EACCES);
         }
 
         pid2 = fork();
@@ -109,8 +110,8 @@ static void test_shareable_ns(unsigned long nsflag) {
 
         if (pid2 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
-                exit(r);
+                assert_se(r >= 0 || ERRNO_IS_NEG_PRIVILEGE(r));
+                _exit(r >= 0 ? r : EACCES);
         }
 
         pid3 = fork();
@@ -118,24 +119,38 @@ static void test_shareable_ns(unsigned long nsflag) {
 
         if (pid3 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
-                exit(r);
+                assert_se(r >= 0 || ERRNO_IS_NEG_PRIVILEGE(r));
+                _exit(r >= 0 ? r : EACCES);
         }
 
         r = wait_for_terminate(pid1, &si);
         assert_se(r >= 0);
         assert_se(si.si_code == CLD_EXITED);
-        n += si.si_status;
+        if (si.si_status == EACCES)
+                permission_denied = true;
+        else
+                n += si.si_status;
 
         r = wait_for_terminate(pid2, &si);
         assert_se(r >= 0);
         assert_se(si.si_code == CLD_EXITED);
-        n += si.si_status;
+        if (si.si_status == EACCES)
+                permission_denied = true;
+        else
+                n += si.si_status;
 
         r = wait_for_terminate(pid3, &si);
         assert_se(r >= 0);
         assert_se(si.si_code == CLD_EXITED);
-        n += si.si_status;
+        if (si.si_status == EACCES)
+                permission_denied = true;
+        else
+                n += si.si_status;
+
+        /* LSMs can cause setup_shareable_ns() to fail with permission denied, do not fail the test in that
+         * case (e.g.: LXC with AppArmor on kernel < v6.2). */
+        if (permission_denied)
+                return (void) log_tests_skipped("insufficient privileges");
 
         assert_se(n == 1);
 }
