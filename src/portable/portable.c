@@ -267,7 +267,7 @@ static int extract_now(
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
-                        _cleanup_(mac_selinux_freep) char *con = NULL;
+                        _cleanup_freecon_ char *con = NULL;
                         _cleanup_close_ int fd = -EBADF;
                         struct stat st;
 

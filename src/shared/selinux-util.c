@@ -532,17 +532,6 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 #endif
 }
 
-char* mac_selinux_free(char *label) {
-
-#if HAVE_SELINUX
-        freecon(label);
-#else
-        assert(!label);
-#endif
-
-        return NULL;
-}
-
 #if HAVE_SELINUX
 static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode) {
         _cleanup_freecon_ char *filecon = NULL;
