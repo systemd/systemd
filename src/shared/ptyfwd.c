@@ -763,6 +763,9 @@ int pty_forward_new(
         struct winsize ws;
         int r;
 
+        assert(master >= 0);
+        assert(ret);
+
         f = new(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
