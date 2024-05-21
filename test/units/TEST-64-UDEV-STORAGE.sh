@@ -772,8 +772,6 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
-    wipefs -a -f "${devices[@]}"
-    udevadm wait --settle --timeout=30 --removed "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
 
     echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000003"
@@ -789,9 +787,10 @@ EOF
     for ((i = 0; i < ${#devices[@]}; i++)); do
         # Intentionally use weaker cipher-related settings, since we don't care
         # about security here as it's a throwaway LUKS partition
-        cryptsetup luksFormat -q \
-            --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
-            --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
+        udevadm lock --device="${devices[$i]}" \
+                cryptsetup luksFormat -q \
+                --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
+                --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
         udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i" "/dev/disk/by-label/encdisk$i"
         # Add the device into /etc/crypttab, reload systemd, and then activate
         # the device so we can create a filesystem on it later
