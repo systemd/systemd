@@ -93,6 +93,16 @@ static void answer_add_a(PutArgs *args, DnsResourceKey *key, int addr, int ttl, 
         dns_answer_add(args->answer, rr, 1, flags, NULL);
 }
 
+static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *alias, int ttl, DnsAnswerFlags flags) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup(alias);
+        rr->ttl = ttl;
+        dns_answer_add(args->answer, rr, 1, flags, NULL);
+}
+
 TEST(dns_a_success_is_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
@@ -229,6 +239,40 @@ TEST(dns_a_success_not_cacheable_is_not_cached) {
         answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_to_cname_success_is_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        answer_add_cname(&put_args, key, "example.com", 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_FALSE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_to_cname_success_escaped_name_returns_error) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.\\example.com");
+        ASSERT_NOT_NULL(key);
+        answer_add_cname(&put_args, key, "example.com", 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_ERROR(cache_put(&cache, &put_args), EINVAL);
         ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 
