@@ -303,7 +303,9 @@ systemd-analyze security --offline=true /tmp/testfile.service
 systemd-analyze security --offline=true /tmp/testfile.service | grep -q -F "/dev/sda"
 
 # Make sure that running generators under systemd-analyze verify works.
-systemd-analyze verify --generators /tmp/testfile.service
+# Note: sd-analyze spawns generators in a sandbox which makes gcov unhapy, so temporarily override
+#       $GCOV_PREFIX to make it skip generating any coverage reports
+GCOV_PREFIX=/tmp systemd-analyze verify --generators /tmp/testfile.service
 
 rm /tmp/testfile.service
 
