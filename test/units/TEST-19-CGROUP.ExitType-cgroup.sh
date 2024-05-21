@@ -27,8 +27,9 @@ disown
 
 systemd-notify --ready
 
-# Run the stop/kill command
-\$1 &
+# Run the stop/kill command, but sleep a bit to make the sleep infinity
+# below actually started before stopping/killing the service.
+(sleep 1; \$1) &
 
 # process tree: systemd -> bash -> sleep
 sleep infinity
