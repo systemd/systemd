@@ -5069,10 +5069,12 @@ int exec_invoke(
 
 #if HAVE_SELINUX
                 if (use_selinux) {
+                        assert(sym_setexeccon);
+
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
-                                r = setexeccon(exec_context);
+                                r = sym_setexeccon(exec_context);
                                 if (r < 0) {
                                         if (!context->selinux_context_ignore) {
                                                 *exit_status = EXIT_SELINUX_CONTEXT;

@@ -48,10 +48,10 @@ extern DLSYM_PROTOTYPE(string_to_security_class);
 
 int dlopen_libselinux(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, sym_freecon, NULL);
 
 #else
-static inline char* freeconp(char **p) {
+static inline char* sym_freeconp(char **p) {
         assert(*p == NULL);
         return NULL;
 }
@@ -61,7 +61,7 @@ static inline int dlopen_libselinux(void) {
 }
 #endif
 
-#define _cleanup_freecon_ _cleanup_(freeconp)
+#define _cleanup_freecon_ _cleanup_(sym_freeconp)
 
 bool mac_selinux_use(void);
 void mac_selinux_retest(void);

@@ -26,32 +26,37 @@ static int null_log(int type, const char *fmt, ...) {
 #endif
 
 int mac_selinux_setup(bool *loaded_policy) {
-
 #if HAVE_SELINUX
         int enforce = 0;
         usec_t before_load, after_load;
         char *con;
-        int r;
         bool initialized;
+        int r;
 
         assert(loaded_policy);
 
+        r = dlopen_libselinux();
+        if (r == -EOPNOTSUPP)
+                return 0;  /* Nothing to do. */
+        if (r < 0)
+                return r;
+
         /* Turn off all of SELinux' own logging, we want to do that */
-        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = null_log });
+        sym_selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = null_log });
 
         /* Don't load policy in the initrd if we don't appear to have it.  For the real root, we check below
          * if we've already loaded policy, and return gracefully. */
-        if (in_initrd() && access(selinux_path(), F_OK) < 0)
+        if (in_initrd() && access(sym_selinux_path(), F_OK) < 0)
                 return 0;
 
         /* Already initialized by somebody else? */
-        r = getcon_raw(&con);
+        r = sym_getcon_raw(&con);
         /* getcon_raw can return 0, and still give us a NULL pointer if /proc/self/attr/current is
          * empty. SELinux guarantees this won't happen, but that file isn't specific to SELinux, and may be
          * provided by some other arbitrary LSM with different semantics. */
         if (r == 0 && con) {
                 initialized = !streq(con, "kernel");
-                freecon(con);
+                sym_freecon(con);
         } else
                 initialized = false;
 
@@ -61,7 +66,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 
         /* Now load the policy */
         before_load = now(CLOCK_MONOTONIC);
-        r = selinux_init_load_policy(&enforce);
+        r = sym_selinux_init_load_policy(&enforce);
         if (r == 0) {
                 _cleanup_freecon_ char *label = NULL;
 
@@ -73,7 +78,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                         log_open();
                         log_error("Failed to compute init label, ignoring.");
                 } else {
-                        r = setcon_raw(label);
+                        r = sym_setcon_raw(label);
 
                         log_open();
                         if (r < 0)
