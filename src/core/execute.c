@@ -453,6 +453,12 @@ int exec_spawn(
          * handoff timestamp. */
         dual_timestamp_now(&start_timestamp);
 
+        r = 0;
+        if (unit->manager->starting_ambient_set != 0 && MANAGER_IS_USER(unit->manager))
+                r = capability_ambient_set_apply(unit->manager->starting_ambient_set, /* also_inherit= */ false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to apply the starting ambient set: %m");
+
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
         r = posix_spawn_wrapper(
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
@@ -463,6 +469,10 @@ int exec_spawn(
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
+
+        if (unit->manager->starting_ambient_set != 0 && MANAGER_IS_USER(unit->manager))
+                capability_ambient_set_apply(0, /* also_inherit= */ false);
+
         if (r == -EUCLEAN && subcgroup_path)
                 return log_unit_error_errno(unit, r,
                                             "Failed to spawn process into cgroup '%s', because the cgroup "
