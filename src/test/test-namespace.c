@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "apparmor-util.h"
 #include "fd-util.h"
 #include "namespace.h"
 #include "process-util.h"
@@ -90,6 +91,13 @@ static void test_shareable_ns(unsigned long nsflag) {
 
         if (geteuid() > 0) {
                 (void) log_tests_skipped("not root");
+                return;
+        }
+
+        /* If we are running inside LXC and with AppArmor, most likely creating a new network namespace
+         * is going to fail, so just skip immediately. */
+        if (detect_container() == VIRTUALIZATION_LXC && mac_apparmor_use()) {
+                (void) log_tests_skipped("in LXC container with Apparmor");
                 return;
         }
 
