@@ -772,8 +772,6 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
-    wipefs -a -f "${devices[@]}"
-    udevadm wait --settle --timeout=30 --removed "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
 
     echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000003"
