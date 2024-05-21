@@ -131,7 +131,7 @@ static const char* socket_protocol_to_string(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
-        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
+        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP))
                 return NULL;
 
         return ip_protocol_to_name(i);
