@@ -145,7 +145,12 @@ test -e /run/media/system/simple.img/foo.bar
 # systemd-mount --list and systemd-umount require the loopback block device is initialized by udevd.
 udevadm settle --timeout 30
 assert_in "/dev/loop.* ext4 +sd-mount-test" "$(systemd-mount --list --full)"
+LOOP_AUTO=$(systemd-mount --list --full --no-legend | awk '$6 == "sd-mount-test" { print $1 }')
+LOOP_AUTO_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$LOOP_AUTO")
 systemd-umount "$WORK_DIR/simple.img"
+# Wait for 'change' uevent for the device with DISK_MEDIA_CHANGE=1.
+# After the event, the backing_file attribute should be removed.
+timeout 60 bash -c "until [[ -e /sys/$LOOP_AUTO_DEVPATH/loop/backing_file ]]; do sleep 1; done"
 
 # --owner + vfat
 #
