@@ -951,7 +951,7 @@ TEST(pid_get_start_time) {
 
         assert_se(pidref_set_self(&pidref) >= 0);
 
-        uint64_t start_time;
+        usec_t start_time;
         assert_se(pidref_get_start_time(&pidref, &start_time) >= 0);
         log_info("our starttime: %" PRIu64, start_time);
 
@@ -959,7 +959,7 @@ TEST(pid_get_start_time) {
 
         assert_se(pidref_safe_fork("(stub)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &child) >= 0);
 
-        uint64_t start_time2;
+        usec_t start_time2;
         assert_se(pidref_get_start_time(&child, &start_time2) >= 0);
 
         log_info("child starttime: %" PRIu64, start_time2);
