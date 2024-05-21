@@ -1191,7 +1191,8 @@ static int method_release_session(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         if (session != sender_session)
-                return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED,
+                                        "Refused to release session, since it doesn't match the one of the client");
 
         r = session_release(session);
         if (r < 0)
