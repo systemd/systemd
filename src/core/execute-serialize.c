@@ -18,6 +18,7 @@
 #include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
+#include "virt.h"
 
 static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL,
@@ -1265,6 +1266,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-parameters-container", virtualization_to_string(p->container));
+        if (r < 0)
+                return r;
+
         r = serialize_strv(f, "exec-parameters-environment", p->environment);
         if (r < 0)
                 return r;
@@ -1450,6 +1455,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         p->runtime_scope = runtime_scope_from_string(val);
                         if (p->runtime_scope < 0)
                                 return p->runtime_scope;
+                } else if ((val = startswith(l, "exec-parameters-container="))) {
+                        p->container = virtualization_from_string(val);
+                        if (p->container < 0)
+                                return p->container;
+                        if (p->container != VIRTUALIZATION_NONE && !VIRTUALIZATION_IS_CONTAINER(p->container))
+                                return -EINVAL;
                 } else if ((val = startswith(l, "exec-parameters-environment="))) {
                         r = deserialize_strv(val, &p->environment);
                         if (r < 0)
