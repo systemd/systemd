@@ -21,13 +21,13 @@
 #include "macro.h"
 #include "socket-util.h"
 
-static DLSYM_FUNCTION(iptc_check_entry);
-static DLSYM_FUNCTION(iptc_commit);
-static DLSYM_FUNCTION(iptc_delete_entry);
-static DLSYM_FUNCTION(iptc_free);
-static DLSYM_FUNCTION(iptc_init);
-static DLSYM_FUNCTION(iptc_insert_entry);
-static DLSYM_FUNCTION(iptc_strerror);
+static DLSYM_PROTOTYPE(iptc_check_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_commit) = NULL;
+static DLSYM_PROTOTYPE(iptc_delete_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_free) = NULL;
+static DLSYM_PROTOTYPE(iptc_init) = NULL;
+static DLSYM_PROTOTYPE(iptc_insert_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_strerror) = NULL;
 
 static void *iptc_dl = NULL;
 

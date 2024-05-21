@@ -9,62 +9,62 @@
 #if HAVE_LIBCRYPTSETUP
 static void *cryptsetup_dl = NULL;
 
-DLSYM_FUNCTION(crypt_activate_by_passphrase);
+DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-DLSYM_FUNCTION(crypt_activate_by_signed_key);
+DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_activate_by_volume_key);
-DLSYM_FUNCTION(crypt_deactivate_by_name);
-DLSYM_FUNCTION(crypt_format);
-DLSYM_FUNCTION(crypt_free);
-DLSYM_FUNCTION(crypt_get_cipher);
-DLSYM_FUNCTION(crypt_get_cipher_mode);
-DLSYM_FUNCTION(crypt_get_data_offset);
-DLSYM_FUNCTION(crypt_get_device_name);
-DLSYM_FUNCTION(crypt_get_dir);
-DLSYM_FUNCTION(crypt_get_type);
-DLSYM_FUNCTION(crypt_get_uuid);
-DLSYM_FUNCTION(crypt_get_verity_info);
-DLSYM_FUNCTION(crypt_get_volume_key_size);
-DLSYM_FUNCTION(crypt_init);
-DLSYM_FUNCTION(crypt_init_by_name);
-DLSYM_FUNCTION(crypt_keyslot_add_by_volume_key);
-DLSYM_FUNCTION(crypt_keyslot_destroy);
-DLSYM_FUNCTION(crypt_keyslot_max);
-DLSYM_FUNCTION(crypt_load);
-DLSYM_FUNCTION(crypt_resize);
+DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_format) = NULL;
+DLSYM_PROTOTYPE(crypt_free) = NULL;
+DLSYM_PROTOTYPE(crypt_get_cipher) = NULL;
+DLSYM_PROTOTYPE(crypt_get_cipher_mode) = NULL;
+DLSYM_PROTOTYPE(crypt_get_data_offset) = NULL;
+DLSYM_PROTOTYPE(crypt_get_device_name) = NULL;
+DLSYM_PROTOTYPE(crypt_get_dir) = NULL;
+DLSYM_PROTOTYPE(crypt_get_type) = NULL;
+DLSYM_PROTOTYPE(crypt_get_uuid) = NULL;
+DLSYM_PROTOTYPE(crypt_get_verity_info) = NULL;
+DLSYM_PROTOTYPE(crypt_get_volume_key_size) = NULL;
+DLSYM_PROTOTYPE(crypt_init) = NULL;
+DLSYM_PROTOTYPE(crypt_init_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
+DLSYM_PROTOTYPE(crypt_load) = NULL;
+DLSYM_PROTOTYPE(crypt_resize) = NULL;
 #if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
-DLSYM_FUNCTION(crypt_resume_by_volume_key);
+DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_set_data_device);
-DLSYM_FUNCTION(crypt_set_debug_level);
-DLSYM_FUNCTION(crypt_set_log_callback);
+DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
+DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
+DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 #if HAVE_CRYPT_SET_METADATA_SIZE
-DLSYM_FUNCTION(crypt_set_metadata_size);
+DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_set_pbkdf_type);
-DLSYM_FUNCTION(crypt_suspend);
-DLSYM_FUNCTION(crypt_token_json_get);
-DLSYM_FUNCTION(crypt_token_json_set);
+DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
+DLSYM_PROTOTYPE(crypt_suspend) = NULL;
+DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
+DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 #if HAVE_CRYPT_TOKEN_MAX
-DLSYM_FUNCTION(crypt_token_max);
+DLSYM_PROTOTYPE(crypt_token_max) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_token_status);
-DLSYM_FUNCTION(crypt_volume_key_get);
+DLSYM_PROTOTYPE(crypt_token_status) = NULL;
+DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
-DLSYM_FUNCTION(crypt_reencrypt_init_by_passphrase);
+DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
 #endif
 #if HAVE_CRYPT_REENCRYPT_RUN
-DLSYM_FUNCTION(crypt_reencrypt_run);
+DLSYM_PROTOTYPE(crypt_reencrypt_run);
 #elif HAVE_CRYPT_REENCRYPT
-DLSYM_FUNCTION(crypt_reencrypt);
+DLSYM_PROTOTYPE(crypt_reencrypt);
 #endif
-DLSYM_FUNCTION(crypt_metadata_locking);
+DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 #if HAVE_CRYPT_SET_DATA_OFFSET
-DLSYM_FUNCTION(crypt_set_data_offset);
+DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_header_restore);
-DLSYM_FUNCTION(crypt_volume_key_keyring);
+DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
+DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 
 /* Unfortunately libcryptsetup provides neither an environment variable to redirect where to look for token
  * modules, nor does it have an API to change the token lookup path at runtime. The maintainers suggest using
