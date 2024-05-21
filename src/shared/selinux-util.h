@@ -6,14 +6,55 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "dlfcn-util.h"
 #include "macro.h"
 #include "label-util.h"
 
 #if HAVE_SELINUX
-#include <selinux/selinux.h>
+#  include <selinux/avc.h>
+#  include <selinux/label.h>
+#  include <selinux/selinux.h>
+
+extern DLSYM_PROTOTYPE(avc_open);
+extern DLSYM_PROTOTYPE(fgetfilecon_raw);
+extern DLSYM_PROTOTYPE(fini_selinuxmnt);
+extern DLSYM_PROTOTYPE(freecon);
+extern DLSYM_PROTOTYPE(getcon_raw);
+extern DLSYM_PROTOTYPE(getfilecon_raw);
+extern DLSYM_PROTOTYPE(getpeercon_raw);
+extern DLSYM_PROTOTYPE(getpidcon);
+extern DLSYM_PROTOTYPE(is_selinux_enabled);
+extern DLSYM_PROTOTYPE(security_compute_create_raw);
+extern DLSYM_PROTOTYPE(security_getenforce);
+extern DLSYM_PROTOTYPE(selabel_close);
+extern DLSYM_PROTOTYPE(selabel_lookup_raw);
+extern DLSYM_PROTOTYPE(selabel_open);
+extern DLSYM_PROTOTYPE(selinux_check_access);
+extern DLSYM_PROTOTYPE(selinux_init_load_policy);
+extern DLSYM_PROTOTYPE(selinux_path);
+extern DLSYM_PROTOTYPE(selinux_set_callback);
+extern DLSYM_PROTOTYPE(selinux_status_close);
+extern DLSYM_PROTOTYPE(selinux_status_getenforce);
+extern DLSYM_PROTOTYPE(selinux_status_open);
+extern DLSYM_PROTOTYPE(selinux_status_policyload);
+extern DLSYM_PROTOTYPE(setcon_raw);
+extern DLSYM_PROTOTYPE(setexeccon);
+extern DLSYM_PROTOTYPE(setfilecon);
+extern DLSYM_PROTOTYPE(setfilecon_raw);
+extern DLSYM_PROTOTYPE(setfscreatecon_raw);
+extern DLSYM_PROTOTYPE(setsockcreatecon);
+extern DLSYM_PROTOTYPE(setsockcreatecon_raw);
+extern DLSYM_PROTOTYPE(string_to_security_class);
+
+int dlopen_libselinux(void);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #define _cleanup_freecon_ _cleanup_(freeconp)
+
+#else
+static inline int dlopen_libselinux(void) {
+        return -EOPNOTSUPP;
+}
 #endif
 
 bool mac_selinux_use(void);

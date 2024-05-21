@@ -11,10 +11,7 @@
 #include <syslog.h>
 
 #if HAVE_SELINUX
-#include <selinux/avc.h>
-#include <selinux/context.h>
-#include <selinux/label.h>
-#include <selinux/selinux.h>
+#  include <selinux/context.h>
 #endif
 
 #include "alloc-util.h"
@@ -30,6 +27,91 @@
 #include "time-util.h"
 
 #if HAVE_SELINUX
+static void *libselinux_dl = NULL;
+
+static DLSYM_PROTOTYPE(context_free) = NULL;
+static DLSYM_PROTOTYPE(context_new) = NULL;
+static DLSYM_PROTOTYPE(context_range_get) = NULL;
+static DLSYM_PROTOTYPE(context_range_set) = NULL;
+static DLSYM_PROTOTYPE(context_str) = NULL;
+DLSYM_PROTOTYPE(avc_open) = NULL;
+DLSYM_PROTOTYPE(fgetfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(fini_selinuxmnt) = NULL;
+DLSYM_PROTOTYPE(freecon) = NULL;
+DLSYM_PROTOTYPE(getcon_raw) = NULL;
+DLSYM_PROTOTYPE(getfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(getpeercon_raw) = NULL;
+DLSYM_PROTOTYPE(getpidcon) = NULL;
+DLSYM_PROTOTYPE(is_selinux_enabled) = NULL;
+DLSYM_PROTOTYPE(security_compute_create_raw) = NULL;
+DLSYM_PROTOTYPE(security_getenforce) = NULL;
+DLSYM_PROTOTYPE(selabel_close) = NULL;
+DLSYM_PROTOTYPE(selabel_lookup_raw) = NULL;
+DLSYM_PROTOTYPE(selabel_open) = NULL;
+DLSYM_PROTOTYPE(selinux_check_access) = NULL;
+DLSYM_PROTOTYPE(selinux_init_load_policy) = NULL;
+DLSYM_PROTOTYPE(selinux_path) = NULL;
+DLSYM_PROTOTYPE(selinux_set_callback) = NULL;
+DLSYM_PROTOTYPE(selinux_status_close) = NULL;
+DLSYM_PROTOTYPE(selinux_status_getenforce) = NULL;
+DLSYM_PROTOTYPE(selinux_status_open) = NULL;
+DLSYM_PROTOTYPE(selinux_status_policyload) = NULL;
+DLSYM_PROTOTYPE(setcon_raw) = NULL;
+DLSYM_PROTOTYPE(setexeccon) = NULL;
+DLSYM_PROTOTYPE(setfilecon) = NULL;
+DLSYM_PROTOTYPE(setfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(setfscreatecon_raw) = NULL;
+DLSYM_PROTOTYPE(setsockcreatecon) = NULL;
+DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
+DLSYM_PROTOTYPE(string_to_security_class) = NULL;
+
+int dlopen_libselinux(void) {
+        ELF_NOTE_DLOPEN("selinux",
+                        "Support for SELinux policies",
+                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libselinux.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &libselinux_dl,
+                        "libselinux.so.1",
+                        LOG_DEBUG,
+                        DLSYM_ARG(context_free),
+                        DLSYM_ARG(context_new),
+                        DLSYM_ARG(context_range_get),
+                        DLSYM_ARG(context_range_set),
+                        DLSYM_ARG(context_str),
+                        DLSYM_ARG(avc_open),
+                        DLSYM_ARG(fgetfilecon_raw),
+                        DLSYM_ARG(fini_selinuxmnt),
+                        DLSYM_ARG(freecon),
+                        DLSYM_ARG(getcon_raw),
+                        DLSYM_ARG(getfilecon_raw),
+                        DLSYM_ARG(getpeercon_raw),
+                        DLSYM_ARG(getpidcon),
+                        DLSYM_ARG(is_selinux_enabled),
+                        DLSYM_ARG(security_compute_create_raw),
+                        DLSYM_ARG(security_getenforce),
+                        DLSYM_ARG(selabel_close),
+                        DLSYM_ARG(selabel_lookup_raw),
+                        DLSYM_ARG(selabel_open),
+                        DLSYM_ARG(selinux_check_access),
+                        DLSYM_ARG(selinux_init_load_policy),
+                        DLSYM_ARG(selinux_path),
+                        DLSYM_ARG(selinux_set_callback),
+                        DLSYM_ARG(selinux_status_close),
+                        DLSYM_ARG(selinux_status_getenforce),
+                        DLSYM_ARG(selinux_status_open),
+                        DLSYM_ARG(selinux_status_policyload),
+                        DLSYM_ARG(setcon_raw),
+                        DLSYM_ARG(setexeccon),
+                        DLSYM_ARG(setfilecon),
+                        DLSYM_ARG(setfilecon_raw),
+                        DLSYM_ARG(setfscreatecon_raw),
+                        DLSYM_ARG(setsockcreatecon),
+                        DLSYM_ARG(setsockcreatecon_raw),
+                        DLSYM_ARG(string_to_security_class));
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(context_t, context_free, NULL);
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
