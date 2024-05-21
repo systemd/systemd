@@ -4728,10 +4728,13 @@ int exec_invoke(
                 /* Try to enable network namespacing if network namespacing is available and we have
                  * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
                  * new network namespace. And if we don't have that, then we could only create a network
-                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                 * namespace without the ability to set up "lo". Hence gracefully skip things then.
+                 * Note that when running in LXC with AppArmor the default policy will also raise an error,
+                 * but we get EAGAIN instead of EPERM. */
                 if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        if (ERRNO_IS_NEG_PRIVILEGE(r) ||
+                            (r == -EAGAIN && use_apparmor && params->virtualization == VIRTUALIZATION_LXC))
                                 log_exec_notice_errno(context, params, r,
                                                       "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
                         else if (r < 0) {
