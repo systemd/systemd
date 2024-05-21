@@ -511,8 +511,12 @@ const char* fstype_norecovery_option(const char *fstype) {
          * old name if the new name doesn't work. */
         if (streq(fstype, "btrfs")) {
                 r = mount_option_supported(fstype, "rescue=nologreplay", NULL);
+                if (r == -EAGAIN) {
+                        log_debug_errno(r, "Failed to check for btrfs 'rescue=nologreplay' option, assuming old kernel with 'norecovery': %m");
+                        return "norecovery";
+                }
                 if (r < 0)
-                        log_debug_errno(r, "Failed to check for btrfs rescue=nologreplay option, assuming it is not supported: %m");
+                        log_debug_errno(r, "Failed to check for btrfs 'rescue=nologreplay' option, assuming it is not supported: %m");
                 if (r > 0)
                         return "rescue=nologreplay";
         }
