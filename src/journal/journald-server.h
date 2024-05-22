@@ -21,6 +21,24 @@ typedef struct Server Server;
 #include "time-util.h"
 #include "varlink.h"
 
+/*
+ * SD_EVENT_PRIORITY_IMPORTANT = -100,
+ * SD_EVENT_PRIORITY_NORMAL = 0,
+ * SD_EVENT_PRIORITY_IDLE = 100
+ */
+
+#define EVENT_PRIORITY_EXIT_TIMER     SD_EVENT_PRIORITY_IMPORTANT-20
+#define EVENT_PRIORITY_SIGTERM        SD_EVENT_PRIORITY_IMPORTANT-10
+#define EVENT_PRIORITY_HOSTNAME       SD_EVENT_PRIORITY_IMPORTANT-10
+#define EVENT_PRIORITY_SCHEDULED_SYNC SD_EVENT_PRIORITY_IMPORTANT
+#define EVENT_PRIORITY_KMSG           SD_EVENT_PRIORITY_IMPORTANT+10
+#define EVENT_PRIORITY_VARLINK_SERVER SD_EVENT_PRIORITY_NORMAL
+#define EVENT_PRIORITY_MESSAGE_MIN    SD_EVENT_PRIORITY_NORMAL+1
+#define EVENT_PRIORITY_MESSAGE_MAX    SD_EVENT_PRIORITY_IDLE-3
+#define EVENT_PRIORITY_MANUAL_SYNC    SD_EVENT_PRIORITY_IDLE-2
+#define EVENT_PRIORITY_EXIT_IDLE      SD_EVENT_PRIORITY_IDLE-1
+#define EVENT_PRIORITY_IDLE_TIMER     SD_EVENT_PRIORITY_IDLE
+
 typedef enum Storage {
         STORAGE_AUTO,
         STORAGE_VOLATILE,
@@ -207,6 +225,8 @@ struct Server {
 
 /* audit: Maximum number of extra fields we'll import from audit messages */
 #define N_IOVEC_AUDIT_FIELDS 64
+
+void update_message_event_priority(sd_event_source *source);
 
 void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_ _printf_(4,0);

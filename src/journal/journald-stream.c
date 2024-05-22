@@ -578,6 +578,10 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 .msg_controllen = sizeof(control),
         };
 
+        assert(es);
+
+        update_message_event_priority(es);
+
         if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
                 log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
                 goto terminate;
@@ -698,7 +702,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to add stream to event loop: %m");
 
-        r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(stream->event_source, EVENT_PRIORITY_MESSAGE_MIN);
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to adjust stdout event source priority: %m");
 
@@ -721,6 +725,10 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         _cleanup_close_ int fd = -EBADF;
         Server *s = ASSERT_PTR(userdata);
         int r;
+
+        assert(es);
+
+        update_message_event_priority(es);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -949,7 +957,7 @@ int server_open_stdout_socket(Server *s, const char *stdout_socket) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
-        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->stdout_event_source, EVENT_PRIORITY_MESSAGE_MIN);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 

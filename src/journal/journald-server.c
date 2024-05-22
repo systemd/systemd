@@ -95,6 +95,29 @@
 static int server_schedule_sync(Server *s, int priority);
 static int server_refresh_idle_timer(Server *s);
 
+void update_message_event_priority(sd_event_source *source) {
+        int64_t prio;
+        int r;
+
+        assert(source);
+
+        r = sd_event_source_get_priority(source, &prio);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to get priority of event source, ignoring: %m");
+
+        assert(prio >= EVENT_PRIORITY_MESSAGE_MIN);
+        assert(prio <= EVENT_PRIORITY_MESSAGE_MAX);
+
+        if (prio == EVENT_PRIORITY_MESSAGE_MAX)
+                prio = EVENT_PRIORITY_MESSAGE_MIN;
+        else
+                prio++;
+
+        r = sd_event_source_set_priority(source, prio);
+        if (r < 0)
+                log_debug_errno(r, "Failed to update priority of event source, ignoring: %m");
+}
+
 static int server_determine_path_usage(
                 Server *s,
                 const char *path,
@@ -1509,7 +1532,10 @@ int server_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
+        assert(es);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
+
+        update_message_event_priority(es);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1691,7 +1717,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
         (void) sd_event_source_set_description(news, "exit-idle");
 
         /* Run everything relevant before this. */
-        r = sd_event_source_set_priority(news, SD_EVENT_PRIORITY_NORMAL+20);
+        r = sd_event_source_set_priority(news, EVENT_PRIORITY_EXIT_IDLE);
         if (r < 0) {
                 log_error_errno(r, "Failed to adjust priority of exit idle event handler: %m");
                 goto fail;
@@ -1714,7 +1740,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 
         (void) sd_event_source_set_description(news, "exit-timeout");
 
-        r = sd_event_source_set_priority(news, SD_EVENT_PRIORITY_IMPORTANT-20); /* This is a safety net, with highest priority */
+        r = sd_event_source_set_priority(news, EVENT_PRIORITY_EXIT_TIMER); /* This is a safety net, with highest priority */
         if (r < 0) {
                 log_error_errno(r, "Failed to adjust priority of exit timeout event handler: %m");
                 goto fail;
@@ -1781,7 +1807,7 @@ static int server_setup_signals(Server *s) {
                 return r;
 
         /* Let's process SIGTERM early, so that we definitely react to it */
-        r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
+        r = sd_event_source_set_priority(s->sigterm_event_source, EVENT_PRIORITY_SIGTERM);
         if (r < 0)
                 return r;
 
@@ -1791,7 +1817,7 @@ static int server_setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(s->sigint_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
+        r = sd_event_source_set_priority(s->sigint_event_source, EVENT_PRIORITY_SIGTERM);
         if (r < 0)
                 return r;
 
@@ -1802,7 +1828,7 @@ static int server_setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(s->sigrtmin1_event_source, SD_EVENT_PRIORITY_NORMAL+15);
+        r = sd_event_source_set_priority(s->sigrtmin1_event_source, EVENT_PRIORITY_MANUAL_SYNC);
         if (r < 0)
                 return r;
 
@@ -1979,7 +2005,7 @@ static int server_schedule_sync(Server *s, int priority) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_event_source_set_priority(s->sync_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+                        r = sd_event_source_set_priority(s->sync_event_source, EVENT_PRIORITY_SCHEDULED_SYNC);
                 } else {
                         r = sd_event_source_set_time_relative(s->sync_event_source, s->sync_interval_usec);
                         if (r < 0)
@@ -2026,7 +2052,7 @@ static int server_open_hostname(Server *s) {
                 return log_error_errno(r, "Failed to register hostname fd in event loop: %m");
         }
 
-        r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
+        r = sd_event_source_set_priority(s->hostname_event_source, EVENT_PRIORITY_HOSTNAME);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of hostname event source: %m");
 
@@ -2221,7 +2247,7 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
 
         varlink_ref(link); /* The varlink object is now left to the destroy callback to unref */
 
-        r = sd_event_source_set_priority(event_source, SD_EVENT_PRIORITY_NORMAL+15);
+        r = sd_event_source_set_priority(event_source, EVENT_PRIORITY_MANUAL_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to set defer event source priority: %m");
 
@@ -2341,7 +2367,7 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
         if (r < 0)
                 return r;
 
-        r = varlink_server_attach_event(s->varlink_server, s->event, SD_EVENT_PRIORITY_NORMAL);
+        r = varlink_server_attach_event(s->varlink_server, s->event, EVENT_PRIORITY_VARLINK_SERVER);
         if (r < 0)
                 return r;
 
@@ -2444,7 +2470,7 @@ int server_start_or_stop_idle_timer(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate idle timer: %m");
 
-        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_IDLE);
+        r = sd_event_source_set_priority(source, EVENT_PRIORITY_IDLE_TIMER);
         if (r < 0)
                 return log_error_errno(r, "Failed to set idle timer priority: %m");
 

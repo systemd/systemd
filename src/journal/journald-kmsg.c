@@ -410,7 +410,7 @@ int server_open_dev_kmsg(Server *s) {
                 goto finish;
         }
 
-        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
+        r = sd_event_source_set_priority(s->dev_kmsg_event_source, EVENT_PRIORITY_KMSG);
         if (r < 0) {
                 log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
                 goto finish;
