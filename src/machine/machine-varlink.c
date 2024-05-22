@@ -134,7 +134,7 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
                 { "rootDirectory",     SD_JSON_VARIANT_STRING,   json_dispatch_path,      offsetof(Machine, root_directory),       0                 },
                 { "ifIndices",         SD_JSON_VARIANT_ARRAY,    machine_ifindices,       0,                                       0                 },
                 { "vSockCid",          SD_JSON_VARIANT_UNSIGNED, machine_cid,             offsetof(Machine, vsock_cid),            0                 },
-                { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(Machine, ssh_address),          SD_JSON_SAFE      },
+                { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
                 { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,   json_dispatch_path,      offsetof(Machine, ssh_private_key_path), 0                 },
                 {}
         };
