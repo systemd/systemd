@@ -524,7 +524,9 @@ EOF
     # become idle again. 'Lock' signal is sent out for each session, we have at
     # least one session, so minimum of 2 "Lock" signals must have been sent.
     journalctl --sync
-    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt 1 ]]; do sleep 1; journalctl --sync; done"
+    set +o pipefail
+    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'
+    set -o pipefail
 
     # We need to know that a new message was sent after waking up,
     # so we must track how many happened before sleeping to check we have extra.
@@ -535,12 +537,10 @@ EOF
 
     # Wait again
     journalctl --sync
-    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt $((locks + 1)) ]]; do sleep 1; journalctl --sync; done"
-
-    if [[ "$(journalctl -b -u systemd-logind.service --since="$ts" | grep -c 'System idle. Will be locked now.')" -lt 2 ]]; then
-        echo >&2 "System haven't entered idle state at least 2 times."
-        exit 1
-    fi
+    set +o pipefail
+    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m "$((locks + 1))" -q 'Sent message type=signal .* member=Lock'
+    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'
+    set -o pipefail
 }
 
 testcase_session_properties() {
