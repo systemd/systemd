@@ -14,6 +14,23 @@
 #include "signal-util.h"
 #include "stat-util.h"
 
+static int pidfd_inode_ids_supported(void) {
+        static int cached = -1;
+
+        if (cached >= 0)
+                return cached;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (cached = false);
+
+                return -errno;
+        }
+
+        return (cached = fd_is_fs_type(fd, PID_FS_MAGIC));
+}
+
 bool pidref_equal(const PidRef *a, const PidRef *b) {
         int r;
 
@@ -28,8 +45,11 @@ bool pidref_equal(const PidRef *a, const PidRef *b) {
                         return true;
 
                 /* pidfds live in their own pidfs and each process comes with a unique inode number since
-                 * kernel 6.8. We can safely do this on older kernels too though, as previously anonymous
-                 * inode was used and inode number was the same for all pidfds. */
+                 * kernel 6.9. */
+
+                if (pidfd_inode_ids_supported() <= 0)
+                        return true;
+
                 r = fd_inode_same(a->fd, b->fd);
                 if (r < 0)
                         log_debug_errno(r, "Failed to check whether pidfds for pid " PID_FMT " are equal, assuming yes: %m",
