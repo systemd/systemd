@@ -277,8 +277,8 @@ typedef enum sd_json_dispatch_flags_t {
         SD_JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
         SD_JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
         SD_JSON_LOG              = 1 << 2, /* Should the parser log about errors? */
-        SD_JSON_SAFE             = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
-        SD_JSON_RELAX            = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        SD_JSON_STRICT           = 1 << 3, /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string()) */
+        SD_JSON_RELAX            = 1 << 4, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
         SD_JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
 
         /* The following two may be passed into log_json() in addition to those above */

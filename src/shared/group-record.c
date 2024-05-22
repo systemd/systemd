@@ -47,7 +47,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(GroupRecord, group_record, group_record_free);
 static int dispatch_privileged(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field privileged_dispatch_table[] = {
-                { "hashedPassword", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_strv, offsetof(GroupRecord, hashed_password), SD_JSON_SAFE },
+                { "hashedPassword", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_strv, offsetof(GroupRecord, hashed_password), SD_JSON_STRICT },
                 {},
         };
 
@@ -123,7 +123,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
 static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field status_dispatch_table[] = {
-                { "service", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(GroupRecord, service), SD_JSON_SAFE },
+                { "service", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(GroupRecord, service), SD_JSON_STRICT },
                 {},
         };
 
@@ -171,28 +171,28 @@ int group_record_load(
                 UserRecordLoadFlags load_flags) {
 
         static const sd_json_dispatch_field group_dispatch_table[] = {
-                { "groupName",      SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       SD_JSON_RELAX },
-                { "realm",          SD_JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0             },
-                { "description",    SD_JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0             },
-                { "disposition",    SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0             },
-                { "service",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(GroupRecord, service),          SD_JSON_SAFE  },
-                { "lastChangeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(GroupRecord, last_change_usec), 0             },
-                { "gid",            SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,       offsetof(GroupRecord, gid),              0             },
-                { "members",        SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),          SD_JSON_RELAX },
-                { "administrators", SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   SD_JSON_RELAX },
+                { "groupName",      SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       SD_JSON_RELAX  },
+                { "realm",          SD_JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0              },
+                { "description",    SD_JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0              },
+                { "disposition",    SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0              },
+                { "service",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(GroupRecord, service),          SD_JSON_STRICT },
+                { "lastChangeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(GroupRecord, last_change_usec), 0              },
+                { "gid",            SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,       offsetof(GroupRecord, gid),              0              },
+                { "members",        SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),          SD_JSON_RELAX  },
+                { "administrators", SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   SD_JSON_RELAX  },
 
-                { "privileged",     SD_JSON_VARIANT_OBJECT,        dispatch_privileged,            0,                                       0             },
+                { "privileged",     SD_JSON_VARIANT_OBJECT,        dispatch_privileged,            0,                                       0              },
 
                 /* Not defined for now, for groups, but let's at least generate sensible errors about it */
-                { "secret",         SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_unsupported,   0,                                       0             },
+                { "secret",         SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_unsupported,   0,                                       0              },
 
                 /* Ignore the perMachine, binding and status stuff here, and process it later, so that it overrides whatever is set above */
-                { "perMachine",     SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0             },
-                { "binding",        SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0             },
-                { "status",         SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0             },
+                { "perMachine",     SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0              },
+                { "binding",        SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0              },
+                { "status",         SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0              },
 
                 /* Ignore 'signature', we check it with explicit accessors instead */
-                { "signature",      SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0             },
+                { "signature",      SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0              },
                 {},
         };
 
