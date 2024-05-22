@@ -848,6 +848,8 @@ EOF
     rm -fr "$mpoint"
     systemctl daemon-reload
     udevadm settle
+
+    false
 }
 
 testcase_iscsi_lvm() {
