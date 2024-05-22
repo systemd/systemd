@@ -98,7 +98,7 @@ static bool is_us(const char *identifier, const char *pid) {
 
 void dev_kmsg_record(Server *s, char *p, size_t l) {
 
-        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_pid = NULL, *syslog_identifier = NULL, *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
         char *kernel_device = NULL;
         unsigned long long usec;
@@ -253,16 +253,19 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 }
         }
 
-        if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec) >= 0)
-                iovec[n++] = IOVEC_MAKE_STRING(source_time);
+        char source_time[STRLEN("_SOURCE_MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
+        xsprintf(source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec);
+        iovec[n++] = IOVEC_MAKE_STRING(source_time);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=kernel");
 
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
+        char syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)];
+        xsprintf(syslog_priority, "PRIORITY=%i", LOG_PRI(priority));
+        iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
-        if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
+        char syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+        iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
 
         if (LOG_FAC(priority) == LOG_KERN)
                 iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");

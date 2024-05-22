@@ -348,7 +348,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                 const char *path = arg_dollar_boot_path();
                 if (!path)
-                        return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location.");
 
                 puts(path);
                 return 0;

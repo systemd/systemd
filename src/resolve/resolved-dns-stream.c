@@ -195,7 +195,7 @@ static int dns_stream_identify(DnsStream *s) {
                 /* Make sure all packets for this connection are sent on the same interface */
                 r = socket_set_unicast_if(s->fd, s->local.sa.sa_family, s->ifindex);
                 if (r < 0)
-                        log_debug_errno(errno, "Failed to invoke IP_UNICAST_IF/IPV6_UNICAST_IF: %m");
+                        log_debug_errno(r, "Failed to invoke IP_UNICAST_IF/IPV6_UNICAST_IF: %m");
         }
 
         s->identified = true;
@@ -454,7 +454,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         if (progressed && s->timeout_event_source) {
                 r = sd_event_source_set_time_relative(s->timeout_event_source, DNS_STREAM_ESTABLISHED_TIMEOUT_USEC);
                 if (r < 0)
-                        log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
+                        log_warning_errno(r, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
 
         return 0;

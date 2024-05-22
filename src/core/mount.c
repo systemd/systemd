@@ -463,10 +463,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
-        } else if (mount_is_credentials(m))
-                after = before = NULL;
-
-        else if (mount_is_network(p)) {
+        } else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
 
@@ -606,6 +603,9 @@ static int mount_add_non_exec_dependencies(Mount *m) {
 
         if (!m->where)
                 return 0;
+
+        if (mount_is_credentials(m))
+                UNIT(m)->default_dependencies = false;
 
         /* Adds in all dependencies directly responsible for ordering the mount, as opposed to dependencies
          * resulting from the ExecContext and such. */

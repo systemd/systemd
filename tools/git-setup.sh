@@ -20,8 +20,14 @@ if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
 fi
 
 if [ ! -f .git/hooks/post-rewrite ]; then
-    cp -p tools/git-post-rewrite-hook.sh .git/hooks/post-rewrite
+    cp -p tools/git-submodule-update-hook.sh .git/hooks/post-rewrite
     echo 'Activated post-rewrite hook'
+    ret=0
+fi
+
+if [ ! -f .git/hooks/post-checkout ]; then
+    cp -p tools/git-submodule-update-hook.sh .git/hooks/post-checkout
+    echo 'Activated post-checkout hook'
     ret=0
 fi
 

@@ -1328,7 +1328,7 @@ static int client_receive_message(
                 return 0;
         }
         if ((size_t) len < sizeof(DHCP6Message)) {
-                log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");
+                log_dhcp6_client(client, "Too small to be DHCPv6 message: ignoring");
                 return 0;
         }
 
@@ -1404,7 +1404,7 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         r = client_send_release(client);
         if (r < 0)
                 log_dhcp6_client_errno(client, r,
-                                       "Failed to send DHCP6 release message, ignoring: %m");
+                                       "Failed to send DHCPv6 release message, ignoring: %m");
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 

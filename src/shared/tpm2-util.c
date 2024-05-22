@@ -113,6 +113,11 @@ static DLSYM_FUNCTION(Tss2_RC_Decode);
 int dlopen_tpm2(void) {
         int r;
 
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-esys.so.0");
+
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
@@ -164,11 +169,21 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-rc.so.0");
+
         r = dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
         if (r < 0)
                 return r;
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-mu.so.0");
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
@@ -7205,7 +7220,7 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
         /* Load the PIN (which we have stored in the "auth" TPM2B_AUTH) into the TPM as an HMAC key so that
          * we can use it in a TPM2_PolicySigned() to write to the nvindex. For that we'll prep a pair of
          * TPM2B_PUBLIC and TPM2B_SENSITIVE that defines an HMAC-SHA256 keyed hash function, and initialize
-         * it based on on the provided PIN data. */
+         * it based on the provided PIN data. */
 
         TPM2B_PUBLIC auth_hmac_public = {
                 .publicArea = {
@@ -7382,7 +7397,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
                                        JSON_BUILD_PAIR("tpm2_pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
+                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
                                        JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
                                        JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
                                        JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));

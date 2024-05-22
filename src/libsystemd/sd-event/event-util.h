@@ -36,3 +36,5 @@ static inline int event_source_disable(sd_event_source *s) {
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata);
 
 int event_add_child_pidref(sd_event *e, sd_event_source **s, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
+
+dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts);

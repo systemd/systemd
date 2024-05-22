@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Upheld Unit
+Requires=TEST-23-UNIT-FILE-retry-fail.service
+After=TEST-23-UNIT-FILE-retry-fail.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=echo ok

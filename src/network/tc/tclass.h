@@ -58,7 +58,9 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
+void tclass_mark_recursive(TClass *tclass);
 TClass* tclass_drop(TClass *tclass);
+void link_tclass_drop_marked(Link *link);
 
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 

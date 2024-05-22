@@ -343,7 +343,7 @@ static int parse_one_option(const char *option) {
                         arg_pkcs11_uri_auto = true;
                 } else {
                         if (!pkcs11_uri_valid(val))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkcs11-uri= parameter expects a PKCS#11 URI, refusing");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkcs11-uri= parameter expects a PKCS#11 URI, refusing.");
 
                         r = free_and_strdup(&arg_pkcs11_uri, val);
                         if (r < 0)
@@ -523,7 +523,7 @@ static int parse_one_option(const char *option) {
                  * where %<key_type> is optional and defaults to 'user'.
                  */
                 if (!(sep = strstr(val, "::")))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                 /* cryptsetup (cli) supports <keyring_description> passed in various formats:
                  * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
@@ -544,7 +544,7 @@ static int parse_one_option(const char *option) {
                 if (*sep == '%') {
                         /* must be separated by colon */
                         if (!(c = strchr(sep, ':')))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                         key_type = strndup(sep + 1, c - sep - 1);
                         if (!key_type)

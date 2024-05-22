@@ -23,7 +23,14 @@
 #include "reboot-util.h"
 #include "string-util.h"
 #include "umask-util.h"
+#include "utf8.h"
 #include "virt.h"
+
+bool reboot_parameter_is_valid(const char *parameter) {
+        assert(parameter);
+
+        return ascii_is_valid(parameter) && strlen(parameter) <= NAME_MAX;
+}
 
 int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
         int r;
@@ -41,6 +48,9 @@ int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
 
                 return 0;
         }
+
+        if (!reboot_parameter_is_valid(parameter))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid reboot parameter '%s'.", parameter);
 
         WITH_UMASK(0022) {
                 r = write_string_file("/run/systemd/reboot-param", parameter,

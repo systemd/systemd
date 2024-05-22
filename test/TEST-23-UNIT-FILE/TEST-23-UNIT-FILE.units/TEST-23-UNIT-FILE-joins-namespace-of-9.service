@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+JoinsNamespaceOf=TEST-23-UNIT-FILE-joins-namespace-of-8.service
+
+[Service]
+Type=oneshot
+MountAPIVFS=yes
+PrivateTmp=yes
+ExecStart=test -e /tmp/shared-private-file-x
+ExecStart=test -e /tmp/shared-private-file-y
+ExecStart=test -e /tmp/hoge

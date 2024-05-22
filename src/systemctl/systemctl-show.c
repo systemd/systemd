@@ -714,13 +714,12 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
-                /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
-                   memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX).
-                   Only show the available memory if it was artificially limited. */
                 bool show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX),
-                     show_memory_available = i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX;
+                     /* Only show the available memory if it was artificially limited. */
+                     show_memory_available = i->memory_available != CGROUP_LIMIT_MAX &&
+                                             (i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX);
                 if (show_memory_peak ||
-                    show_memory_swap_peak ||
+                    show_memory_swap_peak || /* We don't need to check memory_swap_current, as if peak is 0 that must also be 0 */
                     show_memory_zswap_current ||
                     show_memory_available ||
                     i->memory_min > 0 ||
@@ -729,7 +728,6 @@ static void print_status_info(
                     i->memory_max != CGROUP_LIMIT_MAX || i->startup_memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX || i->startup_memory_swap_max != CGROUP_LIMIT_MAX ||
                     i->memory_zswap_max != CGROUP_LIMIT_MAX || i->startup_memory_zswap_max != CGROUP_LIMIT_MAX ||
-                    i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
@@ -849,10 +847,9 @@ static void print_status_info(
                                 i->id,
                                 i->log_namespace,
                                 arg_output,
-                                0,
+                                /* n_columns = */ 0,
                                 i->inactive_exit_timestamp_monotonic,
                                 arg_lines,
-                                getuid(),
                                 get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                 SD_JOURNAL_LOCAL_ONLY,
                                 arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,

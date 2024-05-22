@@ -40,7 +40,8 @@ struct Manager {
         sd_event_source *nscd_cache_flush_event;
 #endif
 
-        VarlinkServer *varlink_server;
+        VarlinkServer *varlink_userdb_server;
+        VarlinkServer *varlink_machine_server;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);

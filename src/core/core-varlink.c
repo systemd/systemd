@@ -128,10 +128,10 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < ELEMENTSOF(managed_oom_mode_properties); i++) {
+        FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                 _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
 
-                r = build_managed_oom_json_array_element(u, managed_oom_mode_properties[i], &e);
+                r = build_managed_oom_json_array_element(u, *i, &e);
                 if (r < 0)
                         return r;
 
@@ -182,16 +182,16 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
                         if (!c)
                                 continue;
 
-                        for (size_t j = 0; j < ELEMENTSOF(managed_oom_mode_properties); j++) {
+                        FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                                 _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
 
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
-                                if (!(streq(managed_oom_mode_properties[j], "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
-                                    !(streq(managed_oom_mode_properties[j], "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
+                                if (!(streq(*i, "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
+                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
                                         continue;
 
-                                r = build_managed_oom_json_array_element(u, managed_oom_mode_properties[j], &e);
+                                r = build_managed_oom_json_array_element(u, *i, &e);
                                 if (r < 0)
                                         return r;
 
@@ -368,7 +368,7 @@ static int build_group_json(const char *group_name, gid_t gid, JsonVariant **ret
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
                                        JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
-    }
+}
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
         assert(p);
@@ -500,6 +500,43 @@ static void vl_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
                 m->managed_oom_varlink = varlink_unref(link);
 }
 
+static int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_UserDatabase,
+                        &vl_interface_io_systemd_ManagedOOM);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
+
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
+                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
+                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
 static int manager_varlink_init_system(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -604,43 +641,6 @@ static int manager_varlink_init_user(Manager *m) {
         (void) manager_varlink_send_managed_oom_initial(m);
 
         return 1;
-}
-
-int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
-        int r;
-
-        assert(m);
-        assert(ret);
-
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
-
-        varlink_server_set_userdata(s, m);
-
-        r = varlink_server_add_interface_many(
-                        s,
-                        &vl_interface_io_systemd_UserDatabase,
-                        &vl_interface_io_systemd_ManagedOOM);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add interfaces to varlink server: %m");
-
-        r = varlink_server_bind_method_many(
-                        s,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups",  vl_method_subscribe_managed_oom_cgroups);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to register varlink methods: %m");
-
-        r = varlink_server_bind_disconnect(s, vl_disconnect);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
-
-        *ret = TAKE_PTR(s);
-        return 0;
 }
 
 int manager_varlink_init(Manager *m) {

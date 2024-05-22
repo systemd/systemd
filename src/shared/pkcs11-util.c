@@ -61,6 +61,11 @@ DLSYM_FUNCTION(p11_kit_uri_new);
 DLSYM_FUNCTION(p11_kit_uri_parse);
 
 int dlopen_p11kit(void) {
+        ELF_NOTE_DLOPEN("p11-kit",
+                        "Support for PKCS11 hardware tokens",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libp11-kit.so.0");
+
         return dlopen_many_sym_or_warn(
                         &p11kit_dl,
                         "libp11-kit.so.0", LOG_DEBUG,
@@ -877,16 +882,17 @@ int pkcs11_token_find_private_key(
                 P11KitUri *search_uri,
                 CK_OBJECT_HANDLE *ret_object) {
 
-        uint_fast8_t n_objects = 0;
         bool found_class = false;
         _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
-        CK_OBJECT_HANDLE object = 0, candidate;
-        static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE key_type;
         CK_BBOOL decrypt_value, derive_value;
         CK_ATTRIBUTE optional_attributes[] = {
-                { CKA_DECRYPT, &decrypt_value, sizeof(decrypt_value) },
-                { CKA_DERIVE,  &derive_value,  sizeof(derive_value)  }
+                { CKA_KEY_TYPE, &key_type,      sizeof(key_type)      },
+                { CKA_DECRYPT,  &decrypt_value, sizeof(decrypt_value) },
+                { CKA_DERIVE,   &derive_value,  sizeof(derive_value)  },
         };
+        uint8_t n_private_keys = 0;
+        CK_OBJECT_HANDLE private_key = CK_INVALID_HANDLE;
         CK_RV rv;
 
         assert(m);
@@ -903,13 +909,11 @@ int pkcs11_token_find_private_key(
 
                 switch (attributes[i].type) {
                 case CKA_CLASS: {
-                        CK_OBJECT_CLASS c;
-
-                        if (attributes[i].ulValueLen != sizeof(c))
+                        if (attributes[i].ulValueLen != sizeof(CK_OBJECT_CLASS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_CLASS attribute size.");
 
-                        memcpy(&c, attributes[i].pValue, sizeof(c));
-                        if (c != CKO_PRIVATE_KEY)
+                        CK_OBJECT_CLASS *class = (CK_OBJECT_CLASS*) attributes[i].pValue;
+                        if (*class != CKO_PRIVATE_KEY)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Selected PKCS#11 object is not a private key, refusing.");
 
@@ -920,6 +924,7 @@ int pkcs11_token_find_private_key(
 
         if (!found_class) {
                 /* Hmm, let's slightly extend the attribute list we search for */
+                static const CK_OBJECT_CLASS required_class = CKO_PRIVATE_KEY;
 
                 attributes_buffer = new(CK_ATTRIBUTE, n_attributes + 1);
                 if (!attributes_buffer)
@@ -929,8 +934,8 @@ int pkcs11_token_find_private_key(
 
                 attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
                         .type = CKA_CLASS,
-                        .pValue = (CK_OBJECT_CLASS*) &class,
-                        .ulValueLen = sizeof(class),
+                        .pValue = (CK_OBJECT_CLASS*) &required_class,
+                        .ulValueLen = sizeof(required_class),
                 };
 
                 attributes = attributes_buffer;
@@ -943,6 +948,7 @@ int pkcs11_token_find_private_key(
 
         for (;;) {
                 CK_ULONG b;
+                CK_OBJECT_HANDLE candidate;
                 rv = m->C_FindObjects(session, &candidate, 1, &b);
                 if (rv != CKR_OK)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -951,27 +957,36 @@ int pkcs11_token_find_private_key(
                 if (b == 0)
                         break;
 
-                bool can_decrypt = false, can_derive = false;
-                optional_attributes[0].ulValueLen = sizeof(decrypt_value);
-                optional_attributes[1].ulValueLen = sizeof(derive_value);
+                optional_attributes[0].ulValueLen = sizeof(key_type);
+                optional_attributes[1].ulValueLen = sizeof(decrypt_value);
+                optional_attributes[2].ulValueLen = sizeof(derive_value);
 
                 rv = m->C_GetAttributeValue(session, candidate, optional_attributes, ELEMENTSOF(optional_attributes));
                 if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                "Failed to get attributes of a selected private key: %s", sym_p11_kit_strerror(rv));
+                                "Failed to get attributes of a found private key: %s", sym_p11_kit_strerror(rv));
 
-                if (optional_attributes[0].ulValueLen != CK_UNAVAILABLE_INFORMATION && decrypt_value == CK_TRUE)
-                        can_decrypt = true;
-
-                if (optional_attributes[1].ulValueLen != CK_UNAVAILABLE_INFORMATION && derive_value == CK_TRUE)
-                        can_derive = true;
-
-                if (can_decrypt || can_derive) {
-                        n_objects++;
-                        if (n_objects > 1)
-                                break;
-                        object = candidate;
+                if (optional_attributes[0].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+                        log_debug("A found private key does not have CKA_KEY_TYPE, rejecting the key.");
+                        continue;
                 }
+
+                if (key_type == CKK_RSA)
+                        if (optional_attributes[1].ulValueLen == CK_UNAVAILABLE_INFORMATION || decrypt_value == CK_FALSE) {
+                                log_debug("A found private RSA key can't decrypt, rejecting the key.");
+                                continue;
+                        }
+
+                if (key_type == CKK_EC)
+                        if (optional_attributes[2].ulValueLen == CK_UNAVAILABLE_INFORMATION || derive_value == CK_FALSE) {
+                                log_debug("A found private EC key can't derive, rejecting the key.");
+                                continue;
+                        }
+
+                n_private_keys++;
+                if (n_private_keys > 1)
+                        break;
+                private_key = candidate;
         }
 
         rv = m->C_FindObjectsFinal(session);
@@ -979,15 +994,15 @@ int pkcs11_token_find_private_key(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                         "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
 
-        if (n_objects == 0)
+        if (n_private_keys == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                         "Failed to find selected private key suitable for decryption or derivation on token.");
 
-        if (n_objects > 1)
+        if (n_private_keys > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
                         "Configured private key URI matches multiple keys, refusing.");
 
-        *ret_object = object;
+        *ret_object = private_key;
         return 0;
 }
 

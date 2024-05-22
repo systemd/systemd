@@ -156,13 +156,13 @@ coverage_create_nspawn_dropin() {
 create_dummy_container() {
     local root="${1:?}"
 
-    if [[ ! -d /testsuite-13-container-template ]]; then
+    if [[ ! -d /usr/share/TEST-13-NSPAWN-container-template ]]; then
         echo >&2 "Missing container template, probably not running in TEST-13-NSPAWN?"
         exit 1
     fi
 
     mkdir -p "$root"
-    cp -a /testsuite-13-container-template/* "$root"
+    cp -a /usr/share/TEST-13-NSPAWN-container-template/* "$root"
     coverage_create_nspawn_dropin "$root"
 }
 
@@ -224,22 +224,6 @@ kernel_supports_lsm() {
     done
 
     return 1
-}
-
-MOUNTED_USR_OVERLAY=false
-
-maybe_mount_usr_overlay() {
-    if [[ ! -w /usr ]]; then
-        mkdir -p /tmp/usr-overlay/{upperdir,workdir}
-        mount -t overlay -o lowerdir=/usr,upperdir=/tmp/usr-overlay/upperdir,workdir=/tmp/usr-overlay/workdir overlay /usr
-        MOUNTED_USR_OVERLAY=true
-    fi
-}
-
-maybe_umount_usr_overlay() {
-    if "$MOUNTED_USR_OVERLAY"; then
-        umount -l /usr
-    fi
 }
 
 install_extension_images() {
@@ -360,4 +344,37 @@ WantedBy=multi-user.target
 EOF
         echo -e "[Unit]\nUpholds=foo.service" >"$initdir/usr/lib/systemd/system/multi-user.target.d/10-foo-service.conf"
         mksquashfs "$initdir" /tmp/app-reload.raw -noappend
+}
+
+restore_locale() {
+    if [[ -d /usr/lib/locale/xx_XX.UTF-8 ]]; then
+        rmdir /usr/lib/locale/xx_XX.UTF-8
+    fi
+
+    if [[ -f /tmp/locale.conf.bak ]]; then
+        mv /tmp/locale.conf.bak /etc/locale.conf
+    else
+        rm -f /etc/locale.conf
+    fi
+
+    if [[ -f /tmp/default-locale.bak ]]; then
+        mv /tmp/default-locale.bak /etc/default/locale
+    else
+        rm -rf /etc/default
+    fi
+
+    if [[ -f /tmp/locale.gen.bak ]]; then
+        mv /tmp/locale.gen.bak /etc/locale.gen
+    else
+        rm -f /etc/locale.gen
+    fi
+}
+
+generate_locale() {
+    local locale="${1:?}"
+
+    if command -v locale-gen >/dev/null && ! localectl list-locales | grep -F "$locale"; then
+        echo "$locale UTF-8" >/etc/locale.gen
+        locale-gen "$locale"
+    fi
 }

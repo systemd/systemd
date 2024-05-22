@@ -192,7 +192,7 @@ static void service_unwatch_pid_file(Service *s) {
         s->pid_file_pathspec = mfree(s->pid_file_pathspec);
 }
 
-static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
+static int service_set_main_pidref(Service *s, PidRef pidref_consume, const dual_timestamp *start_timestamp) {
         _cleanup_(pidref_done) PidRef pidref = pidref_consume;
         int r;
 
@@ -214,7 +214,7 @@ static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
 
         if (!pidref_equal(&s->main_pid, &pidref)) {
                 service_unwatch_main_pid(s);
-                exec_status_start(&s->main_exec_status, pidref.pid);
+                exec_status_start(&s->main_exec_status, pidref.pid, start_timestamp);
         }
 
         s->main_pid = TAKE_PIDREF(pidref);
@@ -441,7 +441,7 @@ static void service_release_fd_store(Service *s) {
 static void service_release_stdio_fd(Service *s) {
         assert(s);
 
-        if (s->stdin_fd < 0 && s->stdout_fd < 0 && s->stdout_fd < 0)
+        if (s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
                 return;
 
         log_unit_debug(UNIT(s), "Releasing stdin/stdout/stderr file descriptors.");
@@ -1166,7 +1166,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         } else
                 log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pidref.pid);
 
-        r = service_set_main_pidref(s, TAKE_PIDREF(pidref));
+        r = service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp = */ NULL);
         if (r < 0)
                 return r;
 
@@ -1196,7 +1196,7 @@ static void service_search_main_pid(Service *s) {
                 return;
 
         log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid.pid);
-        if (service_set_main_pidref(s, TAKE_PIDREF(pid)) < 0)
+        if (service_set_main_pidref(s, TAKE_PIDREF(pid), /* start_timestamp = */ NULL) < 0)
                 return;
 
         r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
@@ -2007,7 +2007,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 assert(restart_state >= 0 && restart_state < _SERVICE_STATE_MAX);
 
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
-                 * state (i.e. a state indicating deactivation), and then one that that maps to the
+                 * state (i.e. a state indicating deactivation), and then one that maps to the
                  * high-level UNIT_STARTING state (i.e. a state indicating activation). We do this so that
                  * external software can watch the state changes and see all service failures, even if they
                  * are only transitionary and followed by an automatic restart. We have fine-grained
@@ -2021,8 +2021,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install restart timer: %m");
-                        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
-                        return;
+                        return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
                 }
 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
@@ -2413,35 +2412,36 @@ static void service_enter_start(Service *s) {
                 goto fail;
         }
 
-        if (IN_SET(s->type, SERVICE_SIMPLE, SERVICE_IDLE)) {
-                /* For simple services we immediately start
-                 * the START_POST binaries. */
+        assert(pidref.pid == c->exec_status.pid);
 
-                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
-                service_enter_start_post(s);
+        switch (s->type) {
 
-        } else  if (s->type == SERVICE_FORKING) {
+        case SERVICE_SIMPLE:
+        case SERVICE_IDLE:
+                /* For simple services we immediately start the START_POST binaries. */
+                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &c->exec_status.start_timestamp);
+                return service_enter_start_post(s);
 
-                /* For forking services we wait until the start
-                 * process exited. */
-
+        case SERVICE_FORKING:
+                /* For forking services we wait until the start process exited. */
                 pidref_done(&s->control_pid);
                 s->control_pid = TAKE_PIDREF(pidref);
-                service_set_state(s, SERVICE_START);
+                return service_set_state(s, SERVICE_START);
 
-        } else if (IN_SET(s->type, SERVICE_ONESHOT, SERVICE_DBUS, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_EXEC)) {
+        case SERVICE_ONESHOT: /* For oneshot services we wait until the start process exited, too, but it is our main process. */
+        case SERVICE_EXEC:
+        case SERVICE_DBUS:
+        case SERVICE_NOTIFY:
+        case SERVICE_NOTIFY_RELOAD:
+                /* For D-Bus services we know the main pid right away, but wait for the bus name to appear
+                 * on the bus. 'notify' and 'exec' services wait for readiness notification and EOF
+                 * on exec_fd, respectively. */
+                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &c->exec_status.start_timestamp);
+                return service_set_state(s, SERVICE_START);
 
-                /* For oneshot services we wait until the start process exited, too, but it is our main process. */
-
-                /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
-                 * bus. 'notify' and 'exec' services are similar. */
-
-                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
-                service_set_state(s, SERVICE_START);
-        } else
+        default:
                 assert_not_reached();
-
-        return;
+        }
 
 fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
@@ -2546,8 +2546,6 @@ static void service_enter_restart(Service *s) {
          * the counter explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts++;
         s->flush_n_restarts = false;
-
-        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
 
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
@@ -2709,7 +2707,7 @@ static void service_run_next_main(Service *s) {
                 return;
         }
 
-        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
+        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &s->main_command->exec_status.start_timestamp);
 }
 
 static int service_start(Unit *u) {
@@ -3187,7 +3185,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 PidRef pidref;
 
                 if (!pidref_is_set(&s->main_pid) && deserialize_pidref(fds, value, &pidref) >= 0)
-                        (void) service_set_main_pidref(s, pidref);
+                        (void) service_set_main_pidref(s, pidref, /* start_timestamp = */ NULL);
 
         } else if (streq(key, "main-pid-known")) {
                 int b;
@@ -4380,7 +4378,7 @@ static void service_notify_message(
                                         log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
                         }
                         if (r > 0) {
-                                (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid));
+                                (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
 
                                 r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                                 if (r < 0)
@@ -4676,7 +4674,7 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
 
         log_unit_debug(UNIT(s), "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pidref.pid);
 
-        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
+        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp = */ NULL);
         (void) unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         return 1;
 }

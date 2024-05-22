@@ -605,7 +605,7 @@
           an allowed character, it's recommended to avoid it when naming interfaces as various tools (such as
           <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>) use
           it as separator character. Also, fully numeric interface names are not allowed (in order to avoid
-          ambiguity with interface specification by numeric indexes), as are the special strings
+          ambiguity with interface specification by numeric indexes), nor are the special strings
           <literal>.</literal>, <literal>..</literal>, <literal>all</literal> and
           <literal>default</literal>.</para>
 

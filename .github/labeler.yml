@@ -64,6 +64,9 @@ journal:
 journal-remote:
   - changed-files:
     - any-glob-to-any-file: 'src/journal-remote/*'
+l10n 🌍:
+  - changed-files:
+    - any-glob-to-any-file: 'po/*'
 login:
   - changed-files:
     - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']

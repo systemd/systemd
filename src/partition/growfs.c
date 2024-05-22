@@ -228,7 +228,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", arg_target);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point: %m", arg_target);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point.", arg_target);
 
         mountfd = open(arg_target, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (mountfd < 0)

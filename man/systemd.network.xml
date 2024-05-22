@@ -444,13 +444,12 @@
       <varlistentry>
         <term><varname>LinkLocalAddressing=</varname></term>
         <listitem>
-          <para>Enables link-local address autoconfiguration. Accepts <option>yes</option>,
-          <option>no</option>, <option>ipv4</option>, and <option>ipv6</option>. An IPv6 link-local
-          address is configured when <option>yes</option> or <option>ipv6</option>. An IPv4 link-local
-          address is configured when <option>yes</option> or <option>ipv4</option> and when DHCPv4
-          autoconfiguration has been unsuccessful for some time. (IPv4 link-local address
-          autoconfiguration will usually happen in parallel with repeated attempts to acquire a DHCPv4
-          lease).</para>
+          <para>Enables link-local address autoconfiguration. Accepts a boolean, <option>ipv4</option>,
+          and <option>ipv6</option>. An IPv6 link-local address is configured when <option>yes</option>
+          or <option>ipv6</option>. An IPv4 link-local address is configured when <option>yes</option>
+          or <option>ipv4</option> and when DHCPv4 autoconfiguration has been unsuccessful for some time.
+          (IPv4 link-local address autoconfiguration will usually happen in parallel with repeated attempts
+          to acquire a DHCPv4 lease).</para>
 
           <para>Defaults to <option>no</option> when <varname>KeepMaster=</varname> or
           <varname>Bridge=</varname> is set or when the specified
@@ -2796,7 +2795,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are rejected.
           Note that if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is
           ignored.</para>
-          <para>Note that this filters only DHCP offers, so the filtering may not work when
+          <para>Note that this filters only DHCP offers, so the filtering might not work when
           <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
           </para>
 
@@ -2810,7 +2809,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
-          <para>Note that this filters only DHCP offers, so the filtering may not work when
+          <para>Note that this filters only DHCP offers, so the filtering might not work when
           <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
           </para>
 

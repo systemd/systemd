@@ -706,6 +706,7 @@ CPUAffinity=
 CapabilityBoundingSet=
 CrashChangeVT=
 CrashReboot=
+CrashAction=
 CrashShell=
 CtrlAltDelBurstAction=
 DefaultBlockIOAccounting=

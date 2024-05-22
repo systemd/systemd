@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Unit with BindsTo=
+BindsTo=TEST-23-UNIT-FILE-bound-by.service
+After=TEST-23-UNIT-FILE-bound-by.service
+
+[Service]
+ExecStart=sleep infinity
+# --kill-who= (no 'm') to check that the short form is accepted
+ExecStopPost=systemctl kill --kill-whom=main -sRTMIN+1 TEST-23-UNIT-FILE.service

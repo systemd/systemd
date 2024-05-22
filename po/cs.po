@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-05-14 17:01+0100\n"
 "PO-Revision-Date: 2023-09-19 14:35+0000\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
@@ -275,42 +275,42 @@ msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Příliš mnoho neúspěšných pokusů o přihlášení uživatele %s, proto odmítnuto."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Záznam uživatele je blokován, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Záznam uživatele ještě není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Záznam uživatele již není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Záznam uživatele neplatný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Příliš mnoho přihlášení, zkuste znovu za %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Je vyžadována změna hesla."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Platnost hesla skončila, je zapotřebí ho změnit."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Platnost hesla skončila, ale není možné ho změnit – přihlášení proto "
 "odmítnuto."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "Platnost hesla brzy skončí – změňte si ho."
 

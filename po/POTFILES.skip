@@ -22,6 +22,7 @@ src/core/org.freedesktop.systemd1.policy
 src/hostname/hostnamed.c
 src/locale/localed.c
 src/timedate/timedated.c
+units/capsule@.service.in
 units/debug-shell.service.in
 units/systemd-battery-check.service.in
 units/systemd-bootctl@.service.in

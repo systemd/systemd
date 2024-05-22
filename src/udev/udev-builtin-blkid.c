@@ -368,7 +368,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                         if (r < 0)
                                 return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
                         if (offset < 0)
-                                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid offset %"PRIi64": %m", offset);
+                                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid offset %"PRIi64".", offset);
                         break;
                 case 'R':
                         noraid = true;

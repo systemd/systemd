@@ -443,7 +443,7 @@ static int load_credential(
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
                  * via the source socket address in case we read off an AF_UNIX socket. */
-                if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, id) < 0)
+                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), unit, id) < 0)
                         return -ENOMEM;
 
                 missing_ok = false;
@@ -467,7 +467,7 @@ static int load_credential(
 
         maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
 
-        if (search_path) {
+        if (search_path)
                 STRV_FOREACH(d, search_path) {
                         _cleanup_free_ char *j = NULL;
 
@@ -485,7 +485,7 @@ static int load_credential(
                         if (r != -ENOENT)
                                 break;
                 }
-        } else if (source)
+        else if (source)
                 r = read_full_file_full(
                                 read_dfd, source,
                                 UINT64_MAX,
@@ -504,7 +504,8 @@ static int load_credential(
                  *
                  * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
                  * we are fine, too. */
-                log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", path);
+                log_full_errno(hashmap_contains(context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
+                               r, "Couldn't read inherited credential '%s', skipping: %m", path);
                 return 0;
         }
         if (r < 0)
@@ -949,8 +950,8 @@ int exec_setup_credentials(
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
                 return -EINVAL;
 
-        /* This where we'll place stuff when we are done; this main credentials directory is world-readable,
-         * and the subdir we mount over with a read-only file system readable by the service's user */
+        /* This is where we'll place stuff when we are done; the main credentials directory is world-readable,
+         * and the subdir we mount over with a read-only file system readable by the service's user. */
         q = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials");
         if (!q)
                 return -ENOMEM;

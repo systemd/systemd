@@ -444,6 +444,21 @@ int terminal_tint_color(double hue, char **ret) {
         return 0;
 }
 
+bool shall_tint_background(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = getenv_bool("SYSTEMD_TINT_BACKGROUND");
+        if (cache == -ENXIO)
+                return (cache = true);
+        if (cache < 0)
+                log_debug_errno(cache, "Failed to parse $SYSTEMD_TINT_BACKGROUND, leaving background tinting enabled: %m");
+
+        return cache != 0;
+}
+
 void draw_progress_bar(const char *prefix, double percentage) {
 
         fputc('\r', stderr);

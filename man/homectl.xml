@@ -434,7 +434,7 @@
         denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
         EDDSA over Curve25519 with SHA-512.</para>
 
-        <para>Note that your authenticator may not support some algorithms.</para>
+        <para>Note that your authenticator may choose not to support some algorithms.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>

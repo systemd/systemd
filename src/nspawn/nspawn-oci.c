@@ -409,18 +409,18 @@ static int oci_user(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
 static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch table[] = {
-                { "terminal",        JSON_VARIANT_BOOLEAN, oci_terminal,          0,                                     0               },
-                { "consoleSize",     JSON_VARIANT_OBJECT,  oci_console_size,      0,                                     0               },
-                { "cwd",             JSON_VARIANT_STRING,  oci_absolute_path,     offsetof(Settings, working_directory), 0               },
-                { "env",             JSON_VARIANT_ARRAY,   oci_env,               offsetof(Settings, environment),       0               },
-                { "args",            JSON_VARIANT_ARRAY,   oci_args,              offsetof(Settings, parameters),        0               },
-                { "rlimits",         JSON_VARIANT_ARRAY,   oci_rlimits,           0,                                     0               },
-                { "apparmorProfile", JSON_VARIANT_STRING,  oci_unsupported,       0,                                     JSON_PERMISSIVE },
-                { "capabilities",    JSON_VARIANT_OBJECT,  oci_capabilities,      0,                                     0               },
-                { "noNewPrivileges", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(Settings, no_new_privileges), 0               },
-                { "oomScoreAdj",     JSON_VARIANT_INTEGER, oci_oom_score_adj,     0,                                     0               },
-                { "selinuxLabel",    JSON_VARIANT_STRING,  oci_unsupported,       0,                                     JSON_PERMISSIVE },
-                { "user",            JSON_VARIANT_OBJECT,  oci_user,              0,                                     0               },
+                { "terminal",        JSON_VARIANT_BOOLEAN, oci_terminal,           0,                                     0               },
+                { "consoleSize",     JSON_VARIANT_OBJECT,  oci_console_size,       0,                                     0               },
+                { "cwd",             JSON_VARIANT_STRING,  oci_absolute_path,      offsetof(Settings, working_directory), 0               },
+                { "env",             JSON_VARIANT_ARRAY,   oci_env,                offsetof(Settings, environment),       0               },
+                { "args",            JSON_VARIANT_ARRAY,   oci_args,               offsetof(Settings, parameters),        0               },
+                { "rlimits",         JSON_VARIANT_ARRAY,   oci_rlimits,            0,                                     0               },
+                { "apparmorProfile", JSON_VARIANT_STRING,  oci_unsupported,        0,                                     JSON_PERMISSIVE },
+                { "capabilities",    JSON_VARIANT_OBJECT,  oci_capabilities,       0,                                     0               },
+                { "noNewPrivileges", JSON_VARIANT_BOOLEAN, json_dispatch_tristate, offsetof(Settings, no_new_privileges), 0               },
+                { "oomScoreAdj",     JSON_VARIANT_INTEGER, oci_oom_score_adj,      0,                                     0               },
+                { "selinuxLabel",    JSON_VARIANT_STRING,  oci_unsupported,        0,                                     JSON_PERMISSIVE },
+                { "user",            JSON_VARIANT_OBJECT,  oci_user,               0,                                     0               },
                 {}
         };
 
@@ -432,8 +432,8 @@ static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
         int r;
 
         static const JsonDispatch table[] = {
-                { "path",     JSON_VARIANT_STRING,  json_dispatch_string,  offsetof(Settings, root)      },
-                { "readonly", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(Settings, read_only) },
+                { "path",     JSON_VARIANT_STRING,  json_dispatch_string,   offsetof(Settings, root)      },
+                { "readonly", JSON_VARIANT_BOOLEAN, json_dispatch_tristate, offsetof(Settings, read_only) },
                 {}
         };
 
@@ -863,7 +863,7 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
 
                         if (node->major == UINT_MAX || node->minor == UINT_MAX) {
                                 r = json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                             "Major/minor required when device node is device node");
+                                             "Major/minor required when device node is device node.");
                                 goto fail_element;
                         }
 
@@ -1148,7 +1148,7 @@ static int oci_cgroup_memory_limit(const char *name, JsonVariant *v, JsonDispatc
 
         if (!json_variant_is_unsigned(v))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Memory limit is not an unsigned integer");
+                                "Memory limit is not an unsigned integer.");
 
         k = json_variant_unsigned(v);
         if (k >= UINT64_MAX)
@@ -1716,7 +1716,7 @@ static int oci_seccomp_archs(const char *name, JsonVariant *v, JsonDispatchFlags
 
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Architecture entry is not a string");
+                                        "Architecture entry is not a string.");
 
                 r = oci_seccomp_arch_from_string(json_variant_string(e), &a);
                 if (r < 0)

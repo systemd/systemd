@@ -146,12 +146,6 @@ if ! [[ "$TESTNAME" =~ ^TEST\-([0-9]+)\-.+$ ]]; then
     echo "ERROR: Test name '$TESTNAME' is not in the expected format: TEST-[0-9]+-*" >&2
     exit 1
 fi
-TESTID="${BASH_REMATCH[1]:?}"
-
-if [[ ! -f "$TEST_UNITS_DIR/testsuite-$TESTID.service" ]]; then
-    echo "ERROR: Test '$TESTNAME' is missing its service file '$TEST_UNITS_DIR/testsuite-$TESTID.service" >&2
-    exit 1
-fi
 
 BASICTOOLS=(
     awk
@@ -209,6 +203,7 @@ BASICTOOLS=(
     mkfifo
     mknod
     mktemp
+    modinfo
     modprobe
     mount
     mountpoint
@@ -476,8 +471,7 @@ run_qemu() {
 
     local CONSOLE=ttyS0
 
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
@@ -567,9 +561,9 @@ run_qemu() {
         "loglevel=2"
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
-        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
+        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$1.service"
+        "systemd.wants=$1.service"
         "noresume"
         "oops=panic"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
@@ -651,8 +645,7 @@ run_qemu() {
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "${initdir:?}"/{testok,failed,skipped}
 
     local nspawn_cmd=()
@@ -660,13 +653,13 @@ run_nspawn() {
         "--register=no"
         "--kill-signal=SIGKILL"
         "--directory=${1:?}"
-        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
-        "--machine=TEST-$TESTID"
+        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$2.units:/usr/lib/systemd/tests/testdata/units:"
+        "--machine=$2"
     )
     local kernel_params=(
         "$PATH_TO_INIT"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$2.service"
+        "systemd.wants=$2.service"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
@@ -1691,7 +1684,7 @@ check_coverage_reports() {
 
     # Create a coverage report that will later be uploaded. Remove info about system
     # libraries/headers and generated files, as we don't really care about them.
-    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+    lcov --directory "${root}/${BUILD_DIR:?}" --capture --exclude "*.gperf" --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
         # merge it with the already present one - this usually happens when
@@ -1747,10 +1740,10 @@ save_journal() {
         dest_name="system.journal"
     fi
 
-    # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
+    # Show messages from the TEST-XX-XXX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
     "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
-        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
+        _SYSTEMD_UNIT="${TESTNAME:?}.service" + SYSLOG_IDENTIFIER="$TESTNAME.sh" + \
         PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
     if get_bool "$save"; then
@@ -2301,7 +2294,7 @@ install_zoneinfo() {
     inst_any /usr/share/zoneinfo/Australia/Sydney
     inst_any /usr/share/zoneinfo/Europe/Berlin
     inst_any /usr/share/zoneinfo/Europe/Dublin
-    inst_any /usr/share/zoneinfo/Europe/Kiev
+    inst_any /usr/share/zoneinfo/Europe/Kyiv
     inst_any /usr/share/zoneinfo/Pacific/Auckland
     inst_any /usr/share/zoneinfo/Pacific/Honolulu
     inst_any /usr/share/zoneinfo/CET
@@ -3315,7 +3308,7 @@ test_setup() {
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
             # Do an initial coverage capture, to make sure the final report includes
             # files that the tests didn't touch at all
-            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --output-file "${TESTDIR:?}/coverage-base"
+            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --exclude "*.gperf" --output-file "${TESTDIR:?}/coverage-base"
         fi
 
         if get_bool "$hook_defined"; then
@@ -3327,11 +3320,11 @@ test_setup() {
 }
 
 test_run() {
-    local test_id="${1:?}"
+    local test_name="${1:?}"
     mount_initdir
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
-        if run_qemu "$test_id"; then
+        if run_qemu "$test_name"; then
             check_result_qemu || { echo "qemu test failed"; return 1; }
         else
             dwarn "can't run qemu, skipping"
@@ -3339,7 +3332,7 @@ test_run() {
     fi
     if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
-        if run_nspawn "${initdir:?}" "$test_id"; then
+        if run_nspawn "${initdir:?}" "$test_name"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
@@ -3347,7 +3340,7 @@ test_run() {
 
         if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
-            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
+            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_name"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
@@ -3403,7 +3396,7 @@ do_test() {
         case $1 in
             --run)
                 echo "${testname} RUN: $TEST_DESCRIPTION"
-                test_run "$TESTID"
+                test_run "$TESTNAME"
                 ret=$?
                 if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
@@ -3435,7 +3428,7 @@ do_test() {
                     test_setup_cleanup </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 if [ $ret -eq 0 ]; then
-                    test_run "$TESTID" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                    test_run "$TESTNAME" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 test_cleanup
                 if [ $ret -eq 0 ]; then

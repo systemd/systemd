@@ -1744,6 +1744,9 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "PrivateMounts"))
                 return bus_set_transient_tristate(u, name, &c->private_mounts, message, flags, error);
 
+        if (streq(name, "MountAPIVFS"))
+                return bus_set_transient_tristate(u, name, &c->mount_apivfs, message, flags, error);
+
         if (streq(name, "PrivateNetwork"))
                 return bus_set_transient_bool(u, name, &c->private_network, message, flags, error);
 
@@ -2707,20 +2710,6 @@ int bus_exec_context_set_transient_property(
                         c->ioprio_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingPriority=%i", p);
-                }
-
-                return 1;
-
-        } else if (streq(name, "MountAPIVFS")) {
-                bool b;
-
-                r = bus_set_transient_bool(u, name, &b, message, flags, error);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->mount_apivfs = b;
-                        c->mount_apivfs_set = true;
                 }
 
                 return 1;

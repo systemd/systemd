@@ -1,0 +1,113 @@
+# shellcheck shell=bash
+# run0(1) completion                      -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__systemctl() {
+    systemctl --system --full --no-legend --no-pager --plain "$@"
+}
+
+__get_slice_units () { __systemctl list-units --all -t slice \
+                           | { while read -r a b c d; do echo " $a"; done; }; }
+
+__get_machines() {
+    local a b
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo " $a"; done; } | \
+        sort -u
+}
+
+_run0() {
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local opts_with_values=(
+        --machine --unit --property --description --slice -u --user -g --group --nice -D --chdir
+        --setenv --background
+    )
+    local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit"
+
+    local i
+    for (( i=1; i <= COMP_CWORD; i++ )); do
+        if [[ ${COMP_WORDS[i]} != -* ]]; then
+            local root_command=${COMP_WORDS[i]}
+            _command_offset ${i}
+            return
+        fi
+
+        [[ ${i} -lt ${COMP_CWORD} && " ${opts_with_values[@]} " =~ " ${COMP_WORDS[i]} " ]] && ((i++))
+    done
+
+    case "${prev}" in
+        --unit|--description|--nice|--setenv|--background)
+            # argument required but no completions available
+            return
+            ;;
+        --slice)
+            local comps=$(__get_slice_units)
+
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --property)
+            local comps='CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP=
+                         SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group=
+                         DevicePolicy= KillMode= ExitType= DeviceAllow= BlockIOReadBandwidth=
+                         BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment=
+                         KillSignal= RestartKillSignal= FinalKillSignal= LimitCPU= LimitFSIZE= LimitDATA=
+                         LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC=
+                         LimitMEMLOCK= LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE=
+                         LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices=
+                         PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
+                         TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
+                         SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWritePaths=
+                         ReadOnlyPaths= InaccessiblePaths= EnvironmentFile=
+                         ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment='
+
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --machine)
+            local comps=$( __get_machines )
+
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        -u|--user)
+            COMPREPLY=($(compgen -u -- "$cur"))
+            return 0
+            ;;
+        -g|--group)
+            COMPREPLY=($(compgen -g -- "$cur"))
+            return 0
+            ;;
+        -D|--chdir)
+            local comps
+            if [[ -z $cur ]]; then
+                comps=$(compgen -A directory -- "/" )
+            else
+                comps=$(compgen -A directory -- "$cur" )
+            fi
+            compopt -o filenames
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur" ) )
+            return 0
+            ;;
+    esac
+
+    COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+    return 0
+}
+
+complete -F _run0 run0

@@ -74,28 +74,28 @@ TEST (test_dirent_is_file) {
         }
 
         rewinddir(dir);
-        while ((de_reg = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_reg->d_name, "test.txt") == 0)
+        while ((de_reg = readdir_ensure_type(dir)))
+                if (streq(de_reg->d_name, "test.txt"))
                         break;
 
         rewinddir(dir);
-        while ((de_lnk = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_lnk->d_name, "test_link") == 0)
+        while ((de_lnk = readdir_ensure_type(dir)))
+                if (streq(de_lnk->d_name, "test_link"))
                         break;
 
         rewinddir(dir);
-        while ((de_dot = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_dot->d_name, ".hidden_file") == 0)
+        while ((de_dot = readdir_ensure_type(dir)))
+                if (streq(de_dot->d_name, ".hidden_file"))
                         break;
 
         rewinddir(dir);
-        while ((de_bak = readdir(dir)) != NULL)
-                if (strcmp(de_bak->d_name, "test.bak") == 0)
+        while ((de_bak = readdir(dir)))
+                if (streq(de_bak->d_name, "test.bak"))
                         break;
 
         rewinddir(dir);
-        while ((de_tilda = readdir(dir)) != NULL)
-                if (strcmp(de_tilda->d_name, "test~") == 0)
+        while ((de_tilda = readdir(dir)))
+                if (streq(de_tilda->d_name, "test~"))
                         break;
 
         /* Test when d_type is DT_REG, DT_LNK, or DT_UNKNOWN */
@@ -136,7 +136,11 @@ TEST (test_dirent_is_file_with_suffix) {
         assert_se(touch(name) >= 0);
         assert_se(touch(dotfile) >= 0);
         assert_se(touch(dotdot) >= 0);
-        assert_se(mknod(chr, 0775 | S_IFCHR, makedev(0, 0)) >= 0);
+        /* This can fail in containers/build systems */
+        if (mknod(chr, 0775 | S_IFCHR, makedev(0, 0)) < 0) {
+                assert(ERRNO_IS_PRIVILEGE(errno));
+                chr = NULL;
+        }
 
         if (symlink(name, name_alias) < 0) {
                 assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
@@ -150,32 +154,35 @@ TEST (test_dirent_is_file_with_suffix) {
         }
 
         rewinddir(dir);
-        while ((de_reg = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_reg->d_name, "test.txt") == 0)
+        while ((de_reg = readdir_ensure_type(dir)))
+                if (streq(de_reg->d_name, "test.txt"))
                         break;
 
         rewinddir(dir);
-        while ((de_lnk = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_lnk->d_name, "test_link") == 0)
+        while ((de_lnk = readdir_ensure_type(dir)))
+                if (streq(de_lnk->d_name, "test_link"))
                         break;
 
         rewinddir(dir);
-        while ((de_dot = readdir_ensure_type(dir)) != NULL)
-                if (strcmp(de_dot->d_name, ".hidden_file") == 0)
+        while ((de_dot = readdir_ensure_type(dir)))
+                if (streq(de_dot->d_name, ".hidden_file"))
                         break;
 
         rewinddir(dir);
-        while ((de_dotdot = readdir(dir)) != NULL)
-                if (strcmp(de_dotdot->d_name, "..dotdot") == 0)
+        while ((de_dotdot = readdir(dir)))
+                if (streq(de_dotdot->d_name, "..dotdot"))
                         break;
 
-        rewinddir(dir);
-        while ((de_chr = readdir(dir)) != NULL)
-                if (strcmp(de_chr->d_name, "test_chr") == 0)
-                        break;
+        if (chr) {
+                rewinddir(dir);
+                while ((de_chr = readdir(dir)))
+                        if (streq(de_chr->d_name, "test_chr"))
+                                break;
 
-        /* Test when d_type is not DT_REG, DT_LNK, or DT_UNKNOWN */
-        assert_se(!dirent_is_file_with_suffix(de_chr, NULL));
+                /* Test when d_type is not DT_REG, DT_LNK, or DT_UNKNOWN */
+                assert(de_chr);
+                assert_se(!dirent_is_file_with_suffix(de_chr, NULL));
+        }
 
         /* Test when suffix is NULL */
         assert_se(dirent_is_file_with_suffix(de_reg, NULL) == true);

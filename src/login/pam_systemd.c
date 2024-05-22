@@ -10,6 +10,9 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
@@ -929,6 +932,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         assert(handle);
 
+        pam_log_setup();
+
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
@@ -1229,6 +1234,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         int r;
 
         assert(handle);
+
+        pam_log_setup();
 
         if (parse_argv(handle,
                        argc, argv,

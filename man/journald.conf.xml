@@ -103,6 +103,10 @@
         <para>Note that per-user journal files are not supported unless persistent storage is enabled, thus
         making <command>journalctl --user</command> unavailable.</para>
 
+        <para>The storage to use can also be specified via the <literal>journal.storage</literal>
+        credential. Values configured via configuration files take priority over values configured via the
+        credential.</para>
+
         <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
@@ -375,7 +379,7 @@
         <listitem><para>Control whether log messages received by the journal daemon shall be forwarded to a
         traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, sent as wall
         messages to all logged-in users or sent over a socket. These options take boolean arguments except
-        for <literal>ForwardToSocket=</literal> which takes an an address instead. If forwarding
+        for <literal>ForwardToSocket=</literal> which takes an address instead. If forwarding
         to syslog is enabled but nothing reads messages from the socket, forwarding to syslog has no effect. By default,
         only forwarding to wall is enabled. These settings may be overridden at boot time with the kernel
         command line options <literal>systemd.journald.forward_to_syslog</literal>,

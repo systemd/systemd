@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/wait.h>
 #include <unistd.h>
 

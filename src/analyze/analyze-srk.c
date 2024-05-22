@@ -38,7 +38,7 @@ int verb_srk(int argc, char *argv[], void *userdata) {
                                        "Refusing to write binary data to TTY, please redirect output to file.");
 
         if (fwrite(marshalled, 1, marshalled_size, stdout) != marshalled_size)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK to stdout: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK to stdout.");
 
         r = fflush_and_check(stdout);
         if (r < 0)

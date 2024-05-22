@@ -63,9 +63,9 @@ struct InstallChange {
         char *source;
 };
 
-static inline bool install_changes_have_modification(const InstallChange* changes, size_t n_changes) {
-        for (size_t i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
+static inline bool install_changes_have_modification(const InstallChange *changes, size_t n_changes) {
+        FOREACH_ARRAY(i, changes, n_changes)
+                if (IN_SET(i->type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
                         return true;
         return false;
 }

@@ -72,6 +72,11 @@ static void fido_log_propagate_handler(const char *s) {
 int dlopen_libfido2(void) {
         int r;
 
+        ELF_NOTE_DLOPEN("fido2",
+                        "Support fido2 for encryption and authentication",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libfido2.so.1");
+
         r = dlopen_many_sym_or_warn(
                         &libfido2_dl, "libfido2.so.1", LOG_DEBUG,
                         DLSYM_ARG(fido_assert_allow_cred),
@@ -779,7 +784,7 @@ int fido2_generate_hmac_hash(
                 return log_oom();
 
         int extensions = FIDO_EXT_HMAC_SECRET;
-        if (FLAGS_SET(lock_with, FIDO2ENROLL_PIN) || FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
+        if (FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
                 /* Attempt to use the "cred protect" extension, requiring user verification (UV) for this
                  * credential. If the authenticator doesn't support the extension, it will be ignored. */
                 extensions |= FIDO_EXT_CRED_PROTECT;

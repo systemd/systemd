@@ -38,7 +38,7 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
                 (void) efi_loader_get_features(&loader_features);
                 if (!(loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)) {
                         if (!arg_graceful)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Loader does not support 'menu-disabled': %m");
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Loader does not support 'menu-disabled'.");
 
                         log_warning("Loader does not support 'menu-disabled', setting anyway.");
                 }

@@ -72,7 +72,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = mangle_names("to enable", strv_skip(argv, 1), &names);
+        const char *operation = strjoina("to ", verb);
+        r = mangle_names(operation, strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
 

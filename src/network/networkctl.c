@@ -1073,9 +1073,7 @@ static int get_gateway_description(
                 }
 
                 if (type != RTM_NEWNEIGH) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Got unexpected netlink message type %u, ignoring",
-                                        type);
+                        log_error("Got unexpected netlink message type %u, ignoring.", type);
                         continue;
                 }
 
@@ -1086,7 +1084,7 @@ static int get_gateway_description(
                 }
 
                 if (fam != family) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got invalid rtnl family %d, ignoring", fam);
+                        log_error("Got invalid rtnl family %d, ignoring.", fam);
                         continue;
                 }
 
@@ -1218,7 +1216,7 @@ static int dump_addresses(
 
                 r = strv_extendf(&buf, "%s%s%s%s%s%s",
                                  IN_ADDR_TO_STRING(local->family, &local->address),
-                                 dhcp4 ? " (DHCP4 via " : "",
+                                 dhcp4 ? " (DHCPv4 via " : "",
                                  dhcp4 ? IN4_ADDR_TO_STRING(&server_address) : "",
                                  dhcp4 ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
@@ -2291,7 +2289,7 @@ static int link_status_one(
                         r = sd_dhcp_client_id_to_string(client_id, &id);
                         if (r >= 0) {
                                 r = table_add_many(table,
-                                                   TABLE_FIELD, "DHCP4 Client ID",
+                                                   TABLE_FIELD, "DHCPv4 Client ID",
                                                    TABLE_STRING, id);
                                 if (r < 0)
                                         return table_log_add_error(r);
@@ -2302,7 +2300,7 @@ static int link_status_one(
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "DHCP6 Client IAID",
+                                   TABLE_FIELD, "DHCPv6 Client IAID",
                                    TABLE_STRING, iaid);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2311,7 +2309,7 @@ static int link_status_one(
         r = sd_network_link_get_dhcp6_client_duid_string(info->ifindex, &duid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "DHCP6 Client DUID",
+                                   TABLE_FIELD, "DHCPv6 Client DUID",
                                    TABLE_STRING, duid);
                 if (r < 0)
                         return table_log_add_error(r);

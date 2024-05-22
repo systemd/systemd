@@ -20,6 +20,7 @@
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "dirent-util.h"
+#include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -90,6 +91,9 @@
 #define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
 
 #define FAILED_TO_WRITE_ENTRY_RATELIMIT ((const RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
+
+static int server_schedule_sync(Server *s, int priority);
+static int server_refresh_idle_timer(Server *s);
 
 static int server_determine_path_usage(
                 Server *s,
@@ -747,19 +751,19 @@ static void server_rotate_journal(Server *s, JournalFile *f, uid_t uid) {
         server_process_deferred_closes(s);
 }
 
-void server_sync(Server *s) {
+static void server_sync(Server *s, bool wait) {
         JournalFile *f;
         int r;
 
         if (s->system_journal) {
-                r = journal_file_set_offline(s->system_journal, false);
+                r = journal_file_set_offline(s->system_journal, wait);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
-                r = journal_file_set_offline(f, false);
+                r = journal_file_set_offline(f, wait);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync user journal, ignoring: %m");
@@ -929,24 +933,19 @@ static void server_write_to_journal(
                 uid_t uid,
                 const struct iovec *iovec,
                 size_t n,
+                const dual_timestamp *ts,
                 int priority) {
 
         bool vacuumed = false;
-        struct dual_timestamp ts;
         JournalFile *f;
         int r;
 
         assert(s);
         assert(iovec);
         assert(n > 0);
+        assert(ts);
 
-        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do not use
-         * the source time, and not even the time the event was originally seen, but instead simply the time we started
-         * processing it, as we want strictly linear ordering in what we write out.) */
-        assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
-        assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
-
-        if (ts.realtime < s->last_realtime_clock) {
+        if (ts->realtime < s->last_realtime_clock) {
                 /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen during
                  * regular operation. However, when it does happen, then we should make sure that we start fresh files
                  * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
@@ -980,11 +979,11 @@ static void server_write_to_journal(
                         return;
         }
 
-        s->last_realtime_clock = ts.realtime;
+        s->last_realtime_clock = ts->realtime;
 
         r = journal_file_append_entry(
                         f,
-                        &ts,
+                        ts,
                         /* boot_id= */ NULL,
                         iovec, n,
                         &s->seqnum->seqnum,
@@ -1016,7 +1015,7 @@ static void server_write_to_journal(
         log_debug_errno(r, "Retrying write.");
         r = journal_file_append_entry(
                         f,
-                        &ts,
+                        ts,
                         /* boot_id= */ NULL,
                         iovec, n,
                         &s->seqnum->seqnum,
@@ -1070,7 +1069,7 @@ static void server_dispatch_message_real(
                 int priority,
                 pid_t object_pid) {
 
-        char source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
+        char source_time[STRLEN("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         _unused_ _cleanup_free_ char *cmdline1 = NULL, *cmdline2 = NULL;
         uid_t journal_uid;
         ClientContext *o;
@@ -1150,7 +1149,7 @@ static void server_dispatch_message_real(
         assert(n <= m);
 
         if (tv) {
-                sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
+                xsprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=" USEC_FMT, timeval_load(tv));
                 iovec[n++] = IOVEC_MAKE_STRING(source_time);
         }
 
@@ -1185,9 +1184,15 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
-        (void) server_forward_socket(s, iovec, n, priority);
+        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
+         * not use the source time, and not even the time the event was originally seen, but instead simply
+         * the time we started processing it, as we want strictly linear ordering in what we write out.) */
+        struct dual_timestamp ts;
+        event_dual_timestamp_now(s->event, &ts);
 
-        server_write_to_journal(s, journal_uid, iovec, n, priority);
+        (void) server_forward_socket(s, iovec, n, &ts, priority);
+
+        server_write_to_journal(s, journal_uid, iovec, n, &ts, priority);
 }
 
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
@@ -1268,7 +1273,13 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) server_determine_space(s, &available, /* limit= */ NULL);
 
-                rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, priority & LOG_PRIMASK, available);
+                rl = journal_ratelimit_test(
+                                &s->ratelimit_groups_by_id,
+                                c->unit,
+                                c->log_ratelimit_interval,
+                                c->log_ratelimit_burst,
+                                LOG_PRI(priority),
+                                available);
                 if (rl == 0)
                         return;
 
@@ -1593,7 +1604,7 @@ static void server_full_flush(Server *s) {
         assert(s);
 
         (void) server_flush_to_var(s, false);
-        server_sync(s);
+        server_sync(s, /* wait = */ false);
         server_vacuum(s, false);
 
         server_space_usage_message(s, NULL);
@@ -1725,13 +1736,13 @@ fail:
         return 0;
 }
 
-static void server_full_sync(Server *s) {
+static void server_full_sync(Server *s, bool wait) {
         const char *fn;
         int r;
 
         assert(s);
 
-        server_sync(s);
+        server_sync(s, wait);
 
         /* Let clients know when the most recent sync happened. */
         fn = strjoina(s->runtime_directory, "/synced");
@@ -1739,15 +1750,13 @@ static void server_full_sync(Server *s) {
         if (r < 0)
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                             "Failed to write %s, ignoring: %m", fn);
-
-        return;
 }
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
-        server_full_sync(s);
+        server_full_sync(s, /* wait = */ false);
 
         return 0;
 }
@@ -1934,24 +1943,24 @@ static int server_parse_config_file(Server *s) {
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
-        server_sync(s);
+        server_sync(s, /* wait = */ false);
         return 0;
 }
 
-int server_schedule_sync(Server *s, int priority) {
+static int server_schedule_sync(Server *s, int priority) {
         int r;
 
         assert(s);
 
         if (priority <= LOG_CRIT) {
                 /* Immediately sync to disk when this is of priority CRIT, ALERT, EMERG */
-                server_sync(s);
+                server_sync(s, /* wait = */ false);
                 return 0;
         }
 
         if (!s->event || sd_event_get_state(s->event) == SD_EVENT_FINISHED) {
                 /* Shutting down the server? Let's sync immediately. */
-                server_sync(s);
+                server_sync(s, /* wait = */ false);
                 return 0;
         }
 
@@ -2170,7 +2179,7 @@ static int synchronize_second_half(sd_event_source *event_source, void *userdata
         /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
          * event source at a low priority to ensure the synchronization completes after all queued log
          * messages are processed. */
-        server_full_sync(s);
+        server_full_sync(s, /* wait = */ true);
 
         /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
          * anymore and is immediately destroyed after we return from this function, i.e. from this event
@@ -2375,7 +2384,7 @@ int server_map_seqnum_file(
         return 0;
 }
 
-void server_unmap_seqnum_file(void *p, size_t size) {
+static void server_unmap_seqnum_file(void *p, size_t size) {
         assert(size > 0);
 
         if (!p)
@@ -2445,7 +2454,7 @@ int server_start_or_stop_idle_timer(Server *s) {
         return 1;
 }
 
-int server_refresh_idle_timer(Server *s) {
+static int server_refresh_idle_timer(Server *s) {
         int r;
 
         assert(s);
@@ -2522,17 +2531,27 @@ static void server_load_credentials(Server *s) {
 
         assert(s);
 
-        /* if we already have a forward address from config don't load the credential */
-        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
-                return log_debug("Socket forward address already set not loading journal.forward_to_socket");
-
         r = read_credential("journal.forward_to_socket", &data, NULL);
         if (r < 0)
-                return (void) log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
+        else {
+                r = socket_address_parse(&s->forward_to_socket, data);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse socket address '%s' from credential journal.forward_to_socket, ignoring: %m", (char *) data);
+        }
 
-        r = socket_address_parse(&s->forward_to_socket, data);
+        data = mfree(data);
+
+        r = read_credential("journal.storage", &data, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to parse credential journal.forward_to_socket, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential journal.storage, ignoring: %m");
+        else {
+                r = storage_from_string(data);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse storage '%s' from credential journal.storage, ignoring: %m", (char *) data);
+                else
+                        s->storage = r;
+        }
 }
 
 int server_new(Server **ret) {
@@ -2617,9 +2636,8 @@ int server_init(Server *s, const char *namespace) {
         journal_reset_metrics(&s->system_storage.metrics);
         journal_reset_metrics(&s->runtime_storage.metrics);
 
-        server_parse_config_file(s);
-
         server_load_credentials(s);
+        server_parse_config_file(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
@@ -2791,10 +2809,6 @@ int server_init(Server *s, const char *namespace) {
         if (r < 0)
                 return r;
 
-        s->ratelimit = journal_ratelimit_new();
-        if (!s->ratelimit)
-                return log_oom();
-
         r = cg_get_root_path(&s->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire cgroup root path: %m");
@@ -2895,8 +2909,7 @@ Server* server_free(Server *s) {
         safe_close(s->notify_fd);
         safe_close(s->forward_socket_fd);
 
-        if (s->ratelimit)
-                journal_ratelimit_free(s->ratelimit);
+        ordered_hashmap_free(s->ratelimit_groups_by_id);
 
         server_unmap_seqnum_file(s->seqnum, sizeof(*s->seqnum));
         server_unmap_seqnum_file(s->kernel_seqnum, sizeof(*s->kernel_seqnum));
@@ -2999,7 +3012,6 @@ int config_parse_compress(
         JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
 
-        assert(unit);
         assert(filename);
         assert(rvalue);
 
@@ -3045,7 +3057,6 @@ int config_parse_forward_to_socket(
         SocketAddress* addr = ASSERT_PTR(data);
         int r;
 
-        assert(unit);
         assert(filename);
         assert(rvalue);
 

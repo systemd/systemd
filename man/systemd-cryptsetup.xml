@@ -51,7 +51,7 @@
 
     <para><filename>systemd-cryptsetup</filename> is used to set up (with <command>attach</command>) and tear
     down (with <command>detach</command>) access to an encrypted block device. It is primarily used via
-    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be be called manually.
+    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be called manually.
     The positional arguments <parameter>VOLUME</parameter>, <parameter>SOURCE-DEVICE</parameter>,
     <parameter>KEY-FILE</parameter>, and <parameter>CRYPTTAB-OPTIONS</parameter> have the same meaning as the
     fields in <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

@@ -92,7 +92,7 @@
       specific key.</para></listitem>
 
       <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
-      signature data in the the <literal>.pcrsig</literal> section.</para></listitem>
+      signature data in the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
     <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed

@@ -41,6 +41,11 @@ DLSYM_FUNCTION(gcry_randomize);
 DLSYM_FUNCTION(gcry_strerror);
 
 static int dlopen_gcrypt(void) {
+        ELF_NOTE_DLOPEN("gcrypt",
+                        "Support for journald forward-sealing",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libgcrypt.so.20");
+
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,
                         "libgcrypt.so.20", LOG_DEBUG,

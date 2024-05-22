@@ -264,7 +264,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
                  * of the directory. */
                 r = rm_rf_at(base_dfd, h->user_name, REMOVE_PHYSICAL|REMOVE_MISSING_OK);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to empty out system blob dir: %m");
+                        return log_error_errno(r, "Failed to empty out system blob dir: %m");
                 return 0;
         }
 

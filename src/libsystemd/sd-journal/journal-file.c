@@ -3255,7 +3255,7 @@ static int generic_array_bisect_for_data(
 
         } else {
                 /* If we are going upwards, then we need to return the last object that passes the test.
-                 * When there is no object that passes the test, we need to return the the last object that
+                 * When there is no object that passes the test, we need to return the last object that
                  * test_object() returns TEST_LEFT for. */
                 if (r == TEST_RIGHT)
                         return 0; /* Not only the 'extra' object, but also all objects in the chained arrays

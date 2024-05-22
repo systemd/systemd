@@ -132,9 +132,13 @@ static int manager_add_host_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open reference to PID 1: %m");
 
-        r = machine_new(m, MACHINE_HOST, ".host", &t);
+        r = machine_new(MACHINE_HOST, ".host", &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to create machine: %m");
+
+        r = machine_link(m, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link machine to manager: %m");
 
         t->leader = TAKE_PIDREF(pidref);
         t->id = mid;
@@ -312,7 +316,10 @@ static bool check_idle(void *userdata) {
         if (m->operations)
                 return false;
 
-        if (varlink_server_current_connections(m->varlink_server) > 0)
+        if (varlink_server_current_connections(m->varlink_userdb_server) > 0)
+                return false;
+
+        if (varlink_server_current_connections(m->varlink_machine_server) > 0)
                 return false;
 
         manager_gc(m, true);

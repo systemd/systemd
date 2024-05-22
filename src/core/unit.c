@@ -243,12 +243,12 @@ int unit_add_name(Unit *u, const char *text) {
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
                 if (!u->instance)
                         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                                    "instance is not set when adding name '%s': %m", text);
+                                                    "Instance is not set when adding name '%s'.", text);
 
                 r = unit_name_replace_instance(text, u->instance, &name);
                 if (r < 0)
                         return log_unit_debug_errno(u, r,
-                                                    "failed to build instance name from '%s': %m", text);
+                                                    "Failed to build instance name from '%s': %m", text);
         } else {
                 name = strdup(text);
                 if (!name)
@@ -260,47 +260,47 @@ int unit_add_name(Unit *u, const char *text) {
 
         if (hashmap_contains(u->manager->units, name))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                            "unit already exist when adding name '%s': %m", name);
+                                            "Unit already exist when adding name '%s'.", name);
 
         if (!unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "name '%s' is invalid: %m", name);
+                                            "Name '%s' is invalid.", name);
 
         t = unit_name_to_type(name);
         if (t < 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "failed to derive unit type from name '%s': %m", name);
+                                            "failed to derive unit type from name '%s'.", name);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "unit type is illegal: u->type(%d) and t(%d) for name '%s': %m",
+                                            "Unit type is illegal: u->type(%d) and t(%d) for name '%s'.",
                                             u->type, t, name);
 
         r = unit_name_to_instance(name, &instance);
         if (r < 0)
-                return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", name);
+                return log_unit_debug_errno(u, r, "Failed to extract instance from name '%s': %m", name);
 
         if (instance && !unit_type_may_template(t))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", name);
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "Templates are not allowed for name '%s'.", name);
 
         /* Ensure that this unit either has no instance, or that the instance matches. */
         if (u->type != _UNIT_TYPE_INVALID && !streq_ptr(u->instance, instance))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "cannot add name %s, the instances don't match (\"%s\" != \"%s\").",
+                                            "Cannot add name %s, the instances don't match (\"%s\" != \"%s\").",
                                             name, instance, u->instance);
 
         if (u->id && !unit_type_may_alias(t))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                            "cannot add name %s, aliases are not allowed for %s units.",
+                                            "Cannot add name %s, aliases are not allowed for %s units.",
                                             name, unit_type_to_string(t));
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
-                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(E2BIG), "cannot add name, manager has too many units: %m");
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(E2BIG), "Cannot add name, manager has too many units.");
 
         /* Add name to the global hashmap first, because that's easier to undo */
         r = hashmap_put(u->manager->units, name, u);
         if (r < 0)
-                return log_unit_debug_errno(u, r, "add unit to hashmap failed for name '%s': %m", text);
+                return log_unit_debug_errno(u, r, "Add unit to hashmap failed for name '%s': %m", text);
 
         if (u->id) {
                 r = unit_add_alias(u, name); /* unit_add_alias() takes ownership of the name on success */
@@ -1311,23 +1311,26 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
          * is run first. */
 
         if (c->log_namespace) {
-                _cleanup_free_ char *socket_unit = NULL, *varlink_socket_unit = NULL;
+                static const struct {
+                        const char *template;
+                        UnitType type;
+                } deps[] = {
+                        { "systemd-journald",         UNIT_SOCKET,  },
+                        { "systemd-journald-varlink", UNIT_SOCKET,  },
+                        { "systemd-journald-sync",    UNIT_SERVICE, },
+                };
 
-                r = unit_name_build_from_type("systemd-journald", c->log_namespace, UNIT_SOCKET, &socket_unit);
-                if (r < 0)
-                        return r;
+                FOREACH_ELEMENT(i, deps) {
+                        _cleanup_free_ char *unit = NULL;
 
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, socket_unit, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
+                        r = unit_name_build_from_type(i->template, c->log_namespace, i->type, &unit);
+                        if (r < 0)
+                                return r;
 
-                r = unit_name_build_from_type("systemd-journald-varlink", c->log_namespace, UNIT_SOCKET, &varlink_socket_unit);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, varlink_socket_unit, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, unit, true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
+                }
         } else {
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
@@ -2214,16 +2217,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2235,7 +2238,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(
@@ -2924,7 +2927,7 @@ static int on_rewatch_pids_event(sd_event_source *s, void *userdata) {
         assert(s);
 
         unit_tidy_watch_pids(u);
-        unit_watch_all_pids(u);
+        (void) unit_watch_all_pids(u);
 
         /* If the PID set is empty now, then let's finish this off. */
         unit_synthesize_cgroup_empty_event(u);
@@ -3183,8 +3186,8 @@ int unit_add_dependency(
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
 
-        /* Note that ordering a device unit after a unit is permitted since it allows to start its job
-         * running timeout at a specific time. */
+        /* Note that ordering a device unit after a unit is permitted since it allows its job running
+         * timeout to be started at a specific time. */
         if (FLAGS_SET(a, UNIT_ATOM_BEFORE) && other->type == UNIT_DEVICE) {
                 log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
@@ -4288,8 +4291,8 @@ int unit_patch_contexts(Unit *u) {
                         ec->restrict_suid_sgid = true;
                 }
 
-                for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                        exec_directory_sort(ec->directories + dt);
+                FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
+                        exec_directory_sort(d);
         }
 
         cc = unit_get_cgroup_context(u);

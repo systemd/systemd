@@ -576,7 +576,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
 
         case EV_SEPARATOR: {
                 if (rec->firmware_payload_size != sizeof(uint32_t)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "EFI separator field has wrong size, ignoring.");
+                        log_warning("EFI separator field has wrong size, ignoring.");
                         goto invalid;
                 }
 
@@ -594,7 +594,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         break;
 
                 default:
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected separator payload %" PRIu32 ".", val);
+                        log_warning("Unexpected separator payload %" PRIu32 ", ignoring.", val);
                         goto invalid;
                 }
 
@@ -612,7 +612,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         return log_error_errno(r, "Failed to make C string from EFI action string: %m");
 
                 if (!string_is_safe(d)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Unsafe EFI action string in record, ignoring.");
+                        log_warning("Unsafe EFI action string in record, ignoring.");
                         goto invalid;
                 }
 
@@ -624,14 +624,14 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
 
         case EV_EFI_GPT_EVENT: {
                 if (rec->firmware_payload_size < sizeof(GptHeader)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "GPT measurement too short, ignoring.");
+                        log_warning("GPT measurement too short, ignoring.");
                         goto invalid;
                 }
 
                 const GptHeader *h = rec->firmware_payload;
 
                 if (!gpt_header_has_signature(h)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "GPT measurement does not cover a GPT partition table header, ignoring.");
+                        log_warning("GPT measurement does not cover a GPT partition table header, ignoring.");
                         goto invalid;
                 }
 
@@ -655,7 +655,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         return log_oom();
 
                 if (string_has_cc(d, NULL)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Unsafe EFI action string in record, ignoring.");
+                        log_warning("Unsafe EFI action string in record, ignoring.");
                         goto invalid;
                 }
 
@@ -671,7 +671,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                 size_t left = rec->firmware_payload_size;
 
                 if (left == 0) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty tagged PC client event, ignoring.");
+                        log_warning("Empty tagged PC client event, ignoring.");
                         goto invalid;
                 }
 
@@ -679,13 +679,13 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         uint64_t m;
 
                         if (left < offsetof(TCG_PCClientTaggedEvent, taggedEventData)) {
-                                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Tagged PC client event too short, ignoring.");
+                                log_warning("Tagged PC client event too short, ignoring.");
                                 goto invalid;
                         }
 
                         m = offsetof(TCG_PCClientTaggedEvent, taggedEventData) + (uint64_t) tag->taggedEventDataSize;
                         if (left < m) {
-                                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Tagged PC client event data too short, ignoring.");
+                                log_warning("Tagged PC client event data too short, ignoring.");
                                 goto invalid;
                         }
 
@@ -755,7 +755,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
         case EV_EFI_PLATFORM_FIRMWARE_BLOB: {
                 const UEFI_PLATFORM_FIRMWARE_BLOB *blob;
                 if (rec->firmware_payload_size != sizeof(UEFI_PLATFORM_FIRMWARE_BLOB)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "EV_EFI_PLATFORM_FIRMWARE_BLOB of wrong size, ignoring.");
+                        log_warning("EV_EFI_PLATFORM_FIRMWARE_BLOB of wrong size, ignoring.");
                         goto invalid;
                 }
 
@@ -774,14 +774,14 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                 bool end = false;
 
                 if (rec->firmware_payload_size < offsetof(UEFI_IMAGE_LOAD_EVENT, devicePath)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Device path too short, ignoring.");
+                        log_warning("Device path too short, ignoring.");
                         goto invalid;
                 }
 
                 load = rec->firmware_payload;
                 if (load->lengthOfDevicePath !=
                     rec->firmware_payload_size - offsetof(UEFI_IMAGE_LOAD_EVENT, devicePath)) {
-                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Device path size does not match, ignoring.");
+                        log_warning("Device path size does not match, ignoring.");
                         goto invalid;
                 }
 
@@ -791,7 +791,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                 for (;;) {
                         if (left == 0) {
                                 if (!end) {
-                                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Garbage after device path end, ignoring.");
+                                        log_warning("Garbage after device path end, ignoring.");
                                         goto invalid;
                                 }
 
@@ -799,12 +799,12 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         }
 
                         if (end) {
-                                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Garbage after device path end, ignoring.");
+                                log_warning("Garbage after device path end, ignoring.");
                                 goto invalid;
                         }
 
                         if (left < offsetof(packed_EFI_DEVICE_PATH, path) || left < dp->length) {
-                                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Device path element too short, ignoring.");
+                                log_warning("Device path element too short, ignoring.");
                                 goto invalid;
                         }
 
@@ -923,7 +923,7 @@ static int event_log_load_firmware(EventLog *el) {
                     payload_size == 17 &&
                     memcmp(payload, "StartupLocality", sizeof("StartupLocality")) == 0) {
                         if (el->startup_locality_found)
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "StartupLocality event found twice!");
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "StartupLocality event found twice.");
 
                         el->startup_locality = ((const uint8_t*) payload)[sizeof("StartupLocality")];
                         el->startup_locality_found = true;
@@ -1044,7 +1044,7 @@ static int event_log_record_parse_json(EventLogRecord *record, JsonVariant *j) {
 
                 h = json_variant_by_key(k, "digest");
                 if (!h)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field lacks 'digest' field");
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field lacks 'digest' field.");
 
                 r = json_variant_unhex(h, &hash, &hash_size);
                 if (r < 0)
@@ -1328,7 +1328,7 @@ static int event_log_calculate_pcrs(EventLog *el) {
 
                         rec_b = event_log_record_find_bank(*rr, el->algorithms[i]);
                         if (!rec_b) {
-                                log_warning_errno(SYNTHETIC_ERRNO(ENXIO), "Record with missing bank '%s', ignoring.", n);
+                                log_warning("Record with missing bank '%s', ignoring.", n);
                                 continue;
                         }
 
@@ -2341,7 +2341,7 @@ static int event_determine_primary_algorithm(EventLog *el) {
         }
 
         FOREACH_ARRAY(alg, el->algorithms, el->n_algorithms) {
-                /* If we have SHA256, focus on that that */
+                /* If we have SHA256, focus on that */
 
                 if (*alg == TPM2_ALG_SHA256) {
                         el->primary_algorithm = *alg;
@@ -2749,7 +2749,7 @@ static int make_pcrlock_record_from_stream(
 
                 n = fread(buffer, 1, sizeof(buffer), f);
                 if (ferror(f))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to read file: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to read file.");
                 if (n == 0 && feof(f))
                         break;
 
@@ -3195,7 +3195,7 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
         if (n < 0)
                 return log_error_errno(errno, "Failed to read GPT header of block device: %m");
         if ((size_t) n != sizeof(h))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read trying to read GPT header: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read trying to read GPT header.");
 
         /* Try a couple of sector sizes */
         for (size_t sz = 512; sz <= 4096; sz <<= 1) {
@@ -3248,7 +3248,7 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
         if (n < 0)
                 return log_error_errno(errno, "Failed to read GPT partition table entries: %m");
         if ((size_t) n != member_bufsz)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading GPT partition table entries: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading GPT partition table entries.");
 
         size_t vdata_size = le32toh(p->header_size) + sizeof(le64_t) + member_size * n_members;
         _cleanup_free_ void *vdata = malloc0(vdata_size);

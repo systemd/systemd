@@ -2668,7 +2668,7 @@ static int setup_journal(const char *directory) {
 
         r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
-                return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
+                return log_error_errno(r, "Failed to bind mount journal from host into guest: %m");
 
         return 0;
 }
@@ -4184,7 +4184,7 @@ static int outer_child(
          * is then allocated for the container, the root mount and everything else will be out of reach for
          * it. For unprivileged containers we cannot do that however, since we couldn't mount a sysfs and
          * procfs then anymore, since that only works if there's an unobstructed instance currently
-         * visible. Hence there we do it the other way round: we first allocate a new set set of namespaces
+         * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
         if (arg_privileged) {
@@ -5556,7 +5556,7 @@ static int run_container(
                                                 arg_console_width,
                                                 arg_console_height);
 
-                        if (!arg_background) {
+                        if (!arg_background && shall_tint_background()) {
                                 _cleanup_free_ char *bg = NULL;
 
                                 r = terminal_tint_color(220 /* blue */, &bg);

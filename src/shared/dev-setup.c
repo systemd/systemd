@@ -110,7 +110,7 @@ int make_inaccessible_nodes(
         if (parent_fd < 0)
                 return -errno;
 
-        inaccessible_fd = open_mkdir_at(parent_fd, "inaccessible", O_CLOEXEC, 0755);
+        inaccessible_fd = open_mkdir_at_full(parent_fd, "inaccessible", O_CLOEXEC, XO_LABEL, 0755);
         if (inaccessible_fd < 0)
                 return inaccessible_fd;
 
@@ -132,7 +132,7 @@ int make_inaccessible_nodes(
                 if (S_ISDIR(inode_type))
                         r = mkdirat_label(inaccessible_fd, fn, 0000);
                 else
-                        r = RET_NERRNO(mknodat(inaccessible_fd, fn, inode_type | 0000, makedev(0, 0)));
+                        r = mknodat_label(inaccessible_fd, fn, inode_type | 0000, makedev(0, 0));
                 if (r == -EEXIST) {
                         if (fchmodat(inaccessible_fd, fn, 0000, AT_SYMLINK_NOFOLLOW) < 0)
                                 log_debug_errno(errno, "Failed to adjust access mode of existing inode '%s', ignoring: %m", path);

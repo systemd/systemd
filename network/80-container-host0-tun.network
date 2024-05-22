@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, use "networkctl edit". See networkctl(1) for details.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# This network file is inside unprivileged containers that rely on network being
+# provided as a tun link via slirp4netns(1) or pasta(1).
+
+[Match]
+Kind=tun
+Name=host0
+Virtualization=container
+
+[Network]
+DHCP=yes
+LinkLocalAddressing=yes
+
+[DHCP]
+UseTimezone=yes

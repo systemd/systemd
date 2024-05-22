@@ -87,7 +87,7 @@ A delay lock taken this way should be released ASAP on reception of PrepareForSh
 
 **ListInhibitors()** lists all currently active inhibitor locks. It returns an array of structs, each consisting of What, Who, Why, Mode as above, plus the PID and UID of the process that requested the lock.
 
-The **PrepareForShutdown()** and **PrepareForSleep()** signals are emitted when a system suspend or shutdown has been requested and is about to be executed, as well as after the the suspend/shutdown was completed (or failed).
+The **PrepareForShutdown()** and **PrepareForSleep()** signals are emitted when a system suspend or shutdown has been requested and is about to be executed, as well as after the suspend/shutdown was completed (or failed).
 
 The signals carry a boolean argument.
 If _True_ the shutdown/sleep has been requested, and the preparation phase for it begins, if _False_ the operation has finished completion (or failed).
@@ -99,9 +99,9 @@ The signal with _False_ is generally delivered only after the system comes back 
 
 The signal with _False_ is usually the signal on which applications request a new delay lock in order to be synchronously notified about the next suspend/shutdown cycle.
 
-Note that watching PrepareForShutdown(true)[?](//secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&from=Software%2Fsystemd%2Finhibit&page=Software%2Fsystemd%2Finhibit%2FPrepareForSleep)/PrepareForSleep(true) without taking a delay lock is racy and should not be done, as any code that an application might want to execute on this signal might not actually finish before the suspend/shutdown cycle is executed.
+Note that watching PrepareForShutdown(true)/PrepareForSleep(true) without taking a delay lock is racy and should not be done, as any code that an application might want to execute on this signal might not actually finish before the suspend/shutdown cycle is executed.
 
-_Again_: if you watch PrepareForSuspend(true), then you really should have taken a delay lock first. PrepareForShutdown(false) may be subscribed to by applications which want to be notified about system resume events.
+_Again_: if you watch PrepareForShutdown(true)/PrepareForSleep(true), then you really should have taken a delay lock first. PrepareForSleep(false) may be subscribed to by applications which want to be notified about system resume events.
 
 Note that this will only be sent out for suspend/resume cycles done via logind, i.e. generally only for high-level user-induced suspend cycles, and not automatic, low-level kernel induced ones which might exist on certain devices with more aggressive power management.
 

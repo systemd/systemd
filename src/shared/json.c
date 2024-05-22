@@ -23,6 +23,7 @@
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -5002,6 +5003,27 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
         r = free_and_strdup(s, n);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to allocate string: %m");
+
+        return 0;
+}
+
+int json_dispatch_absolute_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        const char *path;
+        char **p = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        path = json_variant_string(variant);
+        if (!path_is_valid(path))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid path.", strna(name));
+        if (!path_is_absolute(path))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' must be an absolute path.", strna(name));
+
+        if (free_and_strdup(p, path) < 0)
+                return json_log_oom(variant, flags);
 
         return 0;
 }

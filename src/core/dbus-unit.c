@@ -1300,7 +1300,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
                  * readable in the subtree proper. */
 
-                r = cg_read_pidref(f, &pidref);
+                r = cg_read_pidref(f, &pidref, /* flags = */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
@@ -1604,16 +1604,16 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("GetProcesses",
-                                 SD_BUS_NO_ARGS,
-                                 SD_BUS_ARGS("a(sus)", processes),
-                                 bus_unit_method_get_processes,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_ARGS("a(sus)", processes),
+                                bus_unit_method_get_processes,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("AttachProcesses",
-                                 SD_BUS_ARGS("s", subcgroup, "au", pids),
-                                 SD_BUS_NO_RESULT,
-                                 bus_unit_method_attach_processes,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_ARGS("s", subcgroup, "au", pids),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_attach_processes,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
@@ -2238,7 +2238,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_emergency_action(u, name, &u->job_timeout_action, message, flags, error);
 
         if (streq(name, "JobTimeoutRebootArgument"))
-                return bus_set_transient_string(u, name, &u->job_timeout_reboot_arg, message, flags, error);
+                return bus_set_transient_reboot_parameter(u, name, &u->job_timeout_reboot_arg, message, flags, error);
 
         if (streq(name, "StartLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &u->start_ratelimit.interval, message, flags, error);
@@ -2262,7 +2262,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_exit_status(u, name, &u->success_action_exit_status, message, flags, error);
 
         if (streq(name, "RebootArgument"))
-                return bus_set_transient_string(u, name, &u->reboot_arg, message, flags, error);
+                return bus_set_transient_reboot_parameter(u, name, &u->reboot_arg, message, flags, error);
 
         if (streq(name, "CollectMode"))
                 return bus_set_transient_collect_mode(u, name, &u->collect_mode, message, flags, error);

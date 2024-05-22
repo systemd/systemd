@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import os
+import subprocess
+import sys
+
+
+config = json.load(sys.stdin)
+
+qemu = f"qemu-system-{os.environ["QEMU_ARCHITECTURE"]}"
+result = subprocess.run([qemu, '-device', 'help'], check=True, text=True, stdout=subprocess.PIPE)
+if 'name "virtio-scsi-pci"' not in result.stdout:
+    print("virtio-scsi-pci device driver is not available, skipping test...", file=sys.stderr)
+    exit(77)
+
+num_disk = 16
+
+config["QemuArgs"] += ["-device", "virtio-scsi-pci,id=scsi0,num_queues=4"]
+
+for i in range(0, num_disk):
+    id = f"drive{i}"
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "40M",
+            "Options": "cache=unsafe"
+        }
+    ]
+    config["QemuArgs"] += ["-device", f"scsi-hd,drive={id},bus=scsi0.0,channel=0,scsi-id=0,lun={i}"]
+
+json.dump(config, sys.stdout)

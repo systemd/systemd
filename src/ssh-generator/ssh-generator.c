@@ -400,7 +400,7 @@ static int parse_credentials(void) {
         size_t sz = 0;
         int r;
 
-        r = read_credential_with_decryption("ssh.listen", (void*) &b, &sz);
+        r = read_credential_with_decryption("ssh.listen", (void**) &b, &sz);
         if (r <= 0)
                 return r;
 

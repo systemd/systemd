@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 256-rc1:
+CHANGES WITH 256-rc2:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -66,6 +66,9 @@ CHANGES WITH 256-rc1:
           'D' stanzas. For example, with the combination of 'R /foo' and 'x
           /foo/bar', /foo/bar will now be excluded from removal.
 
+        * systemd.crash_reboot and related settings are deprecated in favor of
+          systemd.crash_action=.
+
         General Changes and New Features:
 
         * Various programs will now attempt to load the main configuration file
@@ -116,6 +119,11 @@ CHANGES WITH 256-rc1:
           analogous to the unit setting, but applies to the whole system. It is
           enabled by default in the initrd.
 
+          Note that this means that code executed in the initrd cannot naively
+          expect to be able to write to /usr/ during boot. This affects
+          dracut <= 101, which wrote "hooks" to /lib/dracut/hooks/. See
+          https://github.com/dracut-ng/dracut-ng/commit/a45048b80c27ee5a45a380.
+
         * New unit setting WantsMountsFor= has been added. It is analogous to
           RequiresMountsFor=, but creates a Wants= dependency instead of
           Requires=. This new logic is now used in various places where mounts
@@ -164,7 +172,7 @@ CHANGES WITH 256-rc1:
           switch from one to the other via a simple reboot. Distributions
           apparently have lost interest in this, and the functionality has not
           been supported on the primary distribution this was still intended
-          for for a long time, and hence has been removed now.
+          for a long time, and hence has been removed now.
 
         * A new concept called "capsules" has been introduced. "Capsules" wrap
           additional per-user service managers, whose users are transient and
@@ -246,15 +254,25 @@ CHANGES WITH 256-rc1:
           that have /usr/bin/ and /usr/sbin/ separate. It's generally
           recommended to make the latter a symlink to the former these days.
 
+        * A new systemd.crash_action= kernel command line option has been added
+          that configures what to do after the system manager (PID 1) crashes.
+          This can also be configured through CrashAction= in systemd.conf.
+
+        * "systemctl kill" now supports --wait which will make the command wait
+          until the signalled services terminate.
+
         Journal:
 
         * systemd-journald can now forward journal entries to a socket
           (AF_INET, AF_INET6, AF_UNIX, or AF_VSOCK). The socket can be
-          specified in journald.conf via a new option ForwardAddress= or via
-          the 'journald.forward_address' credential. Log records are sent in
+          specified in journald.conf via a new option ForwardToSocket= or via
+          the 'journald.forward_to_socket' credential. Log records are sent in
           the Journal Export Format. A related setting MaxLevelSocket= has been
           added to control the maximum log levels for the messages sent to this
           socket.
+
+        * systemd-journald now also reads the journal.storage credential when
+          determining where to store journal files.
 
         * systemd-vmspawn gained a new --forward-journal= option to forward the
           virtual machine's journal entries to the host. This is done over a
@@ -394,11 +412,11 @@ CHANGES WITH 256-rc1:
 
         * systemd-nspawn now provides a /run/systemd/nspawn/unix-export/
           directory where the container payload can expose AF_UNIX sockets to
-          allow them them to be accessed from outside.
+          allow them to be accessed from outside.
 
         * systemd-nspawn will tint the terminal background for containers in a
           blueish color. This can be controller with the new --background=
-          switch.
+          switch or the new $SYSTEMD_TINT_BACKGROUND environment variable.
 
         * systemd-nspawn gained support for the 'owneridmap' option for --bind=
           mounts to map the target directory owner from inside the container to
@@ -548,7 +566,7 @@ CHANGES WITH 256-rc1:
 
         * systemd-boot's automatic SecureBoot enrollment support gained support
           for enrolling "dbx" too (Previously, only db/KEK/PK enrollment was
-          supported). It also now supports UEFI "Custom" mode.
+          supported). It also now supports UEFI "Custom" and "Audit" modes.
 
         * The pcrlock policy is saved in an unencrypted credential file
           "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
@@ -593,7 +611,8 @@ CHANGES WITH 256-rc1:
         * systemd-run/run0 will now tint the terminal background on supported
           terminals: in a reddish tone when invoking a root service, in a
           yellowish tone otherwise. This may be controlled and turned off via
-          the new --background= switch.
+          the new --background= switch or the new $SYSTEMD_TINT_BACKGROUND
+          environment variable.
 
         * systemd-run gained a new option '--ignore-failure' to suppress
           command failures.
@@ -677,6 +696,14 @@ CHANGES WITH 256-rc1:
         * A new environment variable $SYSTEMD_VMSPAWN_QEMU_EXTRA may carry
           additional qemu command line options to pass to qemu.
 
+        * systemd-machined gained a new GetMachineSSHInfo() D-Bus method that is
+          used by systemd-vmspawn to fetch the information needed to ssh into the
+          machine.
+
+        * systemd-machined gained a new Varlink interface that is used by
+          systemd-vmspawn to register machines with additional information and
+          metadata.
+
         systemd-repart:
 
         * systemd-repart gained new options --generate-fstab= and
@@ -706,6 +733,20 @@ CHANGES WITH 256-rc1:
         * The liblz4, libzstd, liblzma, libkmod, libgcrypt dependencies have
           been changed from regular shared library dependencies into dlopen()
           based ones.
+
+          Note that this means that those libraries might not be automatically
+          pulled in when ELF dependencies are resolved. In particular lack of
+          libkmod might cause problems with boot. This affects dracut <= 101,
+          see https://github.com/dracut-ng/dracut-ng/commit/04b362d713235459cf.
+
+        * systemd ELF binaries that use libraries via dlopen() are now built with
+          a new ELF header note section, following a new specification defined at
+          docs/ELF_DLOPEN_METADATA.md, that provides information about which
+          sonames are loaded and used if found at runtime. This allows tools and
+          packagers to programmatically discover the list of optional
+          dependencies used by all systemd ELF binaries. A parser with packaging
+          integration tools is available at
+          https://github.com/systemd/package-notes
 
         * The sd-journal API gained a new call
           sd_journal_stream_fd_with_namespace() which is just like
@@ -952,50 +993,57 @@ CHANGES WITH 256-rc1:
         Antonio Alvarez Feijoo, Arthur Zamarin, Artur Pak, AtariDreams,
         Benjamin Franzke, Bernhard M. Wiedemann, Black-Hole1, Bryan Jacobs,
         Burak Gerz, Carlos Garnacho, Chandra Pratap, Chris Simons,
-        Christian Wesselhoeft, Clayton Craft, Colin Geniet, Colin Walters,
-        Costa Tsaousis, Cristian Rodríguez, Daan De Meyer,
-        Damien Challet, Dan Streetman, David Tardon, David Venhoek,
-        Diego Viola, Dionna Amalie Glaze, Dmitry Konishchev,
+        Christian Göttsche, Christian Wesselhoeft, Clayton Craft,
+        Colin Geniet, Colin Walters, Colin Watson, Costa Tsaousis,
+        Cristian Rodríguez, Daan De Meyer, Damien Challet, Dan Streetman,
+        Daniele Medri, David Tardon, David Venhoek, Diego Viola,
+        Dionna Amalie Glaze, Dmitry Konishchev, Dmitry V. Levin,
         Edson Juliano Drosdeck, Eisuke Kawashima, Eli Schwartz,
         Emanuele Giuseppe Esposito, Eric Daigle, Evgeny Vereshchagin,
-        Felix Riemann, Fernando Fernandez Mancera, Florian Schmaus,
-        Franck Bui, Frantisek Sumsal, Friedrich Altheide,
-        Gabríel Arthúr Pétursson, Gaël Donval, Georges Basile Stavracas Neto,
-        Gerd Hoffmann, GNOME Foundation, Guido Leenders,
+        Felix Riemann, Fernando Fernandez Mancera, Florian Fainelli,
+        Florian Schmaus, Franck Bui, Frantisek Sumsal, Friedrich Altheide,
+        Gabríel Arthúr Pétursson, Gaël Donval, Gnome Foundation,
+        Georges Basile Stavracas Neto, Gerd Hoffmann, Guido Leenders,
         Guilhem Lettron, Göran Uddeborg, Hans de Goede, Harald Brinkmann,
         Heinrich Schuchardt, Henry Li, Holger Assmann, Ivan Kruglov,
         Ivan Shapovalov, Jakub Sitnicki, James Muir, Jan Engelhardt,
-        Jan Macku, Jeff King, JmbFountain, Joakim Nohlgård,
-        Jonathan Conder, Julius Alexandre, Jörg Behrmann, Keian, Kirk,
+        Jan Macku, Jarne Förster, Jeff King, JmbFountain,
+        Joakim Nohlgård, Jonathan Conder, Julius Alexandre,
+        Jörg Behrmann, Kai Lueke, Kamil Szczęk, KayJay7, Keian, Kirk,
         Kristian Klausen, Krzesimir Nowak, Lars Ellenberg,
-        Lennart Poettering, Luca Boccassi, Ludwig Nussel, Lukáš Nykrýn,
-        Luna Jernberg, Luxiter, Maanya Goenka, Mariano Giménez,
-        Markus Merklinger, Martin Ivicic, Martin Srebotnjak,
-        Martin Trigaux, Martin Wilck, Matt Layher, Matt Muggeridge,
-        Matteo Croce, Matthias Lisin, Max Gautier, Max Staudt, MaxHearnden,
+        Lennart Poettering, Luca Boccassi, Lucas Salles, Ludwig Nussel,
+        Lukáš Nykrýn, Luna Jernberg, Luxiter, Maanya Goenka,
+        Maciej S. Szmigiero, Mariano Giménez, Markus Merklinger,
+        Martin Ivicic, Martin Srebotnjak, Martin Trigaux, Martin Wilck,
+        Mathias Lang, Matt Layher, Matt Muggeridge, Matteo Croce,
+        Matthias Lisin, Max Gautier, Max Staudt, MaxHearnden,
         Michael Biebl, Michal Koutný, Michal Sekletár, Mike Gilbert,
-        Mike Yuan, Mikko Ylinen, MkfsSion, MrSmör, Nandakumar Raghavan,
-        Nick Cao, Nick Rosbrook, Norbert Lange, Ole Peder Brandtzæg,
-        Ondrej Kozina, Oğuz Ersen, Pablo Méndez Hernández,
-        Pierre GRASSER, Piotr Drąg, QuonXF, Rafaël Kooi, Raito Bezarius,
-        Rasmus Villemoes, Reid Wahl, Renjaya Raga Zenta, Richard Maw,
-        Roland Hieber, Ronan Pigott, Rose, Ross Burton, Sam Leonard,
-        Samuel BF, Sarvajith Adyanthaya, Sergei Zhmylev, Sergey A, Shulhan,
-        SidhuRupinder, Simon Fowler, Sludge, Stuart Hayhurst, Susant Sahani,
-        Takashi Sakamoto, Temuri Doghonadze, Thilo Fromm, Thomas Blume,
-        TobiPeterG, Tobias Fleig, Tomáš Pecka, Topi Miettinen,
-        Tycho Andersen, Unique-Usman, Usman Akinyemi, Vasiliy Kovalev,
-        Vasiliy Stelmachenok, Vishal Chillara Srinivas, Vitaly Kuznetsov,
-        Vito Caputo, Vladimir Stoiakin, Werner Sembach, Will Springer,
-        Winterhuman, Xiaotian Wu, Yu Watanabe, Yuri Chornoivan,
-        Zbigniew Jędrzejewski-Szmek, Zmyeir, aslepykh, chenjiayi,
-        cpackham-atlnz, cunshunxia, djantti, hfavisado, hulkoba, ksaleem,
-        medusalix, mille-feuille, mkubiak, mooo, msizanoen, networkException,
-        nl6720, r-vdp, runiq, sam-leonard-ct, samuelvw01, sharad3001, sushmbha,
-        wangyuhang, zzywysm, İ. Ensar Gülşen, Łukasz Stelmach,
-        Štěpán Němec, 我超厉害, 김인수
+        Mike Yuan, Mikko Ylinen, MkfsSion, Moritz Sanft, MrSmör,
+        Nandakumar Raghavan, Nick Cao, Nick Rosbrook, Nicolas Bouchinet,
+        Norbert Lange, Ole Peder Brandtzæg, Ondrej Kozina, Oğuz Ersen,
+        Pablo Méndez Hernández, Pierre GRASSER, Piotr Drąg, QuonXF,
+        Radoslav Kolev, Rafaël Kooi, Raito Bezarius, Rasmus Villemoes,
+        Reid Wahl, Renjaya Raga Zenta, Richard Maw, Roland Hieber,
+        Ronan Pigott, Rose, Ross Burton, Saliba-san, Sam Leonard,
+        Samuel BF, Sarvajith Adyanthaya, Scrambled 777,
+        Sebastian Pucilowski, Sergei Zhmylev, Sergey A, Shulhan,
+        SidhuRupinder, Simon Fowler, Skia, Sludge, Stuart Hayhurst,
+        Susant Sahani, Takashi Sakamoto, Temuri Doghonadze, Thayne McCombs,
+        Thilo Fromm, Thomas Blume, Timo Rothenpieler, TobiPeterG,
+        Tobias Fleig, Tomáš Pecka, Topi Miettinen, Tycho Andersen,
+        Unique-Usman, Usman Akinyemi, Vasiliy Kovalev, Vasiliy Stelmachenok,
+        Vishal Chillara Srinivas, Vitaly Kuznetsov, Vito Caputo,
+        Vladimir Stoiakin, Werner Sembach, Will Springer, Winterhuman,
+        Xiaotian Wu, Yu Watanabe, Yuri Chornoivan,
+        Zbigniew Jędrzejewski-Szmek, Zmyeir, anphir, aslepykh, chenjiayi,
+        cpackham-atlnz, cunshunxia, djantti, hfavisado, hulkoba, hydrargyrum,
+        ksaleem, mburucuyapy, medusalix, mille-feuille, mkubiak, mooo,
+        msizanoen, networkException, nl6720, r-vdp, runiq, sam-leonard-ct,
+        samuelvw01, sharad3001, spdfnet, sushmbha, wangyuhang, zeroskyx,
+        zzywysm, İ. Ensar Gülşen, Łukasz Stelmach, Štěpán Němec,
+        我超厉害, 김인수
 
-        — Edinburgh, 2024-04-25
+        — Edinburgh, 2024-05-15
 
 CHANGES WITH 255:
 
@@ -1563,7 +1611,7 @@ CHANGES WITH 255:
           sd_device_enumerator_add_match_property_required() which allows
           configuring matches on properties that are strictly required. This is
           different from the existing sd_device_enumerator_add_match_property()
-          matches of which one one needs to apply.
+          matches of which one needs to apply.
 
         * The MAC address the veth side of an nspawn container shall get
           assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC

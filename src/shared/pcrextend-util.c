@@ -101,7 +101,7 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if path '%s' is mount point: %m", normalized_path);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Specified path '%s' is not a mount point, refusing: %m", normalized_path);
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Specified path '%s' is not a mount point, refusing.", normalized_path);
 
         normalized_escaped = xescape(normalized_path, ":"); /* Avoid ambiguity around ":" */
         if (!normalized_escaped)

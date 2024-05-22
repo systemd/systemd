@@ -341,7 +341,7 @@ All tools:
   for cases where we don't need to track given unit type, e.g. `--user` manager
   often doesn't need to deal with device or swap units because they are
   handled by the `--system` manager (PID 1). Note that setting certain unit
-  type as unsupported may not prevent loading some units of that type if they
+  type as unsupported might not prevent loading some units of that type if they
   are referenced by other units of another supported type.
 
 * `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST` — can be set to override the mount
@@ -705,3 +705,11 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   placed in a trusted disk image directory (see above), or if suitable polkit
   authentication was acquired. See `systemd.image-policy(7)` for the valid
   syntax for image policy strings.
+
+`systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
+
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
+  tinting of the background for containers, VMs, and interactive `systemd-run`
+  and `run0` invocations is turned off. Note that this environment variable has
+  no effect if the background color is explicitly selected via the relevant
+  `--background=` switch of the tool.

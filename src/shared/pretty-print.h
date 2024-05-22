@@ -50,5 +50,7 @@ static inline const char *green_check_mark_internal(char buffer[static GREEN_CHE
 
 int terminal_tint_color(double hue, char **ret);
 
+bool shall_tint_background(void);
+
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);

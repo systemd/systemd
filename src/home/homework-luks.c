@@ -339,7 +339,7 @@ static int luks_get_volume_key(
                 /* Shortcut: If volume key was loaded from the keyring then just use it */
                 if (cache->volume_key_size > *volume_key_size)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                               "LUKS volume key from kernel keyring too big for buffer (need %zu bytes, have %zu)",
+                                               "LUKS volume key from kernel keyring too big for buffer (need %zu bytes, have %zu).",
                                                cache->volume_key_size, *volume_key_size);
                 memcpy(volume_key, cache->volume_key, cache->volume_key_size);
                 *volume_key_size = cache->volume_key_size;
@@ -418,7 +418,7 @@ static int luks_setup(
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size.");
         vks = (size_t) r;
 
         if (!sd_id128_is_null(uuid) || ret_found_uuid) {
@@ -563,7 +563,7 @@ static int luks_open(
 
         r = sym_crypt_get_volume_key_size(setup->crypt_device);
         if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size.");
         vks = (size_t) r;
 
         if (ret_found_uuid) {
@@ -993,7 +993,7 @@ static int format_luks_token_text(
         assert((size_t) encrypted_size_out1 <= encrypted_size);
 
         if (EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of JSON record. ");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of JSON record.");
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);
 
@@ -2734,7 +2734,7 @@ static int prepare_resize_partition(
 
                 p = fdisk_table_get_partition(t, i);
                 if (!p)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
                 if (fdisk_partition_is_used(p) <= 0)
                         continue;
@@ -3731,7 +3731,7 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 
         r = sym_crypt_get_volume_key_size(setup->crypt_device);
         if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size.");
         vks = (size_t) r;
 
         vk = malloc(vks);

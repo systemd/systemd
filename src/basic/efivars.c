@@ -239,10 +239,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
 
         /* For some reason efivarfs doesn't update mtime automatically. Let's do it manually then. This is
          * useful for processes that cache EFI variables to detect when changes occurred. */
-        if (futimens(fd, (const struct timespec[2]) {
-                                { .tv_nsec = UTIME_NOW },
-                                { .tv_nsec = UTIME_NOW }
-                         }) < 0)
+        if (futimens(fd, /* times = */ NULL) < 0)
                 log_debug_errno(errno, "Failed to update mtime/atime on %s, ignoring: %m", p);
 
         r = 0;

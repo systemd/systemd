@@ -13,7 +13,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "icmp6-packet.h"
-#include "icmp6-util-unix.h"
+#include "icmp6-test-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "ndisc-internal.h"

@@ -555,7 +555,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                                                "Failed to read %s/%s: %m", dirname, filename);
                 if ((size_t) n != l) /* What? The size changed? */
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to read %s/%s: %m", dirname, filename);
+                                               "Failed to read %s/%s.", dirname, filename);
 
                 if (sd_id128_equal(machine_id, f->machine_id)) {
                         size_t sz;
@@ -1210,7 +1210,7 @@ int decrypt_credential_and_warn(
         with_scope = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED);
 
         if (!with_host_key && !with_tpm2 && !with_null)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data.");
 
         if (with_tpm2_pk) {
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);

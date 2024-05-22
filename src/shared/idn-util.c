@@ -21,6 +21,11 @@ const char *(*sym_idn2_strerror)(int rc) _const_ = NULL;
 DLSYM_FUNCTION(idn2_to_unicode_8z8z);
 
 int dlopen_idn(void) {
+        ELF_NOTE_DLOPEN("idn",
+                        "Support for internationalized domain names",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libidn2.so.0");
+
         return dlopen_many_sym_or_warn(
                         &idn_dl, "libidn2.so.0", LOG_DEBUG,
                         DLSYM_ARG(idn2_lookup_u8),
@@ -38,6 +43,11 @@ DLSYM_FUNCTION(stringprep_utf8_to_ucs4);
 int dlopen_idn(void) {
         _cleanup_(dlclosep) void *dl = NULL;
         int r;
+
+        ELF_NOTE_DLOPEN("idn",
+                        "Support for internationalized domain names",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libidn.so.12", "libidn.so.11");
 
         if (idn_dl)
                 return 0; /* Already loaded */

@@ -16,8 +16,8 @@ typedef enum PolkitFLags {
 int bus_test_polkit(sd_bus_message *call, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
 
 int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, sd_bus_error *error);
-static inline int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *ret_error) {
-        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, ret_error);
+static inline int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *error) {
+        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, error);
 }
 
 int varlink_verify_polkit_async_full(Varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry);

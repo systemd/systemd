@@ -1223,7 +1223,7 @@ static int acquire_new_password(
                 _cleanup_free_ char *question = NULL;
 
                 if (--i == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up:");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
 
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
@@ -1527,7 +1527,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
                         /* Before we consider the user name invalid, let's check if we can split it? */
                         r = split_user_name_realm(argv[1], &un, &rr);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name '%s' is not valid: %m", argv[1]);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name '%s' is not valid.", argv[1]);
 
                         if (rr) {
                                 r = json_variant_set_field_string(&arg_identity_extra, "realm", rr);
@@ -3015,7 +3015,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine whether realm '%s' is a valid DNS domain: %m", optarg);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain: %m", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain.", optarg);
 
                         r = json_variant_set_field_string(&arg_identity_extra, "realm", optarg);
                         if (r < 0)
@@ -3164,15 +3164,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = rlimit_parse(l, eq + 1, &rl);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse resource limit value: %s", eq + 1);
+                                return log_error_errno(r, "Failed to parse resource limit value: %s", eq + 1);
 
                         r = rl.rlim_cur == RLIM_INFINITY ? json_variant_new_null(&jcur) : json_variant_new_unsigned(&jcur, rl.rlim_cur);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to allocate current integer: %m");
+                                return log_error_errno(r, "Failed to allocate current integer: %m");
 
                         r = rl.rlim_max == RLIM_INFINITY ? json_variant_new_null(&jmax) : json_variant_new_unsigned(&jmax, rl.rlim_max);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to allocate maximum integer: %m");
+                                return log_error_errno(r, "Failed to allocate maximum integer: %m");
 
                         t = strjoin("RLIMIT_", rlimit_to_string(l));
                         if (!t)

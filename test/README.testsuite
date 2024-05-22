@@ -197,6 +197,10 @@ located at:
 
 https://git.launchpad.net/autopkgtest-cloud/
 
+A generic description of the testing infrastructure can be found at:
+
+https://wiki.ubuntu.com/ProposedMigration/AutopkgtestInfrastructure
+
 In case of infrastructure issues with this CI, things might go wrong in two
 places:
 
@@ -220,8 +224,17 @@ be used to force the PPA to publish an empty repository, for example:
 
 will create an empty 'noble' repository that can be used for 'noble' CI jobs.
 
-For infrastructure help, reaching out to Canonical via the #ubuntu-quality channel
+For infrastructure help, reaching out to 'qa-help' via the #ubuntu-quality channel
 on libera.chat is an effective way to receive support in general.
+
+Given access to the shared secret, tests can be re-run using the generic
+retry-github-test tool:
+
+https://git.launchpad.net/autopkgtest-cloud/tree/charms/focal/autopkgtest-cloud-worker/autopkgtest-cloud/tools/retry-github-test
+
+A wrapper script that makes it easier to use is also available:
+
+https://piware.de/gitweb/?p=bin.git;a=blob;f=retry-gh-systemd-Test
 
 Manually running a part of the Ubuntu CI test suite
 ===================================================

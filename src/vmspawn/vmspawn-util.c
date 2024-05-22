@@ -492,11 +492,11 @@ char* escape_qemu_value(const char *s) {
 
         assert(s);
 
-        /* QEMU requires that commas in arguments be escaped by doubling up the commas.
-         * See https://www.qemu.org/docs/master/system/qemu-manpage.html#options
-         * for more information.
+        /* QEMU requires that commas in arguments to be escaped by doubling up the commas. See
+         * https://www.qemu.org/docs/master/system/qemu-manpage.html#options for more information.
          *
-         * This function performs this escaping, returning an allocated string with the escaped value, or NULL if allocation failed. */
+         * This function performs this escaping, returning an allocated string with the escaped value, or
+         * NULL if allocation failed. */
 
         n = strlen(s);
 

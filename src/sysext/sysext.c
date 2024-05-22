@@ -1922,9 +1922,9 @@ static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, Method
 
         static const JsonDispatch dispatch_table[] = {
                 { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
-                { "force",    JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, force),     0 },
-                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, no_reload), 0 },
-                { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, noexec),    0 },
+                { "force",    JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
+                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
+                { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
                 {}
         };
 

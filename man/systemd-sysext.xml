@@ -206,11 +206,13 @@
     the underlying host <filename>/usr/</filename> is managed as immutable disk image or is a traditional
     package manager controlled (i.e. writable) tree.</para>
 
-    <para>For the confext case, the OSConfig project aims to perform runtime reconfiguration of OS services.
+    <para>With systemd-confext one can perform runtime reconfiguration of OS services.
     Sometimes, there is a need to swap certain configuration parameter values or restart only a specific
     service without deployment of new code or a complete OS deployment. In other words, we want to be able
     to tie the most frequently configured options to runtime updateable flags that can be changed without a
-    system reboot. This will help reduce servicing times when there is a need for changing the OS configuration.</para></refsect1>
+    system reboot. This will help reduce servicing times when there is a need for changing the OS configuration.
+    It also provides a reliable tool for managing configuration because all old configuration files disappear when
+    the systemd-confext image is removed.</para></refsect1>
 
   <refsect1>
     <title>Mutability</title>

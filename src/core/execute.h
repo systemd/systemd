@@ -200,7 +200,6 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool mount_apivfs_set:1;
 
         /* This is not exposed to the user but available internally. We need it to make sure that whenever we
          * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
@@ -313,6 +312,7 @@ struct ExecContext {
         ProcSubset proc_subset;    /* subset= */
 
         int private_mounts;
+        int mount_apivfs;
         int memory_ksm;
         bool private_tmp;
         bool private_network;
@@ -327,7 +327,6 @@ struct ExecContext {
         ProtectSystem protect_system;
         ProtectHome protect_home;
         bool protect_hostname;
-        bool mount_apivfs;
 
         bool dynamic_user;
         bool remove_ipc;
@@ -480,13 +479,14 @@ struct ExecParameters {
 #include "unit.h"
 #include "dynamic-user.h"
 
-int exec_spawn(Unit *unit,
-               ExecCommand *command,
-               const ExecContext *context,
-               ExecParameters *exec_params,
-               ExecRuntime *runtime,
-               const CGroupContext *cgroup_context,
-               PidRef *ret);
+int exec_spawn(
+                Unit *unit,
+                ExecCommand *command,
+                const ExecContext *context,
+                ExecParameters *exec_params,
+                ExecRuntime *runtime,
+                const CGroupContext *cgroup_context,
+                PidRef *ret);
 
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, size_t n);
@@ -543,7 +543,7 @@ char** exec_context_get_syscall_log(const ExecContext *c);
 char** exec_context_get_address_families(const ExecContext *c);
 char** exec_context_get_restrict_filesystems(const ExecContext *c);
 
-void exec_status_start(ExecStatus *s, pid_t pid);
+void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
@@ -624,11 +624,6 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep) \
         ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=%s" : "INVOCATION_ID=%s")
 
-/* Like LOG_MESSAGE(), but with the unit name prefixed. */
-#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
-#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
-#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
-
 #define log_exec_full_errno_zerook(ec, ep, level, error, ...)                     \
         ({                                                                        \
                 const ExecContext *_c = (ec);                                     \
@@ -641,8 +636,10 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 !_do_log ? -ERRNO_VALUE(error) :                                  \
                         log_object_internal(_l, error,                            \
                                             PROJECT_FILE, __LINE__, __func__,     \
-                                            LOG_EXEC_ID(_p),                      \
-                                            LOG_EXEC_INVOCATION_ID(_p),           \
+                                            LOG_EXEC_ID_FIELD(_p),                \
+                                            _p->unit_id,                          \
+                                            LOG_EXEC_INVOCATION_ID_FIELD(_p),     \
+                                            _p->invocation_id_string,             \
                                             ##__VA_ARGS__);                       \
         })
 
@@ -666,6 +663,11 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define log_exec_notice_errno(ec, ep, error, ...)  log_exec_full_errno(ec, ep, LOG_NOTICE, error, __VA_ARGS__)
 #define log_exec_warning_errno(ec, ep, error, ...) log_exec_full_errno(ec, ep, LOG_WARNING, error, __VA_ARGS__)
 #define log_exec_error_errno(ec, ep, error, ...)   log_exec_full_errno(ec, ep, LOG_ERR, error, __VA_ARGS__)
+
+/* Like LOG_MESSAGE(), but with the unit name prefixed. */
+#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
+#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
+#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
 
 #define log_exec_struct_errno(ec, ep, level, error, ...)                          \
         ({                                                                        \

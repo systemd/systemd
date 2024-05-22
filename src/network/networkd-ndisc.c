@@ -913,11 +913,6 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         if (!link->network->ndisc_use_reachable_time)
                 return 0;
 
-        /* Ignore the reachable time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
-
         r = sd_ndisc_router_get_reachable_time(rt, &reachable_time);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get reachable time from RA: %m");
@@ -951,11 +946,6 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (!link->network->ndisc_use_retransmission_time)
                 return 0;
 
-        /* Ignore the retransmission time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
-
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
@@ -988,11 +978,6 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_hop_limit)
                 return 0;
-
-        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
         if (r < 0)
@@ -1028,11 +1013,6 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_mtu)
                 return 0;
-
-        /* Ignore the MTU option if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_mtu(rt, &mtu);
         if (r == -ENODATA)
@@ -1081,25 +1061,26 @@ static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_rou
         if (t > 2 * USEC_PER_HOUR)
                 return 0;
 
+        if (address_get(link, address, &existing) < 0 || existing->source != NETWORK_CONFIG_SOURCE_NDISC)
+                return 0;
+
+        if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
+                return 0;
+
+        /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information option
+         *    with regards to the valid lifetime, unless the Router Advertisement from which this option was
+         *    obtained has been authenticated (e.g., via Secure Neighbor Discovery [RFC3971]). If the Router
+         *    Advertisement was authenticated, the valid lifetime of the corresponding address should be set
+         *    to the Valid Lifetime in the received option.
+         *
+         * Currently, authentication is not supported. So check the lifetime of the existing address. */
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &t);
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, &existing) >= 0 && existing->source == NETWORK_CONFIG_SOURCE_NDISC) {
-                if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
-                        return 0;
-
-                /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information
-                 *    option with regards to the valid lifetime, unless the Router Advertisement from which
-                 *    this option was obtained has been authenticated (e.g., via Secure Neighbor Discovery
-                 *    [RFC3971]). If the Router Advertisement was authenticated, the valid lifetime of the
-                 *    corresponding address should be set to the Valid Lifetime in the received option.
-                 *
-                 * Currently, authentication is not supported. So check the lifetime of the existing address. */
-                if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
-                        address->lifetime_valid_usec = existing->lifetime_valid_usec;
-                        return 0;
-                }
+        if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
+                address->lifetime_valid_usec = existing->lifetime_valid_usec;
+                return 0;
         }
 
         /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
@@ -2458,7 +2439,6 @@ int ndisc_stop(Link *link) {
 
         return sd_ndisc_stop(link->ndisc);
 }
-
 
 void ndisc_flush(Link *link) {
         assert(link);

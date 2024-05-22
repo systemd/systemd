@@ -305,6 +305,7 @@ static int systemctl_help(void) {
                "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
+               "                         For kill, wait until service stopped\n"
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
                "     --message=MESSAGE   Specify human readable reason for system shutdown\n"

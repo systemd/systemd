@@ -79,10 +79,7 @@ static int mangle_path(
         assert(ret);
 
         /* Spec leaves open if prefixed with "/" or not, let's normalize that */
-        if (path_is_absolute(p))
-                c = strdup(p);
-        else
-                c = strjoin("/", p);
+        c = path_make_absolute(p, "/");
         if (!c)
                 return -ENOMEM;
 
@@ -289,7 +286,6 @@ static int boot_entry_load_type1(
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF);
-        unsigned line = 1;
         char *c;
         int r;
 
@@ -324,18 +320,16 @@ static int boot_entry_load_type1(
         if (!tmp.root)
                 return log_oom();
 
-        for (;;) {
+        for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
 
                 r = read_stripped_line(f, LONG_LINE_MAX, &buf);
-                if (r == 0)
-                        break;
                 if (r == -ENOBUFS)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Line too long.");
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while reading: %m");
-
-                line++;
+                if (r == 0)
+                        break;
 
                 if (IN_SET(buf[0], '#', '\0'))
                         continue;
@@ -427,8 +421,8 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_default);
         free(config->entry_selected);
 
-        for (size_t i = 0; i < config->n_entries; i++)
-                boot_entry_free(config->entries + i);
+        FOREACH_ARRAY(i, config->entries, config->n_entries)
+                boot_entry_free(i);
         free(config->entries);
         free(config->global_addons.items);
 
@@ -436,25 +430,22 @@ void boot_config_free(BootConfig *config) {
 }
 
 int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
-        unsigned line = 1;
         int r;
 
         assert(config);
         assert(file);
         assert(path);
 
-        for (;;) {
+        for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
 
                 r = read_stripped_line(file, LONG_LINE_MAX, &buf);
-                if (r == 0)
-                        break;
                 if (r == -ENOBUFS)
                         return log_syntax(NULL, LOG_ERR, path, line, r, "Line too long.");
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, line, r, "Error while reading: %m");
-
-                line++;
+                if (r == 0)
+                        break;
 
                 if (IN_SET(buf[0], '#', '\0'))
                         continue;
@@ -595,8 +586,8 @@ static int boot_entries_find_type1(
         if (r < 0)
                 return log_error_errno(r, "Failed to read directory '%s': %m", full);
 
-        for (size_t i = 0; i < dentries->n_entries; i++) {
-                const struct dirent *de = dentries->entries[i];
+        FOREACH_ARRAY(i, dentries->entries, dentries->n_entries) {
+                const struct dirent *de = *i;
                 _cleanup_fclose_ FILE *f = NULL;
 
                 if (!dirent_is_file(de))
@@ -619,7 +610,7 @@ static int boot_entries_find_type1(
 
                 r = boot_config_load_type1(config, f, root, full, de->d_name);
                 if (r == -ENOMEM) /* ignore all other errors */
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -783,9 +774,11 @@ static int find_cmdline_section(
                 return 0;
 
         r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
-        if (r == -ENXIO) /* cmdline is optional */
+        if (r == -ENXIO) { /* cmdline is optional */
                 *ret_cmdline = NULL;
-        else if (r < 0)
+                return 0;
+        }
+        if (r < 0)
                 return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
 
         word = strdup(cmdline);
@@ -794,7 +787,7 @@ static int find_cmdline_section(
 
         /* Quick test to check if there is actual content in the addon cmdline */
         t = delete_chars(word, NULL);
-        if (t[0] == 0)
+        if (isempty(t))
                 *ret_cmdline = NULL;
         else
                 *ret_cmdline = TAKE_PTR(cmdline);
@@ -878,19 +871,22 @@ static int insert_boot_entry_addon(
                 char *location,
                 char *cmdline) {
 
+        assert(addons);
+
         if (!GREEDY_REALLOC(addons->items, addons->n_items + 1))
                 return log_oom();
 
-        addons->items[addons->n_items] = (BootEntryAddon) {
+        addons->items[addons->n_items++] = (BootEntryAddon) {
                 .location = location,
                 .cmdline = cmdline,
         };
-        addons->n_items++;
 
         return 0;
 }
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
+        assert(addons);
+
         FOREACH_ARRAY(addon, addons->items, addons->n_items) {
                 free(addon->cmdline);
                 free(addon->location);
@@ -1540,7 +1536,11 @@ static int json_addon(
 
         int r;
 
-        r = json_variant_append_arrayb(array,
+        assert(addon);
+        assert(addon_str);
+
+        r = json_variant_append_arrayb(
+                        array,
                         JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR(addon_str, JSON_BUILD_STRING(addon->location)),
                                 JSON_BUILD_PAIR("options", JSON_BUILD_STRING(addon->cmdline))));
@@ -1781,7 +1781,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 }
 
                 return json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-        } else {
+        } else
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
@@ -1795,7 +1795,6 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         if (n+1 < config->n_entries)
                                 putchar('\n');
                 }
-        }
 
         return 0;
 }

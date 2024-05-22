@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import os
+import subprocess
+import sys
+
+
+config = json.load(sys.stdin)
+
+qemu = f"qemu-system-{os.environ["QEMU_ARCHITECTURE"]}"
+result = subprocess.run([qemu, '-device', 'help'], check=True, text=True, stdout=subprocess.PIPE)
+if 'name "nvme"' not in result.stdout:
+    print("nvme device driver is not available, skipping test...", file=sys.stderr)
+    exit(77)
+
+for i in range(4):
+    config["QemuArgs"] += ["-device", f"megasas-gen2,id=scsi{i}"]
+
+def add_drive(i: int, serial: str) -> None:
+    global config
+    id = f"nvme{i}"
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "1M",
+            "Options": "cache=unsafe",
+        }
+    ]
+    config["QemuArgs"] += ["-device", f"nvme,drive={id},serial={serial},num_queues=8"]
+
+for i in range(5):
+    add_drive(i, serial=f"deadbeef{i}")
+for i in range(5, 10):
+    add_drive(i, serial=f"    deadbeef  {i}   ")
+for i in range(10, 15):
+    add_drive(i, serial=f"    dead/beef/{i}   ")
+for i in range(15, 20):
+    add_drive(i, serial=f"dead/../../beef/{i}")
+
+json.dump(config, sys.stdout)

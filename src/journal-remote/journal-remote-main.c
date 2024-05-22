@@ -108,7 +108,7 @@ static int spawn_child(const char* child, char** argv) {
 
         r = fd_nonblock(fd[0], true);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set child pipe to non-blocking: %m");
+                log_warning_errno(r, "Failed to set child pipe to non-blocking: %m");
 
         return fd[0];
 }

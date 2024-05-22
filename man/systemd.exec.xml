@@ -125,9 +125,10 @@
 
         <listitem><para>Takes a directory path relative to the host's root directory (i.e. the root of the system
         running the service manager). Sets the root directory for executed processes, with the <citerefentry
-        project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
-        call. If this is used, it must be ensured that the process binary and all its auxiliary files are available in
-        the <function>chroot()</function> jail. Note that setting this parameter might result in additional
+        project='man-pages'><refentrytitle>pivot_root</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        or <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system call. If this is used, it must be ensured that the process binary and all its auxiliary files
+        are available in the new root. Note that setting this parameter might result in additional
         dependencies to be added to the unit (see above).</para>
 
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
@@ -3383,6 +3384,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>If the file system path is omitted it is chosen identical to the credential name, i.e. this is
         a terse way to declare credentials to inherit from the service manager into a service. This option
         may be used multiple times, each time defining an additional credential to pass to the unit.</para>
+
+        <para>Note that if the path is not specified or a valid credential identifier is given, i.e.
+        in the above two cases, a missing credential is not considered fatal.</para>
 
         <para>If an absolute path referring to a directory is specified, every file in that directory
         (recursively) will be loaded as a separate credential. The ID for each credential will be the

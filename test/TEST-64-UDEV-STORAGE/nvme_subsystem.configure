@@ -1,0 +1,39 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import os
+import subprocess
+import sys
+
+
+config = json.load(sys.stdin)
+
+qemu = f"qemu-system-{os.environ["QEMU_ARCHITECTURE"]}"
+result = subprocess.run([qemu, '-device', 'help'], check=True, text=True, stdout=subprocess.PIPE)
+if 'name "nvme"' not in result.stdout:
+    print("nvme device driver is not available, skipping test...", file=sys.stderr)
+    exit(77)
+
+for id in ("nvme0", "nvme1"):
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "1M",
+            "Options": "cache=unsafe",
+        }
+
+    ]
+
+config["QemuArgs"] += [
+    # Create an NVM Subsystem Device
+    "-device", "nvme-subsys,id=nvme-subsys-64,nqn=subsys64",
+    # Attach two NVM controllers to it
+    "-device", "nvme,subsys=nvme-subsys-64,serial=deadbeef",
+    "-device", "nvme,subsys=nvme-subsys-64,serial=deadbeef",
+    # And create two shared namespaces attached to both controllers
+    "-device", "nvme-ns,drive=nvme0,nsid=16,shared=on",
+    "-device", "nvme-ns,drive=nvme1,nsid=17,shared=on",
+]
+
+json.dump(config, sys.stdout)

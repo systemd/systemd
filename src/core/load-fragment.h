@@ -23,6 +23,7 @@ void unit_dump_config_items(FILE *f);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_obsolete_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_string_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_reboot_parameter);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_colon_separated_paths);

@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "icmp6-util-unix.h"
+#include "icmp6-test-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -380,7 +380,7 @@ TEST(ra) {
         assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             2 * USEC_PER_SEC, 0,
+                                             30 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);

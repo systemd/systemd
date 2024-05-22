@@ -26,6 +26,7 @@
         ARG_CRASH_CHVT,                         \
         ARG_CRASH_SHELL,                        \
         ARG_CRASH_REBOOT,                       \
+        ARG_CRASH_ACTION,                       \
         ARG_CONFIRM_SPAWN,                      \
         ARG_SHOW_STATUS,                        \
         ARG_DESERIALIZE,                        \
@@ -61,6 +62,7 @@
         { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               }, \
         { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              }, \
         { "crash-reboot",             optional_argument, NULL, ARG_CRASH_REBOOT             }, \
+        { "crash-action",             required_argument, NULL, ARG_CRASH_ACTION             }, \
         { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            }, \
         { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              }, \
         { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              }, \

@@ -80,9 +80,9 @@ setup_pkcs11_token() {
     local P11_MODULE_CONFIGS_DIR P11_MODULE_DIR SOFTHSM_MODULE
 
     export SOFTHSM2_CONF="/tmp/softhsm2.conf"
-    mkdir -p "$initdir/var/lib/softhsm/tokens/"
+    mkdir -p "$initdir/usr/lib/softhsm/tokens/"
     cat >${SOFTHSM2_CONF} <<EOF
-directories.tokendir = $initdir/var/lib/softhsm/tokens/
+directories.tokendir = $initdir/usr/lib/softhsm/tokens/
 objectstore.backend = file
 slots.removable = false
 slots.mechanisms = ALL
@@ -139,7 +139,7 @@ EOF
     inst_simple "$P11_MODULE_CONFIGS_DIR/softhsm2.module"
 
     cat >"$initdir/etc/softhsm2.conf" <<EOF
-directories.tokendir = /var/lib/softhsm/tokens/
+directories.tokendir = /usr/lib/softhsm/tokens/
 objectstore.backend = file
 slots.removable = false
 slots.mechanisms = ALL

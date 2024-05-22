@@ -432,6 +432,7 @@ mouse:usb:v046dp4079:name:Logitech G Pro:*
 
 # Logitech Wireless Mouse M185
 mouse:usb:v046dp4008:name:Logitech M185:*
+mouse:usb:v046dp4008:name:Logitech M185/M225:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:*
  MOUSE_DPI=1000@125
 
@@ -538,6 +539,10 @@ mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:*
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
+# Logitech MX Master 3S (via Bolt Receiver)
+mouse:usb:v046dpc548:name:Logitech USB Receiver Mouse:*
+ MOUSE_DPI=1000@142
 
 # Logitech MX Ergo
 mouse:usb:v046dp406f:name:Logitech MX Ergo:*

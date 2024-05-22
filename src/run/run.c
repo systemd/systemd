@@ -963,7 +963,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
                 return log_oom();
 
-        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
                 double hue;
 
                 if (privileged_execution())
@@ -1133,11 +1133,17 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         }
 
         if (pty_path) {
+                _cleanup_close_ int pty_slave = -EBADF;
+
+                pty_slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (pty_slave < 0)
+                        return pty_slave;
+
                 r = sd_bus_message_append(m,
                                           "(sv)(sv)(sv)(sv)",
-                                          "StandardInput", "s", "tty",
-                                          "StandardOutput", "s", "tty",
-                                          "StandardError", "s", "tty",
+                                          "StandardInputFileDescriptor", "h", pty_slave,
+                                          "StandardOutputFileDescriptor", "h", pty_slave,
+                                          "StandardErrorFileDescriptor", "h", pty_slave,
                                           "TTYPath", "s", pty_path);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1426,7 +1432,7 @@ static void run_context_check_done(RunContext *c) {
         else
                 done = true;
 
-        if (c->forward && done) /* If the service is gone, it's time to drain the output */
+        if (c->forward && !pty_forward_is_done(c->forward) && done) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
 
         if (done)
@@ -1496,11 +1502,18 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
-        RunContext *c = userdata;
+        RunContext *c = ASSERT_PTR(userdata);
 
         assert(f);
 
-        if (rcode < 0) {
+        if (rcode == -ECANCELED) {
+                log_debug_errno(rcode, "PTY forwarder disconnected.");
+                if (!arg_wait)
+                        return sd_event_exit(c->event, EXIT_SUCCESS);
+
+                /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
+                 * for the service to end. If the user hits ^C we'll exit too. */
+        } else if (rcode < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }

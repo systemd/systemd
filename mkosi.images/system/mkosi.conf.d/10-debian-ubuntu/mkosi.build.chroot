@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+if ((NO_BUILD)); then
+    exit 0
+fi
+
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
@@ -13,9 +17,8 @@ fi
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
 mount --mkdir --bind "$SRCDIR/pkg/$ID/debian" "$SRCDIR"/debian
 
-# We hide the patches/ directory by mounting an empty directory on top so they don't get applied.
-TMP=$(mktemp -d)
-mount --bind "$TMP" "$SRCDIR"/debian/patches
+# We remove the patches so they don't get applied.
+rm -rf "$SRCDIR"/debian/patches/*
 
 # While the build directory can be specified through DH_OPTIONS, the default one is hardcoded everywhere so
 # we have to use that. Because it is architecture dependent, we query it using dpkg-architecture first.
@@ -40,6 +43,10 @@ systemd ($(cat meson.version)-$(date "+%Y%m%d%H%M%S" --date "@$TS")) UNRELEASED;
 EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
+
+# FIXME: Remove after tmp.mount is kept intact in the debian packaging for UPSTREAM=1 builds.
+sed --in-place '/tmp.mount/d' debian/rules
+sed --in-place '/tmp.mount/d' debian/not-installed
 
 build() {
     DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\

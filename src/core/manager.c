@@ -1242,13 +1242,13 @@ static int manager_setup_user_lookup_fd(Manager *m) {
         if (!m->user_lookup_event_source) {
                 r = sd_event_add_io(m->event, &m->user_lookup_event_source, m->user_lookup_fds[0], EPOLLIN, manager_dispatch_user_lookup_fd, m);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to allocate user lookup event source: %m");
+                        return log_error_errno(r, "Failed to allocate user lookup event source: %m");
 
                 /* Process even earlier than the notify event source, so that we always know first about valid UID/GID
                  * resolutions */
                 r = sd_event_source_set_priority(m->user_lookup_event_source, EVENT_PRIORITY_USER_LOOKUP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to set priority of user lookup event source: %m");
+                        return log_error_errno(r, "Failed to set priority of user lookup event source: %m");
 
                 (void) sd_event_source_set_description(m->user_lookup_event_source, "user-lookup");
         }
@@ -1261,7 +1261,7 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
 
         assert(m);
 
-        /* Set up the socket pair used for for passing timestamps back when the executor processes we fork
+        /* Set up the socket pair used for passing timestamps back when the executor processes we fork
          * off invokes execve(), i.e. when we hand off control to our payload processes. */
 
         if (m->handoff_timestamp_fds[0] < 0) {
@@ -1287,11 +1287,11 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
         if (!m->handoff_timestamp_event_source) {
                 r = sd_event_add_io(m->event, &m->handoff_timestamp_event_source, m->handoff_timestamp_fds[0], EPOLLIN, manager_dispatch_handoff_timestamp_fd, m);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to allocate handoff timestamp event source: %m");
+                        return log_error_errno(r, "Failed to allocate handoff timestamp event source: %m");
 
                 r = sd_event_source_set_priority(m->handoff_timestamp_event_source, EVENT_PRIORITY_HANDOFF_TIMESTAMP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to set priority of handoff timestamp event source: %m");
+                        return log_error_errno(r, "Failed to set priority of handoff timestamp event source: %m");
 
                 (void) sd_event_source_set_description(m->handoff_timestamp_event_source, "handoff-timestamp");
         }
@@ -2375,7 +2375,7 @@ int manager_load_unit_prepare(
 
         Unit *unit = manager_get_unit(m, name);
         if (unit) {
-                /* The time-based cache allows to start new units without daemon-reload,
+                /* The time-based cache allows new units to be started without daemon-reload,
                  * but if they are already referenced (because of dependencies or ordering)
                  * then we have to force a load of the fragment. As an optimization, check
                  * first if anything in the usual paths was modified since the last time
@@ -3069,7 +3069,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 r = manager_get_dump_string(m, /* patterns= */ NULL, &dump);
                 if (r < 0) {
-                        log_warning_errno(errno, "Failed to acquire manager dump: %m");
+                        log_warning_errno(r, "Failed to acquire manager dump: %m");
                         break;
                 }
 
@@ -3160,7 +3160,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                                         r = manager_get_dump_jobs_string(m, /* patterns= */ NULL, "  ", &dump_jobs);
                                         if (r < 0) {
-                                                log_warning_errno(errno, "Failed to acquire manager jobs dump: %m");
+                                                log_warning_errno(r, "Failed to acquire manager jobs dump: %m");
                                                 break;
                                         }
 
@@ -4161,7 +4161,7 @@ static int manager_run_generators(Manager *m) {
 
         /* On some systems /tmp/ doesn't exist, and on some other systems we cannot create it at all. Avoid
          * trying to mount a private tmpfs on it as there's no one size fits all. */
-        if (is_dir("/tmp", /* follow= */ false) > 0)
+        if (is_dir("/tmp", /* follow= */ false) > 0 && !MANAGER_IS_TEST_RUN(m))
                 flags |= FORK_PRIVATE_TMP;
 
         r = safe_fork("(sd-gens)", flags, NULL);

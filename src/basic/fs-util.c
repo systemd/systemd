@@ -325,12 +325,22 @@ int fchmod_opath(int fd, mode_t m) {
 int futimens_opath(int fd, const struct timespec ts[2]) {
         /* Similar to fchmod_opath() but for futimens() */
 
-        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, 0) < 0) {
+        assert(fd >= 0);
+
+        if (utimensat(fd, "", ts, AT_EMPTY_PATH) >= 0)
+                return 0;
+        if (errno != EINVAL)
+                return -errno;
+
+        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
+         * if unavailable. */
+
+        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, /* flags = */ 0) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
                 if (proc_mounted() == 0)
-                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
+                        return -ENOSYS;
 
                 return -ENOENT;
         }
@@ -405,17 +415,14 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         ret = fchmod_and_chown(fd, mode, uid, gid);
 
         if (stamp != USEC_INFINITY) {
-                struct timespec ts[2];
+                struct timespec ts;
+                timespec_store(&ts, stamp);
 
-                timespec_store(&ts[0], stamp);
-                ts[1] = ts[0];
-                r = futimens_opath(fd, ts);
+                r = futimens_opath(fd, (const struct timespec[2]) { ts, ts });
         } else
-                r = futimens_opath(fd, NULL);
-        if (r < 0 && ret >= 0)
-                return r;
+                r = futimens_opath(fd, /* ts = */ NULL);
 
-        return ret;
+        return RET_GATHER(ret, r);
 }
 
 int symlink_idempotent(const char *from, const char *to, bool make_relative) {
@@ -1018,7 +1025,7 @@ int parse_cifs_service(
         return 0;
 }
 
-int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
+int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
@@ -1054,7 +1061,7 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
+        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)

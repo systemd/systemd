@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-05-14 17:01+0100\n"
 "PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
@@ -283,41 +283,41 @@ msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Забагато неуспішних спроб увійти з боку користувача %s. У доступі відмовлено."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Запис користувача заблоковано. Забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Запис користувача ще не набув чинності, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Запис користувача вже втратив чинність, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Запис користувача не є чинним, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Забагато спроб увійти. Повторіть спробу за %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Потрібна зміна пароля."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Строк дії пароля вичерпано. Потрібна зміна."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Строк дії пароля вичерпано, але його неможливо змінити. Забороняємо вхід."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "Строк дії пароля невдовзі буде вичерпано. Будь ласка, змініть його."
 

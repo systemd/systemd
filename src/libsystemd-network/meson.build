@@ -91,13 +91,13 @@ executables += [
         network_test_template + {
                 'sources' : files(
                         'test-ndisc-ra.c',
-                        'icmp6-util-unix.c',
+                        'icmp6-test-util.c',
                 ),
         },
         network_test_template + {
                 'sources' : files(
                         'test-ndisc-rs.c',
-                        'icmp6-util-unix.c',
+                        'icmp6-test-util.c',
                 ),
         },
         network_test_template + {
@@ -125,7 +125,7 @@ executables += [
         network_fuzz_template + {
                 'sources' : files(
                         'fuzz-ndisc-rs.c',
-                        'icmp6-util-unix.c',
+                        'icmp6-test-util.c',
                 ),
         },
 ]

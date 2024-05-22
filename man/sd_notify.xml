@@ -270,7 +270,7 @@
         <listitem><para>The exit status of a service or the manager itself. Note that
         <command>systemd</command> currently does not consume this value when sent by services, so this
         assignment is only informational. The manager will send this notification to <emphasis>its</emphasis>
-        notification socket, which may be used to to collect an exit status from the system (a container or
+        notification socket, which may be used to collect an exit status from the system (a container or
         VM) as it shuts down. For example,
         <citerefentry project='debian'><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         makes use of this. The value to return may be set via the
@@ -446,7 +446,7 @@
     </variablelist>
 
     <para>The notification messages sent by services are interpreted by the service manager. Unknown
-    assignments are ignored. Thus, it is is safe (but often without effect) to send assignments which are not
+    assignments are ignored. Thus, it is safe (but often without effect) to send assignments which are not
     in this list. The protocol is extensible, but care should be taken to ensure private extensions are
     recognizable as such. Specifically, it is recommend to prefix them with <literal>X_</literal> followed by
     some namespace identifier. The service manager also sends some messages to <emphasis>its</emphasis>

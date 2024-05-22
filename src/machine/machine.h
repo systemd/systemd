@@ -62,12 +62,17 @@ struct Machine {
         int *netif;
         size_t n_netif;
 
+        unsigned vsock_cid;
+        char *ssh_address;
+        char *ssh_private_key_path;
+
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);
 };
 
-int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret);
+int machine_new(MachineClass class, const char *name, Machine **ret);
+int machine_link(Manager *manager, Machine *machine);
 Machine* machine_free(Machine *m);
 bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
@@ -77,6 +82,8 @@ int machine_finalize(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
 void machine_release_unit(Machine *m);
 

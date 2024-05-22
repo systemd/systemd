@@ -494,14 +494,14 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 if (r == 0)
                         break;
                 if (isempty(tuple))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r != 4 || !isempty(q))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 assert(source_str);
                 assert(nfproto_str);
@@ -510,11 +510,11 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
 
                 source = nft_set_source_from_string(source_str);
                 if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 nfproto = nfproto_from_string(nfproto_str);
                 if (nfproto < 0 || !nft_identifier_valid(table) || !nft_identifier_valid(set))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 r = sd_bus_message_append(m, "(iiss)", source, nfproto, table, set);
                 if (r < 0)
@@ -679,8 +679,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 else {
                         r = parse_permyriad_unbounded(eq);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                                       "CPU quota too small.");
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
@@ -1792,7 +1791,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
                 if (roothash_decoded_size < sizeof(sd_id128_t))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short: %m", eq);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short.", eq);
 
                 return bus_append_byte_array(m, field, roothash_decoded, roothash_decoded_size);
         }
@@ -1807,7 +1806,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return bus_append_string(m, "RootHashSignaturePath", eq);
 
                 if (!(value = startswith(eq, "base64:")))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:': %m", eq);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:'.", eq);
 
                 /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
                 r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);

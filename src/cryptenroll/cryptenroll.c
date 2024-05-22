@@ -46,6 +46,7 @@ static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
+static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
@@ -143,7 +144,7 @@ static int determine_default_node(void) {
                 return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/: %m");
 
         if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
 
         _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
         r = block_device_get_originating(dev, &origin);
@@ -498,9 +499,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY:
+                        /* an empty argument disables loading a public key */
+                        if (isempty(optarg)) {
+                                arg_tpm2_load_public_key = false;
+                                arg_tpm2_public_key = mfree(arg_tpm2_public_key);
+                                break;
+                        }
+
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
                         if (r < 0)
                                 return r;
+                        arg_tpm2_load_public_key = true;
 
                         break;
 
@@ -628,31 +637,33 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (auto_pcrlock) {
-                assert(!arg_tpm2_pcrlock);
+        if (arg_enroll_type == ENROLL_TPM2) {
+                if (auto_pcrlock) {
+                        assert(!arg_tpm2_pcrlock);
 
-                r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
-                } else
-                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
-        }
+                        r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
+                        } else
+                                log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+                }
 
-        if (auto_public_key_pcr_mask) {
-                assert(arg_tpm2_public_key_pcr_mask == 0);
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
-        }
+                if (auto_public_key_pcr_mask) {
+                        assert(arg_tpm2_public_key_pcr_mask == 0);
+                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                }
 
-        if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 by default if no pcrlock policy is around (which is a better replacement) */
-                assert(arg_tpm2_n_hash_pcr_values == 0);
+                if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 by default if no pcrlock policy is around (which is a better replacement) */
+                        assert(arg_tpm2_n_hash_pcr_values == 0);
 
-                if (!GREEDY_REALLOC_APPEND(
-                                    arg_tpm2_hash_pcr_values,
-                                    arg_tpm2_n_hash_pcr_values,
-                                    &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
-                                    1))
-                        return log_oom();
+                        if (!GREEDY_REALLOC_APPEND(
+                                            arg_tpm2_hash_pcr_values,
+                                            arg_tpm2_n_hash_pcr_values,
+                                            &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                            1))
+                                return log_oom();
+                }
         }
 
         return 1;
@@ -834,7 +845,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         /* Updating PIN on an existing enrollment */

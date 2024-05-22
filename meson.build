@@ -319,9 +319,9 @@ userspace_c_ld_args = []
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
-slow_tests = want_tests != 'false' and get_option('slow-tests')
-fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-integration_tests = want_tests != 'false' and get_option('integration-tests')
+want_slow_tests = want_tests != 'false' and get_option('slow-tests')
+want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+want_integration_tests = want_tests != 'false' and get_option('integration-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
@@ -624,11 +624,13 @@ foreach ident : [
         ['pidfd_send_signal', '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['pidfd_open',        '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['rt_sigqueueinfo',   '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
@@ -1056,7 +1058,7 @@ bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
                     required : bpf_framework,
-                    version : bpf_compiler == 'gcc' ? '>= 1.0.0' : '>= 0.1.0')
+                    version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if not libbpf.found()
@@ -1418,6 +1420,15 @@ elif compression == 'lz4' and not liblz4.found()
 elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
+# In the dlopen ELF note we save the default compression library with a
+# higher priority, so that packages can give it priority over the
+# secondary libraries.
+conf.set_quoted('COMPRESSION_PRIORITY_ZSTD',
+                compression == 'zstd' ? 'recommended' : 'suggested')
+conf.set_quoted('COMPRESSION_PRIORITY_LZ4',
+                compression == 'lz4' ? 'recommended' : 'suggested')
+conf.set_quoted('COMPRESSION_PRIORITY_XZ',
+                compression == 'xz' ? 'recommended' : 'suggested')
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 libarchive = dependency('libarchive',
@@ -1684,7 +1695,7 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 conf.set10('ENABLE_SSH_PROXY_CONFIG', sshconfdir != 'no')
 conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdconfdir != 'no')
 
-conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
+conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
 #####################################################################
 
@@ -1717,6 +1728,24 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-c',
         ]
 
+        # If c_args contains these flags copy them along with the values, in order to avoid breaking
+        # reproducible builds and other functionality
+        propagate_cflags = [
+                '-ffile-prefix-map=',
+                '-fdebug-prefix-map=',
+                '-fmacro-prefix-map=',
+        ]
+
+        foreach opt : c_args
+                foreach flag : propagate_cflags
+                        if opt.startswith(flag)
+                                bpf_clang_flags += [opt]
+                                bpf_gcc_flags += [opt]
+                                break
+                        endif
+                endforeach
+        endforeach
+
         # Generate defines that are appropriate to tell the compiler what architecture
         # we're compiling for. By default we just map meson's cpu_family to __<cpu_family>__.
         # This dictionary contains the exceptions where this doesn't work.
@@ -1729,6 +1758,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
                 'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
                 'x86'     : ['-D__i386__'],
+                's390x'   : ['-D__s390__', '-D__s390x__'],
 
                 # For arm, assume hardware fp is available.
                 'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
@@ -2575,7 +2605,7 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
-if integration_tests and not mkosi.found()
+if want_integration_tests and not mkosi.found()
         error('Could not find mkosi which is required to run the integration tests')
 endif
 
@@ -2600,7 +2630,6 @@ if mkosi.found()
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
                         '--force',
-                        '--debug',
                         'build',
                 ],
                 depends : mkosi_depends,
@@ -2711,7 +2740,7 @@ foreach tuple : fuzz_sanitizers
                                 message('Not compiling @0@ because tests is set to false'.format(name))
                                 continue
                         endif
-                        if not fuzz_tests
+                        if not want_fuzz_tests
                                 message('Not compiling @0@ because fuzz-tests is set to false'.format(name))
                                 continue
                         endif
@@ -3010,8 +3039,8 @@ foreach tuple : [
         ['debug mmap cache'],
         ['debug siphash'],
         ['trace logging',          conf.get('LOG_TRACE') == 1],
-        ['slow tests',             slow_tests],
-        ['fuzz tests',             fuzz_tests],
+        ['slow tests',             want_slow_tests],
+        ['fuzz tests',             want_fuzz_tests],
         ['install tests',          install_tests],
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],

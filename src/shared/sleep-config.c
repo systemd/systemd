@@ -368,16 +368,28 @@ static int sleep_supported_internal(
                 }
 
                 r = hibernation_is_safe();
-                if (r == -ENOTRECOVERABLE) {
+                switch (r) {
+
+                case -ENOTRECOVERABLE:
                         *ret_support = SLEEP_RESUME_NOT_SUPPORTED;
                         return false;
-                }
-                if (r == -ENOSPC) {
+
+                case -ESTALE:
+                        *ret_support = SLEEP_RESUME_DEVICE_MISSING;
+                        return false;
+
+                case -ENOMEDIUM:
+                        *ret_support = SLEEP_RESUME_MISCONFIGURED;
+                        return false;
+
+                case -ENOSPC:
                         *ret_support = SLEEP_NOT_ENOUGH_SWAP_SPACE;
                         return false;
+
+                default:
+                        if (r < 0)
+                                return r;
                 }
-                if (r < 0)
-                        return r;
         } else
                 assert(!sleep_config->modes[operation]);
 

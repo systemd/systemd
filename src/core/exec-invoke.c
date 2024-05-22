@@ -2311,7 +2311,7 @@ static int setup_exec_directory(
                          * doesn't exist, then we likely are upgrading from an older systemd version that
                          * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
                          * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
-                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
+                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME it is now
                          * separated. If a service has both dirs configured but only the configuration dir
                          * exists and the state dir does not, we assume we are looking at an update
                          * situation. Hence, create a compatibility symlink, so that all expectations are
@@ -2896,7 +2896,7 @@ static int setup_ephemeral(
                  */
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
-                        log_debug_errno(fd, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
+                        log_debug_errno(r, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
         } else {
                 assert(*root_directory);
 
@@ -3861,7 +3861,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->private_ipc ||
                context->ipc_namespace_path ||
                context->private_mounts > 0 ||
-               context->mount_apivfs ||
+               context->mount_apivfs > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
@@ -4204,7 +4204,7 @@ int exec_invoke(
 
                         *exit_status = EXIT_CONFIRM;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ECANCELED),
-                                                    "Execution cancelled by the user");
+                                                    "Execution cancelled by the user.");
                 }
         }
 
@@ -4246,12 +4246,12 @@ int exec_invoke(
 
                 if (!uid_is_valid(uid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\"", uid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\".", uid);
                 }
 
                 if (!gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\".", gid);
                 }
 
                 if (runtime->dynamic_creds->user)

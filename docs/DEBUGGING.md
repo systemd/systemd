@@ -93,7 +93,7 @@ systemctl enable debug-shell.service
 or by specifying
 
 ```sh
-systemd.debug-shell=1
+systemd.debug_shell=1
 ```
 
 on the kernel command line.

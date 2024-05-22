@@ -853,16 +853,18 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.crash_reboot</varname></term>
+        <term><varname>systemd.crash_action=</varname></term>
 
-        <listitem><para>Takes a boolean argument or enables the option if specified
-        without an argument. If enabled, the system manager (PID 1) will reboot the
-        machine automatically when it crashes, after a 10s delay.  Otherwise, the
-        system will hang indefinitely. Defaults to disabled, in order to avoid a
-        reboot loop. If combined with <varname>systemd.crash_shell</varname>, the
-        system is rebooted after the shell exits.</para>
+        <listitem><para>Takes one of <literal>freeze</literal>, <literal>reboot</literal> or
+        <literal>poweroff</literal>. Defaults to <literal>freeze</literal>. If set to
+        <literal>freeze</literal>, the system will hang indefinitely when the system manager (PID 1) crashes.
+        If set to <literal>reboot</literal>, the system manager (PID 1) will reboot the machine automatically
+        when it crashes, after a 10s delay. If set to <literal>poweroff</literal>, the system manager (PID 1)
+        will power off the machine immediately when it crashes. If combined with
+        <varname>systemd.crash_shell</varname>, the configured crash action is executed after the shell
+        exits.</para>
 
-        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1390,12 +1392,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--crash-reboot</option></term>
+          <term><option>--crash-action=</option></term>
 
-          <listitem><para>Automatically reboot the system on crash. This switch has no effect when running as
-          user instance. See <varname>systemd.crash_reboot</varname> above.</para>
+          <listitem><para>Specify what to do when the system manager (PID 1) crashes. This switch has no
+          effect when systemd is running as user instance. See <varname>systemd.crash_action=</varname>
+          above.</para>
 
-          <xi:include href="version-info.xml" xpointer="v227"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
 
         <varlistentry>
