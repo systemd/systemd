@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
+
 /* linux/in6.h or netinet/in.h */
 #ifndef IPV6_UNICAST_IF
 #define IPV6_UNICAST_IF 76
@@ -9,6 +11,11 @@
 /* linux/in6.h or netinet/in.h */
 #ifndef IPV6_TRANSPARENT
 #define IPV6_TRANSPARENT 75
+#endif
+
+/* linux/in.h or netinet/in.h */
+#ifndef IPPROTO_MPTCP
+#define IPPROTO_MPTCP 262
 #endif
 
 /* Not exposed but defined at include/net/ip.h */
