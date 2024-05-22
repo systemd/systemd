@@ -188,7 +188,7 @@ static int run(int argc, char *argv[]) {
         } else {
                 sd_id128_t id;
 
-                r = machine_id_setup(arg_root, false, SD_ID128_NULL, &id);
+                r = machine_id_setup(arg_root, SD_ID128_NULL, /* flags = */ 0, &id);
                 if (r < 0)
                         return r;
 
