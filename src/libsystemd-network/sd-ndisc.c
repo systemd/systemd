@@ -251,7 +251,7 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
                 log_ndisc(nd, "Received Router Advertisement from %s: flags=0x%0*"PRIx64"%s%s%s, preference=%s, lifetime=%s",
                           IN6_ADDR_TO_STRING(&a),
                           flags & UINT64_C(0x00ffffffffffff00) ? 14 : 2, flags, /* suppress too many zeros if no extension */
-                          s ? " (" : "", s, s ? ")" : "",
+                          s ? " (" : "", strempty(s), s ? ")" : "",
                           ndisc_router_preference_to_string(pref),
                           FORMAT_TIMESPAN(lifetime, USEC_PER_SEC));
         }
