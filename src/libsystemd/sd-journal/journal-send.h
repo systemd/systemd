@@ -7,7 +7,7 @@
 #include "syslog-util.h"
 
 int journal_fd_nonblock(bool nonblock);
-void close_journal_fd(void);
+void close_journal_fd(void *p);
 
 /* We declare sd_journal_stream_fd() as async-signal-safe. So instead of strjoin(), which calls malloc()
  * internally, use a macro + alloca(). */
