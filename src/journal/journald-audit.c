@@ -538,7 +538,7 @@ int server_open_audit(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        r = sd_event_source_set_priority(s->audit_event_source, EVENT_PRIORITY_AUDIT);
+        r = sd_event_source_set_priority(s->audit_event_source, EVENT_PRIORITY_MESSAGE_MIN);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust audit event source priority: %m");
 

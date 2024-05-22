@@ -95,6 +95,29 @@
 static int server_schedule_sync(Server *s, int priority);
 static int server_refresh_idle_timer(Server *s);
 
+void update_message_event_priority(sd_event_source *source) {
+        int64_t prio;
+        int r;
+
+        assert(source);
+
+        r = sd_event_source_get_priority(source, &prio);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to get priority of event source, ignoring: %m");
+
+        assert(prio >= EVENT_PRIORITY_MESSAGE_MIN);
+        assert(prio <= EVENT_PRIORITY_MESSAGE_MAX);
+
+        if (prio == EVENT_PRIORITY_MESSAGE_MAX)
+                prio = EVENT_PRIORITY_MESSAGE_MIN;
+        else
+                prio++;
+
+        r = sd_event_source_set_priority(source, prio);
+        if (r < 0)
+                log_debug_errno(r, "Failed to update priority of event source, ignoring: %m");
+}
+
 static int server_determine_path_usage(
                 Server *s,
                 const char *path,
@@ -1509,7 +1532,10 @@ int server_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
+        assert(es);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
+
+        update_message_event_priority(es);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
