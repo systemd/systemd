@@ -24,8 +24,19 @@ get_last_timestamp() {
 
 # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation.
 # If the journal is rotated in the loop below, some journal file may not be loaded and an unexpected
-# result may be provided. To mitigate such, sync before reading journals. Workaround for #32890.
+# result may be provided. To mitigate such, flush (if not yet) and sync before reading journals.
+# Workaround for #32890.
+journalctl --flush
 journalctl --sync
+# Sometimes, loading partially written .journal file, and journalctl handled that as 'truncated':
+# ===
+# May 21 02:25:55 TEST-09-REBOOT.sh[433]: + journalctl --list-boots -o json
+# May 21 02:25:55 journalctl[433]: Journal file /var/log/journal/173da2fad3064e3e9211a7ed7d59360b/system.journal is truncated, ignoring file.
+# ===
+# If that happens, the entries stored in the journal file are ignored, and the results of --list-boots
+# and subsequent call of journalctl may become inconsistent. To prevent such issue, let's also rotate
+# the journal. Then, all journal entries we are interested in are stored in the archived journal files.
+journalctl --rotate
 
 # Issue: #29275, second part
 # Now let's check if the boot entries are in the correct/expected order
