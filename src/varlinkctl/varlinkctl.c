@@ -333,7 +333,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                         if (!endswith(description, "\n"))
                                 fputs("\n", stdout);
                 } else {
-                        r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+                        r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format parsed interface description: %m");
                 }
@@ -524,7 +524,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+        r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
         if (r < 0)
                 return log_error_errno(r, "Failed to format parsed interface description: %m");
 
