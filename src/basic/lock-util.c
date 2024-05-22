@@ -139,7 +139,14 @@ static int fcntl_lock(int fd, int operation, bool ofd) {
                 .l_len = 0,
         }));
 
-        if (r == -EACCES) /* Treat EACCESS/EAGAIN the same as per man page. */
+        /* If we are doing non-blocking operations, treat EACCES/EAGAIN the same as per man page. But if
+         * not, propagate EACCES back, as it will likely be due to an LSM denying the operation (for example
+         * LXC with AppArmor when running on kernel < 6.2), and in some cases we want to gracefully
+         * fallback (e.g.: PrivateNetwork=yes). As per documentation, it's only the non-blocking operation
+         * F_SETLK that might return EACCES on some platforms (although the Linux implementation doesn't
+         * seem to), as F_SETLKW and F_OFD_SETLKW block so this is not an issue, and F_OFD_SETLK is documented
+         * to only return EAGAIN if the lock is already held. */
+        if ((operation & LOCK_NB) && r == -EACCES)
                 r = -EAGAIN;
 
         return r;
