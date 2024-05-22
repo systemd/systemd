@@ -350,7 +350,7 @@ static int reply_callback(
                 VarlinkReplyFlags flags,
                 void *userdata)  {
 
-        int r;
+        int *ret = ASSERT_PTR(userdata), r;
 
         assert(link);
 
@@ -358,7 +358,7 @@ static int reply_callback(
                 /* Propagate the error we received via sd_notify() */
                 (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
         } else
                 r = 0;
 
@@ -432,7 +432,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 
         } else if (arg_method_flags & VARLINK_METHOD_MORE) {
 
-                varlink_set_userdata(vl, (void*) method);
+                int ret = 0;
+                varlink_set_userdata(vl, &ret);
 
                 r = varlink_bind_reply(vl, reply_callback);
                 if (r < 0)
@@ -459,6 +460,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wait for varlink connection events: %m");
                 }
+
+                return ret;
         } else {
                 JsonVariant *reply = NULL;
                 const char *error = NULL;
