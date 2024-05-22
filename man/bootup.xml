@@ -316,17 +316,17 @@ emergency.service    |              |              |
            /               |               |               |               \
            |               |               |               |               |
            v               |               |               |               |
-systemd-reboot.service     |               |               |               |
+     <emphasis>reboot.target</emphasis>         |               |               |               |
            |               v               |               |               |
-           |    systemd-poweroff.service   |               |               |
+           |       <emphasis>poweroff.target</emphasis>         |               |               |
            v               |               v               |               |
-     <emphasis>reboot.target</emphasis>         |      systemd-halt.service     |               |
+systemd-reboot.service     |          <emphasis>halt.target</emphasis>          |               |
                            v               |               v               |
-                   <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service      |
+                systemd-poweroff.service   |         <emphasis>kexec.target</emphasis>          |
                                            v               |               |
-                                      <emphasis>halt.target</emphasis>          |       <emphasis>soft-reboot.target</emphasis>
+                                  systemd-halt.service     |       <emphasis>soft-reboot.target</emphasis>
                                                            v               |
-                                                     <emphasis>kexec.target</emphasis>          |
+                                                systemd-kexec.service      |
                                                                            v
                                                              systemd-soft-reboot.service</programlisting>
 

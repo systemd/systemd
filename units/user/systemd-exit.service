@@ -11,8 +11,7 @@
 Description=Exit the Session
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
+Requires=exit.target
 SuccessAction=exit-force
 
 [Service]
