@@ -5007,17 +5007,22 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
         return 0;
 }
 
-int json_dispatch_absolute_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+int json_dispatch_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         const char *path;
         char **p = ASSERT_PTR(userdata);
 
         assert(variant);
 
+        if (json_variant_is_null(variant)) {
+                *p = mfree(*p);
+                return 0;
+        }
+
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         path = json_variant_string(variant);
-        if (!path_is_valid(path))
+        if (!(FLAGS_SET(flags, JSON_SAFE) ? path_is_normalized : path_is_valid)(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid path.", strna(name));
         if (!path_is_absolute(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' must be an absolute path.", strna(name));
