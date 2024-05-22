@@ -43,7 +43,9 @@ static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
 static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
+static Tpm2PCRValue *arg_tpm2_key_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
+static size_t arg_tpm2_n_key_pcr_values = 0;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
@@ -515,6 +517,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
                         auto_public_key_pcr_mask = false;
+                        r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_key_pcr_values, &arg_tpm2_n_key_pcr_values);
+                        if (r < 0)
+                                return r;
                         r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
@@ -845,6 +850,12 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
+                // If no tpm2 PCR values are specified, use the key PCR values if they exist so the bank calculation works as expected
+                // Otherwise if user sets the tpm2-pcrs option to blank to not bind them, it will fail to calculate the bank
+                if (arg_tpm2_hash_pcr_values == NULL && arg_tpm2_n_hash_pcr_values == 0 && arg_tpm2_key_pcr_values != NULL && arg_tpm2_n_key_pcr_values > 0) {
+                        arg_tpm2_hash_pcr_values = arg_tpm2_key_pcr_values;
+                        arg_tpm2_n_hash_pcr_values = arg_tpm2_n_key_pcr_values;
+                }
                 slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
