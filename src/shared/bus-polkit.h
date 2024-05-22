@@ -25,12 +25,12 @@ static inline int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const 
         return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, 0, registry);
 }
 
-/* A JsonDispatch initializer that makes sure the allowInteractiveAuthentication boolean field we want for
+/* A sd_json_dispatch_field initializer that makes sure the allowInteractiveAuthentication boolean field we want for
  * polkit support in Varlink calls is ignored while regular dispatching (and does not result in errors
  * regarding unexpected fields) */
 #define VARLINK_DISPATCH_POLKIT_FIELD {                          \
                 .name = "allowInteractiveAuthentication",        \
-                .type = JSON_VARIANT_BOOLEAN,                    \
+                .type = SD_JSON_VARIANT_BOOLEAN,                 \
         }
 
 bool varlink_has_polkit_action(Varlink *link, const char *action, const char **details, Hashmap **registry);

@@ -4,6 +4,7 @@
 
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "json-util.h"
 #include "lldp-rx-internal.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
@@ -11,32 +12,32 @@
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
-static int vl_method_get_states(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_states(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         return varlink_replyb(link,
-                              JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(m->address_state)),
-                                              JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
-                                              JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
-                                              JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(m->carrier_state)),
-                                              JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", JSON_BUILD_STRING(link_online_state_to_string(m->online_state))),
-                                              JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(m->operational_state))));
+                              SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(m->address_state)),
+                                              SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
+                                              SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
+                                              SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(m->carrier_state)),
+                                              SD_JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", SD_JSON_BUILD_STRING(link_online_state_to_string(m->online_state))),
+                                              SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(m->operational_state))));
 }
 
-static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_namespace_id(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         uint64_t inode = 0;
         uint32_t nsid = UINT32_MAX;
         int r;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         /* Network namespaces have two identifiers: the inode number (which all namespace types have), and
@@ -55,10 +56,10 @@ static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, Va
                 log_full_errno(r == -ENODATA ? LOG_DEBUG : LOG_WARNING, r, "Failed to query network nsid, ignoring: %m");
 
         return varlink_replyb(link,
-                              JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
-                                              JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", JSON_BUILD_NULL),
-                                              JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", JSON_BUILD_UNSIGNED(nsid))));
+                              SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
+                                              SD_JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_NULL),
+                                              SD_JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_UNSIGNED(nsid))));
 }
 
 typedef struct InterfaceInfo {
@@ -66,10 +67,10 @@ typedef struct InterfaceInfo {
         const char *ifname;
 } InterfaceInfo;
 
-static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *manager, Link **ret) {
-        static const JsonDispatch dispatch_table[] = {
-                { "InterfaceIndex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
-                { "InterfaceName",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
+static int dispatch_interface(Varlink *vlink, sd_json_variant *parameters, Manager *manager, Link **ret) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
                 {}
         };
 
@@ -106,21 +107,21 @@ static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *
         return 0;
 }
 
-static int link_append_lldp_neighbors(Link *link, JsonVariant *v, JsonVariant **array) {
+static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_variant **array) {
         assert(link);
         assert(array);
 
-        return json_variant_append_arrayb(array,
-                        JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
-                                JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+        return sd_json_variant_append_arrayb(array,
+                        SD_JSON_BUILD_OBJECT(
+                                SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
-                                JSON_BUILD_PAIR_CONDITION(json_variant_is_blank_array(v), "Neighbors", JSON_BUILD_EMPTY_ARRAY),
-                                JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(v), "Neighbors", JSON_BUILD_VARIANT(v))));
+                                SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v))));
 }
 
-static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+static int vl_method_get_lldp_neighbors(Varlink *vlink, sd_json_variant *parameters, VarlinkMethodFlags flags, Manager *manager) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         Link *link = NULL;
         int r;
 
@@ -132,7 +133,7 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                 return r;
 
         if (link) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 if (link->lldp_rx) {
                         r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
@@ -145,7 +146,7 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                         return r;
         } else
                 HASHMAP_FOREACH(link, manager->links_by_index) {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         if (!link->lldp_rx)
                                 continue;
@@ -154,7 +155,7 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                         if (r < 0)
                                 return r;
 
-                        if (json_variant_is_blank_array(v))
+                        if (sd_json_variant_is_blank_array(v))
                                 continue;
 
                         r = link_append_lldp_neighbors(link, v, &array);
@@ -163,14 +164,14 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                 }
 
         return varlink_replyb(vlink,
-                        JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_CONDITION(json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_EMPTY_ARRAY),
-                                JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
+                        SD_JSON_BUILD_OBJECT(
+                                SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array))));
 }
 
-static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "Ready", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+static int vl_method_set_persistent_storage(Varlink *vlink, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Ready", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
                 {}
         };
 

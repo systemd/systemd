@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
+#include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
@@ -19,22 +20,22 @@ typedef struct LookupParameters {
         const char *service;
 } LookupParameters;
 
-static int build_user_json(const char *user_name, uid_t uid, const char *real_name, JsonVariant **ret) {
+static int build_user_json(const char *user_name, uid_t uid, const char *real_name, sd_json_variant **ret) {
         assert(user_name);
         assert(uid_is_valid(uid));
         assert(ret);
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                   JSON_BUILD_PAIR("record", JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(user_name)),
-                                       JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(uid)),
-                                       JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                       JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", JSON_BUILD_STRING(real_name)),
-                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       JSON_BUILD_PAIR("shell", JSON_BUILD_STRING(NOLOGIN)),
-                                       JSON_BUILD_PAIR("locked", JSON_BUILD_BOOLEAN(true)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
+                                       SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                       SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                       SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -138,16 +139,16 @@ static int user_lookup_name(Manager *m, const char *name, uid_t *ret_uid, char *
         return 0;
 }
 
-static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "uid",      JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0         },
-                { "userName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, user_name), JSON_SAFE },
-                { "service",  JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),   0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
+                { "userName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, user_name), SD_JSON_STRICT },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),   0              },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -190,18 +191,18 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         return varlink_reply(link, v);
 }
 
-static int build_group_json(const char *group_name, gid_t gid, const char *description, JsonVariant **ret) {
+static int build_group_json(const char *group_name, gid_t gid, const char *description, sd_json_variant **ret) {
         assert(group_name);
         assert(gid_is_valid(gid));
         assert(ret);
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                   JSON_BUILD_PAIR("record", JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(group_name)),
-                                       JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
-                                       JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", JSON_BUILD_STRING(description)),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
+                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
+                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
     }
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
@@ -303,16 +304,16 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char 
         return 0;
 }
 
-static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "gid",       JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0         },
-                { "groupName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, group_name), JSON_SAFE },
-                { "service",   JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),    0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
+                { "groupName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
+                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -355,12 +356,12 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         return varlink_reply(link, v);
 }
 
-static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  JSON_SAFE },
-                { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), JSON_SAFE },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
+                { "groupName", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
+                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
                 {}
         };
 
