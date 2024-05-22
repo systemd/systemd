@@ -284,18 +284,21 @@ static int bridge_mdb_verify(BridgeMDB *mdb) {
                                                  "Ignoring [BridgeMDB] section from line %u.",
                                                  mdb->section->filename, mdb->section->line);
 
-                if (mdb->family == AF_INET) {
+                switch (mdb->family) {
+                case AF_INET:
                         if (in4_addr_is_local_multicast(&mdb->group_addr.in))
                                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                          "%s: MulticastGroupAddress= is a local multicast address. "
                                                          "Ignoring [BridgeMDB] section from line %u.",
                                                          mdb->section->filename, mdb->section->line);
-                } else {
+                        break;
+                default:
                         if (in6_addr_is_link_local_all_nodes(&mdb->group_addr.in6))
                                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                          "%s: MulticastGroupAddress= is the multicast all nodes address. "
                                                          "Ignoring [BridgeMDB] section from line %u.",
                                                          mdb->section->filename, mdb->section->line);
+                        break;
                 }
                 break;
         default:
