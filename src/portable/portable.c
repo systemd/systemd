@@ -267,7 +267,7 @@ static int extract_now(
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
-                        _cleanup_(mac_selinux_freep) char *con = NULL;
+                        _cleanup_freecon_ char *con = NULL;
                         _cleanup_close_ int fd = -EBADF;
                         struct stat st;
 
@@ -304,10 +304,11 @@ static int extract_now(
 #if HAVE_SELINUX
                         /* The units will be copied on the host's filesystem, so if they had a SELinux label
                          * we have to preserve it. Copy it out so that it can be applied later. */
-
-                        r = fgetfilecon_raw(fd, &con);
-                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
-                                log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+                        if (sym_fgetfilecon_raw) {
+                                r = sym_fgetfilecon_raw(fd, &con);
+                                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
+                                        log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+                        }
 #endif
 
                         if (socket_fd >= 0) {

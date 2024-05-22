@@ -1169,6 +1169,7 @@ libselinux = dependency('libselinux',
                         version : '>= 2.1.9',
                         required : get_option('selinux'))
 conf.set10('HAVE_SELINUX', libselinux.found())
+libselinux_cflags = libselinux.partial_dependency(includes: true, compile_args: true)
 
 libapparmor = dependency('libapparmor',
                          version : '>= 2.13',

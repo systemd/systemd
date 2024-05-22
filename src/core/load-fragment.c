@@ -6227,7 +6227,8 @@ int unit_load_fragment(Unit *u) {
                                 _cleanup_freecon_ char *selcon = NULL;
 
                                 /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
-                                r = fgetfilecon_raw(fileno(f), &selcon);
+                                assert(sym_fgetfilecon_raw);
+                                r = sym_fgetfilecon_raw(fileno(f), &selcon);
                                 if (r < 0)
                                         log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", fragment);
 

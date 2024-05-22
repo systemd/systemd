@@ -43,22 +43,22 @@ bool pkcs11_uri_valid(const char *uri) {
 
 static void *p11kit_dl = NULL;
 
-DLSYM_FUNCTION(p11_kit_module_get_name);
-DLSYM_FUNCTION(p11_kit_modules_finalize_and_release);
-DLSYM_FUNCTION(p11_kit_modules_load_and_initialize);
-DLSYM_FUNCTION(p11_kit_strerror);
-DLSYM_FUNCTION(p11_kit_uri_format);
-DLSYM_FUNCTION(p11_kit_uri_free);
-DLSYM_FUNCTION(p11_kit_uri_get_attributes);
-DLSYM_FUNCTION(p11_kit_uri_get_attribute);
-DLSYM_FUNCTION(p11_kit_uri_set_attribute);
-DLSYM_FUNCTION(p11_kit_uri_get_module_info);
-DLSYM_FUNCTION(p11_kit_uri_get_slot_info);
-DLSYM_FUNCTION(p11_kit_uri_get_token_info);
-DLSYM_FUNCTION(p11_kit_uri_match_token_info);
-DLSYM_FUNCTION(p11_kit_uri_message);
-DLSYM_FUNCTION(p11_kit_uri_new);
-DLSYM_FUNCTION(p11_kit_uri_parse);
+DLSYM_PROTOTYPE(p11_kit_module_get_name) = NULL;
+DLSYM_PROTOTYPE(p11_kit_modules_finalize_and_release) = NULL;
+DLSYM_PROTOTYPE(p11_kit_modules_load_and_initialize) = NULL;
+DLSYM_PROTOTYPE(p11_kit_strerror) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_format) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_free) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_get_attributes) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_get_attribute) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_set_attribute) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_get_module_info) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_get_slot_info) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_get_token_info) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_match_token_info) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_message) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_new) = NULL;
+DLSYM_PROTOTYPE(p11_kit_uri_parse) = NULL;
 
 int dlopen_p11kit(void) {
         ELF_NOTE_DLOPEN("p11-kit",

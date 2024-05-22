@@ -132,7 +132,7 @@ libcore = shared_library(
                         libpam,
                         librt,
                         libseccomp,
-                        libselinux,
+                        libselinux_cflags,
                         threads,
                         userspace],
         install : true,
@@ -175,7 +175,7 @@ executables += [
                         libapparmor,
                         libpam,
                         libseccomp,
-                        libselinux,
+                        libselinux_cflags,
                 ],
         },
         fuzz_template + {

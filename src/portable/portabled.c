@@ -143,6 +143,10 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
 
+        r = dlopen_libselinux();
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         r = manager_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");

@@ -103,9 +103,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = dlopen_libselinux();
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         /* Let's make sure the test runs with selinux assumed disabled. */
 #if HAVE_SELINUX
-        fini_selinuxmnt();
+        if (sym_fini_selinuxmnt)
+                sym_fini_selinuxmnt();
 #endif
         mac_selinux_retest();
 
