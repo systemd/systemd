@@ -94,6 +94,15 @@ static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *ali
         dns_answer_add(args->answer, rr, 1, flags, NULL);
 }
 
+#define BY_IDX(json, idx) sd_json_variant_by_index(json, idx)
+#define BY_KEY(json, key) sd_json_variant_by_key(json, key)
+#define INTVAL(json) sd_json_variant_integer(json)
+#define STRVAL(json) sd_json_variant_string(json)
+
+/* ================================================================
+ * dns_cache_put()
+ * ================================================================ */
+
 TEST(dns_a_success_is_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
@@ -267,6 +276,54 @@ TEST(dns_a_to_cname_success_escaped_name_returns_error) {
 
         ASSERT_ERROR(cache_put(&cache, &put_args), EINVAL);
         ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+/* ================================================================
+ * dns_cache_dump_to_json()
+ * ================================================================ */
+
+TEST(dns_cache_dump_json_basic) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *expected = NULL;
+        sd_json_variant *item = NULL, *rr = NULL;
+        _cleanup_free_ char *str = calloc(256, sizeof(char));
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        ASSERT_OK(dns_cache_dump_to_json(&cache, &json));
+        ASSERT_NOT_NULL(json);
+
+        ASSERT_TRUE(sd_json_variant_is_array(json));
+        ASSERT_EQ(sd_json_variant_elements(json), 1u);
+
+        item = BY_IDX(json, 0);
+        ASSERT_NOT_NULL(item);
+
+        sprintf(str, "{ \"class\": %d, \"type\": %d, \"name\": \"www.example.com\" }", DNS_CLASS_IN, DNS_TYPE_A);
+        ASSERT_OK(sd_json_parse(str, 0, &expected, NULL, NULL));
+        ASSERT_TRUE(sd_json_variant_equal(BY_KEY(item, "key"), expected));
+
+        ASSERT_TRUE(sd_json_variant_is_array(BY_KEY(item, "rrs")));
+        ASSERT_EQ(sd_json_variant_elements(BY_KEY(item, "rrs")), 1u);
+
+        rr = BY_KEY(BY_IDX(BY_KEY(item, "rrs"), 0), "rr");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_TRUE(sd_json_variant_equal(BY_KEY(rr, "key"), expected));
+
+        sd_json_variant_unref(expected);
+
+        sprintf(str, "[192, 168, 1, 127]");
+        ASSERT_OK(sd_json_parse(str, 0, &expected, NULL, NULL));
+        ASSERT_TRUE(sd_json_variant_equal(BY_KEY(rr, "address"), expected));
+
+        ASSERT_TRUE(sd_json_variant_is_string(BY_KEY(BY_IDX(BY_KEY(item, "rrs"), 0), "raw")));
+        ASSERT_TRUE(sd_json_variant_is_integer(BY_KEY(item, "until")));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
