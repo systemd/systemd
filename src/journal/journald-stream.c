@@ -698,7 +698,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to add stream to event loop: %m");
 
-        r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(stream->event_source, EVENT_PRIORITY_STDOUT_STREAM);
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to adjust stdout event source priority: %m");
 
@@ -949,7 +949,7 @@ int server_open_stdout_socket(Server *s, const char *stdout_socket) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
-        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->stdout_event_source, EVENT_PRIORITY_STDOUT_SOCKET);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 
