@@ -123,7 +123,7 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         path = sd_json_variant_string(variant);
-        if (!((flags & SD_JSON_SAFE) ? path_is_normalized(path) : path_is_valid(path)))
+        if (!((flags & SD_JSON_STRICT) ? path_is_normalized(path) : path_is_valid(path)))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
         if (!path_is_absolute(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
