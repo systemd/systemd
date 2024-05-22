@@ -396,32 +396,6 @@ static int json_dispatch_filename_or_path(const char *name, JsonVariant *variant
         return 0;
 }
 
-static int json_dispatch_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
-        const char *n;
-        int r;
-
-        if (json_variant_is_null(variant)) {
-                *s = mfree(*s);
-                return 0;
-        }
-
-        if (!json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        n = json_variant_string(variant);
-        if (!path_is_normalized(n))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
-        if (!path_is_absolute(n))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
-
-        r = free_and_strdup(s, n);
-        if (r < 0)
-                return json_log(variant, flags, r, "Failed to allocate string: %m");
-
-        return 0;
-}
-
 static int json_dispatch_home_directory(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         char **s = userdata;
         const char *n;
@@ -1082,7 +1056,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
 static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch binding_dispatch_table[] = {
-                { "blobDirectory",     JSON_VARIANT_STRING,        json_dispatch_path,           offsetof(UserRecord, blob_directory),       0         },
+                { "blobDirectory",     JSON_VARIANT_STRING,        json_dispatch_path,           offsetof(UserRecord, blob_directory),       JSON_SAFE },
                 { "imagePath",         JSON_VARIANT_STRING,        json_dispatch_image_path,     offsetof(UserRecord, image_path),           0         },
                 { "homeDirectory",     JSON_VARIANT_STRING,        json_dispatch_home_directory, offsetof(UserRecord, home_directory),       0         },
                 { "partitionUuid",     JSON_VARIANT_STRING,        json_dispatch_id128,          offsetof(UserRecord, partition_uuid),       0         },
@@ -1281,7 +1255,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
         static const JsonDispatch per_machine_dispatch_table[] = {
                 { "matchMachineId",             _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "matchHostname",              _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
-                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                JSON_SAFE },
                 { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
@@ -1299,7 +1273,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
-                { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
+                { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            JSON_SAFE },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
                 { "tasksMax",                   JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, tasks_max),                     0         },
                 { "memoryHigh",                 JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_high),                   0         },
@@ -1313,7 +1287,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
                 { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
-                { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
+                { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    JSON_SAFE },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },
                 { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, member_of),                     JSON_RELAX},
@@ -1619,7 +1593,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
         static const JsonDispatch user_dispatch_table[] = {
                 { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     JSON_RELAX},
                 { "realm",                      JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0         },
-                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                JSON_SAFE },
                 { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, email_address),                 JSON_SAFE },
@@ -1642,7 +1616,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
-                { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
+                { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            JSON_SAFE },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
                 { "tasksMax",                   JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, tasks_max),                     0         },
                 { "memoryHigh",                 JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_high),                   0         },
@@ -1656,7 +1630,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
                 { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
-                { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
+                { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    JSON_SAFE },
                 { "homeDirectory",              JSON_VARIANT_STRING,        json_dispatch_home_directory,         offsetof(UserRecord, home_directory),                0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },

@@ -125,16 +125,16 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "name",              JSON_VARIANT_STRING,   machine_name,                offsetof(Machine, name),                 JSON_MANDATORY },
-                { "id",                JSON_VARIANT_STRING,   json_dispatch_id128,         offsetof(Machine, id),                   0 },
-                { "service",           JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, service),              0 },
-                { "class",             JSON_VARIANT_STRING,   dispatch_machine_class,      offsetof(Machine, class),                JSON_MANDATORY },
-                { "leader",            JSON_VARIANT_UNSIGNED, machine_leader,              offsetof(Machine, leader),               0 },
-                { "rootDirectory",     JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, root_directory),       0 },
-                { "ifIndices",         JSON_VARIANT_ARRAY,    machine_ifindices,           0,                                       0 },
-                { "vSockCid",          JSON_VARIANT_UNSIGNED, machine_cid,                 offsetof(Machine, vsock_cid),            0 },
-                { "sshAddress",        JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, ssh_address),          JSON_SAFE },
-                { "sshPrivateKeyPath", JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, ssh_private_key_path), 0 },
+                { "name",              JSON_VARIANT_STRING,   machine_name,           offsetof(Machine, name),                 JSON_MANDATORY },
+                { "id",                JSON_VARIANT_STRING,   json_dispatch_id128,    offsetof(Machine, id),                   0              },
+                { "service",           JSON_VARIANT_STRING,   json_dispatch_string,   offsetof(Machine, service),              0              },
+                { "class",             JSON_VARIANT_STRING,   dispatch_machine_class, offsetof(Machine, class),                JSON_MANDATORY },
+                { "leader",            JSON_VARIANT_UNSIGNED, machine_leader,         offsetof(Machine, leader),               0              },
+                { "rootDirectory",     JSON_VARIANT_STRING,   json_dispatch_path,     offsetof(Machine, root_directory),       0              },
+                { "ifIndices",         JSON_VARIANT_ARRAY,    machine_ifindices,      0,                                       0              },
+                { "vSockCid",          JSON_VARIANT_UNSIGNED, machine_cid,            offsetof(Machine, vsock_cid),            0              },
+                { "sshAddress",        JSON_VARIANT_STRING,   json_dispatch_string,   offsetof(Machine, ssh_address),          JSON_SAFE      },
+                { "sshPrivateKeyPath", JSON_VARIANT_STRING,   json_dispatch_path,     offsetof(Machine, ssh_private_key_path), 0              },
                 {}
         };
 
