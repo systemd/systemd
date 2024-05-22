@@ -324,11 +324,11 @@ systemd-reboot.service     |               |               |               |
                            v               |               v               |
                    <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service      |
                                            v               |               |
-                                      <emphasis>halt.target</emphasis>          |       <emphasis>soft-reboot.target</emphasis>
+                                      <emphasis>halt.target</emphasis>          |  systemd-soft-reboot.service
                                                            v               |
                                                      <emphasis>kexec.target</emphasis>          |
                                                                            v
-                                                             systemd-soft-reboot.service</programlisting>
+                                                                   <emphasis>soft-reboot.target</emphasis></programlisting>
 
     <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
 
