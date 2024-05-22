@@ -5,4 +5,4 @@
 
 int lookup_paths_mkdir_generator(LookupPaths *p);
 void lookup_paths_trim_generator(LookupPaths *p);
-void lookup_paths_flush_generator(LookupPaths *p);
+void lookup_paths_flush_generator(LookupPaths *p, bool test);
