@@ -19,6 +19,7 @@
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -96,6 +97,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_KMOD
         assert_se(dlopen_libkmod() >= 0);
+#endif
+
+#if HAVE_SELINUX
+        assert_se(dlopen_libselinux() >= 0);
 #endif
 
         return 0;

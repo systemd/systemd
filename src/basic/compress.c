@@ -31,20 +31,20 @@
 #if HAVE_LZ4
 static void *lz4_dl = NULL;
 
-static DLSYM_FUNCTION(LZ4F_compressBegin);
-static DLSYM_FUNCTION(LZ4F_compressBound);
-static DLSYM_FUNCTION(LZ4F_compressEnd);
-static DLSYM_FUNCTION(LZ4F_compressUpdate);
-static DLSYM_FUNCTION(LZ4F_createCompressionContext);
-static DLSYM_FUNCTION(LZ4F_createDecompressionContext);
-static DLSYM_FUNCTION(LZ4F_decompress);
-static DLSYM_FUNCTION(LZ4F_freeCompressionContext);
-static DLSYM_FUNCTION(LZ4F_freeDecompressionContext);
-static DLSYM_FUNCTION(LZ4F_isError);
-DLSYM_FUNCTION(LZ4_compress_default);
-DLSYM_FUNCTION(LZ4_decompress_safe);
-DLSYM_FUNCTION(LZ4_decompress_safe_partial);
-DLSYM_FUNCTION(LZ4_versionNumber);
+static DLSYM_PROTOTYPE(LZ4F_compressBegin) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_compressBound) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_compressEnd) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_compressUpdate) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_createCompressionContext) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_createDecompressionContext) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
+static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
+DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
+DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
+DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
+DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, sym_LZ4F_freeCompressionContext, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, sym_LZ4F_freeDecompressionContext, NULL);
@@ -53,22 +53,22 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, sym_LZ4F_freeDecom
 #if HAVE_ZSTD
 static void *zstd_dl = NULL;
 
-static DLSYM_FUNCTION(ZSTD_CCtx_setParameter);
-static DLSYM_FUNCTION(ZSTD_compress);
-static DLSYM_FUNCTION(ZSTD_compressStream2);
-static DLSYM_FUNCTION(ZSTD_createCCtx);
-static DLSYM_FUNCTION(ZSTD_createDCtx);
-static DLSYM_FUNCTION(ZSTD_CStreamInSize);
-static DLSYM_FUNCTION(ZSTD_CStreamOutSize);
-static DLSYM_FUNCTION(ZSTD_decompressStream);
-static DLSYM_FUNCTION(ZSTD_DStreamInSize);
-static DLSYM_FUNCTION(ZSTD_DStreamOutSize);
-static DLSYM_FUNCTION(ZSTD_freeCCtx);
-static DLSYM_FUNCTION(ZSTD_freeDCtx);
-static DLSYM_FUNCTION(ZSTD_getErrorCode);
-static DLSYM_FUNCTION(ZSTD_getErrorName);
-static DLSYM_FUNCTION(ZSTD_getFrameContentSize);
-static DLSYM_FUNCTION(ZSTD_isError);
+static DLSYM_PROTOTYPE(ZSTD_CCtx_setParameter) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_compress) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_compressStream2) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_createCCtx) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_createDCtx) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_CStreamInSize) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_CStreamOutSize) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_decompressStream) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_DStreamInSize) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_DStreamOutSize) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_freeCCtx) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_freeDCtx) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_getErrorCode) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_getErrorName) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_getFrameContentSize) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_isError) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_CCtx*, sym_ZSTD_freeCCtx, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_DCtx*, sym_ZSTD_freeDCtx, NULL);
@@ -88,11 +88,11 @@ static int zstd_ret_to_errno(size_t ret) {
 #if HAVE_XZ
 static void *lzma_dl = NULL;
 
-static DLSYM_FUNCTION(lzma_code);
-static DLSYM_FUNCTION(lzma_easy_encoder);
-static DLSYM_FUNCTION(lzma_end);
-static DLSYM_FUNCTION(lzma_stream_buffer_encode);
-static DLSYM_FUNCTION(lzma_stream_decoder);
+static DLSYM_PROTOTYPE(lzma_code) = NULL;
+static DLSYM_PROTOTYPE(lzma_easy_encoder) = NULL;
+static DLSYM_PROTOTYPE(lzma_end) = NULL;
+static DLSYM_PROTOTYPE(lzma_stream_buffer_encode) = NULL;
+static DLSYM_PROTOTYPE(lzma_stream_decoder) = NULL;
 
 /* We can't just do _cleanup_(sym_lzma_end) because a compiler bug makes
  * this fail with:

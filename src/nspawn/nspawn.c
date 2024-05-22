@@ -3484,7 +3484,7 @@ static int inner_child(
 
 #if HAVE_SELINUX
         if (arg_selinux_context)
-                if (setexeccon(arg_selinux_context) < 0)
+                if (sym_setexeccon && sym_setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
 
@@ -5785,6 +5785,10 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
+        r = dlopen_libselinux();
+        if (r < 0 && r != -EOPNOTSUPP)
+                goto finish;
+
         r = cant_be_in_netns();
         if (r < 0)
                 goto finish;
@@ -5876,7 +5880,8 @@ static int run(int argc, char *argv[]) {
                 assert(!arg_image);
 
                 if (!arg_privileged) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Invoking container from plain directory tree is currently not supported if called without privileges.");
+                        r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "Invoking container from plain directory tree is currently not supported without privileges.");
                         goto finish;
                 }
 

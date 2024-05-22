@@ -144,10 +144,10 @@ static int access_init(sd_bus_error *error) {
         if (initialized)
                 return 1;
 
-        if (avc_open(NULL, 0) != 0) {
+        if (sym_avc_open(NULL, 0) != 0) {
                 r = -errno;  /* Save original errno for later */
 
-                bool enforce = security_getenforce() != 0;
+                bool enforce = sym_security_getenforce() != 0;
                 log_full_errno(enforce ? LOG_ERR : LOG_WARNING, r, "Failed to open the SELinux AVC: %m");
 
                 /* If enforcement isn't on, then let's suppress this error, and just don't do any AVC checks.
@@ -161,8 +161,8 @@ static int access_init(sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %m");
         }
 
-        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
+        sym_selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
+        sym_selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
 
         initialized = true;
         return 1;
@@ -227,7 +227,7 @@ int mac_selinux_access_check_internal(
                 tclass = "service";
         } else {
                 /* If no unit context is known, use our own */
-                if (getcon_raw(&fcon) < 0) {
+                if (sym_getcon_raw(&fcon) < 0) {
                         log_warning_errno(errno, "SELinux getcon_raw() failed%s (perm=%s): %m",
                                           enforce ? "" : ", ignoring",
                                           permission);
@@ -257,7 +257,7 @@ int mac_selinux_access_check_internal(
                 .function = function,
         };
 
-        r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
+        r = sym_selinux_check_access(scon, acon, tclass, permission, &audit_info);
         if (r < 0) {
                 errno = -(r = errno_or_else(EPERM));
 

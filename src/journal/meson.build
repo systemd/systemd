@@ -64,7 +64,7 @@ journal_fuzz_template = fuzz_template + {
                 libjournal_core,
                 libshared,
         ],
-        'dependencies' : libselinux,
+        'dependencies' : libselinux_cflags,
 }
 
 executables += [
@@ -77,7 +77,7 @@ executables += [
                 ],
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
@@ -118,7 +118,7 @@ executables += [
                 'sources' : files('test-journald-config.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                 ],
         },
@@ -132,7 +132,7 @@ executables += [
                 'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         threads,
                 ],
@@ -140,7 +140,7 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journald-tables.c'),
                 'dependencies' : [
-                        libselinux,
+                        libselinux_cflags,
                 ],
         },
         journal_fuzz_template + {

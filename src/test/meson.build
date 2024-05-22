@@ -156,7 +156,6 @@ simple_tests += files(
         'test-sd-hwdb.c',
         'test-sd-path.c',
         'test-secure-bits.c',
-        'test-selinux.c',
         'test-serialize.c',
         'test-set.c',
         'test-sha256.c',
@@ -199,7 +198,7 @@ common_test_dependencies = [
         libmount,
         librt,
         libseccomp,
-        libselinux,
+        libselinux_cflags,
         threads,
 ]
 
@@ -403,6 +402,10 @@ executables += [
                 'sources' : files('test-seccomp.c'),
                 'dependencies' : libseccomp,
                 'conditions' : ['HAVE_SECCOMP'],
+        },
+        test_template + {
+                'sources' : files('test-selinux.c'),
+                'dependencies' : libselinux_cflags,
         },
         test_template + {
                 'sources' : files('test-set-disable-mempool.c'),
