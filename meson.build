@@ -2069,6 +2069,7 @@ libsystemd = shared_library(
         version : libsystemd_version,
         include_directories : libsystemd_includes,
         link_args : ['-shared',
+                     '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic],
         link_whole : [libsystemd_static],
