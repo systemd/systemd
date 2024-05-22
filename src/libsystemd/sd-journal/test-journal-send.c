@@ -103,8 +103,6 @@ static int outro(void) {
         /* Sleep a bit to make it easy for journald to collect metadata. */
         sleep(1);
 
-        close_journal_fd();
-
         return EXIT_SUCCESS;
 }
 

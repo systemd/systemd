@@ -25,6 +25,7 @@
 #include "missing_syscall.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "static-destruct.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -47,6 +48,7 @@
  * initialize it atomically, and need to operate on it atomically
  * never assuming we are the only user */
 static int fd_plus_one = 0;
+STATIC_DESTRUCTOR_REGISTER(fd_plus_one, close_journal_fd);
 
 static int journal_fd(void) {
         int fd;
@@ -80,22 +82,17 @@ int journal_fd_nonblock(bool nonblock) {
         return fd_nonblock(r, nonblock);
 }
 
-void close_journal_fd(void) {
-#if HAVE_VALGRIND_VALGRIND_H
-        /* Be nice to valgrind. This is not atomic, so it is useful mainly for debugging. */
-
-        if (!RUNNING_ON_VALGRIND)
-                return;
+void close_journal_fd(void *p) {
+        int fd = *(int *)p;
 
         if (getpid_cached() != gettid())
                 return;
 
-        if (fd_plus_one <= 0)
+        if (fd <= 0)
                 return;
 
-        safe_close(fd_plus_one - 1);
+        safe_close(fd - 1);
         fd_plus_one = 0;
-#endif
 }
 
 _public_ int sd_journal_print(int priority, const char *format, ...) {
