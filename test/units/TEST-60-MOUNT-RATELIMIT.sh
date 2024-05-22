@@ -302,6 +302,9 @@ if timeout 2m journalctl -u init.scope --since="$TS" -n all --follow | grep -m 1
 fi
 set -o pipefail
 
+journalctl -u init.scope --since="$TS" --grep 'left rate limit' -o export
+false
+
 # Verify that the mount units are always cleaned up at the end.
 # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
 timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'

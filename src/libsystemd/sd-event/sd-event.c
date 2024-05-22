@@ -3457,7 +3457,7 @@ static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
         event_source_pp_prioq_reshuffle(s);
         ratelimit_reset(&s->rate_limit);
 
-        log_debug("Event source %p (%s) left rate limit state.", s, strna(s->description));
+        log_full(log_get_max_level(), "Event source %p (%s) left rate limit state.", s, strna(s->description));
 
         if (run_callback && s->ratelimit_expire_callback) {
                 s->dispatching = true;
