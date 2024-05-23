@@ -201,7 +201,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-M</option></term>
         <term><option>--machine=</option></term>
 
         <listitem>

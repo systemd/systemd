@@ -248,3 +248,35 @@ int config_parse_path_or_ignore(
 finalize:
         return free_and_replace(*s, n);
 }
+
+int parse_machine_spec(const char *spec, const char **ret_machine, char **ret_user) {
+        _cleanup_free_ char *user = NULL;
+        const char *machine;
+
+        assert(spec);
+        assert(ret_machine);
+
+        if (!machine_spec_valid(spec))
+                return -EINVAL;
+
+        const char *at = strchr(spec, '@');
+        if (!at) {
+                machine = spec;
+        } else {
+                machine = at + 1;
+
+                if (at > spec)
+                        user = strndup(machine, at - machine);
+                else
+                        user = getusername_malloc(); /* Empty user name, let's use the local one */
+                if (!user)
+                        return -ENOMEM;
+        }
+
+        *ret_machine = isempty(machine) ? ".host" : machine;
+
+        if (ret_user)
+                *ret_user = TAKE_PTR(user);
+
+        return 0;
+}

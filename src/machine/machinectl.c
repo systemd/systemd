@@ -1262,41 +1262,6 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
         return 0;
 }
 
-static int parse_machine_uid(const char *spec, const char **machine, char **uid) {
-        /*
-         * Whatever is specified in the spec takes priority over global arguments.
-         */
-        char *_uid = NULL;
-        const char *_machine = NULL;
-
-        if (spec) {
-                const char *at;
-
-                at = strchr(spec, '@');
-                if (at) {
-                        if (at == spec)
-                                /* Do the same as ssh and refuse "@host". */
-                                return -EINVAL;
-
-                        _machine = at + 1;
-                        _uid = strndup(spec, at - spec);
-                        if (!_uid)
-                                return -ENOMEM;
-                } else
-                        _machine = spec;
-        };
-
-        if (arg_uid && !_uid) {
-                _uid = strdup(arg_uid);
-                if (!_uid)
-                        return -ENOMEM;
-        }
-
-        *uid = _uid;
-        *machine = isempty(_machine) ? ".host" : _machine;
-        return 0;
-}
-
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1350,15 +1315,15 @@ static int login_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        int master = -1, r;
-        sd_bus *bus = ASSERT_PTR(userdata);
         const char *match, *machine, *path;
-        _cleanup_free_ char *uid = NULL;
+        _cleanup_free_ char *user = NULL;
+        int r, master;
 
         if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -1385,9 +1350,11 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = parse_machine_uid(argc >= 2 ? argv[1] : NULL, &machine, &uid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse machine specification: %m");
+        if (argc >= 2) {
+                r = parse_machine_spec(argv[1], &machine, &user);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse machine specification: %m");
+        }
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.machine1',"
@@ -1406,7 +1373,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 
         path = argc < 3 || isempty(argv[2]) ? NULL : argv[2];
 
-        r = sd_bus_message_append(m, "sss", machine, uid, path);
+        r = sd_bus_message_append(m, "sss", machine, user ?: arg_uid, path);
         if (r < 0)
                 return bus_log_create_error(r);
 

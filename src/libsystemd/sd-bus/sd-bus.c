@@ -1649,36 +1649,6 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
         return free_and_replace(b->address, a);
 }
 
-static int user_and_machine_valid(const char *user_and_machine) {
-        const char *h;
-
-        /* Checks if a container specification in the form "user@container" or just "container" is valid.
-         *
-         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted, but
-         * not both. */
-
-        h = strchr(user_and_machine, '@');
-        if (!h)
-                h = user_and_machine;
-        else {
-                _cleanup_free_ char *user = NULL;
-
-                user = strndup(user_and_machine, h - user_and_machine);
-                if (!user)
-                        return -ENOMEM;
-
-                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
-                        return false;
-
-                h++;
-
-                if (isempty(h))
-                        return !isempty(user);
-        }
-
-        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
-}
-
 static int user_and_machine_equivalent(const char *user_and_machine) {
         _cleanup_free_ char *un = NULL;
         const char *f;
@@ -1728,10 +1698,7 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
         if (user_and_machine_equivalent(user_and_machine))
                 return sd_bus_open_system(ret);
 
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!machine_spec_valid(user_and_machine))
                 return -EINVAL;
 
         r = sd_bus_new(&b);
@@ -1764,10 +1731,7 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         if (user_and_machine_equivalent(user_and_machine))
                 return sd_bus_open_user(ret);
 
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!machine_spec_valid(user_and_machine));
                 return -EINVAL;
 
         r = sd_bus_new(&b);
