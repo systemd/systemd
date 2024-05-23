@@ -32,6 +32,7 @@ for attr in cgroup.threads memory.oom.group memory.reclaim ; do
     if grep -q "$attr" /sys/kernel/cgroup/delegate ; then
         systemd-run --wait \
                     --unit=test-0.service \
+                    --property="MemoryAccounting=1" \
                     --property="DynamicUser=1" \
                     --property="Delegate=" \
                     test -w /sys/fs/cgroup/system.slice/test-0.service/ -a \
