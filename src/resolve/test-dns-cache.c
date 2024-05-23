@@ -316,6 +316,28 @@ TEST(dns_a_to_cname_success_escaped_name_returns_error) {
  * dns_cache_lookup()
  * ================================================================ */
 
+TEST(dns_cache_lookup_miss) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+
+        ASSERT_EQ(cache.n_hit, 0u);
+        ASSERT_EQ(cache.n_miss, 1u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, 0u);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 0u);
+}
+
 TEST(dns_cache_lookup_success) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
@@ -394,6 +416,37 @@ TEST(dns_cache_lookup_nxdomain) {
         rr->soa.expire = 1;
         rr->soa.minimum = 3600;
         ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+}
+
+TEST(dns_cache_lookup_any_always_misses) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+
+        ASSERT_EQ(cache.n_hit, 0u);
+        ASSERT_EQ(cache.n_miss, 1u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, 0u);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 0u);
 }
 
 /* ================================================================
