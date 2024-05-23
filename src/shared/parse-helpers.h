@@ -37,3 +37,9 @@ int config_parse_path_or_ignore(
                 const char *rvalue,
                 void *data,
                 void *userdata);
+
+int parse_machine_spec(
+                const char *spec,
+                const char *default_user,
+                const char **ret_machine,
+                char **ret_user);
