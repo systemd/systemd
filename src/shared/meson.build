@@ -99,6 +99,7 @@ shared_sources = files(
         'json.c',
         'kbd-util.c',
         'kernel-image.c',
+        'kernel-config.c',
         'keyring-util.c',
         'killall.c',
         'label-util.c',
