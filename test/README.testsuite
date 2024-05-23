@@ -182,6 +182,13 @@ will be stored at the following URL:
 
 https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/noble/s390x/s/systemd-upstream/20240323_020911_e8e88@/log.gz
 
+Fortunately a list of URLs listing file paths for recently completed test runs
+is available at:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/
+
+paths listed at this URL can be appended to the URL to download them.
+
 The 5 characters at the end of the last directory are not random, but the first
 5 characters of a SHA1 hash generated based on the set of parameters given to
 the build plus the completion timestamp, such as:
