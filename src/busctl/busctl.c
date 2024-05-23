@@ -2492,6 +2492,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        if (!machine_spec_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;

@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
+#include "hostname-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "missing_network.h"
@@ -18,6 +19,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 int parse_boolean(const char *v) {
         if (!v)
@@ -806,4 +808,33 @@ bool nft_identifier_valid(const char *id) {
                 if (!ascii_isalpha(id[i]) && !ascii_isdigit(id[i]) && !IN_SET(id[i], '/', '\\', '_', '.'))
                         return false;
         return true;
+}
+
+bool machine_spec_valid(const char *spec) {
+        const char *h;
+
+        /* Checks if a container specification in the form "user@container" or just "container" is valid.
+         *
+         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted,
+         * but not both. */
+
+        assert(spec);
+
+        h = strchr(spec, '@');
+        if (!h)
+                h = spec;
+        else {
+                const char *user = strndupa_safe(spec, h - spec);
+                bool user_empty = isempty(user);
+
+                if (!user_empty && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
+                        return false;
+
+                h++;
+
+                if (isempty(h))
+                        return !user_empty;
+        }
+
+        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
 }
