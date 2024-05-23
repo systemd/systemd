@@ -57,4 +57,5 @@ ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" unix/run/ssh-unix-local/socket c
 modprobe vsock_loopback ||:
 if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
     ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock/1 cat /etc/machine-id | cmp - /etc/machine-id
+    ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" machine/.host cat /etc/machine-id | cmp - /etc/machine-id
 fi

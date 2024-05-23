@@ -16,10 +16,20 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(sshAddress,        VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(sshPrivateKeyPath, VARLINK_STRING, VARLINK_NULLABLE));
 
+static VARLINK_DEFINE_METHOD(
+                List,
+                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_OUTPUT(id, VARLINK_INT, VARLINK_NULLABLE|VARLINK_ARRAY),
+                VARLINK_DEFINE_OUTPUT(class, VARLINK_STRING, 0));
+
+static VARLINK_DEFINE_ERROR(NoSuchMachine);
 static VARLINK_DEFINE_ERROR(MachineExists);
 
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
                 "io.systemd.Machine",
                 &vl_method_Register,
+                &vl_method_List,
+                &vl_error_NoSuchMachine,
                 &vl_error_MachineExists);
