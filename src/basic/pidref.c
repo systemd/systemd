@@ -32,8 +32,37 @@ static int pidfd_inode_ids_supported(void) {
         return (cached = fd_is_fs_type(fd, PID_FS_MAGIC));
 }
 
-bool pidref_equal(const PidRef *a, const PidRef *b) {
+int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;
+
+        assert(pidref);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        if (pidref->fd_id > 0)
+                return 0;
+
+        r = pidfd_inode_ids_supported();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        struct stat st;
+
+        if (fstat(pidref->fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to get inode number of pidfd for pid " PID_FMT ": %m",
+                                       pidref->pid);
+
+        pidref->fd_id = st.st_ino;
+        return 0;
+}
+
+bool pidref_equal(PidRef *a, PidRef *b) {
 
         if (pidref_is_set(a)) {
                 if (!pidref_is_set(b))
@@ -42,20 +71,13 @@ bool pidref_equal(const PidRef *a, const PidRef *b) {
                 if (a->pid != b->pid)
                         return false;
 
-                if (a->fd < 0 || b->fd < 0)
-                        return true;
+                PidRef *p;
+                FOREACH_ARGUMENT(p, a, b)
+                        if (pidref_acquire_pidfd_id(p) < 0) /* Be tolerant also when we can't acquire pidfd id,
+                                                               since fstat() might fail due to many reasons */
+                                return true;
 
-                /* pidfds live in their own pidfs and each process comes with a unique inode number since
-                 * kernel 6.9. */
-
-                if (pidfd_inode_ids_supported() <= 0)
-                        return true;
-
-                r = fd_inode_same(a->fd, b->fd);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to check whether pidfds for pid " PID_FMT " are equal, assuming yes: %m",
-                                        a->pid);
-                return r != 0;
+                return a->fd_id == b->fd_id;
         }
 
         return !pidref_is_set(b);
