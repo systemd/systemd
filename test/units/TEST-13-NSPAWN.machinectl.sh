@@ -222,3 +222,6 @@ done
 (! machinectl read-only container1 "")
 (! machinectl read-only container1 foo)
 (! machinectl read-only container1 -- -1)
+
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":".host"}'
