@@ -98,6 +98,7 @@ shared_sources = files(
         'journal-util.c',
         'json.c',
         'kbd-util.c',
+        'kernel-config.c',
         'kernel-image.c',
         'keyring-util.c',
         'killall.c',
