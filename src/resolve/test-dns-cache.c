@@ -230,6 +230,27 @@ TEST(dns_a_success_zero_ttl_is_not_cached) {
         ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 
+TEST(dns_a_success_zero_ttl_removes_existing_entry) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_FALSE(dns_cache_is_empty(&cache));
+
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 0, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
 TEST(dns_a_success_not_cacheable_is_not_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
