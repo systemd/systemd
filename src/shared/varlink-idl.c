@@ -636,7 +636,10 @@ static int varlink_idl_subparse_token(
 
                 l = token_match(*p, allowed_delimiters, allowed_chars);
                 if (l == 0)
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "Couldn't find token of allowed chars '%s' or allowed delimiters '%s'.", strempty(allowed_chars), strempty(allowed_delimiters));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EBADMSG),
+                                        "%u:%u: Couldn't find token of allowed chars '%s' or allowed delimiters '%s'.",
+                                        *line, *column, strempty(allowed_chars), strempty(allowed_delimiters));
         }
 
         t = strndup(*p, l);
