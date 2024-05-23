@@ -311,7 +311,7 @@ static int manager_startup(Manager *m) {
 }
 
 static bool check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         if (m->operations)
                 return false;
@@ -320,6 +320,9 @@ static bool check_idle(void *userdata) {
                 return false;
 
         if (varlink_server_current_connections(m->varlink_machine_server) > 0)
+                return false;
+
+        if (!hashmap_isempty(m->polkit_registry))
                 return false;
 
         manager_gc(m, true);

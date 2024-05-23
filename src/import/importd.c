@@ -1346,9 +1346,10 @@ static int manager_add_bus_objects(Manager *m) {
 }
 
 static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        return hashmap_isempty(m->transfers);
+        return hashmap_isempty(m->transfers) &&
+                hashmap_isempty(m->polkit_registry);
 }
 
 static int manager_run(Manager *m) {
