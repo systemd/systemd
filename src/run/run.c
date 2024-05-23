@@ -1713,7 +1713,11 @@ static int start_transient_service(sd_bus *bus) {
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
-                        const char *s;
+                        const char *machine_name, *p;
+
+                        r = parse_machine_spec(arg_host, &machine_name, /* ret_user = */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse machine spec '%s': %m", arg_host);
 
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
@@ -1724,11 +1728,11 @@ static int start_transient_service(sd_bus *bus) {
                                             "OpenMachinePTY",
                                             &error,
                                             &pty_reply,
-                                            "s", arg_host);
+                                            "s", machine_name);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
-                        r = sd_bus_message_read(pty_reply, "hs", &master, &s);
+                        r = sd_bus_message_read(pty_reply, "hs", &master, &p);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1736,7 +1740,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to duplicate master fd: %m");
 
-                        pty_path = strdup(s);
+                        pty_path = strdup(p);
                         if (!pty_path)
                                 return log_oom();
                 } else
