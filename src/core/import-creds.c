@@ -20,6 +20,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
+#include "smbios11.h"
 #include "strv.h"
 #include "virt.h"
 
@@ -578,38 +579,17 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                 return 0;
 
         for (unsigned i = 0;; i++) {
-                struct dmi_field_header {
-                        uint8_t type;
-                        uint8_t length;
-                        uint16_t handle;
-                        uint8_t count;
-                        char contents[];
-                } _packed_ *dmi_field_header;
-                _cleanup_free_ char *p = NULL;
-                _cleanup_free_ void *data = NULL;
+                _cleanup_free_ char *data = NULL;
                 size_t size;
 
-                assert_cc(offsetof(struct dmi_field_header, contents) == 5);
-
-                if (asprintf(&p, "/sys/firmware/dmi/entries/11-%u/raw", i) < 0)
-                        return log_oom();
-
-                r = read_virtual_file(p, sizeof(dmi_field_header) + CREDENTIALS_TOTAL_SIZE_MAX, (char**) &data, &size);
+                r = read_smbios11_field(i, CREDENTIALS_TOTAL_SIZE_MAX, &data, &size);
                 if (r < 0) {
                         /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to open '%s', ignoring: %m", p);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to read SMBIOS type #11 object %u, ignoring: %m", i);
                         break;
                 }
 
-                if (size < offsetof(struct dmi_field_header, contents))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DMI field header of '%s' too short.", p);
-
-                dmi_field_header = data;
-                if (dmi_field_header->type != 11 ||
-                    dmi_field_header->length != offsetof(struct dmi_field_header, contents))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid DMI field header.");
-
-                r = parse_smbios_strings(c, dmi_field_header->contents, size - offsetof(struct dmi_field_header, contents));
+                r = parse_smbios_strings(c, data, size);
                 if (r < 0)
                         return r;
 
