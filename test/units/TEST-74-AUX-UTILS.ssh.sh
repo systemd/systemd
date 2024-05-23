@@ -53,6 +53,7 @@ mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
 
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" .host cat /etc/machine-id | cmp - /etc/machine-id
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" unix/run/ssh-unix-local/socket cat /etc/machine-id | cmp - /etc/machine-id
+ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" machine/.host cat /etc/machine-id | cmp - /etc/machine-id
 
 modprobe vsock_loopback ||:
 if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
