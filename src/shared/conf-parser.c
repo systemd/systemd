@@ -160,7 +160,11 @@ static int next_assignment(
         /* Warn about unknown non-extension fields. */
         if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(lvalue, "X-"))
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Unknown key name '%s' in section '%s', ignoring.", lvalue, section);
+                           "Unknown key '%s'%s%s%s, ignoring.",
+                           lvalue,
+                           section ? " in section [" : "",
+                           strempty(section),
+                           section ? "]" : "");
 
         return 0;
 }
