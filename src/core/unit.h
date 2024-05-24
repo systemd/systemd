@@ -577,7 +577,7 @@ typedef struct UnitVTable {
         /* Freeze or thaw the unit. Returns > 0 to indicate that the request will be handled asynchronously; unit_frozen
          * or unit_thawed should be called once the operation is done. Returns 0 if done successfully, or < 0 on error. */
         int (*freezer_action)(Unit *u, FreezerAction a);
-        bool (*can_freeze)(Unit *u);
+        bool (*can_freeze)(const Unit *u);
 
         /* Return which kind of data can be cleaned */
         int (*can_clean)(Unit *u, ExecCleanMask *ret);
@@ -1036,7 +1036,7 @@ bool unit_can_start_refuse_manual(Unit *u);
 bool unit_can_stop_refuse_manual(Unit *u);
 bool unit_can_isolate_refuse_manual(Unit *u);
 
-bool unit_can_freeze(Unit *u);
+bool unit_can_freeze(const Unit *u);
 int unit_freezer_action(Unit *u, FreezerAction action);
 void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_tgt);
 void unit_frozen(Unit *u);
