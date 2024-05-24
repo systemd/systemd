@@ -41,8 +41,8 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-/* If we copy via a userspace buffer, size it to 16K */
-#define COPY_BUFFER_SIZE (16U*1024U)
+/* If we copy via a userspace buffer, size it to 64K */
+#define COPY_BUFFER_SIZE (64U*U64_KB)
 
 /* If a byte progress function is specified during copying, never try to copy more than 1M, so that we can
  * reasonably call the progress function still */
