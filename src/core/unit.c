@@ -6167,8 +6167,8 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, F
         FreezerState curr, parent, next, tgt;
 
         assert(u);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
-                              FREEZER_THAW, FREEZER_PARENT_THAW));
+        assert(action >= 0);
+        assert(action < _FREEZER_ACTION_MAX);
         assert(ret);
         assert(ret_target);
 
