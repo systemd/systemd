@@ -1053,13 +1053,16 @@ DNS=127.0.0.1
         self.create_iface(dhcpserver_opts='EmitTimezone=yes\nTimezone=Pacific/Honolulu')
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=false\n[DHCP]\nUseTimezone=true', dhcp_mode='ipv4')
 
-        # should have applied the received timezone
-        try:
-            self.assertEqual(get_tz(), 'Pacific/Honolulu')
-        except AssertionError:
+        # Should have applied the received timezone. This is asynchronous, so we need to wait for a while:
+        for _ in range(20):
+            tz = get_tz()
+            if tz == 'Pacific/Honolulu':
+                break
+            time.sleep(0.5)
+        else:
             self.show_journal('systemd-networkd.service')
-            self.show_journal('systemd-hostnamed.service')
-            raise
+            self.show_journal('systemd-timedated.service')
+            self.fail(f'Timezone: {tz}, expected: Pacific/Honolulu')
 
 
 class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
