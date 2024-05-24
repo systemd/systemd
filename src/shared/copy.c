@@ -41,7 +41,12 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
+/* If we copy via a userspace buffer, size it to 16K */
 #define COPY_BUFFER_SIZE (16U*1024U)
+
+/* If a byte progress function is specified during copying, never try to copy more than 1M, so that we can
+ * reasonably call the progress function still */
+#define PROGRESS_STEP_SIZE (1U*U64_MB)
 
 /* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
  * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
@@ -283,6 +288,9 @@ int copy_bytes_full(
 
                 if (max_bytes != UINT64_MAX && m > max_bytes)
                         m = max_bytes;
+
+                if (progress && m > PROGRESS_STEP_SIZE)
+                        m = PROGRESS_STEP_SIZE;
 
                 if (copy_flags & COPY_HOLES) {
                         off_t c, e;
