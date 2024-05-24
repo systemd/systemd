@@ -339,14 +339,14 @@ static void slice_enumerate_perpetual(Manager *m) {
                 (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 
-static bool slice_can_freeze(Unit *s) {
+static bool slice_can_freeze(const Unit *u) {
+        assert(u);
+
         Unit *member;
-
-        assert(s);
-
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF)
+        UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
                 if (!unit_can_freeze(member))
                         return false;
+
         return true;
 }
 
