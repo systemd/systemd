@@ -4522,8 +4522,13 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
-                assert(p->copy_blocks_size != UINT64_MAX);
-                assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
+
+                size_t extra = p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0;
+
+                if (p->copy_blocks_size == UINT64_MAX)
+                        p->copy_blocks_size = LESS_BY(p->new_size, extra);
+
+                assert(p->new_size >= p->copy_blocks_size + extra);
 
                 usec_t start_timestamp = now(CLOCK_MONOTONIC);
 
@@ -6350,13 +6355,17 @@ static int context_open_copy_block_paths(
                         r = blockdev_get_device_size(source_fd, &size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine size of block device to copy from: %m");
-                } else
+                } else if (S_ISCHR(st.st_mode))
+                        size = UINT64_MAX;
+                else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing.", opened);
 
-                if (size <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", opened);
-                if (size % 512 != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", opened);
+                if (size != UINT64_MAX) {
+                        if (size <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", opened);
+                        if (size % 512 != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", opened);
+                }
 
                 p->copy_blocks_fd = TAKE_FD(source_fd);
                 p->copy_blocks_size = size;
