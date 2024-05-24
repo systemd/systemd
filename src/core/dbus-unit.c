@@ -723,15 +723,13 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
-        const char* perm;
         Unit *u = ASSERT_PTR(userdata);
-        bool reply_no_delay = false;
         int r;
 
         assert(message);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        perm = action == FREEZER_FREEZE ? "stop" : "start";
+        const char *perm = action == FREEZER_FREEZE ? "stop" : "start";
 
         r = mac_selinux_unit_access_check(u, message, perm, error);
         if (r < 0)
@@ -750,19 +748,19 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         r = unit_freezer_action(u, action);
         if (r == -EOPNOTSUPP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw");
         if (r == -EBUSY)
-                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job");
         if (r == -EHOSTDOWN)
-                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is not active");
         if (r == -EALREADY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit is still in progress.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Previously requested freezer operation for unit is still in progress");
         if (r == -ECHILD)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice");
         if (r < 0)
                 return r;
-        if (r == 0)
-                reply_no_delay = true;
+
+        bool reply_now = r == 0;
 
         if (u->pending_freezer_invocation) {
                 bus_unit_send_pending_freezer_message(u, true);
@@ -771,7 +769,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         u->pending_freezer_invocation = sd_bus_message_ref(message);
 
-        if (reply_no_delay) {
+        if (reply_now) {
                 r = bus_unit_send_pending_freezer_message(u, false);
                 if (r < 0)
                         return r;
