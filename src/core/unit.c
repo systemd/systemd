@@ -6234,7 +6234,7 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, F
         *ret_target = tgt;
 }
 
-bool unit_can_freeze(Unit *u) {
+bool unit_can_freeze(const Unit *u) {
         assert(u);
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
