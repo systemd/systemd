@@ -204,6 +204,7 @@ sshconfdir = get_option('sshconfdir')
 if sshconfdir == ''
         sshconfdir = sysconfdir / 'ssh/ssh_config.d'
 endif
+conf.set10('LINK_SSHPROXYDROPIN', sshconfdir != 'no' and not sshconfdir.startswith('/usr/'))
 
 sshdconfdir = get_option('sshdconfdir')
 if sshdconfdir == ''
