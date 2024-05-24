@@ -120,6 +120,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>list-methods</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
+
+        <listitem><para>Show list of methods implemented by the specified service. Expects a service address
+        in one of the formats described above as well as one or more interface names. If no interface name is
+        specified lists all methods of all interfaces implemented by the service, otherwise just the methods
+        in the specified services.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>introspect</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
 
         <listitem><para>Show the interface definitions of the specified interfaces provided by the specified

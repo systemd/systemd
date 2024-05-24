@@ -37,6 +37,9 @@ static int help(void) {
                "  info ADDRESS           Show service information\n"
                "  list-interfaces ADDRESS\n"
                "                         List interfaces implemented by service\n"
+               "  list-methods ADDRESS [INTERFACE…]\n"
+               "                         List methods implemented by services or specific\n"
+               "                         interfaces\n"
                "  introspect ADDRESS [INTERFACE…]\n"
                "                         Show interface definition\n"
                "  call ADDRESS METHOD [PARAMS]\n"
@@ -292,9 +295,11 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **auto_interfaces = NULL;
         char **interfaces;
         const char *url;
+        bool list_methods;
         int r;
 
         assert(argc >= 2);
+        list_methods = streq(argv[0], "list-methods");
         url = argv[1];
         interfaces = strv_skip(argv, 2);
 
@@ -329,8 +334,10 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         }
 
         /* Automatically switch on JSON_SEQ if we output multiple JSON objects */
-        if (strv_length(interfaces) > 1)
+        if (!list_methods && strv_length(interfaces) > 1)
                 arg_json_format_flags |= JSON_FORMAT_SEQ;
+
+        _cleanup_strv_free_ char **methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
                 JsonVariant *reply = NULL;
@@ -342,9 +349,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                pager_open(arg_pager_flags);
-
-                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) || list_methods) {
                         static const struct JsonDispatch dispatch_table[] = {
                                 { "description",  JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY },
                                 {}
@@ -357,24 +362,60 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        if (i > interfaces)
+                        if (!list_methods && i > interfaces)
                                 print_separator();
 
                         /* Try to parse the returned description, so that we can add syntax highlighting */
                         r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
                         if (r < 0) {
+                                if (list_methods)
+                                        return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
+
                                 log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
 
+                                pager_open(arg_pager_flags);
                                 fputs(description, stdout);
                                 if (!endswith(description, "\n"))
                                         fputs("\n", stdout);
+
+                        } else if (list_methods) {
+                                for (const VarlinkSymbol *const*symbol = vi->symbols; *symbol; symbol++) {
+                                        if ((*symbol)->symbol_type != VARLINK_METHOD)
+                                                continue;
+
+                                        r = strv_extendf(&methods, "%s.%s", vi->name, (*symbol)->name);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
                         } else {
+                                pager_open(arg_pager_flags);
                                 r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to format parsed interface description: %m");
                         }
-                } else
+                } else {
+                        pager_open(arg_pager_flags);
                         json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                }
+        }
+
+        if (list_methods) {
+                pager_open(arg_pager_flags);
+
+                strv_sort(methods);
+                strv_uniq(methods);
+
+                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                        strv_print(methods);
+                else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+
+                        r = json_build(&j, JSON_BUILD_STRV(methods));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON array: %m");
+
+                        json_variant_dump(j, arg_json_format_flags, stdout, NULL);
+                }
         }
 
         return 0;
@@ -576,6 +617,7 @@ static int varlinkctl_main(int argc, char *argv[]) {
                 { "info",            2,        2,        0, verb_info         },
                 { "list-interfaces", 2,        2,        0, verb_info         },
                 { "introspect",      2,        VERB_ANY, 0, verb_introspect   },
+                { "list-methods",    2,        VERB_ANY, 0, verb_introspect   },
                 { "call",            3,        4,        0, verb_call         },
                 { "validate-idl",    1,        2,        0, verb_validate_idl },
                 { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },
