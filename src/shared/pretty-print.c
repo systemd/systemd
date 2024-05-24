@@ -532,7 +532,9 @@ void clear_progress_bar(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
-                fputs(strrepa(" ", utf8_console_width(prefix) + 4), /* 4: %3.0f%% */
+                fputs(strrepa(" ",
+                              prefix ? utf8_console_width(prefix) + 4 :
+                              LESS_BY(columns(), 1U)), /* 4: %3.0f%% */
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
