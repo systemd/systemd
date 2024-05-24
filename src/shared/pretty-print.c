@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 
 void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
         char *p = buffer;
@@ -467,8 +468,8 @@ void draw_progress_bar(const char *prefix, double percentage) {
 
         if (!terminal_is_dumb()) {
                 size_t cols = columns();
-                size_t prefix_length = strlen_ptr(prefix);
-                size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
+                size_t prefix_width = utf8_console_width(prefix);
+                size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
 
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
                         size_t p = (size_t) (length * percentage / 100.0);
@@ -519,7 +520,7 @@ void clear_progress_bar(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
-                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                fputs(strrepa(" ", utf8_console_width(prefix) + 4), /* 4: %3.0f%% */
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
