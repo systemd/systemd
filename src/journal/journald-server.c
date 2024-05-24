@@ -335,6 +335,20 @@ static bool server_flushed_flag_is_set(Server *s) {
         return access(fn, F_OK) >= 0;
 }
 
+static void server_drop_flushed_flag(Server *s) {
+        const char *fn;
+
+        assert(s);
+
+        if (s->namespace)
+                return;
+
+        fn = strjoina(s->runtime_directory, "/flushed");
+        if (unlink(fn) < 0 && errno != ENOENT)
+                log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                            "Failed to unlink %s, ignoring: %m", fn);
+}
+
 static int server_system_journal_open(
                 Server *s,
                 bool flush_requested,
@@ -437,6 +451,7 @@ static int server_system_journal_open(
                         server_add_acls(s->runtime_journal, 0);
                         (void) cache_space_refresh(s, &s->runtime_storage);
                         patch_min_use(&s->runtime_storage);
+                        server_drop_flushed_flag(s);
                 }
         }
 
@@ -1450,7 +1465,6 @@ finish:
 }
 
 static int server_relinquish_var(Server *s) {
-        const char *fn;
         assert(s);
 
         if (s->storage == STORAGE_NONE)
@@ -1469,11 +1483,6 @@ static int server_relinquish_var(Server *s) {
         s->system_journal = journal_file_offline_close(s->system_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_offline_close);
         set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
-
-        fn = strjoina(s->runtime_directory, "/flushed");
-        if (unlink(fn) < 0 && errno != ENOENT)
-                log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                            "Failed to unlink %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return 0;
