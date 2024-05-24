@@ -864,12 +864,6 @@ Unit* unit_free(Unit *u) {
         return mfree(u);
 }
 
-FreezerState unit_freezer_state(Unit *u) {
-        assert(u);
-
-        return u->freezer_state;
-}
-
 UnitActiveState unit_active_state(Unit *u) {
         assert(u);
 
