@@ -14,6 +14,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "id128-util.h"
+#include "kernel-config.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -81,46 +82,19 @@ static int load_etc_machine_info(void) {
         return 0;
 }
 
-static int load_kernel_install_conf(void) {
+static int load_kernel_install_layout(void) {
         _cleanup_free_ char *layout = NULL;
-        const ConfigTableItem items[] = {
-                { NULL, "layout",           config_parse_string, 0, &layout           },
-                {}
-        };
         int r;
 
-        const char *conf_root = getenv("KERNEL_INSTALL_CONF_ROOT");
-
-        if (conf_root) {
-                _cleanup_free_ char *conf = NULL;
-
-                conf = path_join(conf_root, "install.conf");
-                if (!conf)
-                        return log_oom();
-
-                r = config_parse_many(
-                                STRV_MAKE_CONST(conf),
-                                STRV_MAKE_CONST(conf_root),
-                                "install.conf.d",
-                                /* root= */ NULL, /* $KERNEL_INSTALL_CONF_ROOT and --root are independent */
-                                /* sections= */ NULL,
-                                config_item_table_lookup, items,
-                                CONFIG_PARSE_WARN,
-                                /* userdata = */ NULL,
-                                /* ret_stats_by_path= */ NULL,
-                                /* ret_dropin_files= */ NULL);
-        } else
-                r = config_parse_standard_file_with_dropins_full(
-                                arg_root,
-                                "kernel/install.conf",
-                                /* sections= */ NULL,
-                                config_item_table_lookup, items,
-                                CONFIG_PARSE_WARN,
-                                /* userdata = */ NULL,
-                                /* ret_stats_by_path= */ NULL,
-                                /* ret_dropin_files= */ NULL);
-        if (r < 0)
-                return r == -ENOENT ? 0 : r;
+        r = load_kernel_install_conf(arg_root,
+                                     getenv("KERNEL_INSTALL_CONF_ROOT"),
+                                     /* ret_machine_id= */ NULL,
+                                     /* ret_boot_root= */ NULL,
+                                     &layout,
+                                     /* ret_initrd_generator= */ NULL,
+                                     /* ret_uki_generator= */ NULL);
+        if (r <= 0)
+                return r;
 
         if (!isempty(layout)) {
                 log_debug("layout=%s is specified in config.", layout);
@@ -147,7 +121,7 @@ static int settle_make_entry_directory(void) {
         if (r < 0)
                 return r;
 
-        r = load_kernel_install_conf();
+        r = load_kernel_install_layout();
         if (r < 0)
                 return r;
 
