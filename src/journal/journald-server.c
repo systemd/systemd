@@ -1411,7 +1411,11 @@ finish:
 
         /* Remove the runtime directory if the all entries are successfully flushed to /var/. */
         if (r >= 0) {
-                (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
+                r = rm_rf(s->runtime_storage.path, REMOVE_ROOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove runtime journal directory %s, ignoring: %m", s->runtime_storage.path);
+                else
+                        log_debug("Removed runtime journal directory %s.", s->runtime_storage.path);
 
                 /* The initrd may have a different machine ID from the host's one. Typically, that happens
                  * when our tests running on qemu, as the host's initrd is picked as is without updating
@@ -1419,8 +1423,13 @@ finish:
                  * runtime journals in the subdirectory named with the initrd's machine ID are flushed to
                  * the persistent journal. To make not the runtime journal flushed multiple times, let's
                  * also remove the runtime directories. */
-                STRV_FOREACH(p, dirs)
-                        (void) rm_rf(*p, REMOVE_ROOT);
+                STRV_FOREACH(p, dirs) {
+                        r = rm_rf(*p, REMOVE_ROOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to remove additional runtime journal directory %s, ignoring: %m", *p);
+                        else
+                                log_debug("Removed additional runtime journal directory %s.", *p);
+                }
         }
 
         server_driver_message(s, 0, NULL,
