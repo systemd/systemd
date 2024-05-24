@@ -280,6 +280,7 @@ enum {
         _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
+        _JSON_BUILD_DUAL_TIMESTAMP,
         _JSON_BUILD_CALLBACK,
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_FINITE_USEC,
@@ -330,6 +331,7 @@ typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *user
 #define JSON_BUILD_ETHER_ADDR(v) JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
+#define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
 #define JSON_BUILD_CALLBACK(c, u) _JSON_BUILD_CALLBACK, (JsonBuildCallback) { c }, (void*) { u }
 
 #define JSON_BUILD_PAIR_STRING(name, s) JSON_BUILD_PAIR(name, JSON_BUILD_STRING(s))
