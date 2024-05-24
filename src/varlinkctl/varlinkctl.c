@@ -235,7 +235,7 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                 };
                 _cleanup_(get_info_data_done) GetInfoData data = {};
 
-                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG, &data);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &data);
                 if (r < 0)
                         return r;
 
