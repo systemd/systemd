@@ -2,10 +2,11 @@
 
 #include "sd-bus.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "json.h"
+#include "json-util.h"
 #include "macro.h"
 #include "process-util.h"
 #include "socket-util.h"
@@ -61,15 +62,15 @@ int register_machine(
         return varlink_callb_and_log(vl,
                         "io.systemd.Machine.Register",
                         NULL,
-                        JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR_STRING("name", machine_name),
-                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(uuid), "id", JSON_BUILD_ID128(uuid)),
-                                        JSON_BUILD_PAIR_STRING("service", service),
-                                        JSON_BUILD_PAIR_STRING("class", "vm"),
-                                        JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", JSON_BUILD_UNSIGNED(cid)),
-                                        JSON_BUILD_PAIR_CONDITION(directory, "rootDirectory", JSON_BUILD_STRING(directory)),
-                                        JSON_BUILD_PAIR_CONDITION(address, "sshAddress", JSON_BUILD_STRING(address)),
-                                        JSON_BUILD_PAIR_CONDITION(key_path, "sshPrivateKeyPath", JSON_BUILD_STRING(key_path))));
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_STRING("name", machine_name),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(uuid), "id", SD_JSON_BUILD_ID128(uuid)),
+                                        SD_JSON_BUILD_PAIR_STRING("service", service),
+                                        SD_JSON_BUILD_PAIR_STRING("class", "vm"),
+                                        SD_JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", SD_JSON_BUILD_UNSIGNED(cid)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path))));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {

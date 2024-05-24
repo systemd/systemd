@@ -185,7 +185,7 @@ TEST(naptr) {
 
         assert_se(dns_packet_extract(p) >= 0);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
         _cleanup_free_ char *joined = NULL;
         DnsResourceRecord *rr;
         DNS_ANSWER_FOREACH(rr, p->answer) {
@@ -196,18 +196,18 @@ TEST(naptr) {
 
                 assert_se(strextend(&joined, s, "\n"));
 
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 assert_se(dns_resource_record_to_json(rr, &v) >= 0);
 
-                assert_se(json_variant_append_array(&a, v) >= 0);
+                assert_se(sd_json_variant_append_array(&a, v) >= 0);
         }
 
         assert(streq(joined, twilio_reply_string));
 
-        _cleanup_(json_variant_unrefp) JsonVariant *parsed = NULL;
-        assert_se(json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* ret_line= */ NULL, /* ret_column= */ NULL) >= 0);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parsed = NULL;
+        assert_se(sd_json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* ret_line= */ NULL, /* ret_column= */ NULL) >= 0);
 
-        assert_se(json_variant_equal(parsed, a));
+        assert_se(sd_json_variant_equal(parsed, a));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

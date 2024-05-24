@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "json.h"
+#include "sd-json.h"
 #include "macro.h"
 
 /* This implements the Varlink Interface Definition Language ("Varlink IDL"),
@@ -153,6 +153,6 @@ int varlink_idl_consistent(const VarlinkInterface *interface, int level);
 const VarlinkSymbol* varlink_idl_find_symbol(const VarlinkInterface *interface, VarlinkSymbolType type, const char *name);
 const VarlinkField* varlink_idl_find_field(const VarlinkSymbol *symbol, const char *name);
 
-int varlink_idl_validate_method_call(const VarlinkSymbol *method, JsonVariant *v, const char **bad_field);
-int varlink_idl_validate_method_reply(const VarlinkSymbol *method, JsonVariant *v, const char **bad_field);
-int varlink_idl_validate_error(const VarlinkSymbol *error, JsonVariant *v, const char **bad_field);
+int varlink_idl_validate_method_call(const VarlinkSymbol *method, sd_json_variant *v, const char **bad_field);
+int varlink_idl_validate_method_reply(const VarlinkSymbol *method, sd_json_variant *v, const char **bad_field);
+int varlink_idl_validate_error(const VarlinkSymbol *error, sd_json_variant *v, const char **bad_field);

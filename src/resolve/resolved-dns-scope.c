@@ -1715,8 +1715,8 @@ bool dns_scope_is_default_route(DnsScope *scope) {
         return !dns_scope_has_route_only_domains(scope);
 }
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *cache = NULL;
+int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);
@@ -1726,13 +1726,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        return json_build(ret,
-                          JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", JSON_BUILD_INTEGER(scope->family)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifindex", JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifname", JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
-                                          JSON_BUILD_PAIR_VARIANT("cache", cache)));
+        return sd_json_build(ret,
+                          SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
+                                          SD_JSON_BUILD_PAIR_VARIANT("cache", cache)));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {
