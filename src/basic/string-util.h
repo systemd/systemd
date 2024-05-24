@@ -202,11 +202,15 @@ char *strrep(const char *s, unsigned n);
 
 #define strrepa(s, n)                                           \
         ({                                                      \
+                const char *_sss_ = (s);                        \
+                size_t _nnn_ = (n);                             \
+                size_t _len_ = strlen(_sss_);                   \
+                assert(!size_multiply_overflow(_len_, _nnn_));  \
+                _len_ *= _nnn_;                                 \
                 char *_d_, *_p_;                                \
-                size_t _len_ = strlen(s) * n;                   \
                 _p_ = _d_ = newa(char, _len_ + 1);              \
-                for (unsigned _i_ = 0; _i_ < n; _i_++)          \
-                        _p_ = stpcpy(_p_, s);                   \
+                for (size_t _i_ = 0; _i_ < _nnn_; _i_++)        \
+                        _p_ = stpcpy(_p_, _sss_);               \
                 *_p_ = 0;                                       \
                 _d_;                                            \
         })

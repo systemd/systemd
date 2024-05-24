@@ -599,6 +599,9 @@ size_t utf8_console_width(const char *str) {
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
+        if (!str)
+                return 0;
+
         while (*str) {
                 int w;
 
