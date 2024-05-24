@@ -339,4 +339,154 @@ TEST(dns_answer_replace_non_empty) {
         ASSERT_FALSE(dns_answer_match_key(b, rr_a->key, NULL));
 }
 
+/* ================================================================
+ * dns_answer_remove_by_*()
+ * ================================================================ */
+
+static DnsAnswer* prepare_answer(void) {
+        DnsAnswer *answer = dns_answer_new(0);
+        DnsResourceRecord *rr = NULL;
+        int i;
+
+        ASSERT_NOT_NULL(answer);
+
+        const char *hosts[] = {
+                "a.example.com",
+                "b.example.com",
+                "c.example.com"
+        };
+
+        for (i = 0; i < 3; i++) {
+                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, hosts[i]);
+                ASSERT_NOT_NULL(rr);
+                rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+                dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, NULL);
+                dns_resource_record_unref(rr);
+        }
+
+        return answer;
+}
+
+TEST(dns_answer_remove_by_key_single) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        DnsResourceKey *key = NULL;
+
+        /* ignore non-matching class */
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_answer_remove_by_key(&answer, key));
+        ASSERT_EQ(dns_answer_size(answer), 3u);
+        dns_resource_key_unref(key);
+
+        /* ignore non-matching type */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_answer_remove_by_key(&answer, key));
+        ASSERT_EQ(dns_answer_size(answer), 3u);
+        dns_resource_key_unref(key);
+
+        /* ignore non-matching name */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "z.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_answer_remove_by_key(&answer, key));
+        ASSERT_EQ(dns_answer_size(answer), 3u);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_match_key(answer, key, NULL));
+        dns_resource_key_unref(key);
+
+        /* remove matching key */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_remove_by_key(&answer, key));
+        ASSERT_EQ(dns_answer_size(answer), 2u);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_match_key(answer, key, NULL));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_answer_remove_by_key_all) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_answer_remove_by_key(&answer, key);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_answer_remove_by_key(&answer, key);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_answer_remove_by_key(&answer, key);
+        dns_resource_key_unref(key);
+
+        ASSERT_NULL(answer);
+}
+
+TEST(dns_answer_remove_by_rr_single) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_match_key(answer, key, NULL));
+        dns_resource_key_unref(key);
+
+        /* remove nothing if the payload does not match */
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0x01020304);
+        ASSERT_FALSE(dns_answer_remove_by_rr(&answer, rr));
+        ASSERT_EQ(dns_answer_size(answer), 3u);
+        dns_resource_record_unref(rr);
+
+        /* remove matching payload */
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        ASSERT_TRUE(dns_answer_remove_by_rr(&answer, rr));
+        ASSERT_EQ(dns_answer_size(answer), 2u);
+        dns_resource_record_unref(rr);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_match_key(answer, key, NULL));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_answer_remove_by_rr_all) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_remove_by_rr(&answer, rr);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_remove_by_rr(&answer, rr);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_remove_by_rr(&answer, rr);
+        dns_resource_record_unref(rr);
+
+        ASSERT_NULL(answer);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
