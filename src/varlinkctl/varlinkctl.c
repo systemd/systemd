@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "io-util.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -37,7 +38,7 @@ static int help(void) {
                "  info ADDRESS           Show service information\n"
                "  list-interfaces ADDRESS\n"
                "                         List interfaces implemented by service\n"
-               "  introspect ADDRESS INTERFACE\n"
+               "  introspect ADDRESS [INTERFACE…]\n"
                "                         Show interface definition\n"
                "  call ADDRESS METHOD [PARAMS]\n"
                "                         Invoke method\n"
@@ -289,56 +290,89 @@ typedef struct GetInterfaceDescriptionData {
 
 static int verb_introspect(int argc, char *argv[], void *userdata) {
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
-        const char *url, *interface;
+        _cleanup_strv_free_ char **auto_interfaces = NULL;
+        char **interfaces;
+        const char *url;
         int r;
 
-        assert(argc == 3);
+        assert(argc >= 2);
         url = argv[1];
-        interface = argv[2];
+        interfaces = strv_skip(argv, 2);
 
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
 
-        sd_json_variant *reply = NULL;
-        r = varlink_callb_and_log(
-                        vl,
-                        "org.varlink.service.GetInterfaceDescription",
-                        &reply,
-                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("interface", interface)));
-        if (r < 0)
-                return r;
+        if (strv_isempty(interfaces)) {
+                sd_json_variant *reply = NULL;
 
-        pager_open(arg_pager_flags);
+                /* If no interface is specified, introspect all of them */
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                static const struct sd_json_dispatch_field dispatch_table[] = {
-                        { "description",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
-                        {}
-                };
-                _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
-                const char *description = NULL;
-                unsigned line = 0, column = 0;
-
-                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG, &description);
+                r = varlink_call_and_log(vl, "org.varlink.service.GetInfo", /* parameters= */ NULL, &reply);
                 if (r < 0)
                         return r;
 
-                /* Try to parse the returned description, so that we can add syntax highlighting */
-                r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+                const struct sd_json_dispatch_field dispatch_table[] = {
+                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, PTR_TO_SIZE(&auto_interfaces), SD_JSON_MANDATORY },
+                        {}
+                };
 
-                        fputs(description, stdout);
-                        if (!endswith(description, "\n"))
-                                fputs("\n", stdout);
-                } else {
-                        r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL);
+                if (r < 0)
+                        return r;
+
+                if (strv_isempty(auto_interfaces))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Service doesn't report any implemented interfaces.");
+
+                interfaces = strv_sort(strv_uniq(auto_interfaces));
+        }
+
+        /* Automatically switch on JSON_SEQ if we output multiple JSON objects */
+        if (strv_length(interfaces) > 1)
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        STRV_FOREACH(i, interfaces) {
+                sd_json_variant *reply = NULL;
+                r = varlink_callb_and_log(
+                                vl,
+                                "org.varlink.service.GetInterfaceDescription",
+                                &reply,
+                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("interface", *i)));
+                if (r < 0)
+                        return r;
+
+                pager_open(arg_pager_flags);
+
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                        static const struct sd_json_dispatch_field dispatch_table[] = {
+                                { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                                {}
+                        };
+                        _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
+                        const char *description = NULL;
+                        unsigned line = 0, column = 0;
+
+                        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to format parsed interface description: %m");
-                }
-        } else
-                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                                return r;
+
+                        if (i > interfaces)
+                                print_separator();
+
+                        /* Try to parse the returned description, so that we can add syntax highlighting */
+                        r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+
+                                fputs_with_newline(description, stdout);
+                        } else {
+                                r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to format parsed interface description: %m");
+                        }
+                } else
+                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+        }
 
         return 0;
 }
@@ -538,7 +572,7 @@ static int varlinkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "info",            2,        2,        0, verb_info         },
                 { "list-interfaces", 2,        2,        0, verb_info         },
-                { "introspect",      3,        3,        0, verb_introspect   },
+                { "introspect",      2,        VERB_ANY, 0, verb_introspect   },
                 { "call",            3,        4,        0, verb_call         },
                 { "validate-idl",    1,        2,        0, verb_validate_idl },
                 { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },
