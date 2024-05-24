@@ -34,9 +34,9 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_freezer_state, freezer_state, FreezerState);
 static BUS_DEFINE_PROPERTY_GET(property_get_description, "s", Unit, unit_description);
 static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_active_state, unit_active_state_to_string);
-static BUS_DEFINE_PROPERTY_GET2(property_get_freezer_state, "s", Unit, unit_freezer_state, freezer_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_sub_state, "s", Unit, unit_sub_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_unit_file_state, "s", Unit, unit_get_unit_file_state, unit_file_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_reload, "b", Unit, unit_can_reload);
@@ -864,7 +864,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("AccessSELinuxContext", "s", NULL, offsetof(Unit, access_selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadState", "s", property_get_load_state, offsetof(Unit, load_state), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveState", "s", property_get_active_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("FreezerState", "s", property_get_freezer_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("FreezerState", "s", property_get_freezer_state, offsetof(Unit, freezer_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("SubState", "s", property_get_sub_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FragmentPath", "s", NULL, offsetof(Unit, fragment_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Unit, source_path), SD_BUS_VTABLE_PROPERTY_CONST),
