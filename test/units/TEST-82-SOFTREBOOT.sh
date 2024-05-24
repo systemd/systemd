@@ -23,6 +23,17 @@ systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
 
+# Flush and sync the journal to prevent a) journal being vacuumed because of memory size limit,
+# b) reading partially writen journal entry by journalctl
+# (see https://github.com/systemd/systemd/issues/32834#issuecomment-2129897238):
+# ===
+# May 23 08:19:05 TEST-82-SOFTREBOOT.sh[1194]: + journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
+# (snip)
+# May 23 08:19:05 journalctl[1217]: Attempt to move to uninitialized object: 153664
+# May 23 08:19:05 journalctl[1217]: Failed to iterate through journal: Bad message
+journalctl --flush
+journalctl --sync
+
 if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     echo "This is the fourth boot!"
     systemd-notify --status="Fourth Boot"
@@ -47,10 +58,6 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     [[ ! -e /run/credentials/TEST-82-SOFTREBOOT-nosurvive.service ]]
     assert_eq "$(cat /run/credentials/TEST-82-SOFTREBOOT-survive-argv.service/preserve)" "yay"
 
-    # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation and
-    # removal of old archived journal files. If a journal file is removed during journalctl reading it,
-    # the command may fail. To mitigate such, sync before reading journals. Workaround for #32834.
-    journalctl --sync
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
