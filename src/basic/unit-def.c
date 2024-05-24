@@ -140,7 +140,9 @@ static const FreezerState freezer_state_finish_table[_FREEZER_STATE_MAX] = {
 };
 
 FreezerState freezer_state_finish(FreezerState state) {
-        assert(state >= 0 && state < _FREEZER_STATE_MAX);
+        assert(state >= 0);
+        assert(state < _FREEZER_STATE_MAX);
+
         return freezer_state_finish_table[state];
 }
 
