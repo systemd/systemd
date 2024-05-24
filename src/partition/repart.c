@@ -295,6 +295,7 @@ typedef struct Partition {
         int copy_blocks_fd;
         uint64_t copy_blocks_offset;
         uint64_t copy_blocks_size;
+        uint64_t copy_blocks_done;
 
         char *format;
         char **copy_files;
@@ -4499,6 +4500,26 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
+static int progress_bytes(uint64_t n_bytes, void *userdata) {
+        Partition *p = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+
+        p->copy_blocks_done += n_bytes;
+
+        if (asprintf(&s, "%s %s %s %s/%s ",
+                     strna(p->copy_blocks_path),
+                     special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                     strna(p->definition_path),
+                     FORMAT_BYTES(p->copy_blocks_done),
+                     FORMAT_BYTES(p->copy_blocks_size)) < 0)
+                return log_oom();
+
+        draw_progress_bar(s,
+                          p->copy_blocks_done >= p->copy_blocks_size ? 100.0 : /* catch division be zero */
+                          100.0 * (double) p->copy_blocks_done / (double) p->copy_blocks_size);
+        return 0;
+}
+
 static int context_copy_blocks(Context *context) {
         int r;
 
@@ -4555,7 +4576,8 @@ static int context_copy_blocks(Context *context) {
                                 return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
                 }
 
-                r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK);
+                r = copy_bytes_full(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, progress_bytes, p);
+                clear_progress_bar(/* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
