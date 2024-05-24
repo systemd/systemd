@@ -55,8 +55,8 @@ static int acquire_machine_id(const char *root, sd_id128_t *ret) {
         assert(ret);
 
         /* First, try reading the machine ID from /run/machine-id, which may not be mounted on
-         * /etc/machine-id yet. This is important on switching root, Otherwise, machine ID may be changed
-         * after the transition. */
+         * /etc/machine-id yet. This is important on switching root especially on soft-reboot, Otherwise,
+         * machine ID may be changed after the transition. */
         if (isempty(root) && running_in_chroot() <= 0 &&
             id128_read("/run/machine-id", ID128_FORMAT_PLAIN, ret) >= 0) {
                 log_info("Reusing machine ID stored in /run/machine-id.");
