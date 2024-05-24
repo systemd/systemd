@@ -356,8 +356,8 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         int r;
 
         assert(s);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
-                      FREEZER_THAW, FREEZER_PARENT_THAW));
+        assert(action >= 0);
+        assert(action < _FREEZER_ACTION_MAX);
 
         if (action == FREEZER_FREEZE && !slice_can_freeze(s)) {
                 /* We're intentionally only checking for FREEZER_FREEZE here and ignoring the
