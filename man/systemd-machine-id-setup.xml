@@ -43,24 +43,31 @@
     ID will be acquired in the following fashion:</para>
 
     <orderedlist>
-      <listitem><para>If a valid D-Bus machine ID is already
-      configured for the system, the D-Bus machine ID is copied and
-      used to initialize the machine ID in
-      <filename>/etc/machine-id</filename>.</para></listitem>
+      <listitem><para>If a valid machine ID is stored in <filename>/run/machine-id</filename>, the machine ID
+      is copied and used to initialize the machine ID in <filename>/etc/machine-id</filename>. This step is
+      skipped if <option>--root=</option> is specified or running in a chroot environment.</para></listitem>
 
-      <listitem><para>If run inside a KVM virtual machine and a UUID
-      is configured (via the <option>-uuid</option>
-      option), this UUID is used to initialize the machine ID. The
-      caller must ensure that the UUID passed is sufficiently unique
-      and is different for every booted instance of the
-      VM.</para></listitem>
+      <listitem><para>If a valid D-Bus machine ID is already configured for the system, the D-Bus machine ID
+      is copied and used to initialize the machine ID in <filename>/etc/machine-id</filename>.
+      </para></listitem>
+
+      <listitem><para>If a valid machine ID is provided through <option>system.machine_id</option> credential,
+      the machine ID is copied and used to initialize the machine ID in <filename>/etc/machine-id</filename>.
+      This step is skipped if <option>--root=</option> is specified or running in a chroot environment.
+      </para></listitem>
+
+      <listitem><para>If run inside a KVM virtual machine and a UUID is configured (via the
+      <option>-uuid</option> option), this UUID is used to initialize the machine ID. The caller must ensure
+      that the UUID passed is sufficiently unique and is different for every booted instance of the VM. This
+      step is skipped if <option>--root=</option> is specified or running in a chroot environment.
+      </para></listitem>
 
       <listitem><para>Similarly, if run inside a Linux container environment and a UUID is configured for the
       container, this is used to initialize the machine ID. For details, see the documentation of the <ulink
-      url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink>.</para></listitem>
+      url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink>. This step is skipped if
+      <option>--root=</option> is specified or running in a chroot environment.</para></listitem>
 
-      <listitem><para>Otherwise, a new ID is randomly
-      generated.</para></listitem>
+      <listitem><para>Otherwise, a new ID is randomly generated.</para></listitem>
     </orderedlist>
 
     <para>The <option>--commit</option> switch may be used to commit a
