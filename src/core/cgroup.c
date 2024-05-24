@@ -5125,8 +5125,8 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         int r;
 
         assert(u);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
-                              FREEZER_THAW, FREEZER_PARENT_THAW));
+        assert(action >= 0);
+        assert(action < _FREEZER_ACTION_MAX);
 
         if (!cg_freezer_supported())
                 return 0;
