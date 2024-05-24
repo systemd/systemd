@@ -14,6 +14,11 @@
 #include "log.h"
 #include "tests.h"
 
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "tmpfile-util.h"
+
 static DnsCache new_cache(void) {
         return (DnsCache) {};
 }
@@ -403,6 +408,84 @@ TEST(dns_cache_lookup_any_always_misses) {
         ASSERT_EQ(ret_query_flags, 0u);
 
         ASSERT_EQ(dns_answer_size(ret_answer), 0u);
+}
+
+/* ================================================================
+ * dns_cache_dump()
+ * ================================================================ */
+
+static int cmpstring(const void *a, const void *b) {
+        return strcmp(*(const char **)a, *(const char **)b);
+}
+
+static void check_dump_contents(FILE *f, const char **expected, size_t n) {
+        char *actual[n];
+        size_t i, r;
+        rewind(f);
+
+        for (i = 0; i < n; i++) {
+                r = read_line(f, 1024, &actual[i]);
+                ASSERT_GT(r, 0u);
+        }
+
+        qsort(actual, n, sizeof(char *), cmpstring);
+
+        for (i = 0; i < n; i++) {
+                ASSERT_STREQ(actual[i], expected[i]);
+        }
+}
+
+TEST(dns_cache_dump_single_a) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-cache-dump-single-a-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_cache_dump(&cache, f);
+
+        const char *expected[] = {
+                "\twww.example.com IN A 192.168.1.127"
+        };
+        check_dump_contents(f, expected, 1);
+}
+
+TEST(dns_cache_dump_a_with_cname) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        put_args.rcode = DNS_RCODE_SUCCESS;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        answer_add_cname(&put_args, key, "example.com", 3600, DNS_ANSWER_CACHEABLE);
+
+        dns_resource_key_unref(key);
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        answer_add_a(&put_args, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+
+        cache_put(&cache, &put_args);
+
+        ASSERT_EQ(dns_cache_size(&cache), 2u);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-cache-dump-a-with-cname-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_cache_dump(&cache, f);
+
+        const char *expected[] = {
+                "\texample.com IN A 192.168.1.127",
+                "\twww.example.com IN CNAME example.com"
+        };
+        check_dump_contents(f, expected, 2);
 }
 
 /* ================================================================
