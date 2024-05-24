@@ -849,7 +849,6 @@ const char* unit_status_string(Unit *u, char **combined);
 bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
-FreezerState unit_freezer_state(Unit *u);
 
 const char* unit_sub_state_to_string(Unit *u);
 
