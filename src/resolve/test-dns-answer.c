@@ -123,4 +123,106 @@ TEST(dns_answer_match_key_multiple) {
         dns_resource_key_unref(key);
 }
 
+/* ================================================================
+ * dns_answer_find_soa()
+ * ================================================================ */
+
+TEST(dns_answer_find_soa) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        DnsAnswerFlags flags = 0;
+
+        answer = dns_answer_new(0);
+        ASSERT_NOT_NULL(answer);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        dns_answer_add_soa(answer, "example.com", 3600, 1);
+
+        /* does not find SOA keys */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        /* finds matching A key */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_resource_key_equal(rr->key, key));
+        ASSERT_EQ((int)flags, DNS_ANSWER_AUTHENTICATED);
+        dns_resource_key_unref(key);
+
+        /* finds matching A key suddomain */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "foo.www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_resource_key_equal(rr->key, key));
+        ASSERT_EQ((int)flags, DNS_ANSWER_AUTHENTICATED);
+        dns_resource_key_unref(key);
+
+        /* does not match simple prefix */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "fooexample.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        /* does not match parent domain */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        /* returns an error for bad escapes */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\\example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_ERROR(dns_answer_find_soa(answer, key, &rr, &flags), EINVAL);
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_answer_find_soa_multi) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsAnswerFlags flags = 0;
+
+        answer = dns_answer_new(0);
+        ASSERT_NOT_NULL(answer);
+
+        dns_answer_add_soa(answer, "example.com", 3600, 1);
+        dns_answer_add_soa(answer, "example.org", 3600, 1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_resource_key_equal(rr->key, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.org");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_answer_find_soa(answer, key, &rr, &flags));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.org");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_resource_key_equal(rr->key, key));
+        dns_resource_key_unref(key);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
