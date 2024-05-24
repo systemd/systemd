@@ -31,10 +31,12 @@ if conf.get('ENABLE_SSH_USERDB_CONFIG') == 1
                 output : '20-systemd-userdb.conf',
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : true,
-                install_dir : libexecdir / 'sshd_config.d')
+                install_dir : sshdconfdir.startswith('/usr/') ? sshdconfdir : libexecdir / 'sshd_config.d')
 
-        install_emptydir(sshdconfdir)
+        if not sshdconfdir.startswith('/usr/')
+                install_emptydir(sshdconfdir)
 
-        meson.add_install_script(sh, '-c',
-                ln_s.format(libexecdir / 'sshd_config.d' / '20-systemd-userdb.conf', sshdconfdir / '20-systemd-userdb.conf'))
+                meson.add_install_script(sh, '-c',
+                        ln_s.format(libexecdir / 'sshd_config.d' / '20-systemd-userdb.conf', sshdconfdir / '20-systemd-userdb.conf'))
+        endif
 endif
