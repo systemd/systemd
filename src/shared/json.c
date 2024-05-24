@@ -3988,6 +3988,38 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_DUAL_TIMESTAMP: {
+                        dual_timestamp *ts;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        ts = va_arg(ap, dual_timestamp*);
+
+                        if (current->n_suppress == 0) {
+                                if (dual_timestamp_is_set(ts)) {
+                                        r = json_build(&add, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("realtime", JSON_BUILD_UNSIGNED(ts->realtime)),
+                                                                               JSON_BUILD_PAIR("monotonic", JSON_BUILD_UNSIGNED(ts->monotonic))));
+                                        if (r < 0)
+                                                return r;
+                                } else
+                                        add = JSON_VARIANT_MAGIC_NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_CALLBACK: {
                         JsonBuildCallback cb;
                         void *userdata;
