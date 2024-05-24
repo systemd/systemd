@@ -162,9 +162,9 @@ int copy_bytes_full(
                 void *userdata) {
 
         _cleanup_close_ int fdf_opened = -EBADF, fdt_opened = -EBADF;
-        bool try_cfr = true, try_sendfile = true, try_splice = true, copied_something = false;
+        bool try_cfr = true, try_sendfile = true, try_splice = true;
+        uint64_t copied_total = 0;
         int r, nonblock_pipe = -1;
-        size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -264,6 +264,7 @@ int copy_bytes_full(
 
         for (;;) {
                 ssize_t n;
+                size_t m;
 
                 if (max_bytes <= 0)
                         break;
@@ -271,6 +272,14 @@ int copy_bytes_full(
                 r = look_for_signals(copy_flags);
                 if (r < 0)
                         return r;
+
+                /* sendfile() accepts at most SSIZE_MAX-offset bytes to copy, hence let's subtract how much
+                 * copied so far from SSIZE_MAX as maximum of what we want to copy. */
+                if (try_sendfile) {
+                        assert(copied_total < SSIZE_MAX);
+                        m = (uint64_t) SSIZE_MAX - copied_total;
+                } else
+                        m = SSIZE_MAX;
 
                 if (max_bytes != UINT64_MAX && m > max_bytes)
                         m = max_bytes;
@@ -342,7 +351,7 @@ int copy_bytes_full(
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 /* So, we hit EOF immediately, without having copied a single byte. This
@@ -369,7 +378,7 @@ int copy_bytes_full(
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 try_sendfile = try_splice = false; /* same logic as above for copy_file_range() */
@@ -432,7 +441,7 @@ int copy_bytes_full(
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 try_splice = false; /* same logic as above for copy_file_range() + sendfile() */
@@ -483,6 +492,12 @@ int copy_bytes_full(
                 }
 
         next:
+                copied_total += n;
+
+                /* Disable sendfile() in case we are getting too close to it's SSIZE_MAX-offset limit */
+                if (copied_total > SSIZE_MAX - COPY_BUFFER_SIZE)
+                        try_sendfile = false;
+
                 if (progress) {
                         r = progress(n, userdata);
                         if (r < 0)
@@ -493,13 +508,6 @@ int copy_bytes_full(
                         assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
-
-                /* sendfile accepts at most SSIZE_MAX-offset bytes to copy, so reduce our maximum by the
-                 * amount we already copied, but don't go below our copy buffer size, unless we are close the
-                 * limit of bytes we are allowed to copy. */
-                m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
-
-                copied_something = true;
         }
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
