@@ -514,6 +514,7 @@ void unit_cgroup_catchup(Unit *u);
 bool unit_cgroup_delegate(Unit *u);
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
+
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 const char* freezer_action_to_string(FreezerAction a) _const_;
