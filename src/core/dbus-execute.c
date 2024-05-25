@@ -2755,7 +2755,7 @@ int bus_exec_context_set_transient_property(
                         c->working_directory_home = is_home;
                         c->working_directory_missing_ok = missing_ok;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "+" : ASSERT_PTR(c->working_directory));
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "~" : ASSERT_PTR(c->working_directory));
                 }
 
                 return 1;
