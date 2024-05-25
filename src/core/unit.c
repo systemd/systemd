@@ -6184,45 +6184,56 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, F
         else
                 parent = FREEZER_RUNNING;
 
-        if (action == FREEZER_FREEZE) {
+        switch (action) {
+
+        case FREEZER_FREEZE:
                 /* We always "promote" a freeze initiated by parent into a normal freeze */
                 if (IN_SET(curr, FREEZER_FROZEN, FREEZER_FROZEN_BY_PARENT))
                         next = FREEZER_FROZEN;
                 else
                         next = FREEZER_FREEZING;
-        } else if (action == FREEZER_THAW) {
+                break;
+
+        case FREEZER_THAW:
                 /* Thawing is the most complicated operation here, because we can't thaw a unit
                  * if its parent is frozen. So we instead "demote" a normal freeze into a freeze
                  * initiated by parent if the parent is frozen */
-                if (IN_SET(curr, FREEZER_RUNNING, FREEZER_THAWING, FREEZER_FREEZING_BY_PARENT, FREEZER_FROZEN_BY_PARENT))
+                if (IN_SET(curr, FREEZER_RUNNING, FREEZER_THAWING,
+                                 FREEZER_FREEZING_BY_PARENT, FREEZER_FROZEN_BY_PARENT)) /* Should usually be refused by unit_freezer_action */
                         next = curr;
                 else if (curr == FREEZER_FREEZING) {
                         if (IN_SET(parent, FREEZER_RUNNING, FREEZER_THAWING))
                                 next = FREEZER_THAWING;
                         else
                                 next = FREEZER_FREEZING_BY_PARENT;
-                } else {
-                        assert(curr == FREEZER_FROZEN);
+                } else if (curr == FREEZER_FROZEN) {
                         if (IN_SET(parent, FREEZER_RUNNING, FREEZER_THAWING))
                                 next = FREEZER_THAWING;
                         else
                                 next = FREEZER_FROZEN_BY_PARENT;
-                }
-        } else if (action == FREEZER_PARENT_FREEZE) {
+                } else
+                        assert_not_reached();
+                break;
+
+        case FREEZER_PARENT_FREEZE:
                 /* We need to avoid accidentally demoting units frozen manually */
                 if (IN_SET(curr, FREEZER_FREEZING, FREEZER_FROZEN, FREEZER_FROZEN_BY_PARENT))
                         next = curr;
                 else
                         next = FREEZER_FREEZING_BY_PARENT;
-        } else {
-                assert(action == FREEZER_PARENT_THAW);
+                break;
 
+        case FREEZER_PARENT_THAW:
                 /* We don't want to thaw units from a parent if they were frozen
                  * manually, so for such units this action is a no-op */
                 if (IN_SET(curr, FREEZER_RUNNING, FREEZER_FREEZING, FREEZER_FROZEN))
                         next = curr;
                 else
                         next = FREEZER_THAWING;
+                break;
+
+        default:
+                assert_not_reached();
         }
 
         objective = freezer_state_finish(next);
