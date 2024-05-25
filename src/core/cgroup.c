@@ -5119,19 +5119,18 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         unit_next_freezer_state(u, action, &next, &objective);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path) {
+        if (!crt || !crt->cgroup_path)
                 /* No realized cgroup = nothing to freeze */
-                u->freezer_state = freezer_state_finish(next);
-                return 0;
-        }
+                goto skip;
 
         r = unit_cgroup_freezer_kernel_state(u, &current);
         if (r < 0)
                 return r;
 
         if (current == objective)
-                next = freezer_state_finish(next);
-        else if (next == freezer_state_finish(next)) {
+                goto skip;
+
+        if (next == freezer_state_finish(next)) {
                 /* We're directly transitioning into a finished state, which in theory means that
                  * the cgroup's current state already matches the objective and thus we'd return 0.
                  * But, reality shows otherwise (such case would have been handled by current == objective
@@ -5149,6 +5148,8 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                         next = FREEZER_FREEZING_BY_PARENT;
                 else if (next == FREEZER_RUNNING)
                         next = FREEZER_THAWING;
+                else
+                        assert_not_reached();
         }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "cgroup.freeze", &path);
@@ -5164,7 +5165,11 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                 return r;
 
         u->freezer_state = next;
-        return current != objective;
+        return 1; /* Wait for cgroup event before replying */
+
+skip:
+        u->freezer_state = freezer_state_finish(next);
+        return 0;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
