@@ -2608,6 +2608,7 @@ int config_parse_working_directory(
         assert(rvalue);
 
         if (isempty(rvalue)) {
+                c->working_directory_missing_ok = false;
                 c->working_directory_home = false;
                 c->working_directory = mfree(c->working_directory);
                 return 0;
