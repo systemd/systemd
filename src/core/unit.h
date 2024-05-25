@@ -1038,7 +1038,7 @@ bool unit_can_isolate_refuse_manual(Unit *u);
 
 bool unit_can_freeze(const Unit *u);
 int unit_freezer_action(Unit *u, FreezerAction action);
-void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_tgt);
+void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_objective);
 void unit_frozen(Unit *u);
 void unit_thawed(Unit *u);
 
