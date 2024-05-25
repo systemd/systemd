@@ -5,5 +5,6 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'unit' : files('TEST-82-SOFTREBOOT.service'),
                 'cmdline' : ['systemd.set_credential=kernelcmdlinecred:uff'],
+                'storage' : 'persistent',
         },
 ]
