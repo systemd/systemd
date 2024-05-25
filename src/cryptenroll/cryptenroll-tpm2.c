@@ -342,6 +342,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find pcrlock policy %s.", pcrlock_path);
 
                 any_pcr_value_specified = true;
                 flags |= TPM2_FLAGS_USE_PCRLOCK;
