@@ -47,6 +47,9 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     [[ ! -e /run/credentials/TEST-82-SOFTREBOOT-nosurvive.service ]]
     assert_eq "$(cat /run/credentials/TEST-82-SOFTREBOOT-survive-argv.service/preserve)" "yay"
 
+    ls -lR /var/log/journal || :
+    journalctl --header || :
+
     # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation and
     # removal of old archived journal files. If a journal file is removed during journalctl reading it,
     # the command may fail. To mitigate such, sync before reading journals. Workaround for #32834.
