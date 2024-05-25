@@ -352,7 +352,6 @@ static bool slice_can_freeze(const Unit *u) {
 
 static int slice_freezer_action(Unit *s, FreezerAction action) {
         FreezerAction child_action;
-        Unit *member;
         int r;
 
         assert(s);
@@ -364,7 +363,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
                  * _BY_PARENT variant. If we're being frozen by parent, that means someone has
                  * already checked if we can be frozen further up the call stack. No point to
                  * redo that work */
-                log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
+                log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice.");
                 return 0;
         }
 
@@ -375,15 +374,13 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         else
                 child_action = action;
 
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
-                if (UNIT_VTABLE(member)->freezer_action)
+        Unit *member;
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF)
+                if (UNIT_VTABLE(member)->freezer_action) {
                         r = UNIT_VTABLE(member)->freezer_action(member, child_action);
-                else
-                        /* Only thawing will reach here, since freezing checks for a method in can_freeze */
-                        r = 0;
-                if (r < 0)
-                        return r;
-        }
+                        if (r < 0)
+                                return r;
+                }
 
         return unit_cgroup_freezer_action(s, action);
 }
