@@ -199,7 +199,7 @@ int acquire_tpm2_key(
                                 pubkey_pcr_mask,
                                 signature_json,
                                 b64_salted_pin,
-                                pcrlock_path ? &pcrlock_policy : NULL,
+                                FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                                 primary_alg,
                                 &blob,
                                 policy_hash,
