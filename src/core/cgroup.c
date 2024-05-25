@@ -5106,7 +5106,7 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
 
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
-        FreezerState target, current, next;
+        FreezerState current, next, objective;
         int r;
 
         assert(u);
@@ -5116,7 +5116,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (!cg_freezer_supported())
                 return 0;
 
-        unit_next_freezer_state(u, action, &next, &target);
+        unit_next_freezer_state(u, action, &next, &objective);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path) {
@@ -5129,11 +5129,11 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        if (current == target)
+        if (current == objective)
                 next = freezer_state_finish(next);
         else if (IN_SET(next, FREEZER_FROZEN, FREEZER_FROZEN_BY_PARENT, FREEZER_RUNNING)) {
                 /* We're transitioning into a finished state, which implies that the cgroup's
-                 * current state already matches the target and thus we'd return 0. But, reality
+                 * current state already matches the objective and thus we'd return 0. But, reality
                  * shows otherwise. This indicates that our freezer_state tracking has diverged
                  * from the real state of the cgroup, which can happen if someone meddles with the
                  * cgroup from underneath us. This really shouldn't happen during normal operation,
@@ -5158,12 +5158,12 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                        freezer_state_to_string(u->freezer_state),
                        freezer_state_to_string(next));
 
-        r = write_string_file(path, one_zero(target == FREEZER_FROZEN), WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(path, one_zero(objective == FREEZER_FROZEN), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
         u->freezer_state = next;
-        return target != current;
+        return current != objective;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
