@@ -3594,7 +3594,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
-        if (*home)
+        if (*home) /* Already acquired from get_fixed_user()? */
                 return 0;
 
         if (!c->working_directory_home)
