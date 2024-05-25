@@ -37,6 +37,18 @@ CHANGES WITH 256-rc3:
           [BridgeVLAN] section, then all assigned VLAN IDs on the interface
           that are not configured in the .network file are removed.
 
+        * IPForward= setting in .network file is deprecated and replaced with
+          IPv4Forwarding= and IPv6Forwarding= settings. These new settings are
+          supported both in .network file and networkd.conf. If specified in a
+          .network file, they control corresponding per-link settings. If
+          specified in networkd.conf, they control corresponding global
+          settings. Note, previously IPv6SendRA= and IPMasquerade= implied
+          IPForward=, but now they imply the new per-link settings. One of the
+          simplest ways to migrate configurations, that worked as a router with
+          the previous version, is enabling both IPv4Forwarding= and
+          IPv6Forwarding= in networkd.conf. See systemd.network(5) and
+          networkd.conf(5) for more details.
+
         * systemd-gpt-auto-generator will stop generating units for ESP or
           XBOOTLDR partitions if it finds mount entries for or below the /boot/
           or /efi/ hierarchies in /etc/fstab. This is to prevent the generator
