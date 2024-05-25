@@ -329,7 +329,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
                                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
                                 if (r < 0)
-                                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                                        return log_error_errno(r, "Failed to read TPM PCR signature: %m");
                         }
                 }
         } else
