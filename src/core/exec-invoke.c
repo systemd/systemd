@@ -3585,12 +3585,12 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+static int acquire_home(const ExecContext *c, const char **ret_home, char **ret_buf) {
         int r;
 
         assert(c);
-        assert(home);
-        assert(buf);
+        assert(ret_home);
+        assert(ret_buf);
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
@@ -3600,11 +3600,12 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
         if (!c->working_directory_home)
                 return 0;
 
-        r = get_home_dir(buf);
+        r = get_home_dir(ret_buf);
         if (r < 0)
                 return r;
 
-        *home = *buf;
+        *ret_home = *ret_buf;
+
         return 1;
 }
 
@@ -4291,7 +4292,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, uid, &home, &home_buffer);
+        r = acquire_home(context, &home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
