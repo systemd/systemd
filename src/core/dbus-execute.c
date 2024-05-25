@@ -2729,11 +2729,11 @@ int bus_exec_context_set_transient_property(
                 } else
                         missing_ok = false;
 
-                if (isempty(s))
-                        is_home = false;
-                else if (streq(s, "~"))
+                if (streq(s, "~"))
                         is_home = true;
                 else {
+                        is_home = false;
+
                         if (!path_is_absolute(s))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
 
@@ -2745,9 +2745,7 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects a normalized path or '~'");
 
                         if (path_below_api_vfs(simplified))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= may not be below /proc/, /sys/ or /dev/.");
-
-                        is_home = false;
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= may not be below /proc/, /sys/ or /dev/");
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2755,7 +2753,10 @@ int bus_exec_context_set_transient_property(
                         c->working_directory_home = is_home;
                         c->working_directory_missing_ok = missing_ok;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "+" : ASSERT_PTR(c->working_directory));
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                            "WorkingDirectory=%s%s",
+                                            c->working_directory_missing_ok ? "-" : "",
+                                            c->working_directory_home ? "~" : ASSERT_PTR(c->working_directory));
                 }
 
                 return 1;
