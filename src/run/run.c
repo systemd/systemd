@@ -1882,12 +1882,13 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));
 
-                        if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%u",
-                                         sigchld_code_to_string(c.exit_code), c.exit_status);
-                        else if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s/status=%s",
-                                         sigchld_code_to_string(c.exit_code), signal_to_string(c.exit_status));
+                        if (c.exit_code > 0)
+                                log_info("Main processes terminated with: code=%s, status=%u/%s",
+                                         sigchld_code_to_string(c.exit_code),
+                                         c.exit_status,
+                                         strna(c.exit_code == CLD_EXITED ?
+                                               exit_status_to_string(c.exit_status, EXIT_STATUS_FULL) :
+                                               signal_to_string(c.exit_status)));
 
                         if (timestamp_is_set(c.inactive_enter_usec) &&
                             timestamp_is_set(c.inactive_exit_usec) &&
