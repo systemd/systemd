@@ -4238,16 +4238,14 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (MANAGER_IS_USER(u->manager) &&
-                    !ec->working_directory) {
-
+                if (MANAGER_IS_USER(u->manager) && !ec->working_directory) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
 
-                        /* Allow user services to run, even if the
-                         * home directory is missing */
-                        ec->working_directory_missing_ok = true;
+                        if (!ec->working_directory_home)
+                                /* If home directory is implied by us, allow it to be missing. */
+                                ec->working_directory_missing_ok = true;
                 }
 
                 if (ec->private_devices)
