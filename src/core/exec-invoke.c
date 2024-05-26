@@ -3600,9 +3600,6 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (!c->working_directory_home)
                 return 0;
 
-        if (c->dynamic_user)
-                return -EADDRNOTAVAIL;
-
         r = get_home_dir(ret_buf);
         if (r < 0)
                 return r;
