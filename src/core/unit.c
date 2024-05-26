@@ -4223,8 +4223,8 @@ static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
         if (!ec)
                 return 0;
 
-        if (MANAGER_IS_USER(u->manager) && ec->dynamic_user)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "DynamicUser= enabled for user unit, which is not supported. Refusing.");
+        //if (MANAGER_IS_USER(u->manager) && ec->dynamic_user)
+          //      return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "DynamicUser= enabled for user unit, which is not supported. Refusing.");
 
         if (ec->dynamic_user && ec->working_directory_home)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
