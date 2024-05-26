@@ -383,16 +383,29 @@ int blockdev_partscan_enabled(int fd) {
          * e81cd5a983bb35dabd38ee472cf3fea1c63e0f23, the flag was never used. So, fortunately, we can use
          * both the new and old values safely.
          *
+         * With https://github.com/torvalds/linux/commit/b9684a71fca793213378dd410cd11675d973eaa1 (v5.19),
+         * another flag GD_SUPPRESS_PART_SCAN is introduced for loopback block device, and partition scanning
+         * is done only when both GENHD_FL_NO_PART and GD_SUPPRESS_PART_SCAN are not set. Before the commit,
+         * LO_FLAGS_PARTSCAN flag was directly tied with GENHD_FL_NO_PART. But with this change now it is
+         * tied with GD_SUPPRESS_PART_SCAN. So, LO_FLAGS_PARTSCAN cannot be obtained from 'ext_range'
+         * sysattr, which corresponds to GENHD_FL_NO_PART, and we need to read 'loop/partscan'. 💣💣💣
+         *
+         * With https://github.com/torvalds/linux/commit/73a166d9749230d598320fdae3b687cdc0e2e205 (v6.3),
+         * the GD_SUPPRESS_PART_SCAN flag is also introduced for userspace block device (ublk). Though, not
+         * sure if we should support the device...
+         *
          * With https://github.com/torvalds/linux/commit/e81cd5a983bb35dabd38ee472cf3fea1c63e0f23 (v6.3),
-         * the 'capability' sysfs attribute is deprecated, hence we cannot check the flag from it.
+         * the 'capability' sysfs attribute is deprecated, hence we cannot check flags from it. 💣💣💣
          *
-         * With https://github.com/torvalds/linux/commit/a4217c6740dc64a3eb6815868a9260825e8c68c6
-         * (backported to v6.9), the partscan status is directly exposed as 'partscan' sysattr.
+         * With https://github.com/torvalds/linux/commit/a4217c6740dc64a3eb6815868a9260825e8c68c6 (v6.10,
+         * backported to v6.9), the partscan status is directly exposed as 'partscan' sysattr.
          *
-         * To support both old and new kernels, we need to do the following: first check 'partscan' attr
-         * where the information is made directly available; then, fall back to 'ext_range' sysfs attribute,
-         * and if '1' we can conclude partition scanning is disabled; otherwise check 'capability' sysattr
-         * for ancient version. */
+         * To support both old and new kernels, we need to do the following:
+         * 1) check 'partscan' sysfs attribute where the information is made directly available,
+         * 2) check 'loop/partscan' sysfs attribute for loopback block devices, and if '0' we can conclude
+         *    partition scanning is disabled,
+         * 3) check 'ext_range' sysfs attribute, and if '1' we can conclude partition scanning is disabled,
+         * 4) otherwise check 'capability' sysfs attribute for ancient version. */
 
         assert(fd >= 0);
 
@@ -400,9 +413,15 @@ int blockdev_partscan_enabled(int fd) {
         if (r < 0)
                 return r;
 
+        /* For v6.10 or newer. */
         r = device_get_sysattr_bool(dev, "partscan");
         if (r != -ENOENT)
                 return r;
+
+        /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
+         * check GENHD_FL_NO_PART flag through 'ext_range' and 'capability' sysfs attributes below. */
+        if (device_get_sysattr_bool(dev, "loop/partscan") == 0)
+                return false;
 
         r = device_get_sysattr_int(dev, "ext_range", &ext_range);
         if (r == -ENOENT) /* If the ext_range file doesn't exist then we are most likely looking at a
