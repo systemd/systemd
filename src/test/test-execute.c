@@ -987,6 +987,11 @@ static char* private_directory_bad(Manager *m) {
 }
 
 static void test_exec_dynamicuser(Manager *m) {
+        if (MANAGER_IS_USER(m)) {
+                log_notice("Skipping %s for user manager", __func__);
+                return;
+        }
+
         _cleanup_free_ char *bad = private_directory_bad(m);
         if (bad) {
                 log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
@@ -998,7 +1003,7 @@ static void test_exec_dynamicuser(Manager *m) {
                 return;
         }
 
-        int status = can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP;
+        int status = can_unshare ? 0 : EXIT_NAMESPACE;
 
         test(m, "exec-dynamicuser-fixeduser.service", status, CLD_EXITED);
         if (check_user_has_group_with_same_name("adm"))
