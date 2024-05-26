@@ -4217,6 +4217,21 @@ static int user_from_unit_name(Unit *u, char **ret) {
         return 0;
 }
 
+static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
+        assert(u);
+
+        if (!ec)
+                return 0;
+
+        if (MANAGER_IS_USER(u->manager) && ec->dynamic_user)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "DynamicUser= enabled for user unit, which is not supported. Refusing.");
+
+        if (ec->dynamic_user && ec->working_directory_home)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
+
+        return 0;
+}
+
 int unit_patch_contexts(Unit *u) {
         CGroupContext *cc;
         ExecContext *ec;
@@ -4238,16 +4253,14 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (MANAGER_IS_USER(u->manager) &&
-                    !ec->working_directory) {
-
+                if (MANAGER_IS_USER(u->manager) && !ec->working_directory) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
 
-                        /* Allow user services to run, even if the
-                         * home directory is missing */
-                        ec->working_directory_missing_ok = true;
+                        if (!ec->working_directory_home)
+                                /* If home directory is implied by us, allow it to be missing. */
+                                ec->working_directory_missing_ok = true;
                 }
 
                 if (ec->private_devices)
@@ -4342,7 +4355,7 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
-        return 0;
+        return unit_verify_contexts(u, ec);
 }
 
 ExecContext *unit_get_exec_context(const Unit *u) {

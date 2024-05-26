@@ -2716,38 +2716,38 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "WorkingDirectory")) {
                 _cleanup_free_ char *simplified = NULL;
-                bool missing_ok, is_home;
+                bool missing_ok = false, is_home = false;
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
-                if (s[0] == '-') {
-                        missing_ok = true;
-                        s++;
-                } else
-                        missing_ok = false;
+                if (!isempty(s)) {
+                        if (s[0] == '-') {
+                                missing_ok = true;
+                                s++;
+                        }
 
-                if (isempty(s))
-                        is_home = false;
-                else if (streq(s, "~"))
-                        is_home = true;
-                else {
-                        if (!path_is_absolute(s))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+                        if (streq(s, "~"))
+                                is_home = true;
+                        else {
+                                if (!path_is_absolute(s))
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                "WorkingDirectory= expects an absolute path or '~'");
 
-                        r = path_simplify_alloc(s, &simplified);
-                        if (r < 0)
-                                return r;
+                                r = path_simplify_alloc(s, &simplified);
+                                if (r < 0)
+                                        return r;
 
-                        if (!path_is_normalized(simplified))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects a normalized path or '~'");
+                                if (!path_is_normalized(simplified))
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                "WorkingDirectory= expects a normalized path or '~'");
 
-                        if (path_below_api_vfs(simplified))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= may not be below /proc/, /sys/ or /dev/.");
-
-                        is_home = false;
+                                if (path_below_api_vfs(simplified))
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                "WorkingDirectory= may not be below /proc/, /sys/ or /dev/");
+                        }
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2755,7 +2755,10 @@ int bus_exec_context_set_transient_property(
                         c->working_directory_home = is_home;
                         c->working_directory_missing_ok = missing_ok;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "+" : ASSERT_PTR(c->working_directory));
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                            "WorkingDirectory=%s%s",
+                                            c->working_directory_missing_ok ? "-" : "",
+                                            c->working_directory_home ? "~" : strempty(c->working_directory));
                 }
 
                 return 1;
