@@ -1188,17 +1188,25 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         /* There are no idle workers. */
 
+        if (manager->cgroup)
+                /* cleanup possible left-over processes in our cgroup */
+                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
+
+        /* On SIGTERM/SIGINT or udevadm control --exit, stop earlier without calling udev_node_cleanup() below.
+         *
+         * Background: in some spurious(?) initrd, contents of /run may be removed after udevadm control --exit.
+         * If udevd also cleanups /run/udev/links, then nuking process of initrd may get ENOENT. Though, that's
+         * a really bad idea that ENOENT is handled as critical in the nuking process... But, see,
+         * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1056564
+         *
+         * Let's leave /run/udev/links as is now, and cleanup them when udevd is restarted. */
+        if (manager->exit)
+                return sd_event_exit(manager->event, 0);
+
         if (manager->udev_node_needs_cleanup) {
                 (void) udev_node_cleanup();
                 manager->udev_node_needs_cleanup = false;
         }
-
-        if (manager->exit)
-                return sd_event_exit(manager->event, 0);
-
-        if (manager->cgroup)
-                /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
         return 1;
 }
@@ -1372,6 +1380,9 @@ int manager_main(Manager *manager) {
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
 
         manager->last_usec = now(CLOCK_MONOTONIC);
+
+        /* Remove unnecessary lock files created by the previous invocation. */
+        (void) udev_node_cleanup();
 
         udev_builtin_init();
 
