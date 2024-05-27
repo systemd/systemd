@@ -9,10 +9,13 @@ set -o pipefail
 
 export PAGER=
 
+TEST_CMDLINE="/tmp/proc-cmdline.$RANDOM"
+
 at_exit() {
     set +e
     umount -l -R /var/lib/confexts
-    rm -f /var/tmp/importtest /var/tmp/importtest2 /var/tmp/importtest.tar.gz /var/tmp/importtest2.tar.gz
+    rm -f /var/tmp/importtest /var/tmp/importtest2 /var/tmp/importtest.tar.gz /var/tmp/importtest2.tar.gz "$TEST_CMDLINE"
+    mountpoint -q /proc/cmdline && umount /proc/cmdline
 }
 
 trap at_exit EXIT
@@ -64,3 +67,19 @@ cmp /var/tmp/importtest /var/lib/confexts/importtest7/importtest
 
 importctl list-images
 importctl list-images -j
+
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.Import.ListTransfers '{}' --graceful=io.systemd.Import.NoTransfers
+
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.Import.Pull '{"class":"confext","remote":"file:///var/tmp/importtest.tar.gz","local":"importtest8","type":"tar","verify":"no"}'
+cmp /var/tmp/importtest /var/lib/confexts/importtest8/importtest
+
+echo -n "systemd.pull=tar,confext,verify=no:importtest9:file:///var/tmp/importtest.tar.gz " > "$TEST_CMDLINE"
+cat /proc/cmdline >> "$TEST_CMDLINE"
+mount --bind "$TEST_CMDLINE" /proc/cmdline
+
+cat /proc/cmdline
+
+systemctl daemon-reload
+
+systemctl start import0.service
+cmp /var/tmp/importtest /var/lib/confexts/importtest9/importtest
