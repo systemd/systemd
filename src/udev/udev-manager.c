@@ -84,7 +84,7 @@ typedef struct Worker {
         Manager *manager;
         pid_t pid;
         sd_event_source *child_event_source;
-        sd_device_monitor *monitor;
+        union sockaddr_union address;
         WorkerState state;
         Event *event;
 } Worker;
@@ -125,7 +125,6 @@ static Worker *worker_free(Worker *worker) {
                 hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
 
         sd_event_source_unref(worker->child_event_source);
-        sd_device_monitor_unref(worker->monitor);
         event_free(worker->event);
 
         return mfree(worker);
@@ -173,17 +172,17 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         assert(worker_monitor);
         assert(pid > 1);
 
-        /* close monitor, but keep address around */
-        device_monitor_disconnect(worker_monitor);
-
         worker = new(Worker, 1);
         if (!worker)
                 return -ENOMEM;
 
         *worker = (Worker) {
-                .monitor = sd_device_monitor_ref(worker_monitor),
                 .pid = pid,
         };
+
+        r = device_monitor_get_address(worker_monitor, &worker->address);
+        if (r < 0)
+                return r;
 
         r = sd_event_add_child(manager->event, &worker->child_event_source, pid, WEXITED, on_sigchld, worker);
         if (r < 0)
@@ -451,7 +450,7 @@ static int event_run(Event *event) {
                 if (worker->state != WORKER_IDLE)
                         continue;
 
-                r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev);
+                r = device_monitor_send_device(manager->monitor, &worker->address, event->dev);
                 if (r < 0) {
                         log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
                                                worker->pid);
