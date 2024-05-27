@@ -125,13 +125,6 @@ _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, siz
         return fd_set_rcvbuf(m->sock, size, false);
 }
 
-int device_monitor_disconnect(sd_device_monitor *m) {
-        assert(m);
-
-        m->sock = safe_close(m->sock);
-        return 0;
-}
-
 int device_monitor_get_fd(sd_device_monitor *m) {
         assert(m);
 
@@ -442,7 +435,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);
-        (void) device_monitor_disconnect(m);
+        m->sock = safe_close(m->sock);
 
         uid_range_free(m->mapped_userns_uid_range);
         free(m->description);
