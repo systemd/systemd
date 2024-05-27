@@ -1121,7 +1121,8 @@ install_iscsi() {
         image_install iscsi-iname iscsiadm iscsid iscsistart
         image_install -o "${ROOTLIBDIR:?}"/system/iscsi-{init,onboot,shutdown}.service
         image_install "${ROOTLIBDIR:?}"/system/iscsid.{service,socket}
-        image_install "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o /usr/lib/open-iscsi/startup-checks.sh
         mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
         mkdir -p "${initdir:?}/etc/iscsi"
         echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
@@ -1151,7 +1152,11 @@ install_iscsi() {
     if [[ -z "$inst" || "$inst" =~ (server|target) ]]; then
         image_install tgt-admin tgt-setup-lun tgtadm tgtd tgtimg
         image_install -o /etc/sysconfig/tgtd
-        image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        if get_bool "$LOOKS_LIKE_DEBIAN"; then
+            image_install "${ROOTLIBDIR:?}"/system/tgt.service
+        else
+            image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        fi
         mkdir -p "${initdir:?}/etc/tgt"
         touch "${initdir:?}"/etc/tgt/{tgtd,targets}.conf
         # Install perl modules required by tgt-admin
