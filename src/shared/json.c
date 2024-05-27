@@ -3335,6 +3335,9 @@ int json_parse_with_source(
 
         _cleanup_(json_source_unrefp) JsonSource *s = NULL;
 
+        if (isempty(input))
+                return -ENODATA;
+
         if (source) {
                 s = json_source_new(source);
                 if (!s)
@@ -3383,9 +3386,6 @@ int json_parse_file_at(
                 return -EINVAL;
         if (r < 0)
                 return r;
-
-        if (isempty(text))
-                return -ENODATA;
 
         return json_parse_with_source(text, path, flags, ret, ret_line, ret_column);
 }
