@@ -825,7 +825,7 @@ static void test_exec_temporaryfilesystem(Manager *m) {
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
@@ -868,7 +868,7 @@ static void test_exec_systemcallfilter(Manager *m) {
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
