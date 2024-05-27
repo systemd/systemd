@@ -21,7 +21,8 @@ int register_machine(
                 const char *directory,
                 unsigned cid,
                 const char *address,
-                const char *key_path) {
+                const char *key_path,
+                bool keep_unit) {
 
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
@@ -70,7 +71,8 @@ int register_machine(
                                         JSON_BUILD_PAIR_CONDITION(directory, "rootDirectory", JSON_BUILD_STRING(directory)),
                                         JSON_BUILD_PAIR_CONDITION(address, "sshAddress", JSON_BUILD_STRING(address)),
                                         JSON_BUILD_PAIR_CONDITION(key_path, "sshPrivateKeyPath", JSON_BUILD_STRING(key_path)),
-                                        JSON_BUILD_PAIR_CONDITION(isatty(STDIN_FILENO), "allowInteractiveAuthentication", JSON_BUILD_BOOLEAN(true))));
+                                        JSON_BUILD_PAIR_CONDITION(isatty(STDIN_FILENO), "allowInteractiveAuthentication", JSON_BUILD_BOOLEAN(true)),
+                                        JSON_BUILD_PAIR_CONDITION(!keep_unit, "allocateUnit", JSON_BUILD_BOOLEAN(true))));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {
