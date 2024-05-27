@@ -49,6 +49,7 @@ struct Machine {
         char *scope_job;
 
         PidRef leader;
+        sd_event_source *leader_pidfd_event_source;
 
         dual_timestamp timestamp;
 
