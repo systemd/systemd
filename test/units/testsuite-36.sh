@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+    echo "This test does not support running with sanitizers, skipping the test" | tee --append /skipped
+    exit 77
+fi
+
 # shellcheck disable=SC2317
 at_exit() {
     # shellcheck disable=SC2181
