@@ -550,28 +550,13 @@ decl_headers = '''
 foreach decl : ['char16_t',
                 'char32_t',
                 'struct mount_attr',
-                'struct statx',
                 'struct dirent64',
                ]
 
         # We get -1 if the size cannot be determined
         have = cc.sizeof(decl, prefix : decl_headers, args : '-D_GNU_SOURCE') > 0
-
-        if decl == 'struct statx'
-                if have
-                        want_linux_stat_h = false
-                else
-                        have = cc.sizeof(decl,
-                                         prefix : decl_headers + '#include <linux/stat.h>',
-                                         args : '-D_GNU_SOURCE') > 0
-                        want_linux_stat_h = have
-                endif
-        endif
-
         conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
 endforeach
-
-conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
 
 foreach ident : ['secure_getenv', '__secure_getenv']
         conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
