@@ -218,13 +218,6 @@ Features:
   assert_ret(). Only export the stuff we are sure about, and keep some symbols
   internally where things are not clear whether we want other projects to use.
 
-* machined: allow running in a per-user instance too, to allow unpriv
-  systemd-nspawn and systemd-vmspawn do something useful. (Alternatively: open
-  up system machined to unpriv client's registering their machines, and enforce
-  they come with some prefix or suffix that clarifies they are the
-  user's. i.e. when a user registers a machine it must be called
-  foobar.<username> or so.).
-
 * importd/…: define per-user dirs for container/VM images too.
 
 * add a new specifier to unit files that figures out the DDI the unit file is
