@@ -892,9 +892,9 @@ static int dir_cleanup(
                                 continue;
 
                         if (!arg_dry_run) {
-                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK);
+                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
-                                        log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                                        log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                         log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
                                         continue;
