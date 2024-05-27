@@ -109,14 +109,12 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor) {
  * udev_monitor_enable_receiving:
  * @udev_monitor: the monitor which should receive events
  *
- * Binds the @udev_monitor socket to the event source.
+ * Deprecated, and alias of udev_monitor_filter_update().
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
-        assert_return(udev_monitor, -EINVAL);
-
-        return device_monitor_enable_receiving(udev_monitor->monitor);
+        return udev_monitor_filter_update(udev_monitor);
 }
 
 /**
