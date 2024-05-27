@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
