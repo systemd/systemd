@@ -83,3 +83,4 @@ ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/
 Type=oneshot
 DynamicUser=yes
 StateDirectory=waldo quux/pief aaa/bbb aaa aaa/ccc xxx/yyy:aaa/111 xxx:aaa/222 xxx/zzz:aaa/333 abc:d\:ef
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
