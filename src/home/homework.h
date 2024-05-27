@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/fscrypt.h>
 #include <sys/vfs.h>
 
 #include "sd-id128.h"
