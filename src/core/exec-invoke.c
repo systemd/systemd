@@ -45,7 +45,6 @@
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "missing_ioprio.h"
-#include "missing_prctl.h"
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
