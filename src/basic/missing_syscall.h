@@ -12,6 +12,7 @@
 #endif
 #include <signal.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -23,7 +24,6 @@
 
 #include "macro.h"
 #include "missing_keyctl.h"
-#include "missing_stat.h"
 #include "missing_syscall_def.h"
 
 /* linux/kcmp.h */
@@ -273,8 +273,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_STATX
-struct statx;
-
 static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
 #  ifdef __NR_statx
         return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
@@ -283,12 +281,7 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
         return -1;
 #  endif
 }
-#endif
 
-/* This typedef is supposed to be always defined. */
-typedef struct statx struct_statx;
-
-#if !HAVE_STATX
 #  define statx(dfd, filename, flags, mask, buffer) missing_statx(dfd, filename, flags, mask, buffer)
 #endif
 
