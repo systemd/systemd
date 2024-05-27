@@ -1734,9 +1734,6 @@ static void socket_unwatch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if (!p->event_source)
-                        continue;
-
                 r = sd_event_source_set_enabled(p->event_source, SD_EVENT_OFF);
                 if (r < 0)
                         log_unit_debug_errno(UNIT(s), r, "Failed to disable event source: %m");
