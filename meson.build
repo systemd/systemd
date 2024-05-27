@@ -563,7 +563,7 @@ foreach decl : ['char16_t',
                 else
                         have = cc.sizeof(decl,
                                          prefix : decl_headers + '#include <linux/fs.h>',
-                                         args : '-D_GNU_SOURCE') > 0
+                                         args : [ '-D_GNU_SOURCE', '-Isrc/basic' ]) > 0
                         want_linux_fs_h = have
                 endif
         endif
