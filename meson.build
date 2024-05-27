@@ -2626,7 +2626,7 @@ if mkosi.found()
                 console : true,
                 output : '.',
                 command : [
-                        'mkosi',
+                        mkosi,
                         '--directory', meson.current_source_dir(),
                         '--output-dir', meson.current_build_dir() / 'mkosi.output',
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
