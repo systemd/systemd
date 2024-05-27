@@ -407,7 +407,11 @@ foreach integration_test : integration_tests
                 integration_test_args += ['--slow']
         endif
 
-        integration_test_args += ['--']
+        if not mkosi.found()
+                continue
+        endif
+
+        integration_test_args += ['--mkosi', mkosi.full_path(), '--']
 
         if integration_test['cmdline'].length() > 0
                 integration_test_args += [
