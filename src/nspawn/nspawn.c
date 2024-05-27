@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -16,8 +17,6 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-
-#include <linux/fs.h> /* Must be included after <sys/mount.h> */
 
 #include "sd-bus.h"
 #include "sd-daemon.h"

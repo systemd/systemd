@@ -4,8 +4,8 @@
  * Matthias Schiffer
  */
 
-#ifndef _UAPI_LINUX_BATMAN_ADV_H_
-#define _UAPI_LINUX_BATMAN_ADV_H_
+#ifndef _LINUX_BATMAN_ADV_H_
+#define _LINUX_BATMAN_ADV_H_
 
 #define BATADV_NL_NAME "batadv"
 
@@ -701,4 +701,4 @@ enum batadv_ifla_attrs {
 
 #define IFLA_BATADV_MAX (__IFLA_BATADV_MAX - 1)
 
-#endif /* _UAPI_LINUX_BATMAN_ADV_H_ */
+#endif /* _LINUX_BATMAN_ADV_H_ */

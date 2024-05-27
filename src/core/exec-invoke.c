@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Include linux/fs.h here to avoid that chattr-util.h conflicts with sys/mount.h. */
+#include <linux/fs.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>

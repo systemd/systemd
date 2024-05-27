@@ -3,9 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "chase.h"
