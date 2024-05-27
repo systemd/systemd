@@ -398,10 +398,6 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
-        r = device_monitor_enable_receiving(worker_monitor);
-        if (r < 0)
-                return log_error_errno(r, "Worker: Failed to enable receiving of device: %m");
-
         r = safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pid);
         if (r < 0) {
                 event->state = EVENT_QUEUED;
@@ -1261,10 +1257,6 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
         (void) sd_device_monitor_set_description(manager->monitor, "manager");
-
-        r = device_monitor_enable_receiving(manager->monitor);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind netlink socket: %m");
 
         manager->log_level = log_get_max_level();
 
