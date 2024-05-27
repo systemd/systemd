@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "missing_socket.h"
 #include "mountpoint-util.h"
@@ -55,6 +56,10 @@ struct sd_device_monitor {
         Set *match_parent_filter;
         Set *nomatch_parent_filter;
         bool filter_uptodate;
+
+        bool multicast_group_dropped;
+        size_t multicast_group_len;
+        uint32_t *multicast_groups;
 
         sd_event *event;
         sd_event_source *event_source;
@@ -253,13 +258,50 @@ _public_ int sd_device_monitor_is_running(sd_device_monitor *m) {
         return sd_event_source_get_enabled(m->event_source, NULL);
 }
 
-_public_ int sd_device_monitor_stop(sd_device_monitor *m) {
-        assert_return(m, -EINVAL);
+static int device_monitor_update_multicast_groups(sd_device_monitor *m, bool add) {
+        int r, opt = add ? NETLINK_ADD_MEMBERSHIP : NETLINK_DROP_MEMBERSHIP;
 
-        m->event_source = sd_event_source_unref(m->event_source);
-        (void) device_monitor_disconnect(m);
+        assert(m);
+        assert(m->sock >= 0);
+
+        for (size_t i = 0; i < m->multicast_group_len; i++)
+                for (unsigned j = 0; j < sizeof(uint32_t) * 8; j++)
+                        if (m->multicast_groups[i] & (1U << j)) {
+                                unsigned group = i * sizeof(uint32_t) * 8 + j + 1;
+
+                                /* group is "unsigned", but netlink(7) says the argument is "int". */
+                                r = setsockopt_int(m->sock, SOL_NETLINK, opt, group);
+                                if (r < 0)
+                                        return r;
+                        }
 
         return 0;
+}
+
+_public_ int sd_device_monitor_stop(sd_device_monitor *m) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
+
+        if (!m->multicast_group_dropped) {
+                m->multicast_group_len = 0;
+                m->multicast_groups = mfree(m->multicast_groups);
+
+                /* Save multicast groups. */
+                r = netlink_socket_get_multicast_groups(m->sock, &m->multicast_group_len, &m->multicast_groups);
+                if (r < 0 && r != -ENOPROTOOPT)
+                        return r;
+
+                /* Leave from all multicast groups to prevent the buffer is filled. */
+                r = device_monitor_update_multicast_groups(m, /* add = */ false);
+                if (r < 0)
+                        return r;
+
+                m->multicast_group_dropped = true;
+        }
+
+        return sd_event_source_set_enabled(m->event_source, SD_EVENT_OFF);
 }
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -283,6 +325,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
 
         if (!m->event) {
                 r = sd_device_monitor_attach_event(m, NULL);
@@ -297,19 +340,41 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         m->callback = callback;
         m->userdata = userdata;
 
-        r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
+        if (!m->event_source) {
+                /* The monitor has never started. Add IO event source. */
+                r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
+                if (r < 0)
+                        return r;
+
+                (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+                return 0;
+        }
+
+        r = sd_device_monitor_is_running(m);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* If the monitor was previously started but now it is stopped, flush anything queued during
+                 * the monitor is stopped. */
+                r = flush_fd(m->sock);
+                if (r < 0)
+                        return r;
 
-        (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+                /* Then, join the saved broadcast groups again. */
+                r = device_monitor_update_multicast_groups(m, /* add = */ true);
+                if (r < 0)
+                        return r;
 
-        return 0;
+                m->multicast_group_dropped = false;
+        }
+
+        return sd_event_source_set_enabled(m->event_source, SD_EVENT_ON);
 }
 
 _public_ int sd_device_monitor_detach_event(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 
-        (void) sd_device_monitor_stop(m);
+        m->event_source = sd_event_source_unref(m->event_source);
         m->event = sd_event_unref(m->event);
 
         return 0;
@@ -371,6 +436,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);
+        (void) device_monitor_disconnect(m);
 
         uid_range_free(m->mapped_userns_uid_range);
         free(m->description);
@@ -380,6 +446,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         hashmap_free(m->nomatch_sysattr_filter);
         set_free(m->match_parent_filter);
         set_free(m->nomatch_parent_filter);
+        free(m->multicast_groups);
 
         return mfree(m);
 }
