@@ -21,14 +21,14 @@ static inline int dlopen_idn(void) {
 #endif
 
 #if HAVE_LIBIDN2
-DLSYM_PROTOTYPE(idn2_lookup_u8);
+extern DLSYM_PROTOTYPE(idn2_lookup_u8);
 extern const char *(*sym_idn2_strerror)(int rc) _const_;
-DLSYM_PROTOTYPE(idn2_to_unicode_8z8z);
+extern DLSYM_PROTOTYPE(idn2_to_unicode_8z8z);
 #endif
 
 #if HAVE_LIBIDN
-DLSYM_PROTOTYPE(idna_to_ascii_4i);
-DLSYM_PROTOTYPE(idna_to_unicode_44i);
-DLSYM_PROTOTYPE(stringprep_ucs4_to_utf8);
-DLSYM_PROTOTYPE(stringprep_utf8_to_ucs4);
+extern DLSYM_PROTOTYPE(idna_to_ascii_4i);
+extern DLSYM_PROTOTYPE(idna_to_unicode_44i);
+extern DLSYM_PROTOTYPE(stringprep_ucs4_to_utf8);
+extern DLSYM_PROTOTYPE(stringprep_utf8_to_ucs4);
 #endif

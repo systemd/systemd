@@ -1615,7 +1615,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket *, socket_close_fds, NULL);
 
 static int socket_open_fds(Socket *orig_s) {
         _cleanup_(socket_close_fdsp) Socket *s = orig_s;
-        _cleanup_(mac_selinux_freep) char *label = NULL;
+        _cleanup_freecon_ char *label = NULL;
         bool know_label = false;
         int r;
 
