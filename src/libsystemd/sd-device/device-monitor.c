@@ -249,10 +249,7 @@ _public_ int sd_device_monitor_new(sd_device_monitor **ret) {
 _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 
-        m->event_source = sd_event_source_unref(m->event_source);
-        (void) device_monitor_disconnect(m);
-
-        return 0;
+        return sd_event_source_set_enabled(m->event_source, SD_EVENT_OFF);
 }
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -276,6 +273,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
 
         if (!m->event) {
                 r = sd_device_monitor_attach_event(m, NULL);
@@ -290,11 +288,17 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         m->callback = callback;
         m->userdata = userdata;
 
-        r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
-        if (r < 0)
-                return r;
+        if (!m->event_source) {
+                r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
+                if (r < 0)
+                        return r;
 
-        (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+                (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+        } else {
+                r = sd_event_source_set_enabled(m->event_source, SD_EVENT_ON);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -302,7 +306,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
 _public_ int sd_device_monitor_detach_event(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 
-        (void) sd_device_monitor_stop(m);
+        m->event_source = sd_event_source_unref(m->event_source);
         m->event = sd_event_unref(m->event);
 
         return 0;
@@ -364,6 +368,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);
+        (void) device_monitor_disconnect(m);
 
         uid_range_free(m->mapped_userns_uid_range);
         free(m->description);
