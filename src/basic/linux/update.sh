@@ -17,9 +17,6 @@ for i in *.h */*.h; do
     fi
 
     case "$i" in
-        btrfs.h)
-            sed -r -i 's/^(#include <linux\/fs\.h>)/#if WANT_LINUX_FS_H\n\1\n#endif/' "$i"
-            ;;
         auto_dev-ioctl.h)
             sed -r -i '/^#define[[:space:]]+AUTOFS_DEV_IOCTL_VERSION_MINOR/ s/[0-9]+/0/' "$i"
             ;;
