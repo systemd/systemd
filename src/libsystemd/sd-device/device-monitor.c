@@ -25,7 +25,6 @@
 #include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -105,12 +104,19 @@ static int monitor_set_nl_address(sd_device_monitor *m) {
         return 0;
 }
 
+int device_monitor_get_address(sd_device_monitor *m, union sockaddr_union *ret) {
+        assert(m);
+        assert(ret);
+
+        *ret = m->snl;
+        return 0;
+}
+
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender) {
         assert(m);
         assert(sender);
 
-        m->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
-        return 0;
+        return device_monitor_get_address(sender, &m->snl_trusted_sender);
 }
 
 _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size) {
