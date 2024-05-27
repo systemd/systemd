@@ -3378,6 +3378,9 @@ _public_ int sd_json_parse_with_source(
 
         _cleanup_(json_source_unrefp) JsonSource *s = NULL;
 
+        if (isempty(input))
+                return -ENODATA;
+
         if (source) {
                 s = json_source_new(source);
                 if (!s)
@@ -3446,9 +3449,6 @@ _public_ int sd_json_parse_file_at(
                 return -EINVAL;
         if (r < 0)
                 return r;
-
-        if (isempty(text))
-                return -ENODATA;
 
         return sd_json_parse_with_source(text, path, flags, ret, reterr_line, reterr_column);
 }
