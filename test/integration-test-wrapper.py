@@ -40,6 +40,7 @@ ExecStart=false
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--mkosi', required=True)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
@@ -102,7 +103,7 @@ def main():
         journal_file = None
 
     cmd = [
-        'mkosi',
+        args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
@@ -165,7 +166,7 @@ def main():
             j = json.loads(
                 subprocess.run(
                     [
-                        "mkosi",
+                        args.mkosi,
                         "--directory", os.fspath(args.meson_source_dir),
                         "--json",
                         "summary",
