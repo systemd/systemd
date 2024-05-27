@@ -17,8 +17,8 @@
  * Boston, MA 021110-1307, USA.
  */
 
-#ifndef _UAPI_LINUX_BTRFS_H
-#define _UAPI_LINUX_BTRFS_H
+#ifndef _LINUX_BTRFS_H
+#define _LINUX_BTRFS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,10 +44,8 @@ struct btrfs_ioctl_vol_args {
 #define BTRFS_DEVICE_PATH_NAME_MAX	1024
 #define BTRFS_SUBVOL_NAME_MAX 		4039
 
-#ifndef __KERNEL__
 /* Deprecated since 5.7 */
 # define BTRFS_SUBVOL_CREATE_ASYNC	(1ULL << 0)
-#endif
 #define BTRFS_SUBVOL_RDONLY		(1ULL << 1)
 #define BTRFS_SUBVOL_QGROUP_INHERIT	(1ULL << 2)
 
@@ -1188,4 +1186,4 @@ enum btrfs_err_code {
 }
 #endif
 
-#endif /* _UAPI_LINUX_BTRFS_H */
+#endif /* _LINUX_BTRFS_H */

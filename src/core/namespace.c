@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#if WANT_LINUX_FS_H
+#include <linux/fs.h>
+#endif
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
