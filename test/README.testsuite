@@ -1,5 +1,64 @@
 # Integration tests
 
+## Running the integration tests with meson + mkosi
+
+To run the integration tests with meson + mkosi, make sure you're running the
+latest version of mkosi. See
+[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/test/README.md)
+for more specific details. Make sure `mkosi` is available in `$PATH` when
+reconfiguring meson to make sure it is picked up properly.
+
+We also need to make sure the required meson options are enabled:
+
+```shell
+$ meson setup --reconfigure build -Dremote=enabled
+```
+
+Next, we can build the integration test image:
+
+```shell
+$ meson compile -C build mkosi
+```
+
+After the image has been built, the integration tests can be run with:
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 4))"
+```
+
+As usual, specific tests can be run in meson by appending the name of the test
+which is usually the name of the directory e.g.
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
+```
+
+See `meson introspect build --tests` for a list of tests.
+
+To interactively debug a failing integration test, the `--interactive` option
+(`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
+newer:
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -i TEST-01-BASIC
+```
+
+Due to limitations in meson, the integration tests do not yet depend on the
+mkosi target, which means the mkosi target has to be manually rebuilt before
+running the integration tests. To rebuild the image and rerun a test, the
+following command can be used:
+
+```shell
+$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
+```
+
+The integration tests use the same mkosi configuration that's used when you run
+mkosi in the systemd reposistory, so any local modifications to the mkosi
+configuration (e.g. in `mkosi.local.conf`) are automatically picked up and used
+by the integration tests as well.
+
+## Running the integration tests the old fashioned way
+
 The extended testsuite only works with UID=0. It consists of the subdirectories
 named `test/TEST-??-*`, each of which contains a description of an OS image and
 a test which consists of systemd units and scripts to execute in this image.
@@ -34,44 +93,7 @@ To run just one of the cases:
 $ sudo make -C test/TEST-01-BASIC clean setup run
 ```
 
-To run the meson-based integration test config
-enable integration tests and options for required commands with the following:
-
-```shell
-$ meson configure build -Dremote=enabled -Dopenssl=enabled -Dblkid=enabled -Dtpm2=enabled
-```
-
-Once enabled, first build the integration test image:
-
-```shell
-$ meson compile -C build mkosi
-```
-
-After the image has been built, the integration tests can be run with:
-
-```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 2))"
-```
-
-As usual, specific tests can be run in meson by appending the name of the test
-which is usually the name of the directory e.g.
-
-```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
-```
-
-Due to limitations in meson, the integration tests do not yet depend on the
-mkosi target, which means the mkosi target has to be manually rebuilt before
-running the integration tests. To rebuild the image and rerun a test, the
-following command can be used:
-
-```shell
-$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
-```
-
-See `meson introspect build --tests` for a list of tests.
-
-## Specifying the build directory
+### Specifying the build directory
 
 If the build directory is not detected automatically, it can be specified
 with BUILD_DIR=:
@@ -89,7 +111,7 @@ $ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
 Note that in the second case, the path is relative to the test case directory.
 An absolute path may also be used in both cases.
 
-## Testing installed binaries instead of built
+### Testing installed binaries instead of built
 
 To run the extended testsuite using the systemd installed on the system instead
 of the systemd from a build, use the NO_BUILD=1:
@@ -98,7 +120,7 @@ of the systemd from a build, use the NO_BUILD=1:
 $ sudo NO_BUILD=1 test/run-integration-tests
 ```
 
-## Configuration variables
+### Configuration variables
 
 `TEST_NO_QEMU=1`: Don't run tests under qemu.
 
@@ -147,7 +169,7 @@ or Debian's default kernel path and initrd are used by default.)
 A script will try to find your qemu binary. If you want to specify a different
 one with `$QEMU_BIN`.
 
-## Debugging the qemu image
+### Debugging the qemu image
 
 If you want to log in the testsuite virtual machine, use `INTERACTIVE_DEBUG=1`
 and log in as root:
