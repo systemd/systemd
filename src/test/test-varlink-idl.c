@@ -261,6 +261,17 @@ TEST(field_name_is_valid) {
         assert_se(varlink_idl_field_name_is_valid("foo0foo"));
 }
 
+TEST(qualified_symbol_name_is_valid) {
+        assert_se(varlink_idl_qualified_symbol_name_is_valid(NULL) == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("x") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.Xxx") > 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx.XXX") > 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx.0foo") == 0);
+}
+
 TEST(validate_json) {
 
         _cleanup_(varlink_interface_freep) VarlinkInterface *parsed = NULL;
