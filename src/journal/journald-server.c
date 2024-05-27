@@ -335,6 +335,20 @@ static bool server_flushed_flag_is_set(Server *s) {
         return access(fn, F_OK) >= 0;
 }
 
+static void server_drop_flushed_flag(Server *s) {
+        const char *fn;
+
+        assert(s);
+
+        if (s->namespace)
+                return;
+
+        fn = strjoina(s->runtime_directory, "/flushed");
+        if (unlink(fn) < 0 && errno != ENOENT)
+                log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                            "Failed to unlink %s, ignoring: %m", fn);
+}
+
 static int server_system_journal_open(
                 Server *s,
                 bool flush_requested,
@@ -437,6 +451,7 @@ static int server_system_journal_open(
                         server_add_acls(s->runtime_journal, 0);
                         (void) cache_space_refresh(s, &s->runtime_storage);
                         patch_min_use(&s->runtime_storage);
+                        server_drop_flushed_flag(s);
                 }
         }
 
@@ -1321,6 +1336,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
+        /* Offline and close the 'main' runtime journal file to allow the runtime journal to be opened with
+         * the SD_JOURNAL_ASSUME_IMMUTABLE flag in the below. */
+        s->runtime_journal = journal_file_offline_close(s->runtime_journal);
+
         /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
          * See issue #30092. */
         zero(*s->seqnum);
@@ -1329,7 +1348,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
         start = now(CLOCK_MONOTONIC);
 
-        r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
+        r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to read runtime journal: %m");
@@ -1405,12 +1424,13 @@ finish:
         /* First, close all runtime journals opened in the above. */
         sd_journal_close(j);
 
-        /* Offline and close the 'main' runtime journal file. */
-        s->runtime_journal = journal_file_offline_close(s->runtime_journal);
-
         /* Remove the runtime directory if the all entries are successfully flushed to /var/. */
         if (r >= 0) {
-                (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
+                r = rm_rf(s->runtime_storage.path, REMOVE_ROOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove runtime journal directory %s, ignoring: %m", s->runtime_storage.path);
+                else
+                        log_debug("Removed runtime journal directory %s.", s->runtime_storage.path);
 
                 /* The initrd may have a different machine ID from the host's one. Typically, that happens
                  * when our tests running on qemu, as the host's initrd is picked as is without updating
@@ -1418,8 +1438,13 @@ finish:
                  * runtime journals in the subdirectory named with the initrd's machine ID are flushed to
                  * the persistent journal. To make not the runtime journal flushed multiple times, let's
                  * also remove the runtime directories. */
-                STRV_FOREACH(p, dirs)
-                        (void) rm_rf(*p, REMOVE_ROOT);
+                STRV_FOREACH(p, dirs) {
+                        r = rm_rf(*p, REMOVE_ROOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to remove additional runtime journal directory %s, ignoring: %m", *p);
+                        else
+                                log_debug("Removed additional runtime journal directory %s.", *p);
+                }
         }
 
         server_driver_message(s, 0, NULL,
@@ -1440,7 +1465,6 @@ finish:
 }
 
 static int server_relinquish_var(Server *s) {
-        const char *fn;
         assert(s);
 
         if (s->storage == STORAGE_NONE)
@@ -1459,11 +1483,6 @@ static int server_relinquish_var(Server *s) {
         s->system_journal = journal_file_offline_close(s->system_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_offline_close);
         set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
-
-        fn = strjoina(s->runtime_directory, "/flushed");
-        if (unlink(fn) < 0 && errno != ENOENT)
-                log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                            "Failed to unlink %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return 0;
