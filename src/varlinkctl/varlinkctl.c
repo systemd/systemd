@@ -451,7 +451,7 @@ static int reply_callback(
 static int verb_call(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
-        const char *url, *method, *parameter;
+        const char *url, *method, *parameter, *source;
         unsigned line = 0, column = 0;
         int r;
 
@@ -470,18 +470,25 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
 
         if (parameter) {
+                source = "<argv[4]>";
+
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
-                r = sd_json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
+                r = sd_json_parse_with_source(parameter, source, 0, &jp, &line, &column);
         } else {
                 if (isatty(STDIN_FILENO) > 0 && !arg_quiet)
-                        log_notice("Expecting method call parameter JSON object on standard input.");
+                        log_notice("Expecting method call parameter JSON object on standard input. (Provide empty string or {} for no parameters.)");
 
-                r = sd_json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse parameters at <stdin>:%u:%u: %m", line, column);
+                source = "<stdin>";
+
+                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, 0, &jp, &line, &column);
         }
+        if (r < 0 && r != -ENODATA)
+                return log_error_errno(r, "Failed to parse parameters at %s:%u:%u: %m", source, line, column);
+
+        /* If parsing resulted in ENODATA the provided string was empty. As convenience to users we'll accept
+         * that and treat it as equivalent to an empty object: as a call with empty set of parameters. This
+         * mirrors how we do this in our C APIs too, where we are happy to accept NULL instead of a proper
+         * JsonVariant object for method calls. */
 
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
