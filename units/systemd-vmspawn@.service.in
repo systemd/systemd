@@ -16,7 +16,7 @@ After=network.target modprobe@tun.service
 RequiresMountsFor=/var/lib/machines/%i
 
 [Service]
-ExecStart=systemd-vmspawn --quiet --network-tap --machine=%i
+ExecStart=systemd-vmspawn --quiet --register=yes --keep-unit --network-tap --machine=%i
 KillMode=mixed
 Type=notify
 Slice=machine.slice
