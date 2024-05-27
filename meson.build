@@ -2622,7 +2622,7 @@ endforeach
 if mkosi.found()
         genkey = custom_target('genkey',
                 output : ['mkosi.key', 'mkosi.crt'],
-                command : [mkosi, 'genkey'],
+                command : [mkosi, '--force', 'genkey'],
                 depends : mkosi_depends,
         )
 
