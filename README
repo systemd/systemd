@@ -86,7 +86,9 @@ REQUIREMENTS:
         Note that systemd-localed.service and other systemd units use
         PrivateNetwork so this is effectively required.
 
-        Required for PrivateUsers= in service units:
+        Required for PrivateUsers= in service units. Also required for some
+        calls to clone() using CLONE_NEWUSER, e.g. for parsing elf files during coredump
+        handling:
           CONFIG_USER_NS
 
         Optional but strongly recommended:
