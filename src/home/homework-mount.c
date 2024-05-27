@@ -2,9 +2,6 @@
 
 #include <sched.h>
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -13,7 +10,6 @@
 #include "home-util.h"
 #include "homework-mount.h"
 #include "homework.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
