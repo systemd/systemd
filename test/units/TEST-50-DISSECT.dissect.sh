@@ -670,6 +670,21 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+# Test for find_executable() with MountAPIVFS=no.
+systemd-run --unit=test-mount-apivfs-no \
+    --service-type=oneshot \
+    -p MountAPIVFS=false \
+    -p PrivateDevices=false \
+    -p PrivateMounts=true \
+    -p PrivateTmp=false \
+    -p PrivateUsers=false \
+    -p ProtectControlGroups=false \
+    -p ProtectKernelModules=false \
+    -p ProtectKernelTunables=false \
+    -p RootDirectory=/tmp/img \
+    "${BIND_LOG_SOCKETS[@]}" \
+    bash -c "touch /aaa && test -f /aaa" \
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
