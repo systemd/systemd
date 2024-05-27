@@ -4,6 +4,7 @@
 
 #include "sd-id128.h"
 
+#include "bus-polkit.h"
 #include "hostname-util.h"
 #include "json.h"
 #include "machine-varlink.h"
@@ -126,15 +127,17 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
 
         static const JsonDispatch dispatch_table[] = {
                 { "name",              JSON_VARIANT_STRING,   machine_name,                offsetof(Machine, name),                 JSON_MANDATORY },
-                { "id",                JSON_VARIANT_STRING,   json_dispatch_id128,         offsetof(Machine, id),                   0 },
-                { "service",           JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, service),              0 },
+                { "id",                JSON_VARIANT_STRING,   json_dispatch_id128,         offsetof(Machine, id),                   0              },
+                { "service",           JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, service),              0              },
                 { "class",             JSON_VARIANT_STRING,   dispatch_machine_class,      offsetof(Machine, class),                JSON_MANDATORY },
-                { "leader",            JSON_VARIANT_UNSIGNED, machine_leader,              offsetof(Machine, leader),               0 },
-                { "rootDirectory",     JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, root_directory),       0 },
-                { "ifIndices",         JSON_VARIANT_ARRAY,    machine_ifindices,           0,                                       0 },
-                { "vSockCid",          JSON_VARIANT_UNSIGNED, machine_cid,                 offsetof(Machine, vsock_cid),            0 },
-                { "sshAddress",        JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, ssh_address),          JSON_SAFE },
-                { "sshPrivateKeyPath", JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, ssh_private_key_path), 0 },
+                { "leader",            JSON_VARIANT_UNSIGNED, machine_leader,              offsetof(Machine, leader),               0              },
+                { "rootDirectory",     JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, root_directory),       0              },
+                { "ifIndices",         JSON_VARIANT_ARRAY,    machine_ifindices,           0,                                       0              },
+                { "vSockCid",          JSON_VARIANT_UNSIGNED, machine_cid,                 offsetof(Machine, vsock_cid),            0              },
+                { "sshAddress",        JSON_VARIANT_STRING,   json_dispatch_string,        offsetof(Machine, ssh_address),          JSON_SAFE      },
+                { "sshPrivateKeyPath", JSON_VARIANT_STRING,   json_dispatch_absolute_path, offsetof(Machine, ssh_private_key_path), 0              },
+                { "allocateUnit",      JSON_VARIANT_BOOLEAN,  json_dispatch_boolean,       offsetof(Machine, allocate_unit),        0              },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -144,6 +147,16 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
 
         r = varlink_dispatch(link, parameters, dispatch_table, machine);
         if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.create-machine",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "class", machine_class_to_string(machine->class)),
+                        &manager->polkit_registry);
+        if (r <= 0)
                 return r;
 
         if (!pidref_is_set(&machine->leader)) {
@@ -158,11 +171,13 @@ int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
         if (r < 0)
                 return r;
 
-        r = cg_pidref_get_unit(&machine->leader, &machine->unit);
-        if (r < 0)
-                return r;
+        if (!machine->allocate_unit) {
+                r = cg_pidref_get_unit(&machine->leader, &machine->unit);
+                if (r < 0)
+                        return r;
+        }
 
-        r = machine_start(machine, NULL, NULL);
+        r = machine_start(machine, /* properties= */ NULL, /* error= */ NULL);
         if (r < 0)
                 return r;
 
