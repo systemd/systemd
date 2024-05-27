@@ -278,6 +278,12 @@ static void test_sd_device_monitor_filter_remove(sd_device *device) {
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
 
+        /* Check if sd_device_monitor_start() and _stop() can be called multiple times. */
+        assert_se(sd_device_monitor_stop(monitor_client) >= 0);
+        assert_se(sd_device_monitor_stop(monitor_client) >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, NULL, NULL) >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+
         assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, "hoge", NULL) >= 0);
         assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
