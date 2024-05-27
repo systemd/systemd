@@ -9,6 +9,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "io-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
@@ -310,6 +311,42 @@ static void test_sd_device_monitor_filter_remove(sd_device *device) {
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
+static void test_sd_device_monitor_low_level_api(sd_device *device) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        union sockaddr_union sa;
+        const char *syspath;
+        int fd, r;
+
+        log_device_info(device, "/* %s */", __func__);
+
+        assert_se(sd_device_get_syspath(device, &syspath) >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1) >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1) >= 0);
+        assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
+        fd = sd_device_monitor_get_fd(monitor_client);
+        assert_se(fd >= 0);
+
+        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+
+        for (;;) {
+                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                if (r == -EINTR)
+                        continue;
+                assert_se(r > 0);
+                break;
+        }
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        assert_se(sd_device_monitor_receive(monitor_client, &dev) > 0);
+
+        const char *s;
+        assert_se(sd_device_get_syspath(dev, &s) >= 0);
+        assert_se(streq(s, syspath));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL, *sda = NULL;
         int r;
@@ -363,6 +400,7 @@ int main(int argc, char *argv[]) {
         test_send_receive_one(sda,  true,  true,  true);
 
         test_parent_filter(sda);
+        test_sd_device_monitor_low_level_api(sda);
 
         return 0;
 }
