@@ -402,6 +402,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
         } else {
+                if (isatty(STDIN_FILENO) > 0 && !arg_quiet)
+                        log_notice("Expecting method call parameter JSON object on standard input.");
+
                 r = json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse parameters at <stdin>:%u:%u: %m", line, column);
