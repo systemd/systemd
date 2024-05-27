@@ -592,6 +592,8 @@ void machine_add_to_gc_queue(Machine *m) {
 
         LIST_PREPEND(gc_queue, m->manager->machine_gc_queue, m);
         m->in_gc_queue = true;
+
+        manager_enqueue_gc(m->manager);
 }
 
 MachineState machine_get_state(Machine *s) {
