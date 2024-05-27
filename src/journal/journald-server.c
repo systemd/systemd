@@ -784,12 +784,10 @@ static void server_sync(Server *s, bool wait) {
                                                     "Failed to sync user journal, ignoring: %m");
         }
 
-        if (s->sync_event_source) {
-                r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
-                if (r < 0)
-                        log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                  "Failed to disable sync timer source: %m");
-        }
+        r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                            "Failed to disable sync timer source, ignoring: %m");
 
         s->sync_scheduled = false;
 }
