@@ -45,7 +45,6 @@ struct sd_device_monitor {
         int sock;
         union sockaddr_union snl;
         union sockaddr_union snl_trusted_sender;
-        bool bound;
 
         UIDRange *mapped_userns_uid_range;
 
@@ -170,17 +169,24 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         *m = (sd_device_monitor) {
                 .n_ref = 1,
                 .sock = fd >= 0 ? fd : TAKE_FD(sock),
-                .bound = fd >= 0,
                 .snl.nl.nl_family = AF_NETLINK,
                 .snl.nl.nl_groups = group,
         };
 
-        if (fd >= 0) {
-                r = monitor_set_nl_address(m);
-                if (r < 0) {
-                        log_monitor_errno(m, r, "Failed to set netlink address: %m");
-                        goto fail;
-                }
+        if (fd < 0) {
+                /* enable receiving of sender credentials */
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
+
+                if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
+                        return log_monitor_errno(m, errno, "Failed to bind monitoring socket: %m");
+        }
+
+        r = monitor_set_nl_address(m);
+        if (r < 0) {
+                log_monitor_errno(m, r, "Failed to set netlink address: %m");
+                goto fail;
         }
 
         if (DEBUG_LOGGING) {
@@ -277,9 +283,9 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
                         return r;
         }
 
-        r = device_monitor_enable_receiving(m);
+        r = sd_device_monitor_filter_update(m);
         if (r < 0)
-                return r;
+                return log_monitor_errno(m, r, "Failed to update filter: %m");
 
         m->callback = callback;
         m->userdata = userdata;
@@ -351,34 +357,6 @@ _public_ int sd_device_monitor_get_description(sd_device_monitor *m, const char 
         assert_return(ret, -EINVAL);
 
         *ret = m->description;
-        return 0;
-}
-
-int device_monitor_enable_receiving(sd_device_monitor *m) {
-        int r;
-
-        assert(m);
-
-        r = sd_device_monitor_filter_update(m);
-        if (r < 0)
-                return log_monitor_errno(m, r, "Failed to update filter: %m");
-
-        if (!m->bound) {
-                /* enable receiving of sender credentials */
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
-                if (r < 0)
-                        return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
-
-                if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
-                        return log_monitor_errno(m, errno, "Failed to bind monitoring socket: %m");
-
-                m->bound = true;
-
-                r = monitor_set_nl_address(m);
-                if (r < 0)
-                        return log_monitor_errno(m, r, "Failed to set address: %m");
-        }
-
         return 0;
 }
 
