@@ -24,6 +24,8 @@ struct Manager {
         Hashmap *machine_units;
         Hashmap *machine_leaders;
 
+        sd_event_source *deferred_gc_event_source;
+
         Hashmap *polkit_registry;
 
         Hashmap *image_cache;
@@ -68,3 +70,6 @@ static inline void manager_enqueue_nscd_cache_flush(Manager *m) {}
 
 int manager_find_machine_for_uid(Manager *m, uid_t host_uid, Machine **ret_machine, uid_t *ret_internal_uid);
 int manager_find_machine_for_gid(Manager *m, gid_t host_gid, Machine **ret_machine, gid_t *ret_internal_gid);
+
+void manager_gc(Manager *m, bool drop_not_started);
+void manager_enqueue_gc(Manager *m);
