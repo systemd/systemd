@@ -9,6 +9,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "io-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
@@ -321,6 +322,38 @@ TEST(sd_device_monitor_filter_remove) {
 
         ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
+}
+
+TEST(sd_device_monitor_receive) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        union sockaddr_union sa;
+        const char *syspath;
+        int fd, r;
+
+        prepare_loopback(&device);
+
+        ASSERT_OK(sd_device_get_syspath(device, &syspath));
+
+        prepare_monitor(&monitor_server, &monitor_client, &sa);
+
+        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+
+        ASSERT_OK(fd = sd_device_monitor_get_fd(monitor_client));
+        for (;;) {
+                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                if (r == -EINTR)
+                        continue;
+                ASSERT_GT(r, 0);
+                break;
+        }
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        ASSERT_GT(sd_device_monitor_receive(monitor_client, &dev), 0);
+
+        const char *s;
+        ASSERT_OK(sd_device_get_syspath(dev, &s));
+        ASSERT_TRUE(streq(s, syspath));
 }
 
 static int intro(void) {
