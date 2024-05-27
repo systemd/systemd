@@ -369,8 +369,19 @@ int blockdev_partscan_enabled(int fd) {
          * is 1, which can be check with 'ext_range' sysfs attribute. Explicit flag ('GENHD_FL_NO_PART_SCAN')
          * can be obtained from 'capability' sysattr.
          *
-         * With https://github.com/torvalds/linux/commit/1ebe2e5f9d68e94c524aba876f27b945669a7879 (v5.17), we
-         * can check the flag from 'ext_range' sysfs attribute directly.
+         * With https://github.com/torvalds/linux/commit/46e7eac647b34ed4106a8262f8bedbb90801fadd (v5.17),
+         * the flag is renamed to GENHD_FL_NO_PART.
+         *
+         * With https://github.com/torvalds/linux/commit/1ebe2e5f9d68e94c524aba876f27b945669a7879 (v5.17),
+         * we can check the flag from 'ext_range' sysfs attribute directly.
+         *
+         * With https://github.com/torvalds/linux/commit/430cc5d3ab4d0ba0bd011cfbb0035e46ba92920c (v5.17),
+         * the value of GENHD_FL_NO_PART is changed from 0x0200 to 0x0004. 💣💣💣
+         * Note, the new value was used by the GENHD_FL_MEDIA_CHANGE_NOTIFY flag, which was introduced by
+         * 86ce18d7b7925bfd6b64c061828ca2a857ee83b8 (v2.6.22), and removed by
+         * 9243c6f3e012a92dd900d97ef45efaf8a8edc448 (v5.7). If we believe the commit message of
+         * e81cd5a983bb35dabd38ee472cf3fea1c63e0f23, the flag was never used. So, fortunately, we can use
+         * both the new and old values safely.
          *
          * With https://github.com/torvalds/linux/commit/e81cd5a983bb35dabd38ee472cf3fea1c63e0f23 (v6.3),
          * the 'capability' sysfs attribute is deprecated, hence we cannot check the flag from it.
@@ -412,12 +423,10 @@ int blockdev_partscan_enabled(int fd) {
         if (r < 0)
                 return r;
 
-#ifndef GENHD_FL_NO_PART_SCAN
-#define GENHD_FL_NO_PART_SCAN (0x0200)
-#endif
-
-        /* If 0x200 is set, part scanning is definitely off. */
-        if (FLAGS_SET(capability, GENHD_FL_NO_PART_SCAN))
+#define GENHD_FL_NO_PART_OLD 0x0200
+#define GENHD_FL_NO_PART_NEW 0x0004
+        /* If one of the NO_PART flags is set, part scanning is definitely off. */
+        if ((capability & (GENHD_FL_NO_PART_OLD | GENHD_FL_NO_PART_NEW)) != 0)
                 return false;
 
         /* Otherwise, assume part scanning is on, we have no further checks available. Assume the best. */
