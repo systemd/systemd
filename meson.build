@@ -557,17 +557,6 @@ foreach decl : ['char16_t',
         # We get -1 if the size cannot be determined
         have = cc.sizeof(decl, prefix : decl_headers, args : '-D_GNU_SOURCE') > 0
 
-        if decl == 'struct mount_attr'
-                if have
-                        want_linux_fs_h = false
-                else
-                        have = cc.sizeof(decl,
-                                         prefix : decl_headers + '#include <linux/fs.h>',
-                                         args : [ '-D_GNU_SOURCE', '-Isrc/basic' ]) > 0
-                        want_linux_fs_h = have
-                endif
-        endif
-
         if decl == 'struct statx'
                 if have
                         want_linux_stat_h = false
@@ -583,7 +572,6 @@ foreach decl : ['char16_t',
 endforeach
 
 conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
-conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
 foreach ident : ['secure_getenv', '__secure_getenv']
         conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
