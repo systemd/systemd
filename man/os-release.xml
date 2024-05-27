@@ -257,7 +257,7 @@
           <term><varname>VERSION_ID=</varname></term>
 
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-          a–z, ".", "_" and "-") identifying the operating system version, excluding any OS name information
+          a–z, ".", "_", "-" and "+") identifying the operating system version, excluding any OS name information
           or release code name, and suitable for processing by scripts or usage in generated filenames. This
           field is optional.</para>
 
@@ -316,7 +316,7 @@
           <term><varname>IMAGE_VERSION=</varname></term>
 
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-          a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
+          a–z, ".", "_", "-" and "+") identifying the OS image version. This is supposed to be used together with
           <varname>IMAGE_ID</varname> described above, to discern different versions of the same image.
           </para>
 
