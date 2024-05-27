@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
 #if WANT_LINUX_FS_H
 #include <linux/fs.h>
 #endif
+#include <sys/mount.h>
 
 #include "data-fd-util.h"
 #include "dirent-util.h"
