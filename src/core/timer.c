@@ -515,7 +515,6 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 goto fail;
                         }
                 } else {
-
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
                                         &t->monotonic_event_source,
@@ -530,8 +529,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         (void) sd_event_source_set_description(t->monotonic_event_source, "timer-monotonic");
                 }
 
-        } else if (t->monotonic_event_source) {
-
+        } else {
                 r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_OFF);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(t), r, "Failed to disable monotonic event source: %m");

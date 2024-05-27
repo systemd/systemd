@@ -142,10 +142,8 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
         }
 
         if (timeout_ms < 0) {
-                if (g->timer) {
-                        if (sd_event_source_set_enabled(g->timer, SD_EVENT_OFF) < 0)
-                                return -1;
-                }
+                if (sd_event_source_set_enabled(g->timer, SD_EVENT_OFF) < 0)
+                        return -1;
 
                 return 0;
         }
