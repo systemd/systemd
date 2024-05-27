@@ -55,7 +55,13 @@ run_test() {
             ;;
     esac
 
-    systemd-run --quiet --property Delegate=1 --property "Environment=$environment" --unit="$name" --wait "$test" && ret=0 || ret=$?
+    systemd-run \
+        --quiet \
+        --property Delegate=1 \
+        --property EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+        --property "Environment=$environment" \
+        --unit="$name" \
+        --wait "$test" && ret=0 || ret=$?
 
     exec {LOCK_FD}> /lock
     flock --exclusive ${LOCK_FD}
