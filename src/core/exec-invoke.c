@@ -4753,7 +4753,7 @@ int exec_invoke(
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (r == -EPERM)
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_exec_warning_errno(context, params, r,
                                                        "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
                         else if (r < 0) {
