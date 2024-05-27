@@ -708,7 +708,7 @@ static uint64_t string_bloom64(const char *str) {
 
 int device_monitor_send_device(
                 sd_device_monitor *m,
-                sd_device_monitor *destination,
+                const union sockaddr_union *destination,
                 sd_device *device) {
 
         monitor_netlink_header nlh = {
@@ -724,7 +724,7 @@ int device_monitor_send_device(
                 .msg_iovlen = 2,
         };
         /* default destination for sending */
-        union sockaddr_union default_destination = {
+        static const union sockaddr_union default_destination = {
                 .nl.nl_family = AF_NETLINK,
                 .nl.nl_groups = MONITOR_GROUP_UDEV,
         };
@@ -774,7 +774,7 @@ int device_monitor_send_device(
          * If we send to a multicast group, we will get
          * ECONNREFUSED, which is expected.
          */
-        smsg.msg_name = destination ? &destination->snl : &default_destination;
+        smsg.msg_name = (struct sockaddr_nl*) &(destination ?: &default_destination)->nl;
         smsg.msg_namelen = sizeof(struct sockaddr_nl);
         count = sendmsg(m->sock, &smsg, 0);
         if (count < 0) {
