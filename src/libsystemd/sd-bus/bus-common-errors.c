@@ -59,6 +59,8 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,     EOPNOTSUPP),
         SD_BUS_ERROR_MAP(BUS_ERROR_SESSION_BUSY,                 EBUSY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NOT_YOUR_DEVICE,              EPERM),
+        /* needs to be EOPNOTSUPP for proper handling in callers of logind_schedule_shutdown() */
+        SD_BUS_ERROR_MAP(BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED, EOPNOTSUPP),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED,  EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_NTP_SUPPORT,               EOPNOTSUPP),
