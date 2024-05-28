@@ -423,4 +423,43 @@ TEST(dns_answer_remove_by_rr_all) {
         ASSERT_NULL(answer);
 }
 
+TEST(dns_answer_remove_by_answer_keys_partial) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *a = prepare_answer();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *b = prepare_answer();
+
+        dns_answer_remove_by_answer_keys(&a, b);
+
+        ASSERT_NULL(a);
+}
+
+TEST(dns_answer_remove_by_answer_keys_all) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *a = prepare_answer();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *b = prepare_answer();
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        dns_answer_remove_by_key(&b, key);
+        dns_resource_key_unref(key);
+
+        ASSERT_EQ(dns_answer_size(a), 3u);
+        ASSERT_EQ(dns_answer_size(b), 2u);
+
+        dns_answer_remove_by_answer_keys(&a, b);
+
+        ASSERT_EQ(dns_answer_size(a), 1u);
+        ASSERT_EQ(dns_answer_size(b), 2u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com");
+        ASSERT_FALSE(dns_answer_match_key(a, key, NULL));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_TRUE(dns_answer_match_key(a, key, NULL));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com");
+        ASSERT_FALSE(dns_answer_match_key(a, key, NULL));
+        dns_resource_key_unref(key);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
