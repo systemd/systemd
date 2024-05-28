@@ -3,7 +3,9 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="capsule_.service">
+<refentry id="capsule_.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
   <refentryinfo>
     <title>capsule@.service</title>
     <productname>systemd</productname>
@@ -83,6 +85,8 @@
     (i.e. 255 characters max, and contain no <literal>/</literal>), and when prefixed with
     <literal>p-</literal> be suitable as a user name matching strict POSIX rules, see <ulink
     url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink> for details.</para>
+
+    <xi:include href="version-info.xml" xpointer="v256"/>
   </refsect1>
 
   <refsect1>
