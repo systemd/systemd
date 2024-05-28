@@ -822,7 +822,7 @@
             on. All userspace log messages will be made available on
             this socket. For more information about syslog integration,
             please consult the <ulink
-            url="https://www.freedesktop.org/wiki/Software/systemd/syslog">Syslog
+            url="https://systemd.io/SYSLOG">Syslog
             Interface</ulink> document.</para>
           </listitem>
         </varlistentry>

@@ -73,10 +73,8 @@
     <para>Note that scripts or binaries dropped in
     <filename>/usr/lib/systemd/system-sleep/</filename> are intended
     for local use only and should be considered hacks. If applications
-    want to react to system suspend/hibernation and resume,
-    they should rather use the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
-    interface</ulink>.</para>
+    want to react to system suspend/hibernation and resume, they should rather use the
+    <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
 
     <para>Note that <filename>systemd-suspend.service</filename>,
     <filename>systemd-hibernate.service</filename>, <filename>systemd-hybrid-sleep.service</filename>, and

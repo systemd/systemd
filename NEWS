@@ -16844,7 +16844,7 @@ CHANGES WITH 196:
           indexed database to link up additional information with
           journal entries. For further details please check:
 
-          https://www.freedesktop.org/wiki/Software/systemd/catalog
+          https://systemd.io/CATALOG
 
           The indexed message catalog database also needs to be
           rebuilt after installation of message catalog files. Use

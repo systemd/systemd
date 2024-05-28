@@ -1809,7 +1809,7 @@ Features:
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
-* docs: bring https://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+* docs: bring https://systemd.io/MY_SERVICE_CANT_GET_REATLIME up to date
 
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service
