@@ -23,8 +23,8 @@
  *
  *		Moved to /usr/include/linux for NET3
  */
-#ifndef _UAPI_LINUX_NETDEVICE_H
-#define _UAPI_LINUX_NETDEVICE_H
+#ifndef _LINUX_NETDEVICE_H
+#define _LINUX_NETDEVICE_H
 
 #include <linux/if.h>
 #include <linux/if_ether.h>
@@ -63,4 +63,4 @@ enum {
 #define NET_ADDR_SET		3	/* address is set using
 					 * dev_set_mac_address() */
 
-#endif /* _UAPI_LINUX_NETDEVICE_H */
+#endif /* _LINUX_NETDEVICE_H */

@@ -10,8 +10,8 @@
  * (at your option) any later version.
  */
 
-#ifndef _UAPI_MACSEC_H
-#define _UAPI_MACSEC_H
+#ifndef _MACSEC_H
+#define _MACSEC_H
 
 #include <linux/types.h>
 
@@ -191,4 +191,4 @@ enum macsec_secy_stats_attr {
 	MACSEC_SECY_STATS_ATTR_MAX = __MACSEC_SECY_STATS_ATTR_END - 1,
 };
 
-#endif /* _UAPI_MACSEC_H */
+#endif /* _MACSEC_H */

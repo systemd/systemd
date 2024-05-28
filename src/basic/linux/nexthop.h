@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-#ifndef _UAPI_LINUX_NEXTHOP_H
-#define _UAPI_LINUX_NEXTHOP_H
+#ifndef _LINUX_NEXTHOP_H
+#define _LINUX_NEXTHOP_H
 
 #include <linux/types.h>
 

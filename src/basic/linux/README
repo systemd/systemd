@@ -1,8 +1,6 @@
-The files in this directory are copied from current kernel master
-(b06ed1e7a2fa9b636f368a9e97c3c8877623f8b2) or WireGuard master
-(8416093498ac2c754536dad4757c5d86c9ba8809), and the following
-modifications are applied:
-- btrfs.h: drop '__user' attributes
-- if.h: drop '#include <linux/compiler.h>' and '__user' attributes
-- stddef.h: drop '#include <linux/compiler_types.h>'
-- guard linux/fs.h include to avoid conflict with glibc 2.36
+The headers in this directory are from kernel v6.10-rc1 (1613e604df0cd359cf2a7fbd9be7a0bcfacfabd0),
+and the following modifications are applied:
+- auto_dev-ioctl.h: set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
+- btrfs.h: guard linux/fs.h include to avoid conflict with glibc 2.36
+- dm-ioctl.h: set DM_VERSION_MINOR to 27
+- ethtool.h: add casts in ethtool_cmd_speed()
