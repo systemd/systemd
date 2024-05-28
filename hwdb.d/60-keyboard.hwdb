@@ -1060,6 +1060,8 @@ evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 
 # Lenovo Y50-70
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
+# Lenovo IdeaPad Z500
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*5931*:pvr*
  KEYBOARD_KEY_f3=f21                                    # Fn+F6 (toggle touchpad)
 
 # V480
