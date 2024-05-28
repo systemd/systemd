@@ -181,6 +181,19 @@ int dlopen_bpf(void) {
         return r;
 }
 
+int bpf_get_error_translated(const void *ptr) {
+        int r;
+
+        r = sym_libbpf_get_error(ptr);
+
+        switch (r) {
+        case -524:
+                return -EOPNOTSUPP;
+        default:
+                return r;
+        }
+}
+
 #else
 
 int dlopen_bpf(void) {
