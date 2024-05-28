@@ -474,8 +474,13 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
         _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
-        if (s)
-                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        int r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        if (r < 0)
+                log_debug_errno(r, "Failed to disable event source %p (%s): %m",
+                                s, strna(s->description));
+
         return sd_event_source_unref(s);
 }
 
