@@ -16,7 +16,7 @@ bool bpf_can_link_program(struct bpf_program *prog) {
         link = sym_bpf_program__attach_cgroup(prog, /*cgroup_fd=*/-1);
 
         /* EBADF indicates that bpf_link is supported by kernel. */
-        return sym_libbpf_get_error(link) == -EBADF;
+        return bpf_get_error_translated(link) == -EBADF;
 }
 
 int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link) {
@@ -25,7 +25,7 @@ int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *li
         if (!link)
                 return -ENOENT;
 
-        if (sym_libbpf_get_error(link) != 0)
+        if (bpf_get_error_translated(link) != 0)
                 return -EINVAL;
 
         return serialize_fd(f, fds, key, sym_bpf_link__fd(link));

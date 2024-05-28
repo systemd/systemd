@@ -35,12 +35,16 @@ DLSYM_PROTOTYPE(bpf_program__attach);
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup);
 DLSYM_PROTOTYPE(bpf_program__attach_lsm);
 DLSYM_PROTOTYPE(bpf_program__name);
-DLSYM_PROTOTYPE(libbpf_get_error);
 DLSYM_PROTOTYPE(libbpf_set_print);
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 DLSYM_PROTOTYPE(ring_buffer__free);
 DLSYM_PROTOTYPE(ring_buffer__new);
 DLSYM_PROTOTYPE(ring_buffer__poll);
+
+/* libbpf sometimes returns error codes that make sense only in the kernel, like 524 for EOPNOTSUPP. Use
+ * this helper instead of libbpf_get_error() to ensure some of the known ones are translated into errnos
+ * we understand. */
+int bpf_get_error_translated(const void *ptr);
 
 #endif
 
