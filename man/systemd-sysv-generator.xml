@@ -47,8 +47,7 @@
     more details.</para>
 
     <para>Note that compatibility is quite comprehensive but not 100%, for more details see <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities with
-    SysV</ulink>.</para>
+    url="https://systemd.io/INCOMPATIBILITIES">Compatibility with SysV</ulink>.</para>
 
     <para>SysV runlevels have corresponding systemd targets
     (<filename>runlevel<replaceable>X</replaceable>.target</filename>).  The wrapper unit that is generated

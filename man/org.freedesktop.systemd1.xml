@@ -1568,7 +1568,7 @@ node /org/freedesktop/systemd1 {
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
       passed as an empty array. See the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
+      <ulink url="https://systemd.io/CONTROL_GROUP_INTERFACE">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
 
@@ -1660,9 +1660,8 @@ node /org/freedesktop/systemd1 {
           <listitem><para><filename>/bin</filename>, <filename>/sbin</filename> and
           <filename>/lib*</filename> are not symlinks to their counterparts under <filename>/usr/</filename>.
           For more information on this issue consult
-          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
-            The Case for the /usr Merge
-          </ulink>.</para>
+          <ulink url="https://systemd.io/THE_CASE_FOR_THE_USR_MERGE">The Case for the /usr Merge</ulink>.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>

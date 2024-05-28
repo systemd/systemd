@@ -84,15 +84,14 @@
     <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the D-Bus APIs <filename>systemd-logind</filename> provides.</para>
 
-    <para>For more information on the inhibition logic see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
-    Lock Developer Documentation</ulink>.</para>
+    <para>For more information see
+    <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
 
     <para>If you are interested in writing a display manager that makes use of logind, please have look at
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-display-managers">Writing Display
+    <ulink url="https://systemd.io/WRITING_DISPLAY_MANAGERS">Writing Display
     Managers</ulink>.
     If you are interested in writing a desktop environment that makes use of logind, please have look at
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-desktop-environments">Writing
+    <ulink url="https://systemd.io/WRITING_DESKTOP_ENVIRONMENTS">Writing
     Desktop Environments</ulink>.</para>
   </refsect1>
 
