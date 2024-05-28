@@ -7,6 +7,11 @@
 #include "log.h"
 #include "tests.h"
 
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "tmpfile-util.h"
+
 /* ================================================================
  * dns_answer_add()
  * ================================================================ */
@@ -688,6 +693,69 @@ TEST(dns_answer_move_by_key_multi_leave_source) {
         ASSERT_TRUE(dns_answer_move_by_key(&target, &source, key, 0, NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 2u);
+}
+
+/* ================================================================
+ * dns_answer_dump()
+ * ================================================================ */
+
+static void check_dump_contents(FILE *f, const char **expected, size_t n) {
+        char *actual[n];
+        size_t i, r;
+        rewind(f);
+
+        for (i = 0; i < n; i++) {
+                r = read_line(f, 1024, &actual[i]);
+                ASSERT_GT(r, 0u);
+        }
+
+        for (i = 0; i < n; i++) {
+                ASSERT_STREQ(actual[i], expected[i]);
+        }
+}
+
+TEST(dns_answer_dump) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com");
+        rr->ttl = 1200;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SECTION_ADDITIONAL, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        rr->ttl = 2400;
+        rr->a.in_addr.s_addr = htobe32(0xc0a80180);
+        dns_answer_add(answer, rr, 2, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com");
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a80181);
+        dns_answer_add(answer, rr, 3, DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_SHARED_OWNER | DNS_ANSWER_SECTION_AUTHORITY | DNS_ANSWER_CACHE_FLUSH, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "d.example.com");
+        rr->ttl = 4800;
+        rr->cname.name = strdup("www.example.com");
+        dns_answer_add(answer, rr, 4, DNS_ANSWER_GOODBYE | DNS_ANSWER_SECTION_ANSWER, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_answer_size(answer), 4u);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-answer-dump-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_answer_dump(answer, f);
+
+        const char *expected[] = {
+                "\ta.example.com IN A 192.168.1.127\t; ttl=1200 ifindex=1 cacheable section-additional",
+                "\tb.example.com IN A 192.168.1.128\t; ttl=2400 ifindex=2",
+                "\tc.example.com IN A 192.168.1.129\t; ttl=3600 ifindex=3 authenticated shared-owner cache-flush section-authority",
+                "\td.example.com IN CNAME www.example.com\t; ttl=4800 ifindex=4 goodbye section-answer"
+        };
+        check_dump_contents(f, expected, 4);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
