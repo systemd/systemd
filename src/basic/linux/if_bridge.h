@@ -11,8 +11,8 @@
  *	2 of the License, or (at your option) any later version.
  */
 
-#ifndef _UAPI_LINUX_IF_BRIDGE_H
-#define _UAPI_LINUX_IF_BRIDGE_H
+#ifndef _LINUX_IF_BRIDGE_H
+#define _LINUX_IF_BRIDGE_H
 
 #include <linux/types.h>
 #include <linux/if_ether.h>
@@ -855,4 +855,4 @@ enum {
 	__BRIDGE_QUERIER_MAX
 };
 #define BRIDGE_QUERIER_MAX (__BRIDGE_QUERIER_MAX - 1)
-#endif /* _UAPI_LINUX_IF_BRIDGE_H */
+#endif /* _LINUX_IF_BRIDGE_H */
