@@ -23,7 +23,7 @@ assert_cc(LOOP_CONFIGURE == 0x4C0A);
 #  define LOOP_SET_DIRECT_IO 0x4C08
 #else
 assert_cc(LO_FLAGS_DIRECT_IO == 16);
-assert_cc(LO_FLAGS_DIRECT_IO == 0x4C08);
+assert_cc(LOOP_SET_DIRECT_IO == 0x4C08);
 #endif
 
 #ifndef LOOP_SET_STATUS_SETTABLE_FLAGS
