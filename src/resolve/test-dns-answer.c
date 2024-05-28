@@ -974,4 +974,74 @@ TEST(dns_answer_dump) {
         check_dump_contents(f, expected, 4);
 }
 
+/* ================================================================
+ * dns_answer_order_by_scope()
+ * ================================================================ */
+
+/* link-local addresses are a9fe0100 (169.254.1.0) to a9fefeff (169.254.254.255) */
+
+static DnsAnswer* prepare_link_local_answer(void) {
+        DnsAnswer *answer = dns_answer_new(0);
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_NOT_NULL(answer);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xa9fe0100);
+        dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a80404);
+        dns_answer_add(answer, rr, 2, DNS_ANSWER_CACHEABLE, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xa9fefeff);
+        dns_answer_add(answer, rr, 3, DNS_ANSWER_CACHEABLE, NULL);
+        dns_resource_record_unref(rr);
+
+        return answer;
+}
+
+TEST(dns_answer_order_by_scope_prefer_link_local) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_link_local_answer();
+        dns_answer_order_by_scope(answer, 1);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-answer-order-by-scope-1-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_answer_dump(answer, f);
+
+        const char *expected[] = {
+                "\ta.example.com IN A 169.254.1.0\t; ttl=3600 ifindex=1 cacheable",
+                "\tc.example.com IN A 169.254.254.255\t; ttl=3600 ifindex=3 cacheable",
+                "\tb.example.com IN A 192.168.4.4\t; ttl=3600 ifindex=2 cacheable"
+        };
+        check_dump_contents(f, expected, 3);
+}
+
+TEST(dns_answer_order_by_scope_prefer_other) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_link_local_answer();
+        dns_answer_order_by_scope(answer, 0);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-answer-order-by-scope-2-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_answer_dump(answer, f);
+
+        const char *expected[] = {
+                "\tb.example.com IN A 192.168.4.4\t; ttl=3600 ifindex=2 cacheable",
+                "\ta.example.com IN A 169.254.1.0\t; ttl=3600 ifindex=1 cacheable",
+                "\tc.example.com IN A 169.254.254.255\t; ttl=3600 ifindex=3 cacheable"
+        };
+        check_dump_contents(f, expected, 3);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
