@@ -446,5 +446,4 @@ STABLE BRANCHES AND BACKPORTS:
         Stable branches are started for certain releases of systemd and named
         after them, e.g. v238-stable. Stable branches are managed by
         distribution maintainers on an as needed basis. See
-        https://www.freedesktop.org/wiki/Software/systemd/Backports for some
-        more information and examples.
+        https://systemd.io/BACKPORTS for some more information and examples.
