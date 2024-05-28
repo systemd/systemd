@@ -675,8 +675,9 @@ void machine_release_unit(Machine *m) {
 
                 r = manager_unref_unit(m->manager, m->unit, &error);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to drop reference to machine scope, ignoring: %s",
-                                          bus_error_message(&error, r));
+                        log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to drop reference to machine scope, ignoring: %s",
+                                       bus_error_message(&error, r));
 
                 m->referenced = false;
         }
