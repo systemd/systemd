@@ -1112,14 +1112,10 @@ ssize_t receive_many_fds_iov(
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                         size_t n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
-                        fds_array = GREEDY_REALLOC(fds_array, n_fds_array + n);
-                        if (!fds_array) {
+                        if (!GREEDY_REALLOC_APPEND(fds_array, n_fds_array, CMSG_TYPED_DATA(cmsg, int), n)) {
                                 cmsg_close_all(&mh);
                                 return -ENOMEM;
                         }
-
-                        memcpy(fds_array + n_fds_array, CMSG_TYPED_DATA(cmsg, int), sizeof(int) * n);
-                        n_fds_array += n;
                 }
 
         if (n_fds_array == 0) {
