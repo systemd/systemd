@@ -2,21 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import json
-import os
-import subprocess
 import sys
 
 
 config = json.load(sys.stdin)
 
-qemu = f"qemu-system-{os.environ["QEMU_ARCHITECTURE"]}"
-result = subprocess.run([qemu, '-device', 'help'], check=True, text=True, stdout=subprocess.PIPE)
-if 'name "megasas-gen2"' not in result.stdout:
-    print("megasas-gen2 device driver is not available, skipping test...", file=sys.stderr)
-    exit(77)
-
 for i in range(4):
-    config["QemuArgs"] += ['-device', f"megasas-gen2,id=scsi{i}"]
+    config["QemuArgs"] += ['-device', f"virtio-scsi-pci,id=scsi{i}"]
 
 for i in range(128):
     id = f"drive{i}"
