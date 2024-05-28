@@ -185,7 +185,7 @@ static thread_local sd_event *default_event = NULL;
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, struct inode_data *d);
 
-static sd_event *event_resolve(sd_event *e) {
+static sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
@@ -341,7 +341,7 @@ static void free_clock_data(struct clock_data *d) {
         prioq_free(d->latest);
 }
 
-static sd_event *event_free(sd_event *e) {
+static sd_event* event_free(sd_event *e) {
         sd_event_source *s;
 
         assert(e);
@@ -446,7 +446,7 @@ fail:
 }
 
 /* Define manually so we can add the origin check */
-_public_ sd_event *sd_event_ref(sd_event *e) {
+_public_ sd_event* sd_event_ref(sd_event *e) {
         if (!e)
                 return NULL;
         if (event_origin_changed(e))
@@ -1183,7 +1183,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
         return 1;
 }
 
-static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType type) {
+static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType type) {
 
         /* Let's allocate exactly what we need. Note that the difference of the smallest event source
          * structure to the largest is 144 bytes on x86-64 at the time of writing, i.e. more than two cache
@@ -2630,7 +2630,7 @@ _public_ int sd_event_source_get_description(sd_event_source *s, const char **de
         return 0;
 }
 
-_public_ sd_event *sd_event_source_get_event(sd_event_source *s) {
+_public_ sd_event* sd_event_source_get_event(sd_event_source *s) {
         assert_return(s, NULL);
         assert_return(!event_origin_changed(s->event), NULL);
 
