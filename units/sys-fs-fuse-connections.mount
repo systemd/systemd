@@ -10,7 +10,7 @@
 [Unit]
 Description=FUSE Control File System
 Documentation=https://docs.kernel.org/filesystems/fuse.html
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+Documentation=https://systemd.io/API_FILE_SYSTEMS
 DefaultDependencies=no
 ConditionPathExists=/sys/fs/fuse/connections
 ConditionCapability=CAP_SYS_ADMIN
