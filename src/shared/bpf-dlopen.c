@@ -181,6 +181,23 @@ int dlopen_bpf(void) {
         return r;
 }
 
+int bpf_get_error_translated(const void *ptr) {
+        int r;
+
+        r = sym_libbpf_get_error(ptr);
+
+        switch (r) {
+        case -524:
+                /* Workaround for kernel bug, BPF returns an internal error instead of translating it, until
+                 * it is fixed:
+                 * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/errno.h?h=v6.9&id=a38297e3fb012ddfa7ce0321a7e5a8daeb1872b6#n27
+                 */
+                return -EOPNOTSUPP;
+        default:
+                return r;
+        }
+}
+
 #else
 
 int dlopen_bpf(void) {
