@@ -669,9 +669,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-int user_check_linger_file(User *u) {
+int user_check_linger_file(const User *u) {
         _cleanup_free_ char *cc = NULL;
-        char *p = NULL;
+        const char *p;
+
+        assert(u);
+        assert(u->user_record);
 
         cc = cescape(u->user_record->user_name);
         if (!cc)
