@@ -20,7 +20,6 @@
 #include "localed-util.h"
 #include "macro.h"
 #include "main-func.h"
-#include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "service-util.h"

@@ -31,7 +31,6 @@
 #include "list.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "service-util.h"
