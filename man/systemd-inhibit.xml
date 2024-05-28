@@ -44,9 +44,8 @@
     an optical disc is being recorded, or similar operations that
     should not be interrupted.</para>
 
-    <para>For more information see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
-    Lock Developer Documentation</ulink>.</para>
+    <para>For more information see
+    <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
   </refsect1>
 
   <refsect1>
