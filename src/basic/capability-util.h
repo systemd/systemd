@@ -7,7 +7,6 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "missing_capability.h"
 
 /* Special marker used when storing a capabilities mask as "unset" */
 #define CAP_MASK_UNSET UINT64_MAX

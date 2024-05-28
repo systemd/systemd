@@ -549,7 +549,6 @@ decl_headers = '''
 
 foreach decl : ['char16_t',
                 'char32_t',
-                'struct mount_attr',
                 'struct dirent64',
                ]
 

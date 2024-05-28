@@ -8,7 +8,6 @@
 #include "discover-image.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "missing_capability.h"
 #include "portable.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"
