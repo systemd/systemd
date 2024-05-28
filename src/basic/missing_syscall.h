@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/mount.h>
 #if HAVE_LINUX_TIME_TYPES_H
 /* This header defines __kernel_timespec for us, but is only available since Linux 5.1, hence conditionally
  * include this. */
