@@ -418,6 +418,13 @@ int blockdev_partscan_enabled(int fd) {
         if (r != -ENOENT)
                 return r;
 
+        /* Partition block devices never have partition scanning on, there's no concept of sub-partitions for
+         * partitions. */
+        const char *devtype;
+        (void) sd_device_get_devtype(dev, &devtype);
+        if (streq_ptr(devtype, "partition"))
+                return false;
+
         /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
          * check GENHD_FL_NO_PART flag through 'ext_range' and 'capability' sysfs attributes below. */
         if (device_get_sysattr_bool(dev, "loop/partscan") == 0)
