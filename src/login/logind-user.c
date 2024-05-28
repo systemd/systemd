@@ -371,12 +371,15 @@ static int user_start_runtime_dir(User *u) {
         return 0;
 }
 
-static bool user_wants_service_manager(User *u) {
+static bool user_wants_service_manager(const User *u) {
         assert(u);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 if (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class))
                         return true;
+
+        if (user_check_linger_file(u) > 0)
+                return true;
 
         return false;
 }
