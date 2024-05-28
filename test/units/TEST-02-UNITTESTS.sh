@@ -42,10 +42,20 @@ run_test() {
 
     local test="$1"
     local name="${test##*/}"
+    local environment=
 
     echo "Executing test $name as unit $name.service"
 
-    systemd-run --quiet --property Delegate=1 --unit="$name" --wait "$test" && ret=0 || ret=$?
+    case "$name" in
+        test-journal-flush)
+            environment="SYSTEMD_LOG_LEVEL=info"
+            ;;
+        test-journal-verify)
+            environment="SYSTEMD_LOG_LEVEL=crit"
+            ;;
+    esac
+
+    systemd-run --quiet --property Delegate=1 --property "Environment=$environment" --unit="$name" --wait "$test" && ret=0 || ret=$?
 
     exec {LOCK_FD}> /lock
     flock --exclusive ${LOCK_FD}
