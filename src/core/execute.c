@@ -47,7 +47,6 @@
 #include "manager-dump.h"
 #include "memory-util.h"
 #include "missing_fs.h"
-#include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "namespace.h"
 #include "parse-util.h"

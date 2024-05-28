@@ -6,60 +6,6 @@
 
 #include "macro.h"
 
-#ifndef KEYCTL_JOIN_SESSION_KEYRING
-#  define KEYCTL_JOIN_SESSION_KEYRING 1
-#else
-assert_cc(KEYCTL_JOIN_SESSION_KEYRING == 1);
-#endif
-
-#ifndef KEYCTL_CHOWN
-#  define KEYCTL_CHOWN 4
-#else
-assert_cc(KEYCTL_CHOWN == 4);
-#endif
-
-#ifndef KEYCTL_SETPERM
-#  define KEYCTL_SETPERM 5
-#else
-assert_cc(KEYCTL_SETPERM == 5);
-#endif
-
-#ifndef KEYCTL_DESCRIBE
-#  define KEYCTL_DESCRIBE 6
-#else
-assert_cc(KEYCTL_DESCRIBE == 6);
-#endif
-
-#ifndef KEYCTL_LINK
-#  define KEYCTL_LINK 8
-#else
-assert_cc(KEYCTL_LINK == 8);
-#endif
-
-#ifndef KEYCTL_READ
-#  define KEYCTL_READ 11
-#else
-assert_cc(KEYCTL_READ == 11);
-#endif
-
-#ifndef KEYCTL_SET_TIMEOUT
-#  define KEYCTL_SET_TIMEOUT 15
-#else
-assert_cc(KEYCTL_SET_TIMEOUT == 15);
-#endif
-
-#ifndef KEY_SPEC_USER_KEYRING
-#  define KEY_SPEC_USER_KEYRING -4
-#else
-assert_cc(KEY_SPEC_USER_KEYRING == -4);
-#endif
-
-#ifndef KEY_SPEC_SESSION_KEYRING
-#  define KEY_SPEC_SESSION_KEYRING -3
-#else
-assert_cc(KEY_SPEC_SESSION_KEYRING == -3);
-#endif
-
 /* From linux/key.h */
 #ifndef KEY_POS_VIEW
 

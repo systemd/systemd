@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <linux/vm_sockets.h> /* This needs to be after sys/socket.h */
 #include <sys/types.h>
 #include <sys/un.h>
 

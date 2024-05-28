@@ -5,12 +5,15 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/mount.h>
 #if HAVE_LINUX_TIME_TYPES_H
 /* This header defines __kernel_timespec for us, but is only available since Linux 5.1, hence conditionally
  * include this. */
 #include <linux/time_types.h>
 #endif
 #include <signal.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -22,7 +25,6 @@
 
 #include "macro.h"
 #include "missing_keyctl.h"
-#include "missing_stat.h"
 #include "missing_syscall_def.h"
 
 /* linux/kcmp.h */
@@ -272,8 +274,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_STATX
-struct statx;
-
 static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
 #  ifdef __NR_statx
         return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
@@ -282,12 +282,7 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
         return -1;
 #  endif
 }
-#endif
 
-/* This typedef is supposed to be always defined. */
-typedef struct statx struct_statx;
-
-#if !HAVE_STATX
 #  define statx(dfd, filename, flags, mask, buffer) missing_statx(dfd, filename, flags, mask, buffer)
 #endif
 
@@ -434,69 +429,6 @@ static inline int missing_close_range(unsigned first_fd, unsigned end_fd, unsign
 
 #if !HAVE_MOUNT_SETATTR
 
-#if !HAVE_STRUCT_MOUNT_ATTR
-struct mount_attr {
-        uint64_t attr_set;
-        uint64_t attr_clr;
-        uint64_t propagation;
-        uint64_t userns_fd;
-};
-#else
-struct mount_attr;
-#endif
-
-#ifndef MOUNT_ATTR_RDONLY
-#define MOUNT_ATTR_RDONLY       0x00000001 /* Mount read-only */
-#endif
-
-#ifndef MOUNT_ATTR_NOSUID
-#define MOUNT_ATTR_NOSUID       0x00000002 /* Ignore suid and sgid bits */
-#endif
-
-#ifndef MOUNT_ATTR_NODEV
-#define MOUNT_ATTR_NODEV        0x00000004 /* Disallow access to device special files */
-#endif
-
-#ifndef MOUNT_ATTR_NOEXEC
-#define MOUNT_ATTR_NOEXEC       0x00000008 /* Disallow program execution */
-#endif
-
-#ifndef MOUNT_ATTR__ATIME
-#define MOUNT_ATTR__ATIME       0x00000070 /* Setting on how atime should be updated */
-#endif
-
-#ifndef MOUNT_ATTR_RELATIME
-#define MOUNT_ATTR_RELATIME     0x00000000 /* - Update atime relative to mtime/ctime. */
-#endif
-
-#ifndef MOUNT_ATTR_NOATIME
-#define MOUNT_ATTR_NOATIME      0x00000010 /* - Do not update access times. */
-#endif
-
-#ifndef MOUNT_ATTR_STRICTATIME
-#define MOUNT_ATTR_STRICTATIME  0x00000020 /* - Always perform atime updates */
-#endif
-
-#ifndef MOUNT_ATTR_NODIRATIME
-#define MOUNT_ATTR_NODIRATIME   0x00000080 /* Do not update directory access times */
-#endif
-
-#ifndef MOUNT_ATTR_IDMAP
-#define MOUNT_ATTR_IDMAP        0x00100000 /* Idmap mount to @userns_fd in struct mount_attr. */
-#endif
-
-#ifndef MOUNT_ATTR_NOSYMFOLLOW
-#define MOUNT_ATTR_NOSYMFOLLOW  0x00200000 /* Do not follow symlinks */
-#endif
-
-#ifndef MOUNT_ATTR_SIZE_VER0
-#define MOUNT_ATTR_SIZE_VER0    32 /* sizeof first published struct */
-#endif
-
-#ifndef AT_RECURSIVE
-#define AT_RECURSIVE 0x8000
-#endif
-
 static inline int missing_mount_setattr(
                 int dfd,
                 const char *path,
@@ -519,14 +451,6 @@ static inline int missing_mount_setattr(
 
 #if !HAVE_OPEN_TREE
 
-#ifndef OPEN_TREE_CLONE
-#define OPEN_TREE_CLONE 1
-#endif
-
-#ifndef OPEN_TREE_CLOEXEC
-#define OPEN_TREE_CLOEXEC O_CLOEXEC
-#endif
-
 static inline int missing_open_tree(
                 int dfd,
                 const char *filename,
@@ -545,19 +469,7 @@ static inline int missing_open_tree(
 
 /* ======================================================================= */
 
-#ifndef MOVE_MOUNT_BENEATH
-#define MOVE_MOUNT_BENEATH 0x00000200
-#endif
-
 #if !HAVE_MOVE_MOUNT
-
-#ifndef MOVE_MOUNT_F_EMPTY_PATH
-#define MOVE_MOUNT_F_EMPTY_PATH 0x00000004 /* Empty from path permitted */
-#endif
-
-#ifndef MOVE_MOUNT_T_EMPTY_PATH
-#define MOVE_MOUNT_T_EMPTY_PATH 0x00000040 /* Empty to path permitted */
-#endif
 
 static inline int missing_move_mount(
                 int from_dfd,
@@ -581,10 +493,6 @@ static inline int missing_move_mount(
 
 #if !HAVE_FSOPEN
 
-#ifndef FSOPEN_CLOEXEC
-#define FSOPEN_CLOEXEC 0x00000001
-#endif
-
 static inline int missing_fsopen(const char *fsname, unsigned flags) {
 #  if defined __NR_fsopen && __NR_fsopen >= 0
         return syscall(__NR_fsopen, fsname, flags);
@@ -601,22 +509,6 @@ static inline int missing_fsopen(const char *fsname, unsigned flags) {
 
 #if !HAVE_FSCONFIG
 
-#ifndef FSCONFIG_SET_FLAG
-#define FSCONFIG_SET_FLAG 0 /* Set parameter, supplying no value */
-#endif
-
-#ifndef FSCONFIG_SET_STRING
-#define FSCONFIG_SET_STRING 1 /* Set parameter, supplying a string value */
-#endif
-
-#ifndef FSCONFIG_SET_FD
-#define FSCONFIG_SET_FD 5 /* Set parameter, supplying an object by fd */
-#endif
-
-#ifndef FSCONFIG_CMD_CREATE
-#define FSCONFIG_CMD_CREATE 6 /* Invoke superblock creation */
-#endif
-
 static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
 #  if defined __NR_fsconfig && __NR_fsconfig >= 0
         return syscall(__NR_fsconfig, fd, cmd, key, value, aux);
@@ -632,10 +524,6 @@ static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const 
 /* ======================================================================= */
 
 #if !HAVE_FSMOUNT
-
-#ifndef FSMOUNT_CLOEXEC
-#define FSMOUNT_CLOEXEC 0x00000001
-#endif
 
 static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
 #  if defined __NR_fsmount && __NR_fsmount >= 0

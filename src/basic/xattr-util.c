@@ -153,7 +153,7 @@ int fd_getcrtime_at(
                 usec_t *ret) {
 
         _cleanup_free_ le64_t *le = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         usec_t a, b;
         int r;
 

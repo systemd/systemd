@@ -11,7 +11,6 @@
 
 #include "fs-util.h"
 #include "macro.h"
-#include "missing_stat.h"
 #include "siphash24.h"
 #include "time-util.h"
 
@@ -90,30 +89,11 @@ bool stat_inode_same(const struct stat *a, const struct stat *b);
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 
 bool statx_inode_same(const struct statx *a, const struct statx *b);
-bool statx_mount_same(const struct new_statx *a, const struct new_statx *b);
+bool statx_mount_same(const struct statx *a, const struct statx *b);
 
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
-
-#if HAS_FEATURE_MEMORY_SANITIZER
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#  define STRUCT_STATX_DEFINE(var)              \
-        struct statx var = {}
-#  define STRUCT_NEW_STATX_DEFINE(var)          \
-        union {                                 \
-                struct statx sx;                \
-                struct new_statx nsx;           \
-        } var = {}
-#else
-#  define STRUCT_STATX_DEFINE(var)              \
-        struct statx var
-#  define STRUCT_NEW_STATX_DEFINE(var)          \
-        union {                                 \
-                struct statx sx;                \
-                struct new_statx nsx;           \
-        } var
-#endif
 
 static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
         return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
@@ -138,8 +118,5 @@ static inline bool stat_is_set(const struct stat *st) {
         return st && st->st_dev != 0 && st->st_mode != MODE_INVALID;
 }
 static inline bool statx_is_set(const struct statx *sx) {
-        return sx && sx->stx_mask != 0;
-}
-static inline bool new_statx_is_set(const struct new_statx *sx) {
         return sx && sx->stx_mask != 0;
 }

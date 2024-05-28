@@ -9,7 +9,7 @@
 #include "string-util.h"
 
 int dirent_ensure_type(int dir_fd, struct dirent *de) {
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         int r;
 
         assert(dir_fd >= 0);

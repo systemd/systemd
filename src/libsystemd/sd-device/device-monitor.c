@@ -21,7 +21,6 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "iovec-util.h"
-#include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
 #include "socket-util.h"
