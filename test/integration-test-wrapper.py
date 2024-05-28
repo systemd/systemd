@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
@@ -145,7 +146,7 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        'qemu',
+        'qemu' if args.vm or os.getuid() != 0 else 'boot',
     ]
 
     result = subprocess.run(cmd)

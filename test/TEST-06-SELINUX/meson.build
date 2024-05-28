@@ -6,6 +6,7 @@ integration_tests += [
                 'cmdline' : integration_test_template['cmdline'] + ['selinux=1', 'lsm=selinux'],
                 # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
                 'firmware' : 'uefi',
+                'vm' : true,
         },
 ]
 

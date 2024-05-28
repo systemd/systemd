@@ -6,5 +6,6 @@ integration_tests += [
                 'unit' : files('TEST-82-SOFTREBOOT.service'),
                 'cmdline' : ['systemd.set_credential=kernelcmdlinecred:uff'],
                 'storage' : 'persistent',
+                'vm' : true,
         },
 ]

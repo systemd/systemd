@@ -20,5 +20,6 @@ integration_tests += [
                 'mkosi-args' : integration_test_template['mkosi-args'] + [
                         '--runtime-size=11G',
                 ],
+                'vm' : true,
         },
 ]
