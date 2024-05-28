@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-#ifndef _UAPI__LINUX_NETLINK_H
-#define _UAPI__LINUX_NETLINK_H
+#ifndef __LINUX_NETLINK_H
+#define __LINUX_NETLINK_H
 
 #include <linux/const.h>
 #include <linux/socket.h> /* for __kernel_sa_family_t */
@@ -165,10 +165,8 @@ enum nlmsgerr_attrs {
 #define NETLINK_PKTINFO			3
 #define NETLINK_BROADCAST_ERROR		4
 #define NETLINK_NO_ENOBUFS		5
-#ifndef __KERNEL__
 #define NETLINK_RX_RING			6
 #define NETLINK_TX_RING			7
-#endif
 #define NETLINK_LISTEN_ALL_NSID		8
 #define NETLINK_LIST_MEMBERSHIPS	9
 #define NETLINK_CAP_ACK			10
@@ -196,7 +194,6 @@ struct nl_mmap_hdr {
 	__u32		nm_gid;
 };
 
-#ifndef __KERNEL__
 enum nl_mmap_status {
 	NL_MMAP_STATUS_UNUSED,
 	NL_MMAP_STATUS_RESERVED,
@@ -208,7 +205,6 @@ enum nl_mmap_status {
 #define NL_MMAP_MSG_ALIGNMENT		NLMSG_ALIGNTO
 #define NL_MMAP_MSG_ALIGN(sz)		__ALIGN_KERNEL(sz, NL_MMAP_MSG_ALIGNMENT)
 #define NL_MMAP_HDRLEN			NL_MMAP_MSG_ALIGN(sizeof(struct nl_mmap_hdr))
-#endif
 
 #define NET_MAJOR 36		/* Major 36 is reserved for networking 						*/
 
@@ -380,4 +376,4 @@ enum netlink_policy_type_attr {
 	NL_POLICY_TYPE_ATTR_MAX = __NL_POLICY_TYPE_ATTR_MAX - 1
 };
 
-#endif /* _UAPI__LINUX_NETLINK_H */
+#endif /* __LINUX_NETLINK_H */
