@@ -16,8 +16,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _UAPI_CAN_NETLINK_H
-#define _UAPI_CAN_NETLINK_H
+#ifndef _CAN_NETLINK_H
+#define _CAN_NETLINK_H
 
 #include <linux/types.h>
 
