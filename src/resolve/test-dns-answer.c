@@ -822,6 +822,88 @@ TEST(dns_answer_move_by_key_multi_leave_source) {
 }
 
 /* ================================================================
+ * dns_answer_has_dname_for_cname()
+ * ================================================================ */
+
+TEST(dns_answer_has_dname_for_cname_pass) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
+
+        ASSERT_NOT_NULL(answer);
+
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname);
+        dname->dname.name = strdup("v2.example.com");
+        dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, NULL);
+
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(cname);
+        cname->cname.name = strdup("www.v2.example.com");
+        ASSERT_TRUE(dns_answer_has_dname_for_cname(answer, cname));
+}
+
+TEST(dns_answer_has_dname_for_cname_no_dname) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+
+        ASSERT_NOT_NULL(answer);
+
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(cname);
+        cname->cname.name = strdup("www.v2.example.com");
+        ASSERT_FALSE(dns_answer_has_dname_for_cname(answer, cname));
+}
+
+TEST(dns_answer_has_dname_for_cname_no_match_old_suffix) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
+
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname);
+        dname->dname.name = strdup("v2.examples.com");
+        dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, NULL);
+
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(cname);
+        cname->cname.name = strdup("www.v2.example.com");
+        ASSERT_FALSE(dns_answer_has_dname_for_cname(answer, cname));
+}
+
+TEST(dns_answer_has_dname_for_cname_no_match_new_suffix) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
+
+        ASSERT_NOT_NULL(answer);
+
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname);
+        dname->dname.name = strdup("v2.example.com");
+        dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, NULL);
+
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(cname);
+        cname->cname.name = strdup("www.v3.example.com");
+        ASSERT_FALSE(dns_answer_has_dname_for_cname(answer, cname));
+}
+
+TEST(dns_answer_has_dname_for_cname_not_cname) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_new(0);
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
+
+        ASSERT_NOT_NULL(answer);
+
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname);
+        dname->dname.name = strdup("v2.example.com");
+        dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, NULL);
+
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(cname);
+        cname->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        ASSERT_FALSE(dns_answer_has_dname_for_cname(answer, cname));
+}
+
+/* ================================================================
  * dns_answer_dump()
  * ================================================================ */
 
