@@ -11,7 +11,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "lsm-util.h"
-#include "missing_mount.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

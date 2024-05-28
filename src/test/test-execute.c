@@ -18,7 +18,6 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
-#include "missing_prctl.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"

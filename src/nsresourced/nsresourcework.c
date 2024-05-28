@@ -19,7 +19,6 @@
 #include "lock-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

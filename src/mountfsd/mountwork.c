@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/loop.h>
+
 #include "sd-daemon.h"
 
 #include "argv-util.h"
@@ -12,7 +14,6 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "main-func.h"
-#include "missing_loop.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"

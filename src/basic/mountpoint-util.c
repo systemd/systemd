@@ -3,9 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -14,8 +11,6 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "missing_fs.h"
-#include "missing_mount.h"
-#include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
@@ -177,7 +172,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         struct stat a, b;
         int r;
 
@@ -372,7 +367,7 @@ int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
 }
 
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
-        STRUCT_NEW_STATX_DEFINE(buf);
+        struct statx sx;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
@@ -383,7 +378,7 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                   AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
                   AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
                   STATX_MNT_ID,
-                  &buf.sx) < 0) {
+                  &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && /* statx() is not supported by the kernel. */
                     !ERRNO_IS_PRIVILEGE(errno) &&     /* maybe filtered by seccomp. */
                     errno != EINVAL)                  /* glibc's fallback method returns EINVAL when AT_STATX_DONT_SYNC is set. */
@@ -392,8 +387,8 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                 /* Fall back to name_to_handle_at() and then fdinfo if statx is not supported or we lack
                  * privileges */
 
-        } else if (FLAGS_SET(buf.nsx.stx_mask, STATX_MNT_ID)) {
-                *ret = buf.nsx.stx_mnt_id;
+        } else if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID)) {
+                *ret = sx.stx_mnt_id;
                 return 0;
         }
 

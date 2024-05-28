@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Include linux/fs.h here to avoid that chattr-util.h conflicts with sys/mount.h. */
+#include <linux/fs.h>
+#include <linux/securebits.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -43,8 +46,6 @@
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "missing_ioprio.h"
-#include "missing_prctl.h"
-#include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "proc-cmdline.h"
