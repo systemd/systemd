@@ -159,7 +159,12 @@ timeout 60 bash -c "while [[ -e /sys/$LOOP_AUTO_DEVPATH/loop/backing_file ]]; do
 dd if=/dev/zero of="$WORK_DIR/owner-vfat.img" bs=1M count=16
 mkfs.vfat -n owner-vfat "$WORK_DIR/owner-vfat.img"
 LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
-udevadm wait --timeout 60 --settle "$LOOP"
+# If the synthesized uevent triggered by inotify event has been processed earlier than the kernel finishes to
+# attach the backing file, then SYSTEMD_READY=0 is set for the device. As a workaround, monitor sysattr
+# and re-trigger uevent after that.
+LOOP_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$LOOP")
+timeout 60 bash -c "until [[ -e /sys/$LOOP_DEVPATH/loop/backing_file ]]; do sleep 1; done"
+udevadm trigger --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
 if ! timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"; then
