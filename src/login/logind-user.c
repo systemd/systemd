@@ -371,12 +371,15 @@ static int user_start_runtime_dir(User *u) {
         return 0;
 }
 
-static bool user_wants_service_manager(User *u) {
+static bool user_wants_service_manager(const User *u) {
         assert(u);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 if (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class))
                         return true;
+
+        if (user_check_linger_file(u) > 0)
+                return true;
 
         return false;
 }
@@ -669,9 +672,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-int user_check_linger_file(User *u) {
+int user_check_linger_file(const User *u) {
         _cleanup_free_ char *cc = NULL;
-        char *p = NULL;
+        const char *p;
+
+        assert(u);
+        assert(u->user_record);
 
         cc = cescape(u->user_record->user_name);
         if (!cc)
