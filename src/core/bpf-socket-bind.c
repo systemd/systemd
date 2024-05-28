@@ -201,13 +201,13 @@ static int socket_bind_install_impl(Unit *u) {
                 return log_unit_error_errno(u, errno, "bpf-socket-bind: Failed to open cgroup %s for reading: %m", cgroup_path);
 
         ipv4 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
-        r = sym_libbpf_get_error(ipv4);
+        r = bpf_get_error_translated(ipv4);
         if (r != 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind4));
 
         ipv6 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind6, cgroup_fd);
-        r = sym_libbpf_get_error(ipv6);
+        r = bpf_get_error_translated(ipv6);
         if (r != 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind6));
