@@ -561,7 +561,10 @@ int main(int argc, char *argv[]) {
         }
 
         /* We're done with the watchdog. Note that the watchdog is explicitly not stopped here. It remains
-         * active to guard against any issues during the rest of the shutdown sequence. */
+         * active to guard against any issues during the rest of the shutdown sequence. Note that we
+         * explicitly close the device with disarm=false here, before releasing the rest of the watchdog
+         * data. */
+        watchdog_close(/* disarm= */ false);
         watchdog_free_device();
 
         arguments[0] = NULL; /* Filled in by execute_directories(), when needed */
