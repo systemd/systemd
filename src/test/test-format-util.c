@@ -43,17 +43,17 @@ static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec
 TEST(format_bytes) {
         test_format_bytes_one(900, true, "900B", "900B", "900B", "900B");
         test_format_bytes_one(900, false, "900", "900", "900", "900");
-        test_format_bytes_one(1023, true, "1023B", "1023B", "1.0K", "1K");
-        test_format_bytes_one(1023, false, "1023", "1023", "1.0K", "1K");
-        test_format_bytes_one(1024, true, "1.0K", "1K", "1.0K", "1K");
-        test_format_bytes_one(1024, false, "1.0K", "1K", "1.0K", "1K");
-        test_format_bytes_one(1100, true, "1.0K", "1K", "1.1K", "1K");
+        test_format_bytes_one(1023, true, "1023B", "1023B", "1K", "1K");
+        test_format_bytes_one(1023, false, "1023", "1023", "1K", "1K");
+        test_format_bytes_one(1024, true, "1K", "1K", "1K", "1K");
+        test_format_bytes_one(1024, false, "1K", "1K", "1K", "1K");
+        test_format_bytes_one(1100, true, "1K", "1K", "1.1K", "1K");
         test_format_bytes_one(1500, true, "1.4K", "1K", "1.5K", "1K");
-        test_format_bytes_one(UINT64_C(3)*1024*1024, true, "3.0M", "3M", "3.1M", "3M");
-        test_format_bytes_one(UINT64_C(3)*1024*1024*1024, true, "3.0G", "3G", "3.2G", "3G");
-        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024, true, "3.0T", "3T", "3.2T", "3T");
-        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024, true, "3.0P", "3P", "3.3P", "3P");
-        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024*1024, true, "3.0E", "3E", "3.4E", "3E");
+        test_format_bytes_one(UINT64_C(3)*1024*1024, true, "3M", "3M", "3.1M", "3M");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024, true, "3G", "3G", "3.2G", "3G");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024, true, "3T", "3T", "3.2T", "3T");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024, true, "3P", "3P", "3.3P", "3P");
+        test_format_bytes_one(UINT64_C(3)*1024*1024*1024*1024*1024*1024, true, "3E", "3E", "3.4E", "3E");
         test_format_bytes_one(UINT64_MAX, true, NULL, NULL, NULL, NULL);
         test_format_bytes_one(UINT64_MAX, false, NULL, NULL, NULL, NULL);
 }
