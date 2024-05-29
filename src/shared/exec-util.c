@@ -36,26 +36,34 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, bool set_systemd_exec_pid) {
-        pid_t _pid;
+static int do_spawn(
+                const char *path,
+                char *argv[],
+                int stdout_fd,
+                bool set_systemd_exec_pid,
+                pid_t *ret_pid) {
+
         int r;
+
+        assert(path);
+        assert(ret_pid);
 
         if (null_or_empty_path(path) > 0) {
                 log_debug("%s is empty (a mask).", path);
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &_pid);
+        pid_t pid;
+        r = safe_fork_full(
+                        "(direxec)",
+                        (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS,
+                        &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 char *_argv[2];
-
-                if (stdout_fd >= 0) {
-                        r = rearrange_stdio(STDIN_FILENO, TAKE_FD(stdout_fd), STDERR_FILENO);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-                }
 
                 if (set_systemd_exec_pid) {
                         r = setenv_systemd_exec_pid(false);
@@ -75,7 +83,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 _exit(EXIT_FAILURE);
         }
 
-        *pid = _pid;
+        *ret_pid = pid;
         return 1;
 }
 
@@ -147,7 +155,7 @@ static int do_execute(
                         log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
                 }
 
-                r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
+                r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pid);
                 if (r <= 0)
                         continue;
 
