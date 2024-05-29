@@ -212,9 +212,6 @@ int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
                         continue;
 
                 RET_GATHER(r, fd_cloexec(*fd, cloexec));
-
-                if (r >= 0)
-                        r = 1; /* report if we did anything */
         }
 
         return r;
