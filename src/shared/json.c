@@ -3335,6 +3335,9 @@ int json_parse_with_source(
 
         _cleanup_(json_source_unrefp) JsonSource *s = NULL;
 
+        if (isempty(input))
+                return -ENODATA;
+
         if (source) {
                 s = json_source_new(source);
                 if (!s)
@@ -3383,9 +3386,6 @@ int json_parse_file_at(
                 return -EINVAL;
         if (r < 0)
                 return r;
-
-        if (isempty(text))
-                return -ENODATA;
 
         return json_parse_with_source(text, path, flags, ret, ret_line, ret_column);
 }
@@ -4578,12 +4578,30 @@ int json_dispatch_full(
 
                         merged_flags = flags | p->flags;
 
+                        /* If an explicit type is specified, verify it matches */
                         if (p->type != _JSON_VARIANT_TYPE_INVALID &&
-                            !json_variant_has_type(value, p->type)) {
+                             !json_variant_has_type(value, p->type) &&
+                            !(FLAGS_SET(merged_flags, JSON_NULLABLE) && json_variant_is_null(value))) {
 
                                 json_log(value, merged_flags, 0,
                                          "Object field '%s' has wrong type %s, expected %s.", json_variant_string(key),
                                          json_variant_type_to_string(json_variant_type(value)), json_variant_type_to_string(p->type));
+
+                                if (merged_flags & JSON_PERMISSIVE)
+                                        continue;
+
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = p->name;
+
+                                return -EINVAL;
+                        }
+
+                        /* If the JSON_NO_NULL flag is specified, insist the field is not "null". Note that
+                         * this provides overlapping functionality with the type check above. */
+                        if (FLAGS_SET(merged_flags, JSON_REFUSE_NULL) && json_variant_is_null(value)) {
+
+                                json_log(value, merged_flags, 0,
+                                         "Object field '%s' may not be null.", json_variant_string(key));
 
                                 if (merged_flags & JSON_PERMISSIVE)
                                         continue;
@@ -4846,6 +4864,20 @@ int json_dispatch_uint8(const char *name, JsonVariant *variant, JsonDispatchFlag
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
         *u = (uint8_t) u64;
+        return 0;
+}
+
+int json_dispatch_double(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        double *d = ASSERT_PTR(userdata);
+
+        /* Note, this will take care of parsing NaN, -Infinity, Infinity for us */
+        if (json_variant_is_string(variant) && safe_atod(json_variant_string(variant), d) >= 0)
+                return 0;
+
+        if (!json_variant_is_real(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a floating point value, nor one formatted as string.", strna(name));
+
+        *d = json_variant_real(variant);
         return 0;
 }
 

@@ -3986,7 +3986,9 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m) {
 }
 
 unsigned varlink_server_current_connections(VarlinkServer *s) {
-        assert_return(s, UINT_MAX);
+
+        if (!s) /* Unallocated servers have zero connections */
+                return 0;
 
         return s->n_connections;
 }
@@ -4153,4 +4155,52 @@ int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
         }
 
         return -EBADR; /* Catch-all */
+}
+
+int varlink_many_notifyb(Set *s, ...) {
+        int r;
+
+        /* Equivalent to varlink_notifyb(), but does this for each entry of the supplied set of Varlink connections */
+
+        if (set_isempty(s))
+                return 0;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        va_start(ap, s);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_notify(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_reply(Set *s, JsonVariant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_reply(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_error(Set *s, const char *error_id, JsonVariant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_error(link, error_id, parameters));
+
+        return ret;
 }

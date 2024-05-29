@@ -284,20 +284,18 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         if (leader == 0) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to acquire clien credentials: %m");
 
-                assert_cc(sizeof(uint32_t) == sizeof(pid_t));
-
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
+                r = bus_creds_get_pidref(creds, &pidref);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
+        } else {
+                r = pidref_set_pid(&pidref, leader);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
         }
-
-        r = pidref_set_pid(&pidref, leader);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", pidref.pid);
 
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
@@ -393,7 +391,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         if (r < 0)
                 return r;
 
-        r = cg_pid_get_unit(m->leader.pid, &m->unit);
+        r = cg_pidref_get_unit(&m->leader, &m->unit);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",
