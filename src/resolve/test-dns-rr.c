@@ -629,4 +629,53 @@ TEST(dns_resource_key_reduce_refcount) {
         ASSERT_EQ(c->n_ref, 1u);
 }
 
+/* ================================================================
+ * dns_resource_record_new_address()
+ * ================================================================ */
+
+TEST(dns_resource_record_new_address_ipv4) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
+
+        ASSERT_OK(dns_resource_record_new_address(&rr, AF_INET, &addr, "www.example.com"));
+
+        ASSERT_EQ(rr->key->class, DNS_CLASS_IN);
+        ASSERT_EQ(rr->key->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
+        ASSERT_EQ(rr->a.in_addr.s_addr, addr.in.s_addr);
+}
+
+TEST(dns_resource_record_new_address_ipv6) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        union in_addr_union addr = {
+                .in6.s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 }
+        };
+
+        ASSERT_OK(dns_resource_record_new_address(&rr, AF_INET6, &addr, "www.example.com"));
+
+        ASSERT_EQ(rr->key->class, DNS_CLASS_IN);
+        ASSERT_EQ(rr->key->type, DNS_TYPE_AAAA);
+        ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
+        ASSERT_EQ(memcmp(&rr->aaaa.in6_addr, &addr.in6, sizeof(struct in6_addr)), 0);
+}
+
+/* ================================================================
+ * dns_resource_record_new_reverse()
+ * ================================================================ */
+
+TEST(dns_resource_record_new_reverse) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
+
+        ASSERT_OK(dns_resource_record_new_reverse(&rr, AF_INET, &addr, "www.example.com"));
+
+        ASSERT_EQ(rr->key->class, DNS_CLASS_IN);
+        ASSERT_EQ(rr->key->type, DNS_TYPE_PTR);
+        ASSERT_STREQ(dns_resource_key_name(rr->key), "127.1.168.192.in-addr.arpa");
+        ASSERT_STREQ(rr->ptr.name, "www.example.com");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
