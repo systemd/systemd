@@ -570,4 +570,63 @@ TEST(dns_resource_key_to_string) {
         ASSERT_STREQ(ans, "www.example.com IN CNAME");
 }
 
+/* ================================================================
+ * dns_resource_key_reduce()
+ * ================================================================ */
+
+TEST(dns_resource_key_reduce_same_pointer) {
+        DnsResourceKey *a = NULL, *b = NULL;
+
+        a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        b = a;
+
+        ASSERT_TRUE(dns_resource_key_reduce(&a, &b));
+        ASSERT_TRUE(a == b);
+
+        dns_resource_key_unref(a);
+}
+
+TEST(dns_resource_key_reduce_same_values) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+
+        a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        b = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+
+        ASSERT_TRUE(a != b);
+
+        ASSERT_TRUE(dns_resource_key_reduce(&a, &b));
+        ASSERT_TRUE(a == b);
+}
+
+TEST(dns_resource_key_reduce_different_values) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+
+        a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        b = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+
+        ASSERT_TRUE(a != b);
+
+        ASSERT_FALSE(dns_resource_key_reduce(&a, &b));
+        ASSERT_TRUE(a != b);
+}
+
+TEST(dns_resource_key_reduce_refcount) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL, *c = NULL;
+
+        a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        b = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        c = b;
+
+        ASSERT_TRUE(a != b);
+
+        a->n_ref = 3;
+        b->n_ref = 2;
+
+        ASSERT_TRUE(dns_resource_key_reduce(&a, &b));
+        ASSERT_TRUE(a == b);
+
+        ASSERT_EQ(a->n_ref, 4u);
+        ASSERT_EQ(c->n_ref, 1u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
