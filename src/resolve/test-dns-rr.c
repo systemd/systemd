@@ -127,4 +127,37 @@ TEST(dns_resource_key_new_redirect_dname_no_match) {
         ASSERT_STREQ(dns_resource_key_name(redirected), "www.examples.com");
 }
 
+/* ================================================================
+ * dns_resource_key_new_append_suffix()
+ * ================================================================ */
+
+TEST(dns_resource_key_new_append_suffix_root) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *source = NULL, *target = NULL;
+
+        source = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(source);
+
+        ASSERT_OK(dns_resource_key_new_append_suffix(&target, source, (char *)""));
+        ASSERT_NOT_NULL(target);
+        ASSERT_TRUE(target == source);
+
+        ASSERT_OK(dns_resource_key_new_append_suffix(&target, source, (char *)"."));
+        ASSERT_NOT_NULL(target);
+        ASSERT_TRUE(target == source);
+
+        dns_resource_key_unref(source);
+}
+
+TEST(dns_resource_key_new_append_suffix_not_root) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *source = NULL, *target = NULL;
+
+        source = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
+        ASSERT_NOT_NULL(source);
+
+        ASSERT_OK(dns_resource_key_new_append_suffix(&target, source, (char *)"com"));
+        ASSERT_NOT_NULL(target);
+        ASSERT_FALSE(target == source);
+        ASSERT_STREQ(dns_resource_key_name(target), "www.example.com");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
