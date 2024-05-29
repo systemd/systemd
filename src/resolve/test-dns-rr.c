@@ -1881,4 +1881,43 @@ TEST(dns_resource_record_equal_svcb_param_different) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_clamp_ttl()
+ * ================================================================ */
+
+TEST(dns_resource_record_clamp_ttl_in_place) {
+        DnsResourceRecord *rr = NULL, *orig = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        orig = rr;
+        rr->ttl = 3600;
+
+        ASSERT_FALSE(dns_resource_record_clamp_ttl(&rr, 4800));
+        ASSERT_EQ(rr->ttl, 3600u);
+
+        ASSERT_TRUE(dns_resource_record_clamp_ttl(&rr, 2400));
+        ASSERT_EQ(rr->ttl, 2400u);
+
+        ASSERT_TRUE(rr == orig);
+
+        dns_resource_record_unref(rr);
+}
+
+TEST(dns_resource_record_clamp_ttl_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *orig = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        orig = dns_resource_record_ref(rr);
+        rr->ttl = 3600;
+
+        ASSERT_FALSE(dns_resource_record_clamp_ttl(&rr, 4800));
+        ASSERT_EQ(rr->ttl, 3600u);
+
+        ASSERT_TRUE(dns_resource_record_clamp_ttl(&rr, 2400));
+        ASSERT_EQ(rr->ttl, 2400u);
+
+        ASSERT_FALSE(rr == orig);
+        ASSERT_EQ(orig->ttl, 3600u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
