@@ -271,9 +271,8 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
 
 def expectedFailureIfKernelReturnsInvalidFlags():
     '''
-    This checks the kernel bug caused by 3ddc2231c8108302a8229d3c5849ee792a63230d.
-    It will be fixed by the following patch:
-    https://patchwork.kernel.org/project/netdevbpf/patch/20240510072932.2678952-1-edumazet@google.com/
+    This checks the kernel bug caused by 3ddc2231c8108302a8229d3c5849ee792a63230d (v6.9),
+    fixed by 1af7f88af269c4e06a4dc3bc920ff6cdf7471124 (v6.10, backported to 6.9.3).
     '''
     def f(func):
         call_quiet('ip link add dummy98 type dummy')
