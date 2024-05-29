@@ -574,6 +574,25 @@ TEST(dns_resource_key_to_string) {
 }
 
 /* ================================================================
+ * dns_resource_key_{to,from}_json()
+ * ================================================================ */
+
+TEST(dns_resource_key_from_json) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *copy = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+
+        ASSERT_OK(dns_resource_key_to_json(key, &json));
+        ASSERT_NOT_NULL(json);
+
+        ASSERT_OK(dns_resource_key_from_json(json, &copy));
+        ASSERT_EQ(copy->class, DNS_CLASS_IN);
+        ASSERT_EQ(copy->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(copy), "www.example.com");
+}
+
+/* ================================================================
  * dns_resource_key_reduce()
  * ================================================================ */
 
