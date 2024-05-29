@@ -168,7 +168,7 @@ helper_check_device_units() {(
     check_device_units 1 "$@"
 )}
 
-testcase_megasas2_basic() {
+testcase_virtio_scsi_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
 }
