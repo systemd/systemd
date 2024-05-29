@@ -551,7 +551,7 @@ TEST(vertical) {
 
         assert_se(streq(formatted,
                         "     pfft aa: foo\n"
-                        "       uuu o: 1.0K\n"
+                        "       uuu o: 1K\n"
                         "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
 
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
@@ -653,7 +653,7 @@ TEST(table_bps) {
                         "UINT64             SIZE            BPS\n"
                         "2500               2.4K            2Kbps\n"
                         "10000000           9.5M            10Mbps\n"
-                        "20000000           19.0M           20Mbps\n"
+                        "20000000           19M             20Mbps\n"
                         "25000000           23.8M           25Mbps\n"
                         "1000000000         953.6M          1Gbps\n"
                         "2000000000         1.8G            2Gbps\n"

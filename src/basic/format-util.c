@@ -70,15 +70,17 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
 
         for (size_t i = 0; i < n; i++)
                 if (t >= table[i].factor) {
-                        if (flag & FORMAT_BYTES_BELOW_POINT) {
+                        uint64_t remainder = i != n - 1 ?
+                                (t / table[i + 1].factor * 10 / table[n - 1].factor) % 10 :
+                                (t * 10 / table[i].factor) % 10;
+
+                        if (FLAGS_SET(flag, FORMAT_BYTES_BELOW_POINT) && remainder > 0)
                                 (void) snprintf(buf, l,
                                                 "%" PRIu64 ".%" PRIu64 "%s",
                                                 t / table[i].factor,
-                                                i != n - 1 ?
-                                                (t / table[i + 1].factor * UINT64_C(10) / table[n - 1].factor) % UINT64_C(10):
-                                                (t * UINT64_C(10) / table[i].factor) % UINT64_C(10),
+                                                remainder,
                                                 table[i].suffix);
-                        } else
+                        else
                                 (void) snprintf(buf, l,
                                                 "%" PRIu64 "%s",
                                                 t / table[i].factor,
