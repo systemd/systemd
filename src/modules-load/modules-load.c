@@ -15,6 +15,7 @@
 #include "module-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -147,6 +148,16 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int load_module_in_child(struct kmod_ctx *ctx, const char *module) {
+        int k;
+
+        k = module_load_and_warn(ctx, module, true);
+        if (k == -ENOENT)
+                return 0;
+
+        return k;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
         int r, k;
@@ -170,26 +181,54 @@ static int run(int argc, char *argv[]) {
         r = 0;
 
         if (argc > optind) {
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, apply_file(ctx, argv[i], false));
-
+                for (int i = optind; i < argc; i++) {
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        NULL);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(apply_file(ctx, argv[i], false));
+                        }
+                }
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        NULL);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(load_module_in_child(ctx, *i));
+                        }
                 }
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
                         return log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
 
-                STRV_FOREACH(fn, files)
-                        RET_GATHER(r, apply_file(ctx, *fn, true));
+                STRV_FOREACH(fn, files) {
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        NULL);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(apply_file(ctx, *fn, true));
+                        }
+                }
         }
+
+        while (wait(NULL) > 0)
+                ;
 
         return r;
 }
