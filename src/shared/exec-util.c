@@ -58,7 +58,7 @@ static int do_spawn(
                         "(direxec)",
                         (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
-                        FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS,
                         &pid);
         if (r < 0)
                 return r;
