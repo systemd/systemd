@@ -310,6 +310,7 @@ int bpf_map_new(
 
         union bpf_attr attr;
         const char *n = name;
+        int fd, r;
 
         zero(attr);
         attr.map_type = type;
@@ -325,7 +326,17 @@ int bpf_map_new(
         for (size_t i = 0; i < sizeof(attr.map_name) - 1 && *n; i++, n++)
                 attr.map_name[i] = strchr(ALPHANUMERICAL ".", *n) ? *n : '_';
 
-        return RET_NERRNO(bpf(BPF_MAP_CREATE, &attr, sizeof(attr)));
+        fd = RET_NERRNO(bpf(BPF_MAP_CREATE, &attr, sizeof(attr)));
+        if (fd < 0)
+                return fd;
+
+        /* Work around libbpf bug where it doesn't unsets O_CLOEXEC. */
+        r = fd_cloexec(fd, true);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                log_warning("bpf(BPF_MAP_CREATE) returned an fd without O_CLOEXEC, fixing.");
+        return fd;
 }
 
 int bpf_map_update_element(int fd, const void *key, void *value) {
