@@ -789,7 +789,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
          * bound since the core files have an upper size limit. It's also not doing any
          * system call or interacting with the system in any way, besides reading from
          * the file descriptor and writing into these four pipes. */
-        ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT|FORK_REOPEN_LOG;
+        ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT|FORK_REOPEN_LOG|FORK_LOG;
         if (userns_supported())
                 fork_flags |= FORK_NEW_USERNS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE;
 
