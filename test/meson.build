@@ -293,6 +293,7 @@ integration_test_template = {
         'credentials' : [],
         'qemu-args' : [],
         'exit-code' : 123,
+        'vm' : false,
 }
 testdata_subdirs = [
         'auxv',
@@ -405,6 +406,10 @@ foreach integration_test : integration_tests
 
         if integration_test['slow']
                 integration_test_args += ['--slow']
+        endif
+
+        if integration_test['vm']
+                integration_test_args += ['--vm']
         endif
 
         if not mkosi.found()

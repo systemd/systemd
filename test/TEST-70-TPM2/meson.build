@@ -7,5 +7,6 @@ integration_tests += [
                         'wants' : '@0@ tpm2.target'.format(integration_test_template['configuration']['wants']),
                         'after' : '@0@ tpm2.target'.format(integration_test_template['configuration']['after']),
                 },
+                'vm' : true,
         },
 ]

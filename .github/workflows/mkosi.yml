@@ -71,7 +71,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
-    - uses: systemd/mkosi@55f17a8ae67ece9712324c3107804daad94ad0d9
+    - uses: systemd/mkosi@8770a4e3390a68522f187acbcd33311040563fda
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
@@ -182,7 +182,7 @@ jobs:
       run: meson compile -C build mkosi
 
     - name: Run integration tests
-      run: meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
+      run: sudo meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
 
     - name: Archive failed test journals
       uses: actions/upload-artifact@v4

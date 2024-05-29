@@ -33,6 +33,7 @@ foreach testcase : [
                                 '--configure-script', files('@0@.configure'.format(testcase)),
                         ],
                         'priority' : 10,
+                        'vm' : true,
                 },
         ]
 endforeach
