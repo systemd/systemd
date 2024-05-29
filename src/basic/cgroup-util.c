@@ -140,7 +140,7 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
 
                 r = cg_read_pid(f, &pid, flags);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read pid from cgroup item: %m");
                 if (r == 0) {
                         *ret = PIDREF_NULL;
                         return 0;
@@ -152,6 +152,14 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
                         return 1;
+                /* Opening pidfds for non thread group leaders only works from 6.9 onwards. On older kernels
+                 * pidfd_open() fails with EINVAL. Since we might read non thread group leader IDs from
+                 * cgroup.threads and try to open pidfd's for them, let's ignore EINVAL from pidref_set_pid()
+                 * and fallback to using the pid instead. */
+                if (r == -EINVAL) {
+                        *ret = (PidRef) { .pid = pid };
+                        return 1;
+                }
                 if (r != -ESRCH)
                         return r;
 
@@ -347,14 +355,14 @@ static int cg_kill_items(
                 if (r == -ENOENT)
                         break;
                 if (r < 0)
-                        return RET_GATHER(ret, r);
+                        return RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup items: %m"));
 
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                         r = cg_read_pidref(f, &pidref, /* flags = */ 0);
                         if (r < 0)
-                                return RET_GATHER(ret, r);
+                                return RET_GATHER(ret, log_debug_errno(r, "Failed to read pidref from cgroup '%s': %m", path));
                         if (r == 0)
                                 break;
 
@@ -370,7 +378,7 @@ static int cg_kill_items(
                         /* If we haven't killed this process yet, kill it */
                         r = pidref_kill(&pidref, sig);
                         if (r < 0 && r != -ESRCH)
-                                RET_GATHER(ret, r);
+                                RET_GATHER(ret, log_debug_errno(r, "Failed to kill process with pid " PID_FMT " from cgroup '%s': %m", pidref.pid, path));
                         if (r >= 0) {
                                 if (flags & CGROUP_SIGCONT)
                                         (void) pidref_kill(&pidref, SIGCONT);
@@ -409,6 +417,8 @@ int cg_kill(
         int r, ret;
 
         r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.procs");
+        if (r < 0)
+                log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.procs: %m", path);
         if (r < 0 || sig != SIGKILL)
                 return r;
 
@@ -425,7 +435,7 @@ int cg_kill(
 
         r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.threads");
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.threads: %m", path);
 
         return r > 0 || ret > 0;
 }
@@ -448,7 +458,7 @@ int cg_kill_kernel_sigkill(const char *path) {
 
         r = write_string_file(killfile, "1", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to write to cgroup.kill for cgroup '%s': %m", path);
 
         return 0;
 }
@@ -485,7 +495,7 @@ int cg_kill_recursive(
                 r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                RET_GATHER(ret, r);
+                                RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup '%s' subgroups: %m", path));
 
                         return ret;
                 }
@@ -495,7 +505,7 @@ int cg_kill_recursive(
 
                         r = cg_read_subgroup(d, &fn);
                         if (r < 0) {
-                                RET_GATHER(ret, r);
+                                RET_GATHER(ret, log_debug_errno(r, "Failed to read subgroup from cgroup '%s': %m", path));
                                 break;
                         }
                         if (r == 0)
@@ -506,6 +516,8 @@ int cg_kill_recursive(
                                 return -ENOMEM;
 
                         r = cg_kill_recursive(p, sig, flags, s, log_kill, userdata);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to recursively kill processes in cgroup '%s': %m", p);
                         if (r != 0 && ret >= 0)
                                 ret = r;
                 }
@@ -514,7 +526,7 @@ int cg_kill_recursive(
         if (FLAGS_SET(flags, CGROUP_REMOVE)) {
                 r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, path);
                 if (!IN_SET(r, -ENOENT, -EBUSY))
-                        RET_GATHER(ret, r);
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to remove cgroup '%s': %m", path));
         }
 
         return ret;
