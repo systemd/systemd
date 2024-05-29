@@ -389,4 +389,174 @@ TEST(dns_resource_key_match_rr_different_search_domain) {
         ASSERT_FALSE(dns_resource_key_match_rr(key, rr, "org"));
 }
 
+/* ================================================================
+ * dns_resource_key_match_cname_or_dname()
+ * ================================================================ */
+
+TEST(dns_resource_key_match_cname_or_dname_simple) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_any_class) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_bad_type) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_NSEC, "www.example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_case_insensitive_cname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_prefix_cname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_suffix_cname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_pass) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, "com"));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_fail) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, "org"));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_case_insensitive_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_prefix_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_suffix_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_pass) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, "com"));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_fail) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
+        cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, cname, "org"));
+}
+
+/* ================================================================
+ * dns_resource_key_match_soa()
+ * ================================================================ */
+
+TEST(dns_resource_key_match_soa_simple) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        soa = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_soa(key, soa));
+}
+
+TEST(dns_resource_key_no_match_soa_any_class) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
+        soa = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_soa(key, soa));
+}
+
+TEST(dns_resource_key_no_match_soa_bad_type) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        soa = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_soa(key, soa));
+}
+
+TEST(dns_resource_key_match_soa_child_domain) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        soa = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+
+        ASSERT_TRUE(dns_resource_key_match_soa(key, soa));
+}
+
+TEST(dns_resource_key_no_match_soa_parent_domain) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        soa = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+
+        ASSERT_FALSE(dns_resource_key_match_soa(key, soa));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
