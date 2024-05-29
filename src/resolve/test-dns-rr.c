@@ -681,4 +681,19 @@ TEST(dns_resource_key_no_match_soa_parent_domain) {
         ASSERT_FALSE(dns_resource_key_match_soa(key, soa));
 }
 
+/* ================================================================
+ * dns_resource_key_to_string()
+ * ================================================================ */
+
+TEST(dns_resource_key_to_string) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        char str[256];
+
+        ASSERT_NOT_NULL(key);
+
+        char *ans = dns_resource_key_to_string(key, str, 256);
+        ASSERT_TRUE(ans == str);
+        ASSERT_STREQ(ans, "www.example.com IN CNAME");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
