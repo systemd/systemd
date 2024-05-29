@@ -152,6 +152,14 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
                         return 1;
+                /* Opening pidfds for non thread group leaders only works from 6.9 onwards. On older kernels
+                 * pidfd_open() fails with EINVAL. Since we might read non thread group leader IDs from
+                 * cgroup.threads and try to open pidfd's for them, let's ignore EINVAL from pidref_set_pid()
+                 * and fallback to using the pid instead. */
+                if (r == -EINVAL) {
+                        *ret = (PidRef) { .pid = pid };
+                        return 1;
+                }
                 if (r != -ESRCH)
                         return r;
 
