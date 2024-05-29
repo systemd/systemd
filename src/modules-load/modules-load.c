@@ -15,6 +15,7 @@
 #include "module-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -147,9 +148,31 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int load_module_in_child(struct kmod_ctx *ctx, const char *module) {
+        int k;
+
+        k = module_load_and_warn(ctx, module, true);
+        if (k == -ENOENT)
+                return 0;
+
+        return k;
+}
+
+static void wait_for_children(pid_t *pids, int num_processes) {
+        int status;
+        for (int i = 0; i < num_processes; ++i) {
+                if (pids[i] > 0) {
+                        waitpid(pids[i], &status, 0);
+                }
+        }
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
         int r, k;
+        const int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+        pid_t pids[num_cores];
+        int current_processes = 0;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -170,25 +193,75 @@ static int run(int argc, char *argv[]) {
         r = 0;
 
         if (argc > optind) {
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, apply_file(ctx, argv[i], false));
+                for (int i = optind; i < argc; ++i) {
+                        if (current_processes >= num_cores) {
+                                wait_for_children(pids, current_processes - num_cores + 1);
+                                --current_processes;
+                        }
 
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        &pids[current_processes]);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(apply_file(ctx, argv[i], false));
+                        } else {
+                                ++current_processes;
+                        }
+                }
+
+                wait_for_children(pids, current_processes);
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
+                        if (current_processes >= num_cores) {
+                                wait_for_children(pids, current_processes - num_cores + 1);
+                                --current_processes;
+                        }
+
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        &pids[current_processes]);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(load_module_in_child(ctx, *i));
+                        } else {
+                                ++current_processes;
+                        }
                 }
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
                         return log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
 
-                STRV_FOREACH(fn, files)
-                        RET_GATHER(r, apply_file(ctx, *fn, true));
+                STRV_FOREACH(fn, files) {
+                        if (current_processes >= num_cores) {
+                                wait_for_children(pids, num_cores);
+                                current_processes = 0;
+                        }
+
+                        pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        &pids[current_processes]);
+                        if (pid < 0) {
+                                log_error_errno(pid, "Failed to fork process: %m");
+                                return pid;
+                        } else if (pid == 0) {
+                                _exit(apply_file(ctx, *fn, true));
+                        } else {
+                                ++current_processes;
+                        }
+                }
+
+                wait_for_children(pids, current_processes);
         }
 
         return r;
