@@ -136,4 +136,92 @@ TEST(dns_resource_key_new_append_suffix_not_root) {
         ASSERT_STREQ(dns_resource_key_name(target), "www.example.com");
 }
 
+/* ================================================================
+ * dns_resource_key_is_*()
+ * ================================================================ */
+
+TEST(dns_resource_key_is_address) {
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_TRUE(dns_resource_key_is_address(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_TRUE(dns_resource_key_is_address(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A6, "www.example.com");
+        ASSERT_FALSE(dns_resource_key_is_address(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_FALSE(dns_resource_key_is_address(key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_resource_key_is_dnssd_ptr) {
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_tcp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "foo._tcp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_udp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "bar._udp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "_tcp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_abc.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "foo_tcp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_ptr(key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_resource_key_is_dnssd_two_label_ptr) {
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_tcp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "foo._tcp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_udp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "bar._udp.local");
+        ASSERT_TRUE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "foo._tcp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "foo._abc.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "foo_tcp.local");
+        ASSERT_FALSE(dns_resource_key_is_dnssd_two_label_ptr(key));
+        dns_resource_key_unref(key);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
