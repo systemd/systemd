@@ -32,4 +32,82 @@ TEST(dns_resource_record_rdata) {
         ASSERT_EQ(size, 0u);
 }
 
+/* ================================================================
+ * dns_resource_key_new()
+ * ================================================================ */
+
+TEST(dns_resource_key_new) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+
+        ASSERT_EQ(key->class, DNS_CLASS_IN);
+        ASSERT_EQ(key->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(key), "www.example.com");
+}
+
+/* ================================================================
+ * dns_resource_key_new_redirect()
+ * ================================================================ */
+
+TEST(dns_resource_key_new_redirect_cname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        cname->cname.name = strdup("example.com");
+
+        redirected = dns_resource_key_new_redirect(key, cname);
+
+        ASSERT_EQ(redirected->class, DNS_CLASS_IN);
+        ASSERT_EQ(redirected->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(redirected), "example.com");
+}
+
+TEST(dns_resource_key_new_redirect_cname_no_match) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        cname->cname.name = strdup("example.com");
+
+        redirected = dns_resource_key_new_redirect(key, cname);
+
+        ASSERT_EQ(redirected->class, DNS_CLASS_IN);
+        ASSERT_EQ(redirected->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(redirected), "example.com");
+}
+
+TEST(dns_resource_key_new_redirect_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        dname->dname.name = strdup("v2.example.com");
+
+        redirected = dns_resource_key_new_redirect(key, dname);
+
+        ASSERT_EQ(redirected->class, DNS_CLASS_IN);
+        ASSERT_EQ(redirected->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(redirected), "www.v2.example.com");
+}
+
+TEST(dns_resource_key_new_redirect_dname_no_match) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.examples.com");
+        dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        dname->dname.name = strdup("v2.example.com");
+
+        redirected = dns_resource_key_new_redirect(key, dname);
+
+        ASSERT_EQ(redirected->class, DNS_CLASS_IN);
+        ASSERT_EQ(redirected->type, DNS_TYPE_A);
+        ASSERT_STREQ(dns_resource_key_name(redirected), "www.examples.com");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
