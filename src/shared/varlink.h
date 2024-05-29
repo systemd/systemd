@@ -2,9 +2,10 @@
 #pragma once
 
 #include "sd-event.h"
-
 #include "sd-json.h"
+
 #include "pidref.h"
+#include "set.h"
 #include "time-util.h"
 #include "varlink-idl.h"
 
@@ -243,6 +244,10 @@ typedef enum VarlinkInvocationFlags {
 int varlink_invocation(VarlinkInvocationFlags flags);
 
 int varlink_error_to_errno(const char *error, sd_json_variant *parameters);
+
+int varlink_many_notifyb(Set *s, ...);
+int varlink_many_reply(Set *s, sd_json_variant *parameters);
+int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
