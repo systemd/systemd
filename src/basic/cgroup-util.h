@@ -188,6 +188,7 @@ typedef enum CGroupFlags {
         CGROUP_IGNORE_SELF        = 1 << 1,
         CGROUP_REMOVE             = 1 << 2,
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 3,
+        CGROUP_NO_PIDFD           = 1 << 4,
 } CGroupFlags;
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);

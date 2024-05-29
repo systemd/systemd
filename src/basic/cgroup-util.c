@@ -149,6 +149,11 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 if (pid == 0)
                         return -EREMOTE;
 
+                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
+                        *ret = PIDREF_MAKE_FROM_PID(pid);
+                        return 1;
+                }
+
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
                         return 1;
@@ -352,7 +357,7 @@ static int cg_kill_items(
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                        r = cg_read_pidref(f, &pidref, /* flags = */ 0);
+                        r = cg_read_pidref(f, &pidref, flags);
                         if (r < 0)
                                 return RET_GATHER(ret, log_debug_errno(r, "Failed to read pidref from cgroup '%s': %m", path));
                         if (r == 0)
@@ -425,7 +430,11 @@ int cg_kill(
         if (r == 0)
                 return ret;
 
-        r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.threads");
+        /* Opening pidfds for non thread group leaders only works from 6.9 onwards with PIDFD_THREAD. On
+         * older kernels or without PIDFD_THREAD pidfd_open() fails with EINVAL. Since we might read non
+         * thread group leader IDs from cgroup.threads, we set CGROUP_NO_PIDFD to avoid trying open pidfd's
+         * for them and instead use the regular pid. */
+        r = cg_kill_items(path, sig, flags|CGROUP_NO_PIDFD, s, log_kill, userdata, "cgroup.threads");
         if (r < 0)
                 return log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.threads: %m", path);
 
