@@ -1875,12 +1875,11 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer **ret) {
 
         r = getenv_bool("SYSTEMD_HOME_LOCK_FREEZE_SESSION");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring.");
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring: %m");
         else if (r == 0) {
                 if (freeze_now)
-                        log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION "
-                                   "is set to false). This is not recommended, and might result in unexpected behavior "
-                                   "including data loss!");
+                        log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION=0).\n"
+                                   "This is not recommended, and might result in unexpected behavior including data loss!");
 
                 *ret = NULL;
                 return 0;
