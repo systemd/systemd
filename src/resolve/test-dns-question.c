@@ -87,4 +87,23 @@ TEST(dns_question_new_address_convert_idna) {
         ASSERT_TRUE(dns_question_contains_key(question, key));
 }
 
+/* ================================================================
+ * dns_question_new_reverse()
+ * ================================================================ */
+
+TEST(dns_question_new_reverse_ipv4) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
+
+        ASSERT_OK(dns_question_new_reverse(&question, AF_INET, &addr));
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr.arpa");
+
+        ASSERT_EQ(dns_question_size(question), 1u);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
