@@ -2944,8 +2944,8 @@ typedef struct UnitFreezer {
         sd_bus *bus;
 } UnitFreezer;
 
-/* Wait for 1.5 seconds at maximum for freeze operation */
-#define FREEZE_BUS_CALL_TIMEOUT (1500 * USEC_PER_MSEC)
+/* Wait for 10 seconds at maximum for freezer operation */
+#define FREEZE_BUS_CALL_TIMEOUT (10 * USEC_PER_SEC)
 
 UnitFreezer* unit_freezer_free(UnitFreezer *f) {
         if (!f)
