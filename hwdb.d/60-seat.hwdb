@@ -28,6 +28,13 @@ fb:pci:v000018CAd00000020*
 fb:pci:v00001414d00005353*
  ID_TAG_MASTER_OF_SEAT=1
 
+# In some HyperV VMs, the video device only can be recognized by a vmbus id.
+# So we should add a vmbus id for HyperV Video device.
+#
+# This id is extracted from Linux kernel's hyperv.h
+fb:vmbus:02780ada77e3ac4a8e770558eb1073f8
+ ID_TAG_MASTER_OF_SEAT=1
+
 #########################################
 # Parallels
 #########################################
