@@ -300,10 +300,10 @@ static void drop_caches_now(void) {
         int r;
 
         /* Drop file system caches now. See https://docs.kernel.org/admin-guide/sysctl/vm.html
-         * for details. We write "2" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
+         * for details. We write "3" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
          * not more. */
 
-        r = write_string_file("/proc/sys/vm/drop_caches", "2\n", WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file("/proc/sys/vm/drop_caches", "3\n", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to drop caches, ignoring: %m");
         else
