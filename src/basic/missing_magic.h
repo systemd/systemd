@@ -197,3 +197,10 @@
 #ifndef NTFS3_SUPER_MAGIC
 #define NTFS3_SUPER_MAGIC 0x7366746e
 #endif
+
+/* Added in Linux commit e2f48c48090dea172c0c571101041de64634dae5. Remove when next sync'd */
+#ifndef BCACHEFS_SUPER_MAGIC
+#  define BCACHEFS_SUPER_MAGIC 0xca451a4e
+#else
+assert_cc(BCACHEFS_SUPER_MAGIC == 0xca451a4e)
+#endif
