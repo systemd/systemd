@@ -1807,9 +1807,7 @@ int bus_unit_queue_job_one(
                         type = JOB_TRY_RELOAD;
         }
 
-        if (type == JOB_STOP &&
-            IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_ERROR, UNIT_BAD_SETTING) &&
-            unit_active_state(u) == UNIT_INACTIVE)
+        if (type == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
 
         if ((type == JOB_START && u->refuse_manual_start) ||
