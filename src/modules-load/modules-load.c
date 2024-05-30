@@ -15,11 +15,13 @@
 #include "module-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
+static const int max_tasks = 4;
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
@@ -69,6 +71,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         }
 
         log_debug("apply: %s", pp);
+        int tasks = 0;
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 int k;
@@ -84,11 +87,29 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS, *line))
                         continue;
 
-                k = module_load_and_warn(ctx, line, true);
-                if (k == -ENOENT)
-                        continue;
-                RET_GATHER(r, k);
+                while (tasks >= max_tasks) {
+                        if (wait(NULL) > 0) {
+                                --tasks;
+                        }
+                }
+
+                const pid_t pid = safe_fork(
+                                "load-module", FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG, NULL);
+                if (pid < 0) {
+                        r = -errno;
+                        log_full_errno(LOG_ERR, r, "Failed to fork: %m");
+                } else if (pid == 0) {
+                        k = module_load_and_warn(ctx, line, true);
+                        if (k == -ENOENT)
+                                continue;
+                        RET_GATHER(r, k);
+                        _exit(k);
+                } else
+                        ++tasks;
         }
+
+        while (wait(NULL) > 0)
+                ;
 
         return r;
 }
@@ -176,12 +197,32 @@ static int run(int argc, char *argv[]) {
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
-                STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
+                while (tasks >= max_tasks) {
+                        if (wait(NULL) > 0) {
+                                --tasks;
+                        }
                 }
+
+                STRV_FOREACH(i, arg_proc_cmdline_modules) {
+                        const pid_t pid = safe_fork(
+                                        "load-module",
+                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
+                                        NULL);
+                        if (pid < 0) {
+                                r = -errno;
+                                log_full_errno(LOG_ERR, r, "Failed to fork: %m");
+                        } else if (pid == 0) {
+                                k = module_load_and_warn(ctx, *i, true);
+                                if (k == -ENOENT)
+                                        continue;
+                                RET_GATHER(r, k);
+                                _exit(k);
+                        } else
+                                ++tasks;
+                }
+
+                while (wait(NULL) > 0)
+                        ;
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
