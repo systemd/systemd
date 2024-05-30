@@ -936,14 +936,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
 
         r = add_crypttab_devices();
-        if (r < 0)
-                return r;
+        RET_GATHER(r, add_proc_cmdline_devices());
 
-        r = add_proc_cmdline_devices();
-        if (r < 0)
-                return r;
-
-        return 0;
+        return r;
 }
 
 DEFINE_MAIN_GENERATOR_FUNCTION(run);
