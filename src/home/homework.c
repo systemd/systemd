@@ -1866,9 +1866,12 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
-static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
+static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer **ret) {
         _cleanup_free_ char *unit = NULL;
         int r;
+
+        assert(uid_is_valid(uid));
+        assert(ret);
 
         r = getenv_bool("SYSTEMD_HOME_LOCK_FREEZE_SESSION");
         if (r < 0 && r != -ENXIO)
@@ -1878,7 +1881,8 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
                         log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION "
                                    "is set to false). This is not recommended, and might result in unexpected behavior "
                                    "including data loss!");
-                *ret = (UnitFreezer) {};
+
+                *ret = NULL;
                 return 0;
         }
 
@@ -1891,12 +1895,12 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
                 r = unit_freezer_new(unit, ret);
         if (r < 0)
                 return r;
+
         return 1;
 }
 
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         int r;
 
         assert(h);
@@ -1912,19 +1916,19 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = user_session_freezer(h->uid, /* freeze_now= */ true, &freezer);
-        if (r < 0)
-                log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
-        else if (r == 0)
-                log_info("User session freeze disabled, skipping.");
-        else
-                log_info("Froze user session.");
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
 
-        r = home_lock_luks(h, &setup);
+        r = user_session_freezer(h->uid, /* freeze_now= */ true, &f);
         if (r < 0)
                 return r;
 
-        unit_freezer_done(&freezer); /* Don't thaw the user session. */
+        r = home_lock_luks(h, &setup);
+        if (r < 0) {
+                if (f)
+                        (void) unit_freezer_thaw(f);
+
+                return r;
+        }
 
         /* Explicitly flush any per-user key from the keyring */
         (void) keyring_flush(h);
@@ -1935,7 +1939,6 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1957,10 +1960,14 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+
         /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer(h->uid, /* freeze_now= */ false, &freezer);
+        r = user_session_freezer(h->uid, /* freeze_now= */ false, &f);
+        if (r > 0)
+                r = unit_freezer_thaw(f);
         if (r < 0)
-                log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
+                return r;
 
         log_info("Everything completed.");
         return 1;
