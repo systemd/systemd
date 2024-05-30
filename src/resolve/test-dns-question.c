@@ -243,4 +243,77 @@ TEST(dns_question_new_service_with_service_no_type) {
         ASSERT_NULL(question);
 }
 
+/* ================================================================
+ * dns_question_matches_rr()
+ * ================================================================ */
+
+TEST(dns_question_matches_rr_first) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(2);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_TRUE(dns_question_matches_rr(question, rr, NULL));
+}
+
+TEST(dns_question_matches_rr_second) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(2);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_TRUE(dns_question_matches_rr(question, rr, NULL));
+}
+
+TEST(dns_question_matches_rr_fail) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(2);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "mail.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_FALSE(dns_question_matches_rr(question, rr, NULL));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
