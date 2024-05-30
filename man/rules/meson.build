@@ -1066,7 +1066,7 @@ manpages = [
  ['systemd-socket-proxyd', '8', [], ''],
  ['systemd-soft-reboot.service', '8', [], ''],
  ['systemd-ssh-generator', '8', [], ''],
- ['systemd-ssh-proxy', '1', [], ''],
+ ['systemd-ssh-proxy', '1', [], 'ENABLE_SSH_PROXY_CONFIG'],
  ['systemd-stdio-bridge', '1', [], ''],
  ['systemd-storagetm.service', '8', ['systemd-storagetm'], 'ENABLE_STORAGETM'],
  ['systemd-stub',
