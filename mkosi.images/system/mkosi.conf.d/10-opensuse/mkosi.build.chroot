@@ -49,8 +49,6 @@ build() {
     IFS=
     # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
     # https://github.com/mesonbuild/meson/pull/12835 is available.
-    # TODO: Replace __meson_auto_features override with meson_extra_configure_options once the suse spec
-    # starts to use it.
     # shellcheck disable=SC2046
     rpmbuild \
         -bb \
@@ -71,7 +69,7 @@ build() {
         --define "build_cflags $(rpm --eval %build_cflags) $EXTRA_CFLAGS" \
         --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
         --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
-        --define "__meson_auto_features auto -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
+        --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
         --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
