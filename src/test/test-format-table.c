@@ -551,7 +551,7 @@ TEST(vertical) {
 
         assert_se(streq(formatted,
                         "     pfft aa: foo\n"
-                        "       uuu o: 1.0K\n"
+                        "       uuu o: 1K\n"
                         "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
 
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
@@ -624,6 +624,41 @@ TEST(dup_cell) {
                         "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
                         "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
                         "aaa     0     65535   4294967295   100%   ../    hello    hello    hello\n"));
+}
+
+TEST(table_bps) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(table = table_new("uint64", "size", "bps"));
+        uint64_t v;
+        FOREACH_ARGUMENT(v,
+                         2500,
+                         10000000,
+                         20000000,
+                         25000000,
+                         1000000000,
+                         2000000000,
+                         2500000000)
+                assert_se(table_add_many(table,
+                                         TABLE_UINT64, v,
+                                         TABLE_SIZE, v,
+                                         TABLE_BPS, v) >= 0);
+
+        table_set_width(table, 50);
+        assert_se(table_format(table, &formatted) >= 0);
+
+        printf("%s", formatted);
+        assert_se(streq(formatted,
+                        "UINT64             SIZE           BPS\n"
+                        "2500               2.4K           2.5Kbps\n"
+                        "10000000           9.5M           10Mbps\n"
+                        "20000000           19M            20Mbps\n"
+                        "25000000           23.8M          25Mbps\n"
+                        "1000000000         953.6M         1Gbps\n"
+                        "2000000000         1.8G           2Gbps\n"
+                        "2500000000         2.3G           2.5Gbps\n"
+                  ));
 }
 
 static int intro(void) {
