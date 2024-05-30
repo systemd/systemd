@@ -615,6 +615,7 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
+#if !HAS_FEATURE_ADDRESS_SANITIZER
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         char **result = userdata;
         char buf[4096];
@@ -754,8 +755,10 @@ static int find_libraries(const char *exec, char ***ret) {
         *ret = TAKE_PTR(libraries);
         return 0;
 }
+#endif
 
 static void test_exec_mount_apivfs(Manager *m) {
+#if !HAS_FEATURE_ADDRESS_SANITIZER
         _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
         _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
         int r;
@@ -801,6 +804,7 @@ static void test_exec_mount_apivfs(Manager *m) {
         test(m, "exec-mount-apivfs-no.service", can_unshare || !MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
+#endif
 }
 
 static void test_exec_noexecpaths(Manager *m) {
@@ -820,7 +824,7 @@ static void test_exec_temporaryfilesystem(Manager *m) {
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
@@ -863,7 +867,7 @@ static void test_exec_systemcallfilter(Manager *m) {
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
