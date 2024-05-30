@@ -20,13 +20,15 @@ else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-# Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
-# See https://github.com/rpm-software-management/rpm/issues/3042.
-tee --append /usr/lib/rpm/redhat/macros <<'EOF'
+if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.19.91"; then
+    # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
+    # See https://github.com/rpm-software-management/rpm/issues/3042.
+    tee --append /usr/lib/rpm/redhat/macros <<'EOF'
 %install %{?_enable_debug_packages:%{debug_package}}\
 %%install\
 %{nil}
 EOF
+fi
 
 VERSION="$(cat meson.version)"
 RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"

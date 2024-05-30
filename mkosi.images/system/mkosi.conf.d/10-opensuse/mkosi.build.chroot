@@ -26,12 +26,14 @@ fi
 # extension.
 find "pkg/$ID" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
 
-# Fix the %install override so debuginfo packages are generated.
-tee --append /usr/lib/rpm/suse/macros <<'EOF'
+if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.20"; then
+    # Fix the %install override so debuginfo packages are generated.
+    tee --append /usr/lib/rpm/suse/macros <<'EOF'
 %install %{debug_package}\
 %%install\
 %{nil}
 EOF
+fi
 
 VERSION="$(cat meson.version)"
 RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
