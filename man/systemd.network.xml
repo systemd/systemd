@@ -866,11 +866,20 @@ Table=1234</programlisting></para>
         <term><varname>IPMasquerade=</varname></term>
         <listitem>
           <para>Configures IP masquerading for the network interface. If enabled, packets forwarded
-          from the network interface will be appear as coming from the local host. Takes one of
-          <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
-          <literal>no</literal>. Defaults to <literal>no</literal>.</para>
-          <para>Note. Any positive boolean values such as <literal>yes</literal> or
-          <literal>true</literal> are now deprecated. Please use one of the values above.</para>
+          from the network interface will be appear as coming from the local host. Typically, this should be
+          enabled on the downstream interface of routers. Takes one of <literal>ipv4</literal>,
+          <literal>ipv6</literal>, <literal>both</literal>, or <literal>no</literal>. Defaults to
+          <literal>no</literal>. Note. Any positive boolean values such as <literal>yes</literal> or
+          <literal>true</literal> are now deprecated. Please use one of the values above. Specifying
+          <literal>ipv4</literal> or <literal>both</literal> implies <varname>IPv4Forwarding=</varname>,
+          unless it is explicitly specified. Similary for <varname>IPv6Forwarding=</varname> when
+          <literal>ipv6</literal> or <literal>both</literal> is specified. These implications are only on
+          this interface. Hence, to make the IP packet forwarding works,
+          <varname>IPv4Forwarding=</varname>/<varname>IPv6Forwarding=</varname> need to be enabled on an
+          upstream interface, or globally enabled by specifying them in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          See <varname>IPv4Forwarding=</varname>/<varname>IPv6Forwarding=</varname> in the above for more
+          details.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
@@ -1068,6 +1077,9 @@ Table=1234</programlisting></para>
           distributed. See <varname>DHCPPrefixDelegation=</varname> setting and the [IPv6SendRA],
           [IPv6Prefix], [IPv6RoutePrefix], and [DHCPPrefixDelegation] sections for more configuration
           options.</para>
+          <para>If enabled, <varname>IPv6Forwarding=</varname> on this interface is also enabled, unless
+          the setting is explicitly specified. See <varname>IPv6Forwarding=</varname> in the above for more
+          details.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
