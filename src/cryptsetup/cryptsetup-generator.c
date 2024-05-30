@@ -884,7 +884,7 @@ static int add_crypttab_devices(void) {
 }
 
 static int add_proc_cmdline_devices(void) {
-        int r;
+        int ret = 0;
         crypto_device *d;
 
         HASHMAP_FOREACH(d, arg_disks) {
@@ -903,18 +903,16 @@ static int add_proc_cmdline_devices(void) {
                 if (!device)
                         return log_oom();
 
-                r = create_disk(d->name,
+                RET_GATHER(ret, create_disk(d->name,
                                 d->datadev ?: device,
                                 d->keyfile ?: arg_default_keyfile,
                                 d->keydev,
                                 d->headerdev,
                                 d->options ?: arg_default_options,
-                                "/proc/cmdline");
-                if (r < 0)
-                        return r;
+                                "/proc/cmdline"));
         }
 
-        return 0;
+        return ret;
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, string_hash_func, string_compare_func,
