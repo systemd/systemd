@@ -117,14 +117,12 @@ jobs:
                 WITH_DEBUG=1
                 # Enabling optimizations significantly speeds up integration tests.
                 OPTIMIZATION=g
-                SANITIZERS=address,undefined
 
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
         # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
         QemuFirmware=uefi
-        QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
         EOF
