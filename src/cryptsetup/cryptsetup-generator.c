@@ -854,14 +854,14 @@ static int add_crypttab_devices(void) {
                 return 0;
         }
 
-        for (;;) {
+        for (r = 0;;) {
                 _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL;
                 int k;
 
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
+                k = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
                         return log_error_errno(r, "Failed to read %s: %m", arg_crypttab);
-                if (r == 0)
+                if (k == 0)
                         break;
 
                 crypttab_line++;
@@ -875,10 +875,10 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                r = add_crypttab_device(name, device, keyspec, options);
+                RET_GATHER(r, add_crypttab_device(name, device, keyspec, options));
         }
 
-        return 0;
+        return r;
 }
 
 static int add_proc_cmdline_devices(void) {
