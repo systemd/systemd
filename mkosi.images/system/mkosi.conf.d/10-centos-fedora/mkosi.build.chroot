@@ -77,6 +77,7 @@ ANNOBIN="no-active-checks" rpmbuild \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
     --define "_fortify_level 0" \
+    --define "_fixperms true" \
     --undefine _lto_cflags \
     --undefine _package_note_flags \
     --noclean \
