@@ -74,7 +74,7 @@ UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 # Those patterns are used in type-specific matches
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
-         'fb':       ('pci'),
+         'fb':       ('pci', 'vmbus'),
          'id-input': ('modalias'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
