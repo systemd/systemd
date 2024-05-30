@@ -16,6 +16,8 @@ KERNEL=="vport*", TAG+="systemd"
 
 SUBSYSTEM=="ptp", TAG+="systemd"
 
+SUBSYSTEM=="mtd", TAG+="systemd"
+
 SUBSYSTEM=="ubi", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
