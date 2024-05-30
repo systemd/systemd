@@ -110,7 +110,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                       SYNTHETIC_ERRNO(ENOENT),
                                       "Failed to find module '%s'", module);
 
-        const int cores = sysconf(_SC_NPROCESSORS_ONLN) / 2 ?: 1;
+        const int cores = sysconf(_SC_NPROCESSORS_ONLN);
         int tasks = 0;
         sym_kmod_list_foreach(itr, modlist) {
                 while (tasks >= cores) {
