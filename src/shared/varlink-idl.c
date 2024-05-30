@@ -1197,6 +1197,28 @@ bool varlink_idl_interface_name_is_valid(const char *name) {
         return true;
 }
 
+int varlink_idl_qualified_symbol_name_is_valid(const char *name) {
+        const char *dot;
+
+        /* Validates a qualified symbol name (i.e. interface name, followed by a dot, followed by a symbol name) */
+
+        if (!name)
+                return false;
+
+        dot = strrchr(name, '.');
+        if (!dot)
+                return false;
+
+        if (!varlink_idl_symbol_name_is_valid(dot + 1))
+                return false;
+
+        _cleanup_free_ char *iface = strndup(name, dot - name);
+        if (!iface)
+                return -ENOMEM;
+
+        return varlink_idl_interface_name_is_valid(iface);
+}
+
 static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, int level);
 
 static int varlink_idl_field_consistent(

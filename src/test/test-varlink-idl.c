@@ -10,6 +10,7 @@
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
+#include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.MountFileSystem.h"
@@ -161,6 +162,8 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_BootControl);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Import);
+        print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
 
@@ -238,6 +241,17 @@ TEST(field_name_is_valid) {
         assert_se(varlink_idl_field_name_is_valid("foo"));
         assert_se(varlink_idl_field_name_is_valid("Foo0foo"));
         assert_se(varlink_idl_field_name_is_valid("foo0foo"));
+}
+
+TEST(qualified_symbol_name_is_valid) {
+        assert_se(varlink_idl_qualified_symbol_name_is_valid(NULL) == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("x") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx") == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.Xxx") > 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx.XXX") > 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx.0foo") == 0);
 }
 
 TEST(validate_json) {

@@ -8,9 +8,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Virtual Machine and Container Download Service
+Description=Disk Image Download Service
 Documentation=man:systemd-importd.service(8)
 Documentation=man:org.freedesktop.import1(5)
+DefaultDependencies=no
+After=systemd-importd.socket
+WantsMountsFor=/var/lib/machines /var/lib/portables /var/lib/extensions /var/lib/confexts
+After=systemd-remount-fs.service
+Before=shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 Type=notify
