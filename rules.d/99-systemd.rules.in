@@ -16,6 +16,8 @@ SUBSYSTEM=="ptp", TAG+="systemd"
 
 SUBSYSTEM=="ubi", TAG+="systemd"
 
+SUBSYSTEM=="fpga_region", TAG+="systemd"
+
 SUBSYSTEM=="block", TAG+="systemd"
 
 # When a dm device is first created, it's just an empty container. Ignore it.
