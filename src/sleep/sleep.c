@@ -580,7 +580,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer user_slice_freezer = {};
+        _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
@@ -603,17 +603,12 @@ static int run(int argc, char *argv[]) {
         r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
         if (r < 0 && r != -ENXIO)
                 log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring.");
-        if (r != 0) {
-                r = unit_freezer_new_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to freeze user sessions, ignoring: %m");
-                else
-                        log_info("Froze user sessions");
-        } else
-                log_notice("User sessions remain unfrozen on explicit request "
-                           "($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS is set to false). This is not recommended, "
-                           "and might result in unexpected behavior, particularly in suspend-then-hibernate "
-                           "operations or setups with encrypted home directories.");
+        if (r != 0)
+                (void) unit_freezer_new_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
+        else
+                log_notice("User sessions remain unfrozen on explicit request ($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=0).\n"
+                           "This is not recommended, and might result in unexpected behavior, particularly\n"
+                           "in suspend-then-hibernate operations or setups with encrypted home directories.");
 
         switch (arg_operation) {
 
@@ -640,6 +635,9 @@ static int run(int argc, char *argv[]) {
                 break;
 
         }
+
+        if (user_slice_freezer)
+                RET_GATHER(r, unit_freezer_thaw(user_slice_freezer));
 
         return r;
 }
