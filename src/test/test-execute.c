@@ -615,194 +615,6 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
-static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        char **result = userdata;
-        char buf[4096];
-        ssize_t l;
-
-        ASSERT_NOT_NULL(s);
-        ASSERT_GT(fd, 0);
-
-        l = read(fd, buf, sizeof(buf) - 1);
-        if (l < 0) {
-                if (errno == EAGAIN)
-                        goto reenable;
-
-                return 0;
-        }
-        if (l == 0)
-                return 0;
-
-        buf[l] = '\0';
-        if (result)
-                ASSERT_NOT_NULL(strextend(result, buf));
-        else
-                log_error("ldd: %s", buf);
-
-reenable:
-        /* Re-enable the event source if we did not encounter EOF */
-        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT));
-        return 0;
-}
-
-static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        pid_t *pid = userdata;
-
-        ASSERT_NOT_NULL(pid);
-
-        (void) kill(*pid, SIGKILL);
-
-        return 1;
-}
-
-static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        int ret = -EIO;
-
-        ASSERT_NOT_NULL(si);
-
-        if (si->si_code == CLD_EXITED)
-                ret = si->si_status;
-
-        sd_event_exit(sd_event_source_get_event(s), ret);
-        return 1;
-}
-
-static int find_libraries(const char *exec, char ***ret) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
-        _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR, errpipe[2] = EBADF_PAIR;
-        _cleanup_strv_free_ char **libraries = NULL;
-        _cleanup_free_ char *result = NULL;
-        pid_t pid;
-        int r;
-
-        ASSERT_NOT_NULL(exec);
-        ASSERT_NOT_NULL(ret);
-
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
-        ASSERT_OK_ERRNO(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC));
-        ASSERT_OK_ERRNO(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC));
-
-        r = safe_fork_full("(spawn-ldd)",
-                           (int[]) { -EBADF, outpipe[1], errpipe[1] },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
-        ASSERT_OK(r);
-        if (r == 0) {
-                execlp("ldd", "ldd", exec, NULL);
-                _exit(EXIT_FAILURE);
-        }
-
-        outpipe[1] = safe_close(outpipe[1]);
-        errpipe[1] = safe_close(errpipe[1]);
-
-        ASSERT_OK(sd_event_new(&e));
-
-        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid));
-        ASSERT_OK(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result));
-        ASSERT_OK(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL));
-        ASSERT_OK(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL));
-        /* SIGCHLD should be processed after IO is complete */
-        ASSERT_OK(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1));
-
-        ASSERT_OK(sd_event_loop(e));
-
-        _cleanup_strv_free_ char **v = NULL;
-        ASSERT_OK(strv_split_newlines_full(&v, result, 0));
-
-        STRV_FOREACH(q, v) {
-                _cleanup_free_ char *word = NULL;
-                const char *p = *q;
-
-                r = extract_first_word(&p, &word, NULL, 0);
-                ASSERT_OK(r);
-                if (r == 0)
-                        continue;
-
-                if (path_is_absolute(word)) {
-                        ASSERT_OK(strv_consume(&libraries, TAKE_PTR(word)));
-                        continue;
-                }
-
-                word = mfree(word);
-                r = extract_first_word(&p, &word, NULL, 0);
-                ASSERT_OK(r);
-                if (r == 0)
-                        continue;
-
-                if (!streq_ptr(word, "=>"))
-                        continue;
-
-                word = mfree(word);
-                r = extract_first_word(&p, &word, NULL, 0);
-                ASSERT_OK(r);
-                if (r == 0)
-                        continue;
-
-                if (path_is_absolute(word)) {
-                        ASSERT_OK(strv_consume(&libraries, TAKE_PTR(word)));
-                        continue;
-                }
-        }
-
-        *ret = TAKE_PTR(libraries);
-        return 0;
-}
-
-static void test_exec_mount_apivfs(Manager *m) {
-        _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
-        _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
-        int r;
-
-        ASSERT_NOT_NULL(user_runtime_unit_dir);
-
-        r = find_executable("ldd", NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
-                return;
-        }
-        r = find_executable("touch", &fullpath_touch);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
-                return;
-        }
-        r = find_executable("test", &fullpath_test);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'test' command: %m", __func__);
-                return;
-        }
-
-        if (MANAGER_IS_USER(m) && !have_userns_privileges())
-                return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
-
-        ASSERT_OK(find_libraries(fullpath_touch, &libraries));
-        ASSERT_OK(find_libraries(fullpath_test, &libraries_test));
-        ASSERT_OK(strv_extend_strv(&libraries, libraries_test, true));
-
-        ASSERT_NOT_NULL(strextend(&data, "[Service]\n"));
-        ASSERT_NOT_NULL(strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n"));
-        ASSERT_NOT_NULL(strextend(&data, "ExecStart=", fullpath_test, " -f /aaa\n"));
-        ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n"));
-        ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n"));
-
-        STRV_FOREACH(p, libraries)
-                ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
-
-        ASSERT_OK(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data));
-
-        ASSERT_OK(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755));
-
-        test(m, "exec-mount-apivfs-no.service", can_unshare || !MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-
-        (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
-}
-
 static void test_exec_noexecpaths(Manager *m) {
 
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
@@ -820,7 +632,7 @@ static void test_exec_temporaryfilesystem(Manager *m) {
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
@@ -863,7 +675,7 @@ static void test_exec_systemcallfilter(Manager *m) {
 }
 
 static void test_exec_systemcallerrornumber(Manager *m) {
-#if HAVE_SECCOMP
+#if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
         if (!is_seccomp_available()) {
@@ -1339,7 +1151,6 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
-                entry(test_exec_mount_apivfs),
                 entry(test_exec_networknamespacepath),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),

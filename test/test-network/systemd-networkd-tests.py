@@ -106,7 +106,7 @@ def cp(src, dst):
     shutil.copy(src, dst)
 
 def cp_r(src, dst):
-    shutil.copytree(src, dst, copy_function=shutil.copy)
+    shutil.copytree(src, dst, copy_function=shutil.copy, dirs_exist_ok=True)
 
 def mkdir_p(path):
     os.makedirs(path, exist_ok=True)
