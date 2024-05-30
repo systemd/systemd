@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
+#include <pthread.h>
 #include <sys/stat.h>
 
 #include "build.h"
@@ -15,7 +16,6 @@
 #include "module-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -23,7 +23,23 @@ static char **arg_proc_cmdline_modules = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 static const int max_tasks = 4;
 
+typedef struct {
+        struct kmod_ctx *ctx;
+        char *line;
+        int result;
+} thread_data;
+
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
+
+static void *thread_func(void *arg) {
+        thread_data *data = ASSERT_PTR(arg);
+        const int r = module_load_and_warn(data->ctx, data->line, true);
+        if (r == -ENOENT)
+                return NULL;
+
+        data->result = r;
+        return NULL;
+}
 
 static int add_modules(const char *p) {
         _cleanup_strv_free_ char **k = NULL;
@@ -54,6 +70,34 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static void
+                exec_task(pthread_t *threads,
+                          int *tasks,
+                          int *r,
+                          thread_data *data,
+                          char *line,
+                          struct kmod_ctx *ctx,
+                          const bool to_free) {
+        int i = *tasks;
+        while (*tasks >= max_tasks) {
+                for (i = 0; i < max_tasks; ++i) {
+                        if (pthread_tryjoin_np(threads[i], NULL) == 0) {
+                                RET_GATHER(*r, data[i].result);
+                                if (to_free)
+                                        free(data[i].line);
+
+                                --*tasks;
+                                break;
+                        }
+                }
+        }
+
+        data[i].ctx = ctx;
+        data[i].line = line;
+        pthread_create(&threads[i], NULL, thread_func, &data[i]);
+        ++*tasks;
+}
+
 static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
@@ -72,8 +116,11 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
 
         log_debug("apply: %s", pp);
         int tasks = 0;
+        pthread_t threads[max_tasks];
+        thread_data data[max_tasks];
+
         for (;;) {
-                _cleanup_free_ char *line = NULL;
+                char *line = NULL;
                 int k;
 
                 k = read_stripped_line(f, LONG_LINE_MAX, &line);
@@ -87,29 +134,14 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS, *line))
                         continue;
 
-                while (tasks >= max_tasks) {
-                        if (wait(NULL) > 0) {
-                                --tasks;
-                        }
-                }
-
-                const pid_t pid = safe_fork(
-                                "load-module", FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG, NULL);
-                if (pid < 0) {
-                        r = -errno;
-                        log_full_errno(LOG_ERR, r, "Failed to fork: %m");
-                } else if (pid == 0) {
-                        k = module_load_and_warn(ctx, line, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
-                        _exit(k);
-                } else
-                        ++tasks;
+                exec_task(threads, &tasks, &r, data, line, ctx, true);
         }
 
-        while (wait(NULL) > 0)
-                ;
+        for (int i = 0; i < tasks; ++i) {
+                pthread_join(threads[i], NULL);
+                RET_GATHER(r, data[i].result);
+                free(data[i].line);
+        }
 
         return r;
 }
@@ -197,32 +229,17 @@ static int run(int argc, char *argv[]) {
         } else {
                 _cleanup_strv_free_ char **files = NULL;
                 int tasks = 0;
-                STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        while (tasks >= max_tasks) {
-                                if (wait(NULL) > 0) {
-                                        --tasks;
-                                }
-                        }
+                pthread_t threads[max_tasks];
+                thread_data data[max_tasks];
 
-                        const pid_t pid = safe_fork(
-                                        "load-module",
-                                        FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG,
-                                        NULL);
-                        if (pid < 0) {
-                                r = -errno;
-                                log_full_errno(LOG_ERR, r, "Failed to fork: %m");
-                        } else if (pid == 0) {
-                                k = module_load_and_warn(ctx, *i, true);
-                                if (k == -ENOENT)
-                                        continue;
-                                RET_GATHER(r, k);
-                                _exit(k);
-                        } else
-                                ++tasks;
+                STRV_FOREACH(i, arg_proc_cmdline_modules) {
+                        exec_task(threads, &tasks, &r, data, *i, ctx, false);
                 }
 
-                while (wait(NULL) > 0)
-                        ;
+                for (int j = 0; j < tasks; ++j) {
+                        pthread_join(threads[j], NULL);
+                        RET_GATHER(r, data[j].result);
+                }
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
