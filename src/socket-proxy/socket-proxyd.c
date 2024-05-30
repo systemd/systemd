@@ -472,11 +472,9 @@ static int add_connection_socket(Context *context, int fd) {
                 return 0;
         }
 
-        if (context->idle_time) {
-                r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
-                if (r < 0)
-                        log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
-        }
+        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
+        if (r < 0)
+                log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
 
         c = new(Connection, 1);
         if (!c) {
