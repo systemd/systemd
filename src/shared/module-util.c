@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <sys/wait.h>
 
 #include "module-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "strv.h"
 
 #if HAVE_KMOD
@@ -108,68 +110,97 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                       SYNTHETIC_ERRNO(ENOENT),
                                       "Failed to find module '%s'", module);
 
+        const int cores = sysconf(_SC_NPROCESSORS_ONLN) / 2 ?: 1;
+        int tasks = 0;
         sym_kmod_list_foreach(itr, modlist) {
-                _cleanup_(sym_kmod_module_unrefp) struct kmod_module *mod = NULL;
-                int state, err;
-
-                mod = sym_kmod_module_get_module(itr);
-                state = sym_kmod_module_get_initstate(mod);
-
-                switch (state) {
-                case KMOD_MODULE_BUILTIN:
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                 "Module '%s' is built in", sym_kmod_module_get_name(mod));
-                        break;
-
-                case KMOD_MODULE_LIVE:
-                        log_debug("Module '%s' is already loaded", sym_kmod_module_get_name(mod));
-                        break;
-
-                default:
-                        err = sym_kmod_module_probe_insert_module(
-                                        mod,
-                                        KMOD_PROBE_APPLY_BLACKLIST,
-                                        /* extra_options= */ NULL,
-                                        /* run_install= */ NULL,
-                                        /* data= */ NULL,
-                                        /* print_action= */ NULL);
-                        if (err == 0)
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Inserted module '%s'", sym_kmod_module_get_name(mod));
-                        else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Module '%s' is deny-listed (by kmod)", sym_kmod_module_get_name(mod));
-                        else {
-                                assert(err < 0);
-
-                                if (err == -EPERM) {
-                                        if (!denylist_parsed) {
-                                                r = proc_cmdline_parse(parse_proc_cmdline_item, &denylist, 0);
-                                                if (r < 0)
-                                                        log_full_errno(!verbose ? LOG_DEBUG : LOG_WARNING,
-                                                                       r,
-                                                                       "Failed to parse kernel command line, ignoring: %m");
-
-                                                denylist_parsed = true;
-                                        }
-                                        if (strv_contains(denylist, sym_kmod_module_get_name(mod))) {
-                                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                                         "Module '%s' is deny-listed (by kernel)", sym_kmod_module_get_name(mod));
-                                                continue;
-                                        }
-                                }
-
-                                log_full_errno(!verbose ? LOG_DEBUG :
-                                               err == -ENODEV ? LOG_NOTICE :
-                                               err == -ENOENT ? LOG_WARNING :
-                                                                LOG_ERR,
-                                               err,
-                                               "Failed to insert module '%s': %m",
-                                               sym_kmod_module_get_name(mod));
-                                if (!IN_SET(err, -ENODEV, -ENOENT))
-                                        r = err;
+                while (tasks > cores) {
+                        if (wait(NULL) > 0) {
+                                --tasks;
                         }
                 }
+                const pid_t pid = safe_fork(
+                                "load-module", FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG, NULL);
+                if (pid < 0) {
+                        r = -errno;
+                        log_full_errno(LOG_ERR, r, "Failed to fork: %m");
+                } else if (pid == 0) {
+                        _cleanup_(sym_kmod_module_unrefp) struct kmod_module *mod = NULL;
+                        int state, err;
+
+                        mod = sym_kmod_module_get_module(itr);
+                        state = sym_kmod_module_get_initstate(mod);
+
+                        switch (state) {
+                        case KMOD_MODULE_BUILTIN:
+                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                         "Module '%s' is built in",
+                                         sym_kmod_module_get_name(mod));
+                                _exit(0);
+
+                        case KMOD_MODULE_LIVE:
+                                log_debug("Module '%s' is already loaded", sym_kmod_module_get_name(mod));
+                                _exit(0);
+
+                        default:
+                                err = sym_kmod_module_probe_insert_module(
+                                                mod,
+                                                KMOD_PROBE_APPLY_BLACKLIST,
+                                                /* extra_options= */ NULL,
+                                                /* run_install= */ NULL,
+                                                /* data= */ NULL,
+                                                /* print_action= */ NULL);
+                                if (err == 0) {
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "Inserted module '%s'",
+                                                 sym_kmod_module_get_name(mod));
+                                        _exit(0);
+                                } else if (err == KMOD_PROBE_APPLY_BLACKLIST) {
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "Module '%s' is deny-listed (by kmod)",
+                                                 sym_kmod_module_get_name(mod));
+                                        _exit(0);
+                                } else {
+                                        assert(err < 0);
+
+                                        if (err == -EPERM) {
+                                                if (!denylist_parsed) {
+                                                        r = proc_cmdline_parse(
+                                                                        parse_proc_cmdline_item, &denylist, 0);
+                                                        if (r < 0)
+                                                                log_full_errno(!verbose ? LOG_DEBUG :
+                                                                                          LOG_WARNING,
+                                                                               r,
+                                                                               "Failed to parse kernel command line, ignoring: %m");
+
+                                                        denylist_parsed = true;
+                                                }
+                                                if (strv_contains(denylist, sym_kmod_module_get_name(mod))) {
+                                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                                 "Module '%s' is deny-listed (by kernel)",
+                                                                 sym_kmod_module_get_name(mod));
+                                                        _exit(0);
+                                                }
+                                        }
+
+                                        log_full_errno(!verbose                       ? LOG_DEBUG :
+                                                                       err == -ENODEV ? LOG_NOTICE :
+                                                                       err == -ENOENT ? LOG_WARNING :
+                                                                                        LOG_ERR,
+                                                       err,
+                                                       "Failed to insert module '%s': %m",
+                                                       sym_kmod_module_get_name(mod));
+                                        if (!IN_SET(err, -ENODEV, -ENOENT))
+                                                _exit(err);
+                                        else
+                                                _exit(0);
+                                }
+                        }
+                } else
+                        ++tasks;
+        }
+
+        while (tasks > cores) {
+                ;
         }
 
         return r;
