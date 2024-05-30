@@ -398,14 +398,15 @@ int blockdev_partscan_enabled(int fd) {
          * the 'capability' sysfs attribute is deprecated, hence we cannot check flags from it. 💣💣💣
          *
          * With https://github.com/torvalds/linux/commit/a4217c6740dc64a3eb6815868a9260825e8c68c6 (v6.10,
-         * backported to v6.9), the partscan status is directly exposed as 'partscan' sysattr.
+         * backported to v6.6+), the partscan status is directly exposed as 'partscan' sysattr.
          *
          * To support both old and new kernels, we need to do the following:
          * 1) check 'partscan' sysfs attribute where the information is made directly available,
-         * 2) check 'loop/partscan' sysfs attribute for loopback block devices, and if '0' we can conclude
+         * 2) check if the blockdev refers to a partition, where partscan is not supported,
+         * 3) check 'loop/partscan' sysfs attribute for loopback block devices, and if '0' we can conclude
          *    partition scanning is disabled,
-         * 3) check 'ext_range' sysfs attribute, and if '1' we can conclude partition scanning is disabled,
-         * 4) otherwise check 'capability' sysfs attribute for ancient version. */
+         * 4) check 'ext_range' sysfs attribute, and if '1' we can conclude partition scanning is disabled,
+         * 5) otherwise check 'capability' sysfs attribute for ancient version. */
 
         assert(fd >= 0);
 
