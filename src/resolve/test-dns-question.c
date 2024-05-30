@@ -118,4 +118,129 @@ TEST(dns_question_new_reverse_ipv4) {
         ASSERT_TRUE(dns_question_contains_key(question, key));
 }
 
+/* ================================================================
+ * dns_question_new_service()
+ * ================================================================ */
+
+TEST(dns_question_new_service_no_domain) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        ASSERT_ERROR(dns_question_new_service(&question, NULL, "_xmpp._tcp", NULL, 0, 0), EINVAL);
+        ASSERT_NULL(question);
+}
+
+TEST(dns_question_new_service_domain_only) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, NULL, NULL, "www.example.com", 0, 0));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
+TEST(dns_question_new_service_domain_ignores_idna) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, NULL, NULL, "\xF0\x9F\x98\xB1.com", 0, 1));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "\xF0\x9F\x98\xB1.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
+TEST(dns_question_new_service_with_type) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, NULL, "_xmpp._tcp", "example.com", 0, 0));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
+#if HAVE_LIBIDN || HAVE_LIBIDN2
+TEST(dns_question_new_service_with_type_applies_idna) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, NULL, "_xmpp._tcp", "\xF0\x9F\x98\xB1.com", 0, 1));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.xn--s38h.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
+TEST(dns_question_new_service_with_type_with_txt) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, NULL, "_xmpp._tcp", "\xF0\x9F\x98\xB1.com", 1, 1));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 2u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.xn--s38h.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, "_xmpp._tcp.xn--s38h.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+        dns_resource_key_unref(key);
+}
+#endif
+
+TEST(dns_question_new_service_with_invalid_type) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        ASSERT_ERROR(dns_question_new_service(&question, NULL, "_xmpp.tcp", "example.com", 0, 0), EINVAL);
+        ASSERT_NULL(question);
+}
+
+TEST(dns_question_new_service_with_type_too_short) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        ASSERT_ERROR(dns_question_new_service(&question, NULL, "_xmpp", "example.com", 0, 0), EINVAL);
+        ASSERT_NULL(question);
+}
+
+TEST(dns_question_new_service_with_type_too_long) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        ASSERT_ERROR(dns_question_new_service(&question, NULL, "_xmpp._tcp._extra", "example.com", 0, 0), EINVAL);
+        ASSERT_NULL(question);
+}
+
+TEST(dns_question_new_service_with_service_and_type) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_service(&question, "service", "_xmpp._tcp", "example.com", 0, 0));
+        ASSERT_NOT_NULL(question);
+        ASSERT_EQ(dns_question_size(question), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "service._xmpp._tcp.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+}
+
+TEST(dns_question_new_service_with_service_no_type) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        ASSERT_ERROR(dns_question_new_service(&question, "service", NULL, "example.com", 0, 0), EINVAL);
+        ASSERT_NULL(question);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
