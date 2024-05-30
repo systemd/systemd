@@ -795,6 +795,52 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static int add_crypttab_device(const char *name, const char *device,  const char *keyspec, const char *options) {
+        _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
+        crypto_device *d = NULL;
+        char *uuid;
+        int r;
+
+        uuid = startswith(device, "UUID=");
+        if (!uuid)
+                uuid = path_startswith(device, "/dev/disk/by-uuid/");
+        if (!uuid)
+                uuid = startswith(name, "luks-");
+        if (uuid)
+                d = hashmap_get(arg_disks, uuid);
+
+        if (arg_allow_list && !d) {
+                log_info("Not creating device '%s' because it was not specified on the kernel command line.", name);
+                return 0;
+        }
+
+        r = split_locationspec(keyspec, &keyfile, &keydev);
+        if (r < 0)
+                return r;
+
+        if (options && (!d || !d->options)) {
+                r = filter_header_device(options, &headerdev, &filtered_header);
+                if (r < 0)
+                        return r;
+                options = filtered_header;
+        }
+
+        r = create_disk(name,
+                        device,
+                        keyfile,
+                        keydev,
+                        (d && d->options) ? d->headerdev : headerdev,
+                        (d && d->options) ? d->options : options,
+                        arg_crypttab);
+        if (r < 0)
+                return r;
+
+        if (d)
+                d->create = false;
+
+        return 0;
+}
+
 static int add_crypttab_devices(void) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned crypttab_line = 0;
@@ -811,10 +857,7 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL,
-                                    *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
-                crypto_device *d = NULL;
-                char *uuid;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL;
                 int k;
 
                 r = read_stripped_line(f, LONG_LINE_MAX, &line);
@@ -834,42 +877,9 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                uuid = startswith(device, "UUID=");
-                if (!uuid)
-                        uuid = path_startswith(device, "/dev/disk/by-uuid/");
-                if (!uuid)
-                        uuid = startswith(name, "luks-");
-                if (uuid)
-                        d = hashmap_get(arg_disks, uuid);
-
-                if (arg_allow_list && !d) {
-                        log_info("Not creating device '%s' because it was not specified on the kernel command line.", name);
-                        continue;
-                }
-
-                r = split_locationspec(keyspec, &keyfile, &keydev);
+                r = add_crypttab_device(name, device, keyspec, options);
                 if (r < 0)
                         return r;
-
-                if (options && (!d || !d->options)) {
-                        r = filter_header_device(options, &headerdev, &filtered_header);
-                        if (r < 0)
-                                return r;
-                        free_and_replace(options, filtered_header);
-                }
-
-                r = create_disk(name,
-                                device,
-                                keyfile,
-                                keydev,
-                                (d && d->options) ? d->headerdev : headerdev,
-                                (d && d->options) ? d->options : options,
-                                arg_crypttab);
-                if (r < 0)
-                        return r;
-
-                if (d)
-                        d->create = false;
         }
 
         return 0;
