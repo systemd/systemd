@@ -278,6 +278,24 @@
         <citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for more information on key descriptions (KEY IDENTIFIERS section).</para>
 
+        <para>Alternatively, it takes specification for the volume key to be linked in a kernel key
+        with a description derived automatically from LUKS device uuid (e.g.: systemd-cryptsetup:vk-b40f1abf-2a53-400a-889a-2eccc27eaa40-id1).
+        There are several specifications:</para>
+
+        <para>With option value <literal>auto</literal> the volume key gets linked in the user keyring
+        (<literal>@u</literal>) with default key type (<literal>user</literal>).</para>
+
+        <para>With option value <literal>auto-logon</literal> the same as above applies except the
+        key type is <literal>logon</literal>.</para>
+
+        <para>If no <literal>::</literal> substring is specified, whole string is interpreted as a
+        keyring description. The volume key gets linked in a <literal>user</literal> type key
+        with a key description derived from LUKS uuid.</para>
+
+        <para>If only key part of the option value is missing, volume key gets linked in
+        a specified keyring with in the specified key type. Only key description is derived from
+        LUKS uuid.</para>
+
         <para>Note that the linked volume key is not cleaned up automatically when the device is detached.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
