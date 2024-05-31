@@ -167,4 +167,52 @@ TEST(dns_zone_remove_rr_different_payload) {
         ASSERT_NOT_NULL(dns_zone_get(zone, rr_in));
 }
 
+/* ================================================================
+ * dns_zone_remove_rrs_by_key()
+ * ================================================================ */
+
+TEST(dns_zone_remove_rrs_by_key) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        DnsZone *zone = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL;
+        DnsResourceKey *key = NULL;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        zone = &scope->zone;
+
+        rr1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr1);
+        dns_zone_put(zone, scope, rr1, 0);
+
+        rr2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(rr2);
+        dns_zone_put(zone, scope, rr2, 0);
+
+        rr3 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+        ASSERT_NOT_NULL(rr3);
+        rr3->cname.name = strdup("www.example.com");
+        dns_zone_put(zone, scope, rr3, 0);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_zone_remove_rrs_by_key(zone, key));
+        ASSERT_NOT_NULL(dns_zone_get(zone, rr3));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_zone_remove_rrs_by_key(zone, key));
+        ASSERT_NULL(dns_zone_get(zone, rr3));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_zone_remove_rrs_by_key(zone, key));
+        ASSERT_NULL(dns_zone_get(zone, rr1));
+        ASSERT_NULL(dns_zone_get(zone, rr2));
+        dns_resource_key_unref(key);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
