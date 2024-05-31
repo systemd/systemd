@@ -175,6 +175,19 @@ tests += [
         },
         {
                 'sources' : [
+                        files('test-dns-search-domain.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        lib_openssl_or_gcrypt,
+                        libm,
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
                         files('test-resolved-link.c'),
                         basic_dns_sources,
                         systemd_resolved_sources,
