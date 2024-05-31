@@ -217,4 +217,29 @@ TEST(dns_search_domain_unlink_all) {
         ASSERT_EQ(manager.n_search_domains, 0u);
 }
 
+/* ================================================================
+ * dns_search_domain_find()
+ * ================================================================ */
+
+TEST(dns_search_domain_find) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL, *ret = NULL;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        ASSERT_TRUE(dns_search_domain_find(sd1, "local", &ret));
+        ASSERT_TRUE(ret == sd1);
+
+        ASSERT_TRUE(dns_search_domain_find(sd1, "org", &ret));
+        ASSERT_TRUE(ret == sd3);
+
+        ASSERT_TRUE(dns_search_domain_find(sd1, "vpn.example.com", &ret));
+        ASSERT_TRUE(ret == sd2);
+
+        ASSERT_FALSE(dns_search_domain_find(sd1, "co.uk", &ret));
+        ASSERT_NULL(ret);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
