@@ -17,11 +17,29 @@
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
+#include <pthread.h>
 
 static char **arg_proc_cmdline_modules = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
+static const int max_tasks = 4;
+
+typedef struct {
+        struct kmod_ctx *ctx;
+        char *line;
+        int result;
+} thread_data;
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
+
+static void *thread_func(void *arg) {
+        thread_data *data = ASSERT_PTR(arg);
+        const int k = module_load_and_warn(data->ctx, data->line, true);
+        if (k == -ENOENT)
+                return NULL;
+
+        data->result = k;
+        return NULL;
+}
 
 static int add_modules(const char *p) {
         _cleanup_strv_free_ char **k = NULL;
@@ -52,6 +70,29 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static void
+                exec_task(pthread_t *threads,
+                          int *tasks,
+                          int *results,
+                          int *r,
+                          thread_data *data,
+                          const char *line,
+                          struct kmod_ctx *ctx) {
+        while (*tasks >= max_tasks) {
+                for (int i = 0; i < max_tasks; ++i) {
+                        if (pthread_tryjoin_np(threads[i], NULL) == 0) {
+                                RET_GATHER(*r, results[i]);
+                                --*tasks;
+                        }
+                }
+        }
+
+        data[*tasks].ctx = ctx;
+        data[*tasks].line = strdup(line); // strdup to avoid race conditions
+        pthread_create(&threads[*tasks], NULL, thread_func, &data[*tasks]);
+        ++*tasks;
+}
+
 static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
@@ -69,6 +110,14 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         }
 
         log_debug("apply: %s", pp);
+        int tasks = 0;
+        pthread_t threads[max_tasks];
+        thread_data data[max_tasks];
+        int results[max_tasks];
+        for (int i = 0; i < max_tasks; ++i) {
+                data[i].result = results[i];
+        }
+
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 int k;
@@ -84,10 +133,12 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS, *line))
                         continue;
 
-                k = module_load_and_warn(ctx, line, true);
-                if (k == -ENOENT)
-                        continue;
-                RET_GATHER(r, k);
+                exec_task(threads, &tasks, results, &r, data, line, ctx);
+        }
+
+        for (int i = 0; i < tasks; ++i) {
+                pthread_join(threads[i], NULL);
+                RET_GATHER(r, results[i]);
         }
 
         return r;
@@ -175,12 +226,21 @@ static int run(int argc, char *argv[]) {
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
+                int tasks = 0;
+                pthread_t threads[max_tasks];
+                thread_data data[max_tasks];
+                int results[max_tasks];
+                for (int i = 0; i < max_tasks; ++i) {
+                        data[i].result = results[i];
+                }
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
+                        exec_task(threads, &tasks, results, &r, data, *i, ctx);
+                }
+
+                for (int j = 0; j < tasks; ++j) {
+                        pthread_join(threads[j], NULL);
+                        RET_GATHER(r, results[j]);
                 }
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
