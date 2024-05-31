@@ -2084,8 +2084,6 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : libdir)
 
-alias_target('libsystemd', libsystemd)
-
 install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
@@ -2111,6 +2109,12 @@ install_libsystemd_static = static_library(
                         userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
+if static_libsystemd != 'false'
+        alias_target('libsystemd', libsystemd, install_libsystemd_static)
+else
+        alias_target('libsystemd', libsystemd)
+endif
+
 libudev = shared_library(
         'udev',
         version : libudev_version,
@@ -2125,8 +2129,6 @@ libudev = shared_library(
         install : true,
         install_tag: 'libudev',
         install_dir : libdir)
-
-alias_target('libudev', libudev)
 
 install_libudev_static = static_library(
         'udev',
@@ -2146,6 +2148,12 @@ install_libudev_static = static_library(
                         userspace],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
+
+if static_libudev != 'false'
+        alias_target('libudev', libudev, install_libudev_static)
+else
+        alias_target('libudev', libudev)
+endif
 
 #####################################################################
 
