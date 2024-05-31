@@ -6263,26 +6263,20 @@ void unit_set_freezer_state(Unit *u, FreezerState state) {
         u->freezer_state = state;
 }
 
-void unit_frozen(Unit *u) {
+void unit_freezer_complete(Unit *u, FreezerState kernel_state) {
+        bool expected;
+
         assert(u);
+        assert(IN_SET(kernel_state, FREEZER_RUNNING, FREEZER_FROZEN));
 
-        u->freezer_state = u->freezer_state == FREEZER_FREEZING_BY_PARENT
-                           ? FREEZER_FROZEN_BY_PARENT
-                           : FREEZER_FROZEN;
+        expected = IN_SET(u->freezer_state, FREEZER_RUNNING, FREEZER_THAWING) == (kernel_state == FREEZER_RUNNING);
 
-        log_unit_debug(u, "Unit now %s.", freezer_state_to_string(u->freezer_state));
+        unit_set_freezer_state(u, expected ? freezer_state_finish(u->freezer_state) : kernel_state);
+        log_unit_info(u, "Unit now %s.", u->freezer_state == FREEZER_RUNNING ? "thawed" :
+                                         freezer_state_to_string(u->freezer_state));
 
-        bus_unit_send_pending_freezer_message(u, false);
-}
-
-void unit_thawed(Unit *u) {
-        assert(u);
-
-        u->freezer_state = FREEZER_RUNNING;
-
-        log_unit_debug(u, "Unit thawed.");
-
-        bus_unit_send_pending_freezer_message(u, false);
+        /* If the cgroup's final state is against what's requested by us, report as canceled. */
+        bus_unit_send_pending_freezer_message(u, /* canceled = */ !expected);
 }
 
 int unit_freezer_action(Unit *u, FreezerAction action) {
