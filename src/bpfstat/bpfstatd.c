@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "bpfd-manager.h"
+#include "bpfstatd-manager.h"
 #include "daemon-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -30,7 +30,7 @@ static int run(int argc, char *argv[]) {
 
         notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
-        log_debug("systemd-bpfd started");
+        log_debug("systemd-bpfstatd started");
 
         r = sd_event_loop(m->event);
         if (r < 0)

@@ -782,12 +782,12 @@ detached from the system and is no longer available for use. The list of attache
 Portable Services can be queried with 'portablectl list'.
 
 -- 8ff478c20d67490cb893d29dc55c3f37
-Subject: bpfd data has been logged
+Subject: bpfstatd data has been logged
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-bpfd has logged information about attached BPF programs and maps.
+bpfstatd has logged information about attached BPF programs and maps.
 
-Periodically, bpfd will gather data about all currently attached BPF programs
+Periodically, bpfstatd will gather data about all currently attached BPF programs
 and maps and then log it to journald. This includes program/map names, program/map
 types, memlock, and program run statistics.
