@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Development Freezer
-        uses: redhat-plumbers-in-action/devel-freezer@396c94ba8cb417474e6626c83a42addea210a403
+        uses: redhat-plumbers-in-action/devel-freezer@ad766eafd555b28d2cb8e27937835983f9c3d173
         with:
           pr-number: ${{ fromJSON(steps.artifact.outputs.pr-metadata-json).number }}
           # delay start of validation to allow for some milestone/labels tweaking
