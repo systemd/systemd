@@ -207,9 +207,9 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sProfile systemd, show unit dependencies, check unit files.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sProfile systemd, show unit dependencies, check unit files.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  [time]                     Print time required to boot the machine\n"
                "  blame                      Print list of running units ordered by\n"
                "                             time to init\n"
@@ -217,7 +217,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             of units\n"
                "  plot                       Output SVG graphic showing service\n"
                "                             initialization\n"
-               "  dot [UNIT...]              Output dependency graph in %s format\n"
+               "  dot [UNIT...]              Output dependency graph in %7$s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
                "  cat-config NAME|PATH...    Show configuration file and drop-ins\n"
@@ -245,7 +245,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
                "     --threshold=N           Exit with a non-zero status when overall\n"
@@ -285,12 +285,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
                ansi_highlight(),
                ansi_normal(),
-               dot_link,
-               link);
+               dot_link);
 
         /* When updating this list, including descriptions, apply changes to
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
