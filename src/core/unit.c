@@ -1463,6 +1463,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 
 static int unit_add_slice_dependencies(Unit *u) {
         Unit *slice;
+
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1474,8 +1475,12 @@ static int unit_add_slice_dependencies(Unit *u) {
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
         slice = UNIT_GET_SLICE(u);
-        if (slice)
+        if (slice) {
+                if (!IN_SET(slice->freezer_state, FREEZER_RUNNING, FREEZER_THAWING))
+                        u->freezer_state = FREEZER_FROZEN_BY_PARENT;
+
                 return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
+        }
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
