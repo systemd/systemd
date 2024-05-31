@@ -942,7 +942,7 @@ foreach option : ['adm-gid',
         name = option.underscorify().to_upper()
         val = get_option(option)
 
-        # Ensure provided GID argument is numeric, otherwise fall back to default assignment
+        # Ensure provided GID argument is positive, otherwise fall back to default assignment
         conf.set(name, val > 0 ? val : '-')
         if val > 0
                 static_ugids += '@0@:@1@'.format(option, val)
