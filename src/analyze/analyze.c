@@ -26,6 +26,7 @@
 #include "analyze-exit-status.h"
 #include "analyze-fdstore.h"
 #include "analyze-filesystems.h"
+#include "analyze-has-tpm2.h"
 #include "analyze-image-policy.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
@@ -253,6 +254,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
+               "  has-tpm2                   Report whether TPM2 support is available\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
                "\n%3$sOptions:%4$s\n"
@@ -700,6 +702,7 @@ static int run(int argc, char *argv[]) {
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
+                { "has-tpm2",          VERB_ANY, 1,        0,            verb_has_tpm2          },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
