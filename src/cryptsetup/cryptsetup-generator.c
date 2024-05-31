@@ -20,6 +20,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "specifier.h"
+#include "string-util-fundamental.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -44,10 +45,12 @@ static bool arg_allow_list = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
+static char *arg_default_key_keyring = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_disks, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_default_key_keyring, freep);
 
 static int split_locationspec(const char *locationspec, char **ret_file, char **ret_device) {
         _cleanup_free_ char *file = NULL, *device = NULL;
@@ -790,13 +793,35 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         free_and_replace(d->name, uuid_value);
                 } else
                         log_warning("Failed to parse luks name switch %s. Ignoring.", value);
+        } else if (streq(key, "luks.link-volume-key")) {
+                const char *c, *sep;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                sep = strstr(value, "::");
+
+                /* reject specification including key description */
+                if (sep && sep[2] != '%')
+                        return log_warning_errno(0, "Failed to parse default luks keyring switch %s. Ignoring.", value);
+
+                if (sep) {
+                        /* reject full specification */
+                        c = strchr(sep + 3, ':');
+                        if (c)
+                                return log_warning_errno(0, "Failed to parse default luks keyring switch %s. Ignoring.", value);
+                }
+
+                if (free_and_strdup(&arg_default_key_keyring, value) < 0)
+                        return log_oom();
         }
 
         return 0;
 }
 
 static int add_crypttab_device(const char *name, const char *device,  const char *keyspec, const char *options) {
-        _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
+        _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL,
+                            *new_options = NULL;
         crypto_device *d = NULL;
         char *uuid;
         int r;
@@ -823,6 +848,17 @@ static int add_crypttab_device(const char *name, const char *device,  const char
                 if (r < 0)
                         return r;
                 options = filtered_header;
+        }
+
+        if (arg_default_key_keyring && options && (!d || !d->options)) {
+                if (isempty(options))
+                        new_options = strjoin("link-volume-key=", arg_default_key_keyring);
+                else
+                        new_options = strjoin(options, ",link-volume-key=", arg_default_key_keyring);
+                if (!new_options)
+                        return log_oom();
+
+                options = new_options;
         }
 
         r = create_disk(name,
@@ -916,6 +952,31 @@ static int add_proc_cmdline_devices(void) {
         return ret;
 }
 
+static int add_default_key_keyring_to_devices(void) {
+        crypto_device *d;
+
+        if (!arg_default_key_keyring)
+                return 0;
+
+        HASHMAP_FOREACH(d, arg_disks) {
+                _cleanup_free_ char *new_options = NULL;
+
+                if (!d->create)
+                        continue;
+
+                if (isempty(d->options))
+                        new_options = strjoin("link-volume-key=", arg_default_key_keyring);
+                else
+                        new_options = strjoin(d->options, ",link-volume-key=", arg_default_key_keyring);
+                if (!new_options)
+                        return log_oom();
+
+                free_and_replace(d->options, new_options);
+        }
+
+        return 0;
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, string_hash_func, string_compare_func,
                                               crypto_device, crypt_device_free);
 
@@ -937,6 +998,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         if (!arg_enabled)
                 return 0;
+
+        r = add_default_key_keyring_to_devices();
+        if (r < 0)
+                return r;
 
         r = add_crypttab_devices();
         RET_GATHER(r, add_proc_cmdline_devices());
