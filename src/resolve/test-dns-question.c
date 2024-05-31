@@ -421,4 +421,154 @@ TEST(dns_question_is_valid_for_query_multi_different_names) {
         ASSERT_FALSE(dns_question_is_valid_for_query(question));
 }
 
+/* ================================================================
+ * dns_question_is_equal()
+ * ================================================================ */
+
+TEST(dns_question_is_equal_same_pointer) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL;
+
+        a = dns_question_new(0);
+        ASSERT_TRUE(dns_question_is_equal(a, a));
+}
+
+TEST(dns_question_is_equal_both_empty) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+
+        a = dns_question_new(0);
+        b = dns_question_new(0);
+
+        ASSERT_TRUE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_single) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_TRUE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_different_names) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.org");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_different_types) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_first_larger) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_second_larger) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_question_is_equal(a, b));
+}
+
+TEST(dns_question_is_equal_different_order) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_TRUE(dns_question_is_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
