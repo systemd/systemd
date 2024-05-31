@@ -938,4 +938,91 @@ TEST(dns_question_first_name_multi) {
         ASSERT_STREQ(name, "www.example.com");
 }
 
+/* ================================================================
+ * dns_question_merge()
+ * ================================================================ */
+
+TEST(dns_question_merge_empty_first) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(0);
+        ASSERT_NOT_NULL(a);
+
+        b = dns_question_new(1);
+        ASSERT_NOT_NULL(b);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(dns_question_merge(a, b, &ret));
+        ASSERT_TRUE(ret == b);
+}
+
+TEST(dns_question_merge_empty_second) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+
+        a = dns_question_new(1);
+        ASSERT_NOT_NULL(a);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(0);
+        ASSERT_NOT_NULL(b);
+
+        ASSERT_OK(dns_question_merge(a, b, &ret));
+        ASSERT_TRUE(ret == a);
+}
+
+TEST(dns_question_merge_multi) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        int i;
+        uint16_t types[3];
+
+        a = dns_question_new(1);
+        ASSERT_NOT_NULL(a);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(a, key, 0);
+        dns_resource_key_unref(key);
+
+        b = dns_question_new(2);
+        ASSERT_NOT_NULL(b);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(b, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(dns_question_merge(a, b, &ret));
+        ASSERT_TRUE(ret != a);
+        ASSERT_TRUE(ret != b);
+
+        ASSERT_EQ(dns_question_size(a), 1u);
+        ASSERT_EQ(dns_question_size(b), 2u);
+        ASSERT_EQ(dns_question_size(ret), 3u);
+
+        i = 0;
+        DNS_QUESTION_FOREACH(key, ret) {
+                types[i++] = key->type;
+        }
+
+        ASSERT_EQ(types[0], DNS_TYPE_A);
+        ASSERT_EQ(types[1], DNS_TYPE_AAAA);
+        ASSERT_EQ(types[2], DNS_TYPE_TXT);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
