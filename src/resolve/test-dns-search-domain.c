@@ -122,4 +122,99 @@ TEST(dns_search_domain_unlink_link) {
         check_domains(link->search_domains, expected, 2);
 }
 
+/* ================================================================
+ * dns_search_domain_mark_all()
+ * ================================================================ */
+
+TEST(dns_search_domain_mark_all) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        ASSERT_FALSE(sd1->marked);
+        ASSERT_FALSE(sd2->marked);
+        ASSERT_FALSE(sd3->marked);
+
+        dns_search_domain_mark_all(sd1);
+
+        ASSERT_TRUE(sd1->marked);
+        ASSERT_TRUE(sd2->marked);
+        ASSERT_TRUE(sd3->marked);
+}
+
+/* ================================================================
+ * dns_search_domain_move_back_and_unmark()
+ * ================================================================ */
+
+TEST(dns_search_domain_move_back_and_unmark) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        dns_search_domain_move_back_and_unmark(sd1);
+        check_domains(manager.search_domains, (const char *[]) { "local", "vpn.example.com", "org" }, 3);
+
+        sd1->marked = 1;
+
+        dns_search_domain_move_back_and_unmark(sd1);
+        check_domains(manager.search_domains, (const char *[]) { "vpn.example.com", "org", "local" }, 3);
+
+        sd3->marked = 1;
+
+        dns_search_domain_move_back_and_unmark(sd3);
+        check_domains(manager.search_domains, (const char *[]) { "vpn.example.com", "local", "org" }, 3);
+}
+
+/* ================================================================
+ * dns_search_domain_unlink_marked()
+ * ================================================================ */
+
+TEST(dns_search_domain_unlink_marked) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        dns_search_domain_unlink_marked(sd1);
+        ASSERT_EQ(manager.n_search_domains, 3u);
+        check_domains(manager.search_domains, (const char *[]) { "local", "vpn.example.com", "org" }, 3);
+
+        sd2->marked = 1;
+
+        dns_search_domain_unlink_marked(sd1);
+        ASSERT_EQ(manager.n_search_domains, 2u);
+        check_domains(manager.search_domains, (const char *[]) { "local", "org" }, 2);
+
+        sd1->marked = 1;
+
+        dns_search_domain_unlink_marked(sd1);
+        ASSERT_EQ(manager.n_search_domains, 1u);
+        check_domains(manager.search_domains, (const char *[]) { "org" }, 1);
+}
+
+/* ================================================================
+ * dns_search_domain_unlink_all()
+ * ================================================================ */
+
+TEST(dns_search_domain_unlink_all) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        dns_search_domain_unlink_all(sd1);
+
+        ASSERT_EQ(manager.n_search_domains, 0u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
