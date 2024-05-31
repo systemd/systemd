@@ -780,3 +780,16 @@ Documentation: https://systemd.io/PORTABLE_SERVICES/
 A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
 detached from the system and is no longer available for use. The list of attached
 Portable Services can be queried with 'portablectl list'.
+
+-- ad7089f928ac4f7ea00c07457d47ba8a
+Subject: Authorization failure while attempting to enroll SRK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occured while attempting to enroll a Storage Root Key (SRK) on the Trusted Platform
+Module (TPM). Most likely this means that a PIN/Password (authValue) has been set on the Owner hierarchy of
+the TPM.
+
+Automatic SRK enrollment on TPMs in such scenarios is not supported. In order to unset the PIN/password
+protection on the owner hierarchy issue a command like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
