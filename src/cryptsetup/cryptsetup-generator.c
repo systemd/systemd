@@ -581,6 +581,8 @@ static crypto_device* crypt_device_free(crypto_device *d) {
         free(d->uuid);
         free(d->keyfile);
         free(d->keydev);
+        free(d->headerdev);
+        free(d->datadev);
         free(d->name);
         free(d->options);
         return mfree(d);
