@@ -5170,19 +5170,15 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        log_unit_debug(u, "Unit freezer state was %s, now %s.",
-                       freezer_state_to_string(u->freezer_state),
-                       freezer_state_to_string(next));
-
         r = write_string_file(path, one_zero(objective == FREEZER_FROZEN), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
-        u->freezer_state = next;
+        unit_set_freezer_state(u, next);
         return 1; /* Wait for cgroup event before replying */
 
 skip:
-        u->freezer_state = freezer_state_finish(next);
+        unit_set_freezer_state(u, freezer_state_finish(next));
         return 0;
 }
 
