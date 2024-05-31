@@ -1050,6 +1050,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadFlex5*
 # Lenovo Yoga S940 (9th gen)
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
+# Lenovo ThinkBook 16G6IRL
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21KH*:pvrThinkBook16G6IRL:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
