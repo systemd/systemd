@@ -22,15 +22,6 @@ If adding a new source file, consider adding a matching test executable.
 For features at a higher level, tests in `src/test/` are very strongly recommended.
 If that is not possible, integration tests in `test/` are encouraged.
 
-```shell
-$ git config submodule.recurse true
-$ git config fetch.recurseSubmodules on-demand
-$ git config push.recurseSubmodules no
-$ cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
-$ cp tools/git-submodule-update-hook.sh .git/hooks/post-rewrite
-$ cp tools/git-submodule-update-hook.sh .git/hooks/post-checkout
-```
-
 Please always test your work before submitting a PR.
 For many of the components of systemd testing is straightforward as you can simply compile systemd and run the relevant tool from the build directory.
 

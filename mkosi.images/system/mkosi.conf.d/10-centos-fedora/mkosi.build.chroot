@@ -20,13 +20,15 @@ else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-# Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
-# See https://github.com/rpm-software-management/rpm/issues/3042.
-tee --append /usr/lib/rpm/redhat/macros <<'EOF'
+if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.19.91"; then
+    # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
+    # See https://github.com/rpm-software-management/rpm/issues/3042.
+    tee --append /usr/lib/rpm/redhat/macros <<'EOF'
 %install %{?_enable_debug_packages:%{debug_package}}\
 %%install\
 %{nil}
 EOF
+fi
 
 VERSION="$(cat meson.version)"
 RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
@@ -70,10 +72,12 @@ ANNOBIN="no-active-checks" rpmbuild \
     --define "__brp_strip_comment_note %{nil}" \
     --define "__brp_strip_static_archive %{nil}" \
     --define "__brp_check_rpaths %{nil}" \
+    --undefine __brp_add_determinism \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
     --define "_fortify_level 0" \
+    --define "_fixperms true" \
     --undefine _lto_cflags \
     --undefine _package_note_flags \
     --noclean \
