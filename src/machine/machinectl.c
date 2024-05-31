@@ -1958,7 +1958,8 @@ static int clean_images(int argc, char *argv[], void *userdata) {
 static int chainload_importctl(int argc, char *argv[]) {
         int r;
 
-        log_notice("The 'machinectl %1$s' command has been replaced by 'importctl -m %1$s'. Redirecting invocation.", argv[optind]);
+        if (!arg_quiet)
+                log_notice("The 'machinectl %1$s' command has been replaced by 'importctl -m %1$s'. Redirecting invocation.", argv[optind]);
 
         _cleanup_strv_free_ char **c =
                 strv_new("importctl", "--class=machine");
