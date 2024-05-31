@@ -5,17 +5,17 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
-#include "bpfd-conf.h"
+#include "bpfstatd-conf.h"
 %}
 struct ConfigPerfItem;
 %null_strings
 %language=ANSI-C
 %define slot-name section_and_lvalue
-%define hash-function-name bpfd_gperf_hash
-%define lookup-function-name bpfd_gperf_lookup
+%define hash-function-name bpfstatd_gperf_hash
+%define lookup-function-name bpfstatd_gperf_lookup
 %readonly-tables
 %omit-struct-type
 %struct-type
 %includes
 %%
-BPF.LogProgramsAndMaps, config_parse_bool, 0, offsetof(Manager, enable_logging)
+BPFStat.LogProgramsAndMaps, config_parse_bool, 0, offsetof(Manager, enable_logging)

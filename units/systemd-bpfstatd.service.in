@@ -8,11 +8,11 @@
 #  (at your option) any later version.
 [Unit]
 Description=BPF Monitoring Service
-Documentation=man:systemd-bpfd.service(8)
+Documentation=man:systemd-bpfstatd.service(8)
 Before=sysinit.target
 DefaultDependencies=no
 [Service]
-ExecStart={{LIBEXECDIR}}/systemd-bpfd
+ExecStart={{LIBEXECDIR}}/systemd-bpfstatd
 Type=notify
 {{SERVICE_WATCHDOG}}
 [Install]

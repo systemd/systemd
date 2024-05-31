@@ -7,7 +7,7 @@
 
 /* Polling interval for BPF timer  */
 #define BPF_TIMER_INTERVAL_USEC USEC_PER_MINUTE /* 1 minute */
-#define BPFD_VARLINK_ADDRESS "/run/systemd/bpf/io.systemd.Bpf"
+#define BPFSTATD_VARLINK_ADDRESS "/run/systemd/bpf/io.systemd.BpfStat"
 
 typedef struct Manager {
         sd_event *event;
