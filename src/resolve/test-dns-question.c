@@ -657,4 +657,185 @@ TEST(dns_question_is_equal_different_order) {
         ASSERT_TRUE(dns_question_is_equal(a, b));
 }
 
+/* ================================================================
+ * dns_question_cname_redirect()
+ * ================================================================ */
+
+TEST(dns_question_cname_redirect_empty) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(0);
+        ASSERT_NOT_NULL(question);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("example.com");
+
+        ASSERT_FALSE(dns_question_cname_redirect(question, rr, &ret));
+        ASSERT_NULL(ret);
+}
+
+TEST(dns_question_cname_redirect_single_cname_match) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(1);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("example.com");
+
+        ASSERT_TRUE(dns_question_cname_redirect(question, rr, &ret));
+
+        ASSERT_NOT_NULL(ret);
+        ASSERT_TRUE(question != ret);
+        ASSERT_FALSE(dns_question_is_equal(question, ret));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(ret, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_question_cname_redirect_single_cname_no_change) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(1);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("example.com");
+
+        ASSERT_FALSE(dns_question_cname_redirect(question, rr, &ret));
+        ASSERT_NULL(ret);
+}
+
+TEST(dns_question_cname_redirect_single_cname_no_match) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(1);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("example.com");
+
+        ASSERT_TRUE(dns_question_cname_redirect(question, rr, &ret));
+
+        ASSERT_NOT_NULL(ret);
+        ASSERT_TRUE(question != ret);
+        ASSERT_FALSE(dns_question_is_equal(question, ret));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(ret, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_question_cname_redirect_single_dname_match) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(1);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("v2.example.com");
+
+        ASSERT_TRUE(dns_question_cname_redirect(question, rr, &ret));
+
+        ASSERT_NOT_NULL(ret);
+        ASSERT_TRUE(question != ret);
+        ASSERT_FALSE(dns_question_is_equal(question, ret));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(ret, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_question_cname_redirect_multi_dname_match) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *ret = NULL;
+        DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        question = dns_question_new(2);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->cname.name = strdup("v2.example.com");
+
+        ASSERT_TRUE(dns_question_cname_redirect(question, rr, &ret));
+
+        ASSERT_NOT_NULL(ret);
+        ASSERT_TRUE(question != ret);
+        ASSERT_FALSE(dns_question_is_equal(question, ret));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(ret, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.v2.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(ret, key));
+        dns_resource_key_unref(key);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
