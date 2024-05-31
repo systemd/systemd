@@ -602,7 +602,7 @@ static int run(int argc, char *argv[]) {
         /* Freeze the user sessions */
         r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring.");
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring: %m");
         if (r != 0)
                 (void) unit_freezer_new_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
         else
@@ -630,10 +630,13 @@ static int run(int argc, char *argv[]) {
 
                 break;
 
-        default:
+        case SLEEP_SUSPEND:
+        case SLEEP_HIBERNATE:
                 r = execute(sleep_config, arg_operation, NULL);
                 break;
 
+        default:
+                assert_not_reached();
         }
 
         if (user_slice_freezer)
