@@ -7,6 +7,11 @@
 #include "log.h"
 #include "tests.h"
 
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "tmpfile-util.h"
+
 /* ================================================================
  * dns_question_add()
  * ================================================================ */
@@ -720,6 +725,58 @@ TEST(dns_question_cname_redirect_multi_dname_match) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.v2.example.com");
         ASSERT_TRUE(dns_question_contains_key(ret, key));
         dns_resource_key_unref(key);
+}
+
+/* ================================================================
+ * dns_question_dump()
+ * ================================================================ */
+
+static void check_dump_contents(FILE *f, const char **expected, size_t n) {
+        char *actual[n];
+        size_t i, r;
+        rewind(f);
+
+        for (i = 0; i < n; i++) {
+                r = read_line(f, 1024, &actual[i]);
+                ASSERT_GT(r, 0u);
+        }
+
+        for (i = 0; i < n; i++) {
+                ASSERT_STREQ(actual[i], expected[i]);
+        }
+}
+
+TEST(dns_question_dump) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+
+        question = dns_question_new(3);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_EQ(dns_question_size(question), 3u);
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-question-dump-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_question_dump(question, f);
+
+        const char *expected[] = {
+                "\twww.example.com IN A",
+                "\twww.example.com IN AAAA",
+                "\twww.example.com IN TXT"
+        };
+        check_dump_contents(f, expected, 3);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
