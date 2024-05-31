@@ -14,6 +14,7 @@ systemd_analyze_sources = files(
         'analyze-exit-status.c',
         'analyze-fdstore.c',
         'analyze-filesystems.c',
+        'analyze-has-tpm2.c',
         'analyze-image-policy.c',
         'analyze-inspect-elf.c',
         'analyze-log-control.c',
