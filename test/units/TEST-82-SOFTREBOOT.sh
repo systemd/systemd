@@ -212,6 +212,8 @@ EOF
     # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
     # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
     # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
+    # By writing to stdout, which is connected to the journal, we also ensure logging doesn't break across
+    # soft reboots due to journald being temporarily stopped.
     systemd-run --service-type=notify --unit=TEST-82-SOFTREBOOT-survive-argv.service \
         --property SurviveFinalKillSignal=no \
         --property IgnoreOnIsolate=yes \
@@ -221,6 +223,7 @@ EOF
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property SetCredential=preserve:yay \
          "$survive_argv"
+    # shellcheck disable=SC2016
     systemd-run --service-type=exec --unit=TEST-82-SOFTREBOOT-survive.service \
         --property TemporaryFileSystem="/run /tmp /var" \
         --property RootImage=/tmp/minimal_0.raw \
@@ -233,7 +236,7 @@ EOF
         --property After=basic.target \
         --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
-        sleep infinity
+        bash -c 'count=0; while echo "$count"; do count=$[$count +1]; sleep 1; done'
 
     # Check that we can set up an inhibitor, and that busctl monitor sees the
     # PrepareForShutdownWithMetadata signal and that it says 'soft-reboot'.
