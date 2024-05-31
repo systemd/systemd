@@ -38,3 +38,5 @@ enable autorelabel.service
 # Enabled by default on OpenSUSE and not conditioned out in containers, so let's disable these here instead.
 disable iscsi.service
 disable iscsid.socket
+
+enable systemd-bpfstatd.service

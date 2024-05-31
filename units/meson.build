@@ -284,6 +284,10 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-bpfstatd.service.in',
+          'conditions' : ['ENABLE_BPFSTATD'],
+        },
+        {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },

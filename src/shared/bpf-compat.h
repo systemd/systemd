@@ -27,6 +27,8 @@ struct bpf_map_create_opts;
 extern int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 extern int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 extern struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
+extern const char* (*sym_libbpf_bpf_map_type_str)(enum bpf_map_type t);
+extern const char* (*sym_libbpf_bpf_prog_type_str)(enum bpf_prog_type t);
 
 /* compat symbols removed in libbpf 1.0 */
 extern int (*sym_bpf_create_map)(enum bpf_map_type, int key_size, int value_size, int max_entries, __u32 map_flags);
