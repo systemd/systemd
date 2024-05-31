@@ -72,7 +72,6 @@ ANNOBIN="no-active-checks" rpmbuild \
     --define "__brp_strip_comment_note %{nil}" \
     --define "__brp_strip_static_archive %{nil}" \
     --define "__brp_check_rpaths %{nil}" \
-    --undefine __brp_add_determinism \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
