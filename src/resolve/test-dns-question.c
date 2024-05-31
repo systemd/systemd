@@ -348,4 +348,73 @@ TEST(dns_question_matches_cname_or_dname_all_must_redirect) {
         ASSERT_FALSE(dns_question_matches_cname_or_dname(question, rr, NULL));
 }
 
+/* ================================================================
+ * dns_question_is_valid_for_query()
+ * ================================================================ */
+
+TEST(dns_question_is_valid_for_query_empty) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        question = dns_question_new(0);
+        ASSERT_FALSE(dns_question_is_valid_for_query(question));
+}
+
+TEST(dns_question_is_valid_for_query_single) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        question = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(question, key, 0);
+
+        ASSERT_TRUE(dns_question_is_valid_for_query(question));
+}
+
+TEST(dns_question_is_valid_for_query_invalid_type) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        question = dns_question_new(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
+        dns_question_add(question, key, 0);
+
+        ASSERT_FALSE(dns_question_is_valid_for_query(question));
+}
+
+TEST(dns_question_is_valid_for_query_multi_same_name) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+
+        question = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.EXAMPLE.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_TRUE(dns_question_is_valid_for_query(question));
+}
+
+TEST(dns_question_is_valid_for_query_multi_different_names) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+
+        question = dns_question_new(2);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.org");
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_question_is_valid_for_query(question));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
