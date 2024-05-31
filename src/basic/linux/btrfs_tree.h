@@ -4,11 +4,7 @@
 
 #include <linux/btrfs.h>
 #include <linux/types.h>
-#ifdef __KERNEL__
-#include <linux/stddef.h>
-#else
 #include <stddef.h>
-#endif
 
 /* ASCII for _BHRfS_M, no terminating nul */
 #define BTRFS_MAGIC 0x4D5F53665248425FULL
@@ -220,18 +216,18 @@
 #define BTRFS_METADATA_ITEM_KEY	169
 
 /*
- * Special inline ref key which stores the id of the subvolume which originally
+ * Special __inline__ ref key which stores the id of the subvolume which originally
  * created the extent. This subvolume owns the extent permanently from the
  * perspective of simple quotas. Needed to know which subvolume to free quota
  * usage from when the extent is deleted.
  *
- * Stored as an inline ref rather to avoid wasting space on a separate item on
- * top of the existing extent item. However, unlike the other inline refs,
+ * Stored as an __inline__ ref rather to avoid wasting space on a separate item on
+ * top of the existing extent item. However, unlike the other __inline__ refs,
  * there is one one owner ref per extent rather than one per extent.
  *
- * Because of this, it goes at the front of the list of inline refs, and thus
- * must have a lower type value than any other inline ref type (to satisfy the
- * disk format rule that inline refs have non-decreasing type).
+ * Because of this, it goes at the front of the list of __inline__ refs, and thus
+ * must have a lower type value than any other __inline__ ref type (to satisfy the
+ * disk format rule that __inline__ refs have non-decreasing type).
  */
 #define BTRFS_EXTENT_OWNER_REF_KEY	172
 
@@ -404,7 +400,7 @@ enum btrfs_csum_type {
 /* Directory contains encrypted data */
 #define BTRFS_FT_ENCRYPTED	0x80
 
-static inline __u8 btrfs_dir_flags_to_ftype(__u8 flags)
+static __inline__ __u8 btrfs_dir_flags_to_ftype(__u8 flags)
 {
 	return flags & ~BTRFS_FT_ENCRYPTED;
 }
@@ -970,7 +966,7 @@ struct btrfs_root_item {
  * Btrfs root item used to be smaller than current size.  The old format ends
  * at where member generation_v2 is.
  */
-static inline __u32 btrfs_legacy_root_item_size(void)
+static __inline__ __u32 btrfs_legacy_root_item_size(void)
 {
 	return offsetof(struct btrfs_root_item, generation_v2);
 }
@@ -1094,14 +1090,14 @@ struct btrfs_file_extent_item {
 	__u8 encryption;
 	__le16 other_encoding; /* spare for later use */
 
-	/* are we inline data or a real extent? */
+	/* are we __inline__ data or a real extent? */
 	__u8 type;
 
 	/*
 	 * disk space consumed by the extent, checksum blocks are included
 	 * in these numbers
 	 *
-	 * At this offset in the structure, the inline extent data start.
+	 * At this offset in the structure, the __inline__ extent data start.
 	 */
 	__le64 disk_bytenr;
 	__le64 disk_num_bytes;
@@ -1205,14 +1201,14 @@ struct btrfs_dev_replace_item {
 #define BTRFS_EXTENDED_PROFILE_MASK	(BTRFS_BLOCK_GROUP_PROFILE_MASK | \
 					 BTRFS_AVAIL_ALLOC_BIT_SINGLE)
 
-static inline __u64 chunk_to_extended(__u64 flags)
+static __inline__ __u64 chunk_to_extended(__u64 flags)
 {
 	if ((flags & BTRFS_BLOCK_GROUP_PROFILE_MASK) == 0)
 		flags |= BTRFS_AVAIL_ALLOC_BIT_SINGLE;
 
 	return flags;
 }
-static inline __u64 extended_to_chunk(__u64 flags)
+static __inline__ __u64 extended_to_chunk(__u64 flags)
 {
 	return flags & ~BTRFS_AVAIL_ALLOC_BIT_SINGLE;
 }
@@ -1231,7 +1227,7 @@ struct btrfs_free_space_info {
 #define BTRFS_FREE_SPACE_USING_BITMAPS (1ULL << 0)
 
 #define BTRFS_QGROUP_LEVEL_SHIFT		48
-static inline __u16 btrfs_qgroup_level(__u64 qgroupid)
+static __inline__ __u16 btrfs_qgroup_level(__u64 qgroupid)
 {
 	return (__u16)(qgroupid >> BTRFS_QGROUP_LEVEL_SHIFT);
 }
