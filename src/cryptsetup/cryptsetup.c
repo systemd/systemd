@@ -1122,10 +1122,10 @@ static int attach_tcrypt(
         return 0;
 }
 
-static char *make_bindname(const char *volume) {
+static char *make_bindname(const char *volume, const char *client) {
         char *s;
 
-        if (asprintf(&s, "@%" PRIx64"/cryptsetup/%s", random_u64(), volume) < 0)
+        if (asprintf(&s, "@%" PRIx64"/%s/%s", random_u64(), client, volume) < 0)
                 return NULL;
 
         return s;
@@ -1990,7 +1990,7 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
         assert(key_file);
 
         /* If we read the key via AF_UNIX, make this client recognizable */
-        bindname = make_bindname(name);
+        bindname = make_bindname(name, /* client= */ "cryptsetup");
         if (!bindname)
                 return log_oom();
 
@@ -2305,9 +2305,18 @@ static int run(int argc, char *argv[]) {
 
                 if (!key_file) {
                         _cleanup_free_ char *bindname = NULL;
-                        const char *fn;
+                        const char *fn, *client = "cryptsetup";
 
-                        bindname = make_bindname(volume);
+                        /* Order of these conditionals must match the order in attach_luks_or_plain_or_bitlk()
+                         * to ensure correct behavior when multiple token device options are specified. */
+                        if (arg_tpm2_device || arg_tpm2_device_auto)
+                                client = "cryptsetup-tpm2";
+                        else if (arg_fido2_device || arg_fido2_device_auto)
+                                client = "cryptsetup-fido2";
+                        else if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
+                                client = "cryptsetup-pkcs11";
+
+                        bindname = make_bindname(volume, client);
                         if (!bindname)
                                 return log_oom();
 
