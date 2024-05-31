@@ -1040,8 +1040,7 @@ bool unit_can_freeze(const Unit *u);
 int unit_freezer_action(Unit *u, FreezerAction action);
 void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_objective);
 void unit_set_freezer_state(Unit *u, FreezerState state);
-void unit_frozen(Unit *u);
-void unit_thawed(Unit *u);
+void unit_freezer_complete(Unit *u, FreezerState kernel_state);
 
 Condition *unit_find_failed_condition(Unit *u);
 
