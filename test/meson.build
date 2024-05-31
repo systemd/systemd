@@ -286,8 +286,8 @@ integration_test_template = {
         'configuration' : {
                 'memory-accounting' : 'no',
                 'command' : testdata_dir / 'units/%N.sh',
-                'wants' : '',
-                'after' : '',
+                'wants' : 'multi-user.target user@4711.service',
+                'after' : 'user@4711.service',
         },
         'cmdline' : [],
         'credentials' : [],

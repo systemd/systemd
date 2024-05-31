@@ -4,7 +4,11 @@ name = fs.name(meson.current_source_dir())
 unit = configure_file(
         input : files('../test.service.in'),
         output : '@0@.service'.format(name),
-        configuration : integration_test_template['configuration'],
+        # Disable user service manager by default for performance.
+        configuration : integration_test_template['configuration'] + {
+              'wants' : '',
+              'after' : '',
+        },
 )
 
 foreach testcase : [
