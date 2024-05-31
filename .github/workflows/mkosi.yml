@@ -111,8 +111,6 @@ jobs:
 
         [Content]
         Environment=
-                # mkfs.erofs is extremely noisy when not connected to a tty.
-                SYSTEMD_REPART_MKFS_OPTIONS_EROFS="--quiet"
                 # Build debuginfo packages since we'll be publishing the packages as artifacts.
                 WITH_DEBUG=1
                 # Enabling optimizations significantly speeds up integration tests.
@@ -121,19 +119,8 @@ jobs:
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
-        # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
-        QemuFirmware=uefi
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
-        EOF
-
-        # These should override the options from mkosi.conf so we put them in a dropin that's ordered later
-        # instead.
-        tee mkosi.conf.d/99-ci.conf <<EOF
-        [Host]
-        KernelCommandLineExtra=
-                # Root device can take a long time to appear, so let's bump the timeout.
-                systemd.default_device_timeout_sec=180
         EOF
 
     - name: Generate secure boot key
