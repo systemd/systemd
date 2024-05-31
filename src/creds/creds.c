@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "build.h"
+#include "build-path.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
@@ -690,35 +691,10 @@ static int verb_setup(int argc, char **argv, void *userdata) {
 }
 
 static int verb_has_tpm2(int argc, char **argv, void *userdata) {
-        Tpm2Support s;
+        if (!arg_quiet)
+                log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[optind]);
 
-        s = tpm2_support();
-
-        if (!arg_quiet) {
-                if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
-                else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
-                else
-                        puts("partial");
-
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
-        }
-
-        /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
-         * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
-         * what is there, acknowledging the fact that for process exit statuses it is customary to return
-         * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
-        return ~s & TPM2_SUPPORT_FULL;
+        return verb_has_tpm2_generic(arg_quiet);
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -739,7 +715,6 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          ciphertext credential file\n"
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
-               "  has-tpm2                Report whether TPM2 support is available\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
@@ -774,7 +749,6 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
                "     --allow-null         Allow decrypting credentials with empty key\n"
-               "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
