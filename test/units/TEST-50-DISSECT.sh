@@ -206,6 +206,7 @@ if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
     udevadm lock --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
 fi
 losetup -d "$loop"
+udevadm settle --timeout=60
 
 : "Run subtests"
 
