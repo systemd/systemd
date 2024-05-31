@@ -647,10 +647,13 @@ static int run(int argc, char *argv[]) {
 
                 break;
 
-        default:
+        case SLEEP_SUSPEND:
+        case SLEEP_HIBERNATE:
                 r = execute(sleep_config, arg_operation, NULL);
                 break;
 
+        default:
+                assert_not_reached();
         }
 
         return r;
