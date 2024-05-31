@@ -1024,17 +1024,19 @@ DNS=127.0.0.1
         self.start_unit('systemd-resolved')
         self.start_unit('systemd-networkd')
 
-        for timeout in range(50):
-            with open(RESOLV_CONF) as f:
-                contents = f.read()
-            if ' 127.0.0.1' in contents and '192.168.42.1' in contents:
-                break
-            time.sleep(0.1)
-        self.assertIn('nameserver 192.168.42.1\n', contents)
-        self.assertIn('nameserver 127.0.0.1\n', contents)
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface', 'dummy0', '--timeout=10'])
 
         out = subprocess.check_output(['networkctl', 'status', 'dummy0'])
         self.assertIn(b'50-test.network.d/dns.conf', out)
+
+        for _ in range(50):
+            with open(RESOLV_CONF) as f:
+                contents = f.read()
+            if 'nameserver 127.0.0.1\n' in contents and 'nameserver 192.168.42.1\n' in contents:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail(f'Expected DNS servers not found in resolv.conf: {contents}')
 
     def test_dhcp_timezone(self):
         '''networkd sets time zone from DHCP'''
