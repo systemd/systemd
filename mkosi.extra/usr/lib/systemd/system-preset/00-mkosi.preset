@@ -40,4 +40,4 @@ disable iscsi.service
 disable iscsid.socket
 disable iscsiuio.socket
 
-enable systemd-bpfd.service
+enable systemd-bpfstatd.service

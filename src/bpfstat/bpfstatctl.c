@@ -3,7 +3,7 @@
 #include <getopt.h>
 
 #include "bpf-dlopen.h"
-#include "bpfd-manager.h"
+#include "bpfstatd-manager.h"
 #include "build.h"
 #include "format-table.h"
 #include "main-func.h"
@@ -58,9 +58,9 @@ static int query_and_print_bpf_maps(void) {
         if (!map_table)
                 return log_oom();
 
-        r = varlink_connect_address(&vl, BPFD_VARLINK_ADDRESS);
+        r = varlink_connect_address(&vl, BPFSTATD_VARLINK_ADDRESS);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to varlink address %s: %m", BPFD_VARLINK_ADDRESS);
+                return log_error_errno(r, "Failed to connect to varlink address %s: %m", BPFSTATD_VARLINK_ADDRESS);
 
         r = varlink_collect_full(vl, "io.systemd.Bpf.DescribeMaps", i, &o, NULL, NULL);
         if (r < 0)
@@ -119,9 +119,9 @@ static int query_and_print_bpf_progs(void) {
         if (!prog_table)
                 return log_oom();
 
-        r = varlink_connect_address(&vl, BPFD_VARLINK_ADDRESS);
+        r = varlink_connect_address(&vl, BPFSTATD_VARLINK_ADDRESS);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to varlink address %s: %m", BPFD_VARLINK_ADDRESS);
+                return log_error_errno(r, "Failed to connect to varlink address %s: %m", BPFSTATD_VARLINK_ADDRESS);
 
         r = varlink_collect_full(vl, "io.systemd.Bpf.DescribePrograms", i, &o, NULL, NULL);
         if (r < 0)
@@ -220,7 +220,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("bpfctl", "1", &link);
+        r = terminal_urlify_man("bpfstatctl", "1", &link);
         if (r < 0)
                 return log_oom();
 

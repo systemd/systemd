@@ -2,8 +2,8 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "bpfd-manager.h"
+#include "bpfstatd-manager.h"
 
 int manager_parse_config_file(Manager *m);
 
-const struct ConfigPerfItem* bpfd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* bpfstatd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

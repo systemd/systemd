@@ -5,8 +5,8 @@
 #include "sd-messages.h"
 
 #include "bpf-dlopen.h"
-#include "bpfd-conf.h"
-#include "bpfd-manager.h"
+#include "bpfstatd-conf.h"
+#include "bpfstatd-manager.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -309,7 +309,7 @@ static int log_bpf_maps_and_progs(Manager *m) {
         if (r < 0)
                 log_error_errno(r, "Failed to format list of bpf maps, ignoring: %m");
         else
-                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_BPFD_LOG_STR, "TYPE=map", "DATA=%s", maps_formatted);
+                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_BPFSTATD_LOG_STR, "TYPE=map", "DATA=%s", maps_formatted);
 
         r = fetch_bpf_programs(&prog_list);
         if (r < 0)
@@ -319,7 +319,7 @@ static int log_bpf_maps_and_progs(Manager *m) {
         if (r < 0)
                 log_error_errno(r, "Failed to format list of bpf programs, ignoring: %m");
         else
-                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_BPFD_LOG_STR, "TYPE=prog", "DATA=%s", progs_formatted);
+                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_BPFSTATD_LOG_STR, "TYPE=prog", "DATA=%s", progs_formatted);
 
         return 0;
 }
@@ -400,9 +400,9 @@ static int manager_bind_varlink(Manager *m) {
 
         (void) mkdir_p("/run/systemd/bpf", 0755);
 
-        r = varlink_server_listen_address(m->varlink_server, BPFD_VARLINK_ADDRESS, 0600);
+        r = varlink_server_listen_address(m->varlink_server, BPFSTATD_VARLINK_ADDRESS, 0600);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket %s: %m", BPFD_VARLINK_ADDRESS);
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m", BPFSTATD_VARLINK_ADDRESS);
 
         r = varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -446,9 +446,9 @@ static int monitor_bpf(Manager *m) {
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ON);
         if (r < 0)
-                return log_error_errno(r, "Failed to enable bpfd logging timer: %m");
+                return log_error_errno(r, "Failed to enable bpfstatd logging timer: %m");
 
-        (void) sd_event_source_set_description(s, "bpfd-timer");
+        (void) sd_event_source_set_description(s, "bpfstatd-timer");
 
         m->bpf_timer_event_source = TAKE_PTR(s);
         return 0;
