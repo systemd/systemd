@@ -281,7 +281,6 @@ integration_test_template = {
         'storage' : 'volatile',
         'priority' : 0,
         'firmware' : 'linux',
-        'slow' : false,
         'enabled' : true,
         'configuration' : {
                 'memory-accounting' : 'no',
@@ -404,10 +403,6 @@ foreach integration_test : integration_tests
                 install_data(integration_test_unit, install_dir : testdata_dir / 'units')
         endif
 
-        if integration_test['slow']
-                integration_test_args += ['--slow']
-        endif
-
         if integration_test['vm']
                 integration_test_args += ['--vm']
         endif
@@ -438,10 +433,6 @@ foreach integration_test : integration_tests
 
         if want_integration_tests
                 integration_test_env += {'SYSTEMD_INTEGRATION_TESTS': '1'}
-        endif
-
-        if want_slow_tests
-                integration_test_env += {'SYSTEMD_SLOW_TESTS': '1'}
         endif
 
         if not integration_test['enabled']

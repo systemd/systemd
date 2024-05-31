@@ -5,7 +5,6 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'timeout' : 3600,
                 'priority' : 50,
-                'slow' : true,
                 'vm' : true,
         },
 ]
