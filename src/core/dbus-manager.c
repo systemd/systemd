@@ -834,11 +834,13 @@ static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, 0);
+        /* Only active units can be frozen, which must be properly loaded already */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, 0);
+        /* Same as freeze above */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {

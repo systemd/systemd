@@ -2,6 +2,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
@@ -2939,39 +2940,49 @@ int bus_service_manager_reload(sd_bus *bus) {
         return 0;
 }
 
-/* Wait for 1.5 seconds at maximum for freeze operation */
-#define FREEZE_BUS_CALL_TIMEOUT (1500 * USEC_PER_MSEC)
+typedef struct UnitFreezer {
+        char *name;
+        sd_bus *bus;
+} UnitFreezer;
 
-int unit_freezer_new(const char *name, UnitFreezer *ret) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *namedup = NULL;
+/* Wait for 10 seconds at maximum for freezer operation */
+#define FREEZE_BUS_CALL_TIMEOUT (10 * USEC_PER_SEC)
+
+UnitFreezer* unit_freezer_free(UnitFreezer *f) {
+        if (!f)
+                return NULL;
+
+        free(f->name);
+        sd_bus_flush_close_unref(f->bus);
+
+        return mfree(f);
+}
+
+int unit_freezer_new(const char *name, UnitFreezer **ret) {
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
         int r;
 
         assert(name);
         assert(ret);
 
-        namedup = strdup(name);
-        if (!namedup)
-                return log_oom_debug();
+        f = new(UnitFreezer, 1);
+        if (!f)
+                return log_oom();
 
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open connection to systemd: %m");
-
-        (void) sd_bus_set_method_call_timeout(bus, FREEZE_BUS_CALL_TIMEOUT);
-
-        *ret = (UnitFreezer) {
-                .name = TAKE_PTR(namedup),
-                .bus = TAKE_PTR(bus),
+        *f = (UnitFreezer) {
+                .name = strdup(name),
         };
+        if (!f->name)
+                return log_oom();
+
+        r = bus_connect_system_systemd(&f->bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open connection to systemd: %m");
+
+        (void) sd_bus_set_method_call_timeout(f->bus, FREEZE_BUS_CALL_TIMEOUT);
+
+        *ret = TAKE_PTR(f);
         return 0;
-}
-
-void unit_freezer_done(UnitFreezer *f) {
-        assert(f);
-
-        f->name = mfree(f->name);
-        f->bus = sd_bus_flush_close_unref(f->bus);
 }
 
 static int unit_freezer_action(UnitFreezer *f, bool freeze) {
@@ -2988,11 +2999,22 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
                             /* reply = */ NULL,
                             "s",
                             f->name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to %s unit %s: %s",
-                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+        if (r < 0) {
+                if (sd_bus_error_has_names(&error,
+                                           BUS_ERROR_NO_SUCH_UNIT,
+                                           BUS_ERROR_UNIT_INACTIVE,
+                                           SD_BUS_ERROR_NOT_SUPPORTED)) {
 
-        return 0;
+                        log_debug_errno(r, "Skipping freezer for '%s': %s", f->name, bus_error_message(&error, r));
+                        return 0;
+                }
+
+                return log_error_errno(r, "Failed to %s unit '%s': %s",
+                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+        }
+
+        log_info("Successfully %s unit '%s'.", freeze ? "froze" : "thawed", f->name);
+        return 1;
 }
 
 int unit_freezer_freeze(UnitFreezer *f) {
@@ -3003,8 +3025,8 @@ int unit_freezer_thaw(UnitFreezer *f) {
         return unit_freezer_action(f, false);
 }
 
-int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
-        _cleanup_(unit_freezer_done) UnitFreezer f = {};
+int unit_freezer_new_freeze(const char *name, UnitFreezer **ret) {
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
         int r;
 
         assert(name);
@@ -3014,20 +3036,10 @@ int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
         if (r < 0)
                 return r;
 
-        r = unit_freezer_freeze(&f);
+        r = unit_freezer_freeze(f);
         if (r < 0)
                 return r;
 
-        *ret = TAKE_STRUCT(f);
+        *ret = TAKE_PTR(f);
         return 0;
-}
-
-void unit_freezer_done_thaw(UnitFreezer *f) {
-        assert(f);
-
-        if (!f->name)
-                return;
-
-        (void) unit_freezer_thaw(f);
-        unit_freezer_done(f);
 }
