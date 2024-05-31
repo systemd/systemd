@@ -65,4 +65,63 @@ TEST(dns_search_domain_new_link_limit) {
         ASSERT_ERROR(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local"), E2BIG);
 }
 
+/* ================================================================
+ * dns_search_domain_unlink()
+ * ================================================================ */
+
+TEST(dns_search_domain_unlink_system) {
+        Manager manager = {};
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
+        DnsSearchDomain *sd2 = NULL;
+        const char *names[2];
+        unsigned int i = 0;
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+
+        ASSERT_TRUE(sd2->linked);
+        ASSERT_EQ(manager.n_search_domains, 3u);
+
+        dns_search_domain_unlink(sd2);
+
+        ASSERT_EQ(manager.n_search_domains, 2u);
+
+        LIST_FOREACH(domains, d, manager.search_domains) {
+                names[i++] = DNS_SEARCH_DOMAIN_NAME(d);
+        }
+
+        ASSERT_STREQ(names[0], "local");
+        ASSERT_STREQ(names[1], "org");
+}
+
+TEST(dns_search_domain_unlink_link) {
+        Manager manager = {};
+        Link *link = NULL;
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
+        DnsSearchDomain *sd2 = NULL;
+        const char *names[2];
+        unsigned int i = 0;
+
+        link_new(&manager, &link, 1);
+
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_LINK, link, "local");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_LINK, link, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_LINK, link, "org");
+
+        ASSERT_TRUE(sd2->linked);
+        ASSERT_EQ(link->n_search_domains, 3u);
+
+        dns_search_domain_unlink(sd2);
+
+        ASSERT_EQ(link->n_search_domains, 2u);
+
+        LIST_FOREACH(domains, d, link->search_domains) {
+                names[i++] = DNS_SEARCH_DOMAIN_NAME(d);
+        }
+
+        ASSERT_STREQ(names[0], "local");
+        ASSERT_STREQ(names[1], "org");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
