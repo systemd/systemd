@@ -901,4 +901,41 @@ TEST(dns_question_dump) {
         check_dump_contents(f, expected, 3);
 }
 
+/* ================================================================
+ * dns_question_first_name()
+ * ================================================================ */
+
+TEST(dns_question_first_name_empty) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        const char *name = NULL;
+
+        question = dns_question_new(0);
+        ASSERT_NOT_NULL(question);
+
+        name = dns_question_first_name(question);
+        ASSERT_NULL(name);
+}
+
+TEST(dns_question_first_name_multi) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+        const char *name = NULL;
+
+        question = dns_question_new(2);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        dns_question_add(question, key, 0);
+        dns_resource_key_unref(key);
+
+        name = dns_question_first_name(question);
+        ASSERT_STREQ(name, "www.example.com");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
