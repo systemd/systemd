@@ -7,6 +7,20 @@
 #include "log.h"
 #include "tests.h"
 
+static void check_domains(DnsSearchDomain *head, const char **expected, size_t n) {
+        size_t i = 0;
+
+        ASSERT_NOT_NULL(head);
+        ASSERT_NOT_NULL(expected);
+
+        LIST_FOREACH(domains, d, head) {
+                ASSERT_STREQ(DNS_SEARCH_DOMAIN_NAME(d), expected[i]);
+                i++;
+        }
+
+        ASSERT_EQ(i, n);
+}
+
 /* ================================================================
  * dns_search_domain_new()
  * ================================================================ */
@@ -79,8 +93,6 @@ TEST(dns_search_domain_unlink_system) {
         Manager manager = {};
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
         DnsSearchDomain *sd2 = NULL;
-        const char *names[2];
-        size_t i = 0;
 
         dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
         ASSERT_NOT_NULL(sd1);
@@ -98,12 +110,8 @@ TEST(dns_search_domain_unlink_system) {
 
         ASSERT_EQ(manager.n_search_domains, 2u);
 
-        LIST_FOREACH(domains, d, manager.search_domains) {
-                names[i++] = DNS_SEARCH_DOMAIN_NAME(d);
-        }
-
-        ASSERT_STREQ(names[0], "local");
-        ASSERT_STREQ(names[1], "org");
+        const char *expected[] = { "local", "org" };
+        check_domains(manager.search_domains, expected, 2);
 }
 
 TEST(dns_search_domain_unlink_link) {
@@ -111,8 +119,6 @@ TEST(dns_search_domain_unlink_link) {
         Link *link = NULL;
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
         DnsSearchDomain *sd2 = NULL;
-        const char *names[2];
-        unsigned int i = 0;
 
         link_new(&manager, &link, 1);
         ASSERT_NOT_NULL(link);
@@ -133,12 +139,8 @@ TEST(dns_search_domain_unlink_link) {
 
         ASSERT_EQ(link->n_search_domains, 2u);
 
-        LIST_FOREACH(domains, d, link->search_domains) {
-                names[i++] = DNS_SEARCH_DOMAIN_NAME(d);
-        }
-
-        ASSERT_STREQ(names[0], "local");
-        ASSERT_STREQ(names[1], "org");
+        const char *expected[] = { "local", "org" };
+        check_domains(link->search_domains, expected, 2);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
