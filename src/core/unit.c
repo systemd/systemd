@@ -6249,6 +6249,20 @@ bool unit_can_freeze(const Unit *u) {
         return UNIT_VTABLE(u)->freezer_action;
 }
 
+void unit_set_freezer_state(Unit *u, FreezerState state) {
+        assert(u);
+        assert(state >= 0);
+        assert(state < _FREEZER_STATE_MAX);
+
+        if (u->freezer_state == state)
+                return;
+
+        log_unit_debug(u, "Freezer state changed %s -> %s",
+                       freezer_state_to_string(u->freezer_state), freezer_state_to_string(state));
+
+        u->freezer_state = state;
+}
+
 void unit_frozen(Unit *u) {
         assert(u);
 
