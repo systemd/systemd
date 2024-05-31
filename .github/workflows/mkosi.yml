@@ -123,15 +123,6 @@ jobs:
         RuntimeBuildSources=no
         EOF
 
-        # These should override the options from mkosi.conf so we put them in a dropin that's ordered later
-        # instead.
-        tee mkosi.conf.d/99-ci.conf <<EOF
-        [Host]
-        KernelCommandLineExtra=
-                # Root device can take a long time to appear, so let's bump the timeout.
-                systemd.default_device_timeout_sec=180
-        EOF
-
     - name: Generate secure boot key
       run: mkosi --debug genkey
 
