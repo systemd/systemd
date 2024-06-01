@@ -902,6 +902,7 @@ class Utilities():
             if secs != 0:
                 time.sleep(1)
             if not link_exists(link):
+                time.sleep(0.5)
                 continue
             output = check_output(*networkctl_cmd, '-n', '0', 'status', link, env=env)
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
