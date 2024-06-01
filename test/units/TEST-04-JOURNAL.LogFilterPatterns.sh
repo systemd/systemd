@@ -22,7 +22,6 @@ run_service_and_fetch_logs() {
 
     start="$(date '+%Y-%m-%d %T.%6N')"
     systemctl start "$unit"
-    journalctl --sync
     journalctl -q -u "$unit" -S "$start" -p notice
 }
 
