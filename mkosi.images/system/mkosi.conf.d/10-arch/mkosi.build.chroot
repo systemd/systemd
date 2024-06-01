@@ -24,7 +24,10 @@ ln --symbolic . "pkg/$ID/src"
 # shellcheck source=/dev/null
 . /etc/makepkg.conf
 
-CFLAGS="-O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
+CFLAGS="-O${OPTIMIZATION:-0}"
+if [[ "${OPTIMIZATION:-0}" == "0" ]]; then
+    CFLAGS="$CFLAGS -Wp,-U_FORTIFY_SOURCE"
+fi
 if ((LLVM)); then
     CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
 fi

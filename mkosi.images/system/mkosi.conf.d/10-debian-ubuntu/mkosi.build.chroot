@@ -69,7 +69,7 @@ build() {
         $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
         terse \
         optimize=-lto \
-        hardening=-fortify \
+        $( [[ "${OPTIMIZATION:-0}" == "0" ]] && echo hardening=-fortify) \
     ") \
     DEB_BUILD_PROFILES=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
