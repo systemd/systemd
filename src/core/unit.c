@@ -2632,8 +2632,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
                         u->inactive_exit_timestamp = u->state_change_timestamp;
-                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns))
+                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                         u->inactive_enter_timestamp = u->state_change_timestamp;
+                        unit_log_resources(u);
+                }
 
                 if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
                         u->active_enter_timestamp = u->state_change_timestamp;
@@ -2694,7 +2696,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         unit_emit_audit_stop(u, ns);
                         manager_send_unit_supervisor(m, u, /* active= */ false);
-                        unit_log_resources(u);
                 }
 
                 if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE))
