@@ -44,8 +44,24 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
+CFLAGS="-O${OPTIMIZATION:-0}"
+if ((LLVM)); then
+    # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
+    CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+fi
+
+# TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
 build() {
     env \
+    CC="$( ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LLVM)) && echo lld)" \
     DEB_BUILD_OPTIONS="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
@@ -59,11 +75,14 @@ build() {
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
     ")" \
-    DEB_CFLAGS_APPEND="-O${OPTIMIZATION:-0}" \
+    DEB_CFLAGS_APPEND="$CFLAGS" \
+    DEB_CXXFLAGS_APPEND="$CFLAGS" \
+    DEB_LDFLAGS_APPEND="$LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
     CONFFLAGS_UPSTREAM="-D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
+    GENSYMBOLS_LEVEL="$( ((LLVM)) && echo 0 || echo 1)" \
         dpkg-buildpackage \
         --no-pre-clean \
         --unsigned-changes \
