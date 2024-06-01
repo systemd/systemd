@@ -128,7 +128,7 @@ jobs:
                 # Build debuginfo packages since we'll be publishing the packages as artifacts.
                 WITH_DEBUG=1
                 # Enabling optimizations significantly speeds up integration tests.
-                OPTIMIZATION=g
+                CFLAGS=-Og
                 SANITIZERS=${{ matrix.sanitizers }}
                 MESON_OPTIONS=--werror
                 LLVM=${{ matrix.llvm }}
