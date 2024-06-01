@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -e
+set -ex
 
 if ((NO_BUILD)); then
     exit 0
@@ -42,9 +42,17 @@ DIST="$(rpm --eval %dist)"
 ARCH="$(rpm --eval %_arch)"
 SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
-EXTRA_CFLAGS="-O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
+CFLAGS="$(rpm --eval %{?build_cflags}) -O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
 if ((WITH_DEBUG)); then
-    EXTRA_CFLAGS="$EXTRA_CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
+    CFLAGS="$CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
+fi
+if ((LLVM)); then
+    CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+LDFLAGS="$(rpm --eval %{?build_ldflags})"
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
 fi
 
 build() {
@@ -54,6 +62,10 @@ build() {
     # TODO: Replace __meson_auto_features override with meson_extra_configure_options once the suse spec
     # starts to use it.
     # shellcheck disable=SC2046
+    CC="$( ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LLVM)) && echo lld)" \
     rpmbuild \
         -bb \
         --build-in-place \
@@ -70,7 +82,8 @@ build() {
         --define "version_override $VERSION" \
         --define "release_override $RELEASE" \
         --define "__check_files sh -c '$(rpm --define "_topdir /var/tmp" --eval %__check_files) | tee /tmp/unpackaged-files'" \
-        --define "build_cflags $(rpm --eval %build_cflags) $EXTRA_CFLAGS" \
+        --define "build_cflags $CFLAGS" \
+        --define "build_ldflags $LDFLAGS" \
         --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
         --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
         --define "__meson_auto_features auto -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
