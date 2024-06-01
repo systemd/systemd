@@ -44,15 +44,15 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
-CFLAGS="-O${OPTIMIZATION:-0}"
+MKOSI_CFLAGS="-O${OPTIMIZATION:-0}"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
-    CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
 fi
 
-LDFLAGS=""
+MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
-    LDFLAGS="$LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
 fi
 
 # TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
@@ -75,9 +75,9 @@ build() {
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
     ")" \
-    DEB_CFLAGS_APPEND="$CFLAGS" \
-    DEB_CXXFLAGS_APPEND="$CFLAGS" \
-    DEB_LDFLAGS_APPEND="$LDFLAGS" \
+    DEB_CFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_CXXFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_LDFLAGS_APPEND="$MKOSI_LDFLAGS $LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
