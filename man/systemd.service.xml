@@ -1322,8 +1322,9 @@
     <varname>ExecStartPre=</varname>,
     <varname>ExecStartPost=</varname>,
     <varname>ExecReload=</varname>,
-    <varname>ExecStop=</varname>, and
-    <varname>ExecStopPost=</varname> options.</para>
+    <varname>ExecStop=</varname>,
+    <varname>ExecStopPost=</varname>, and
+    <varname>ExecCondition=</varname> options.</para>
 
     <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
     (these semicolons must be passed as separate words). Lone semicolons may be escaped as
