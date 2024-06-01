@@ -4,7 +4,9 @@ set -eux
 set -o pipefail
 
 # shellcheck source=test/units/util.sh
- . "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/util.sh
+
+NEEDS_RELOAD=
 
 add_logs_filtering_override() {
     local unit="${1:?}"
@@ -13,12 +15,17 @@ add_logs_filtering_override() {
 
     mkdir -p "/run/systemd/system/$unit.d/"
     echo -ne "[Service]\nLogFilterPatterns=$log_filter" >"/run/systemd/system/$unit.d/$override_name.conf"
-    systemctl daemon-reload
+    NEEDS_RELOAD=1
 }
 
 run_service_and_fetch_logs() {
     local unit="${1:?}"
     local start
+
+    if [[ -n "$NEEDS_RELOAD" ]]; then
+        systemctl daemon-reload
+        NEEDS_RELOAD=
+    fi
 
     journalctl --sync
     start="$(date '+%Y-%m-%d %T.%6N')"
