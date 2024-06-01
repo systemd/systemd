@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-05-21 11:35+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -1002,8 +1002,12 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Otentikasi diperlukan untuk mengonfigurasi ulang antar muka jaringan."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
-msgstr "Menentukan apakah penyimpanan persisten bagi systemd-networkd tersedia."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+"Menentukan apakah penyimpanan persisten bagi systemd-networkd tersedia."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
@@ -1148,7 +1152,7 @@ msgstr ""
 "Otentikasi diperlukan untuk menghapus berkas dan direktori yang terkait "
 "dengan '$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

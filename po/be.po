@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2023-05-13 19:20+0000\n"
 "Last-Translator: Maksim Kliazovich <maxklezovich@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
@@ -1022,7 +1022,7 @@ msgstr ""
 "Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1166,7 +1166,7 @@ msgstr ""
 "Для выдалення файлаў і каталогаў, якія звязаныя з \"$(unit)\", патрабуецца "
 "аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
