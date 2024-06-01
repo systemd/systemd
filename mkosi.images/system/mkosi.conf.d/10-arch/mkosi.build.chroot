@@ -35,6 +35,11 @@ if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
     MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
 fi
 
+MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+if ((WIPE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+
 # Override the default options. Disable FORTIFY_SOURCE because it doesn't work with O0. We specifically
 # disable "strip", "zipman" and "lto" as they slow down builds significantly. OPTIONS= cannot be overridden
 # on the makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlaid with a
@@ -86,6 +91,6 @@ env --chdir="pkg/$ID" \
     BUILDDIR="$PWD/pkg/$ID" \
     PKGDEST="$OUTPUTDIR" \
     PKGEXT=".pkg.tar" \
-    MESON_EXTRA_CONFIGURE_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+    MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
 
 cp "$OUTPUTDIR"/*.pkg.tar "$PACKAGEDIR"

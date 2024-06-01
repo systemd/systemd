@@ -61,6 +61,11 @@ if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
     MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(dirname "$(clang --print-file-name=libclang_rt.asan.so)")"
 fi
 
+MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+if ((WIPE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+
 IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
@@ -93,7 +98,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "build_ldflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_ldflags}") $MKOSI_LDFLAGS $LDFLAGS" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
-    --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
+    --define "meson_extra_configure_options $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
     $( ((WITH_DEBUG)) || echo "--define=__brp_strip %{nil}") \
     --define "__brp_compress %{nil}" \
     --define "__brp_mangle_shebangs %{nil}" \

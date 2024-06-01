@@ -62,6 +62,11 @@ if [[ -z "${MKOSI_LDFLAGS// }" ]]; then
     MKOSI_LDFLAGS="%{nil}"
 fi
 
+MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+if ((WIPE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+
 build() {
     IFS=
     # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
@@ -98,7 +103,7 @@ build() {
         --define "build_ldflags $MKOSI_LDFLAGS $LDFLAGS" \
         --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
         --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
-        --define "__meson_auto_features auto -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
+        --define "__meson_auto_features auto $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
         --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
@@ -107,6 +112,13 @@ build() {
         --noclean \
         "$@" \
         "pkg/$ID/systemd.spec"
+
+    EXIT_STATUS=$?
+
+    # Make sure we don't reconfigure twice.
+    MKOSI_MESON_OPTIONS="${MKOSI_MESON_OPTIONS//"--wipe"/}"
+
+    return $EXIT_STATUS
 }
 
 if ! build; then
