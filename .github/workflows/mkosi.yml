@@ -123,6 +123,7 @@ jobs:
                 # Enabling optimizations significantly speeds up integration tests.
                 OPTIMIZATION=g
                 SANITIZERS=${{ matrix.sanitizers }}
+                MESON_OPTIONS=--werror
 
         [Host]
         ToolsTree=default
