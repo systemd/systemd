@@ -489,11 +489,6 @@ int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
 int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
 
-int unit_reset_cpu_accounting(Unit *u);
-void unit_reset_memory_accounting_last(Unit *u);
-int unit_reset_ip_accounting(Unit *u);
-void unit_reset_io_accounting_last(Unit *u);
-int unit_reset_io_accounting(Unit *u);
 int unit_reset_accounting(Unit *u);
 
 #define UNIT_CGROUP_BOOL(u, name)                               \
@@ -527,8 +522,8 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 const char* freezer_action_to_string(FreezerAction a) _const_;
 FreezerAction freezer_action_from_string(const char *s) _pure_;
 
-CGroupRuntime *cgroup_runtime_new(void);
-CGroupRuntime *cgroup_runtime_free(CGroupRuntime *crt);
+CGroupRuntime* cgroup_runtime_new(void);
+CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupRuntime*, cgroup_runtime_free);
 
 int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds);
