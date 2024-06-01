@@ -1058,6 +1058,7 @@ class Utilities():
 
         for _ in range(setup_timeout * 2):
             if not link_exists(link):
+                time.sleep(0.5)
                 continue
             output = networkctl_status(link)
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
