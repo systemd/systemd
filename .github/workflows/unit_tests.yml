@@ -30,7 +30,7 @@ jobs:
             cryptolib: gcrypt
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
       - name: Install build dependencies
         run: |
           # Drop XDG_* stuff from /etc/environment, so we don't get the user
