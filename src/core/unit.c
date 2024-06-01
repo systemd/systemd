@@ -129,9 +129,6 @@ Unit* unit_new(Manager *m, size_t size) {
                 .burst = 16
         };
 
-        unit_reset_memory_accounting_last(u);
-        unit_reset_io_accounting_last(u);
-
         return u;
 }
 
