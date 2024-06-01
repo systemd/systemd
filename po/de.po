@@ -12,7 +12,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-05-07 17:36+0000\n"
 "Last-Translator: Jarne Förster <fedora@mymailclient.de>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
@@ -1083,7 +1083,10 @@ msgstr ""
 "Legitimierung ist zur Neukonfiguration der Netzwerkschnittstelle notwendig."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Bitte geben Sie an, ob permanenter Speicher für systemd-networkd verfügbar "
 "ist."
@@ -1238,7 +1241,7 @@ msgstr ""
 "Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu "
 "»$(unit)« gehören, erforderlich."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

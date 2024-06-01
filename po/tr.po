@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
@@ -1051,7 +1051,10 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Ağ arayüzünü yeniden yapılandırmak için kimlik doğrulaması gereklidir."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "systemd-networkd için kalıcı depolama alanının kullanılabilir olup "
 "olmadığını belirt."
@@ -1202,7 +1205,7 @@ msgstr ""
 "'$(unit)' ile ilişkili dosyaları ve dizinleri silmek için kimlik doğrulaması "
 "gereklidir."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
