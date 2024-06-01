@@ -24,12 +24,28 @@ ln --symbolic . "pkg/$ID/src"
 # shellcheck source=/dev/null
 . /etc/makepkg.conf
 
+CFLAGS="-O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
+if ((LLVM)); then
+    CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+fi
+
 # Override the default options. Disable FORTIFY_SOURCE because it doesn't work with O0. We specifically
 # disable "strip", "zipman" and "lto" as they slow down builds significantly. OPTIONS= cannot be overridden
 # on the makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlaid with a
 # writable tmpfs during the build script so these changes don't end up in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
-CFLAGS="$CFLAGS -O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
+export CC="$( ((LLVM)) && echo clang || echo gcc)"
+export CXX="$( ((LLVM)) && echo clang++ || echo g++)"
+export CC_LD="$( ((LLVM)) && echo lld || echo ld)"
+export CXX_LD="$( ((LLVM)) && echo lld || echo ld)"
+export CFLAGS="\$CFLAGS $CFLAGS"
+export CXXFLAGS="\$CXXFLAGS $CFLAGS"
+export LDFLAGS="\$LDFLAGS $LDFLAGS"
 OPTIONS=(
     docs
     !libtool
