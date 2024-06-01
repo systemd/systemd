@@ -3549,7 +3549,7 @@ bool unit_maybe_release_cgroup(Unit *u) {
          * failed) we need the cgroup paths to continue to be tracked by the manager so they can be looked up
          * and cleaned up later. */
         r = unit_cgroup_is_empty(u);
-        if (r == 1) {
+        if (r > 0) {
                 unit_release_cgroup(u);
                 return true;
         }
