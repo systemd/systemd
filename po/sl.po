@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-04-30 20:36+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -1221,7 +1221,7 @@ msgstr ""
 "pristnosti."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1390,7 +1390,7 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za brisanje datotek in imenikov, "
 "povezanih z »$(enota)«."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

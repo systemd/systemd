@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
@@ -1044,7 +1044,10 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Для зміни налаштувань інтерфейсу мережі слід пройти розпізнавання."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Визначає, чи доступне для systemd-networkd сховище постійного зберігання "
 "даних."
@@ -1194,7 +1197,7 @@ msgstr ""
 "Для вилучення файлів і каталогів, які пов'язано із «$(unit)», слід пройти "
 "розпізнавання."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

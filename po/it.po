@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-05-02 04:40+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: italian\n"
@@ -1037,7 +1037,10 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Autenticazione richiesta per riconfigurare l'interfaccia di rete."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Specifica se è disponibile l'archiviazione persistente per systemd-networkd."
 
@@ -1190,7 +1193,7 @@ msgstr ""
 "Autenticazione richiesta per eliminare i file e le directory associate a "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-05-31 07:35+0000\n"
 "Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
@@ -740,7 +740,8 @@ msgstr "Mettre le système en hibernation"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr "Une authentification est requise pour mettre le système en hibernation."
+msgstr ""
+"Une authentification est requise pour mettre le système en hibernation."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
@@ -1029,7 +1030,8 @@ msgstr "Réinitialiser les paramètres NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr "Une authentification est requise pour réinitialiser les paramètres NTP."
+msgstr ""
+"Une authentification est requise pour réinitialiser les paramètres NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
@@ -1037,7 +1039,8 @@ msgstr "Réinitialiser les paramètres DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr "Une authentification est requise pour réinitialiser les paramètres DNS."
+msgstr ""
+"Une authentification est requise pour réinitialiser les paramètres DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
@@ -1076,7 +1079,10 @@ msgstr ""
 "Une authentification est requise pour reconfigurer une interface réseau."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Spécifier si un espace de stockage persistent pour systemd-networkd est "
 "disponible."
@@ -1233,7 +1239,7 @@ msgstr ""
 "Une authentification est requise pour supprimer les fichiers et les dossiers "
 "associés à '$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2023-09-27 01:36+0000\n"
 "Last-Translator: Balázs Úr <balazs@urbalazs.hu>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
@@ -1051,7 +1051,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Hitelesítés szükséges a hálózati csatoló újrakonfigurálásához."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1199,7 +1199,7 @@ msgstr ""
 "Hitelesítés szükséges a(z) „$(unit)” egységhez hozzárendelt fájlok és "
 "könyvtárak törléséhez."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
