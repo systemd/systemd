@@ -6,3 +6,4 @@ Type=oneshot
 ExecStart=/usr/lib/systemd/tests/testdata/units/delegated_cgroup_filtering_payload.sh
 Delegate=yes
 SyslogLevel=notice
+LogLevelMax=info
