@@ -48,7 +48,21 @@ mv debian/changelog.new debian/changelog
 sed --in-place '/tmp.mount/d' debian/rules
 sed --in-place '/tmp.mount/d' debian/not-installed
 
+CFLAGS="-O${OPTIMIZATION:-0}"
+if ((LLVM)); then
+    CFLAGS="$CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+fi
+
 build() {
+    CC="$( ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LLVM)) && echo lld || echo ld)" \
+    CXX_LD="$( ((LLVM)) && echo lld || echo ld)" \
     DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
@@ -62,7 +76,8 @@ build() {
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
     ") \
-    DEB_CFLAGS_APPEND="-O${OPTIMIZATION:-0}" \
+    DEB_CFLAGS_APPEND="$CFLAGS" \
+    DEB_LDFLAGS_APPEND="$LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
