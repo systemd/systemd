@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2021-09-09 03:04+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -965,7 +965,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "ネットワークインターフェイスの再設定には認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr "systemd-networkdの永続的ストレージの設定"
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1099,7 +1099,7 @@ msgid ""
 msgstr ""
 "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'のプロセスを凍結もしくは凍結解除するには認証が必要です。"

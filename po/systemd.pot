@@ -1,11 +1,14 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the systemd package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -916,7 +919,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1047,7 +1050,7 @@ msgid ""
 "'$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
