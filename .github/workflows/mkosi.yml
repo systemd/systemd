@@ -57,24 +57,31 @@ jobs:
           - distro: arch
             release: rolling
             sanitizers: ""
+            llvm: 0
           - distro: debian
             release: testing
             sanitizers: ""
+            llvm: 0
           - distro: ubuntu
             release: noble
             sanitizers: ""
+            llvm: 0
           - distro: fedora
             release: "40"
             sanitizers: ""
+            llvm: 0
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
+            llvm: 1
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
+            llvm: 0
           - distro: centos
             release: "9"
             sanitizers: ""
+            llvm: 0
 
     steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
@@ -124,6 +131,7 @@ jobs:
                 OPTIMIZATION=g
                 SANITIZERS=${{ matrix.sanitizers }}
                 MESON_OPTIONS=--werror
+                LLVM=${{ matrix.llvm }}
 
         [Host]
         ToolsTree=default
