@@ -70,6 +70,9 @@ DLSYM_PROTOTYPE(crypt_volume_key_get);
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase);
 #endif
+#if HAVE_CRYPT_REENCRYPT_RUN
+DLSYM_PROTOTYPE(crypt_reencrypt_run);
+#endif
 #if HAVE_CRYPT_REENCRYPT
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 DLSYM_PROTOTYPE(crypt_reencrypt);
