@@ -71,6 +71,7 @@ def main():
 
         [Service]
         StandardOutput=journal+console
+        ExecStart=/usr/lib/systemd/tests/testdata/units/end.sh
         """
     )
 
