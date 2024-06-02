@@ -545,7 +545,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                                 image_class_to_string(arg_image_class),
                                 fd >= 0 ? fd : STDOUT_FILENO,
                                 arg_format,
-                                /* flags= */ 0);
+                                /* flags= */ UINT64_C(0));
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -604,7 +604,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                                 image_class_to_string(arg_image_class),
                                 fd >= 0 ? fd : STDOUT_FILENO,
                                 arg_format,
-                                /* flags= */ 0);
+                                /* flags= */ UINT64_C(0));
         }
         if (r < 0)
                 return bus_log_create_error(r);
