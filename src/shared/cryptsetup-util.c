@@ -54,10 +54,10 @@ DLSYM_FUNCTION(crypt_volume_key_get);
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
 DLSYM_FUNCTION(crypt_reencrypt_init_by_passphrase);
 #endif
-#if HAVE_CRYPT_REENCRYPT
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+#if HAVE_CRYPT_REENCRYPT_RUN
+DLSYM_FUNCTION(crypt_reencrypt_run);
+#elif HAVE_CRYPT_REENCRYPT
 DLSYM_FUNCTION(crypt_reencrypt);
-REENABLE_WARNING;
 #endif
 DLSYM_FUNCTION(crypt_metadata_locking);
 #if HAVE_CRYPT_SET_DATA_OFFSET
@@ -246,11 +246,8 @@ int dlopen_cryptsetup(void) {
 
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
          * crypt_reencrypt_run(), which takes one extra argument but is otherwise identical. The old call is
-         * still available though, and given we want to support 2.2.0 for a while longer, we'll stick to the
-         * old symbol. However, the old symbols now has a GCC deprecation decorator, hence let's turn off
-         * warnings about this for now. */
-
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+         * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
+         * symbol if the new one is not available. */
 
         ELF_NOTE_DLOPEN("cryptsetup",
                         "Support for disk encryption, integrity, and authentication",
@@ -304,7 +301,9 @@ int dlopen_cryptsetup(void) {
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
 #endif
-#if HAVE_CRYPT_REENCRYPT
+#if HAVE_CRYPT_REENCRYPT_RUN
+                        DLSYM_ARG(crypt_reencrypt_run),
+#elif HAVE_CRYPT_REENCRYPT
                         DLSYM_ARG(crypt_reencrypt),
 #endif
                         DLSYM_ARG(crypt_metadata_locking),
@@ -315,8 +314,6 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_volume_key_keyring));
         if (r <= 0)
                 return r;
-
-        REENABLE_WARNING;
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
