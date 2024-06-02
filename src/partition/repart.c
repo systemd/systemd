@@ -3929,7 +3929,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
         };
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+#if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+#endif
         _cleanup_fclose_ FILE *h = NULL;
         _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
