@@ -10,11 +10,24 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "time-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
 TEST(asynchronous_sync) {
         ASSERT_OK(asynchronous_sync(NULL));
+}
+
+static void wait_fd_closed(int fd) {
+        for (unsigned trial = 0; trial < 100; trial++) {
+                usleep_safe(100 * USEC_PER_MSEC);
+                if (fcntl(fd, F_GETFD) < 0) {
+                        assert_se(errno == EBADF);
+                        return;
+                }
+        }
+
+        assert_not_reached();
 }
 
 TEST(asynchronous_close) {
@@ -24,11 +37,7 @@ TEST(asynchronous_close) {
         fd = mkostemp_safe(name);
         ASSERT_OK(fd);
         asynchronous_close(fd);
-
-        sleep(1);
-
-        ASSERT_EQ(fcntl(fd, F_GETFD), -1);
-        assert_se(errno == EBADF);
+        wait_fd_closed(fd);
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
         ASSERT_OK(r);
@@ -41,11 +50,7 @@ TEST(asynchronous_close) {
                 fd = open("/dev/null", O_RDONLY|O_CLOEXEC);
                 ASSERT_OK(fd);
                 asynchronous_close(fd);
-
-                sleep(1);
-
-                ASSERT_EQ(fcntl(fd, F_GETFD), -1);
-                assert_se(errno == EBADF);
+                wait_fd_closed(fd);
 
                 _exit(EXIT_SUCCESS);
         }
