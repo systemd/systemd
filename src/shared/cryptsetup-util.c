@@ -54,6 +54,9 @@ DLSYM_FUNCTION(crypt_volume_key_get);
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
 DLSYM_FUNCTION(crypt_reencrypt_init_by_passphrase);
 #endif
+#if HAVE_CRYPT_REENCRYPT_RUN
+DLSYM_FUNCTION(crypt_reencrypt_run);
+#endif
 #if HAVE_CRYPT_REENCRYPT
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 DLSYM_FUNCTION(crypt_reencrypt);
@@ -246,9 +249,9 @@ int dlopen_cryptsetup(void) {
 
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
          * crypt_reencrypt_run(), which takes one extra argument but is otherwise identical. The old call is
-         * still available though, and given we want to support 2.2.0 for a while longer, we'll stick to the
-         * old symbol. However, the old symbols now has a GCC deprecation decorator, hence let's turn off
-         * warnings about this for now. */
+         * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
+         * symbol if the new one is not available. However, the old symbol now has a GCC deprecation
+         * decorator, hence let's turn off warnings about this for now. */
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
@@ -303,6 +306,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_volume_key_get),
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
+#endif
+#if HAVE_CRYPT_REENCRYPT_RUN
+                        DLSYM_ARG(crypt_reencrypt_run),
 #endif
 #if HAVE_CRYPT_REENCRYPT
                         DLSYM_ARG(crypt_reencrypt),
