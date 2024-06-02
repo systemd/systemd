@@ -56,6 +56,18 @@ TEST(asynchronous_close) {
         }
 }
 
+static void wait_rm_rf(const char *path) {
+        for (unsigned trial = 0; trial < 100; trial++) {
+                usleep_safe(100 * USEC_PER_MSEC);
+                if (access(path, F_OK) < 0) {
+                        assert_se(errno == ENOENT);
+                        return;
+                }
+        }
+
+        assert_not_reached();
+}
+
 TEST(asynchronous_rm_rf) {
         _cleanup_free_ char *t = NULL, *k = NULL;
         int r;
@@ -64,8 +76,9 @@ TEST(asynchronous_rm_rf) {
         assert_se(k = path_join(t, "somefile"));
         ASSERT_OK(touch(k));
         ASSERT_OK(asynchronous_rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
+        wait_rm_rf(t);
 
-        /* Do this once more, form a subreaper. Which is nice, because we can watch the async child even
+        /* Do this once more, from a subreaper. Which is nice, because we can watch the async child even
          * though detached */
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
