@@ -45,25 +45,26 @@ cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
 build() {
-    DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
+    env \
+    DEB_BUILD_OPTIONS="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
         terse \
         optimize=-lto \
         hardening=-fortify \
-    ") \
-    DEB_BUILD_PROFILES=$(awk '$1=$1' <<<"\
+    ")" \
+    DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
-    ") \
+    ")" \
     DEB_CFLAGS_APPEND="-O${OPTIMIZATION:-0}" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
     CONFFLAGS_UPSTREAM="-D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
-    dpkg-buildpackage \
+        dpkg-buildpackage \
         --no-pre-clean \
         --unsigned-changes \
         --build=binary

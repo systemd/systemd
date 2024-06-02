@@ -47,7 +47,9 @@ IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
 # shellcheck disable=SC2046
-ANNOBIN="no-active-checks" rpmbuild \
+env \
+ANNOBIN="no-active-checks" \
+rpmbuild \
     -bb \
     --build-in-place \
     --with upstream \
