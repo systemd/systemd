@@ -129,7 +129,7 @@ static VARLINK_DEFINE_METHOD(
 
 static VARLINK_DEFINE_STRUCT_TYPE(
                 ResolvedRecord,
-                VARLINK_DEFINE_FIELD(ifindex, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(ifindex, VARLINK_INT, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD_BY_TYPE(rr, ResourceRecord, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(raw, VARLINK_STRING, 0));
 
