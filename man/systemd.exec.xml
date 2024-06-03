@@ -4101,8 +4101,16 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$REMOTE_PORT</varname></term>
 
           <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
-          unit with <varname>Accept=yes</varname>), these environment variables contain the IP address and
-          port number of the remote peer of the socket connection.</para>
+          unit with <varname>Accept=yes</varname>), these environment variables contain information about the
+          remote peer of the socket connection.</para>
+
+          <para>For IPv4 and IPv6 connections, <varname>$REMOTE_ADDR</varname> contains the IP address, and
+          <varname>$REMOTE_PORT</varname> contains the port number of the remote peer.</para>
+
+          <para>For <constant>AF_UNIX</constant> socket connections, <varname>$REMOTE_ADDR</varname> contains
+          either the remote socket's file system path starting with a slash (<literal>/</literal>) or its
+          address in the abstract namespace starting with an at symbol (<literal>@</literal>).
+          <varname>$REMOTE_PORT</varname> is not set for <constant>AF_UNIX</constant> sockets.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
