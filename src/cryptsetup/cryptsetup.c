@@ -2126,18 +2126,38 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
-        if (arg_tpm2_device || arg_tpm2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, &IOVEC_MAKE(key_data, key_data_size), until, flags, pass_volume_key);
-        if (arg_fido2_device || arg_fido2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
-                return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
-        if (key_data)
-                return attach_luks_or_plain_or_bitlk_by_key_data(cd, name, key_data, key_data_size, flags, pass_volume_key);
-        if (key_file)
-                return attach_luks_or_plain_or_bitlk_by_key_file(cd, name, key_file, flags, pass_volume_key);
+        if (arg_tpm2_device || arg_tpm2_device_auto) {
+                r = attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, &IOVEC_MAKE(key_data, key_data_size), until, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
+        if (arg_fido2_device || arg_fido2_device_auto) {
+                r = attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
+                r = attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
+        if (key_data) {
+                r = attach_luks_or_plain_or_bitlk_by_key_data(cd, name, key_data, key_data_size, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
+        if (key_file) {
+                r = attach_luks_or_plain_or_bitlk_by_key_file(cd, name, key_file, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
+        if (passwords) {
+                r = attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
+                if (r != -EAGAIN)
+                        return r;
+        }
 
-        return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
+        return -EAGAIN;
 }
 
 static int help(void) {
