@@ -272,6 +272,8 @@ _SD_BEGIN_DECLARATIONS;
 
 #define SD_MESSAGE_TPM_PCR_EXTEND                     SD_ID128_MAKE(3f,7d,5e,f3,e5,4f,43,02,b4,f0,b1,43,bb,27,0c,ab)
 #define SD_MESSAGE_TPM_PCR_EXTEND_STR                 SD_ID128_MAKE_STR(3f,7d,5e,f3,e5,4f,43,02,b4,f0,b1,43,bb,27,0c,ab)
+#define SD_MESSAGE_TPM_NVPCR_EXTEND                   SD_ID128_MAKE(4c,2e,46,d2,66,a7,47,c6,ac,14,60,aa,54,48,4f,a7)
+#define SD_MESSAGE_TPM_NVPCR_EXTEND_STR               SD_ID128_MAKE_STR(4c,2e,46,d2,66,a7,47,c6,ac,14,60,aa,54,48,4f,a7)
 
 #define SD_MESSAGE_MEMORY_TRIM                        SD_ID128_MAKE(f9,b0,be,46,5a,d5,40,d0,85,0a,d3,21,72,d5,7c,21)
 #define SD_MESSAGE_MEMORY_TRIM_STR                    SD_ID128_MAKE_STR(f9,b0,be,46,5a,d5,40,d0,85,0a,d3,21,72,d5,7c,21)
