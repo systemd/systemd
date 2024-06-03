@@ -96,7 +96,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "build_cflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_cflags}") $MKOSI_CFLAGS $CFLAGS" \
     --define "build_cxxflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_cxxflags}") $MKOSI_CFLAGS $CFLAGS" \
     --define "build_ldflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_ldflags}") $MKOSI_LDFLAGS $LDFLAGS" \
-    --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
+    --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} $( ((MESON_VERBOSE)) && echo --verbose) %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
     --define "meson_extra_configure_options $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
     $( ((WITH_DEBUG)) || echo "--define=__brp_strip %{nil}") \

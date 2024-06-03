@@ -71,7 +71,7 @@ build() {
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
-        terse \
+        $( ! ((MESON_VERBOSE)) && echo terse) \
         optimize=-lto \
         hardening=-fortify \
     ")" \
