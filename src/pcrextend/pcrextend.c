@@ -233,7 +233,7 @@ static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2Userspace
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", safe, pcr, joined_banks);
 
-        r = tpm2_extend_bytes(c, arg_banks, pcr, data, size, /* secret= */ NULL, /* secret_size= */ 0, event, safe);
+        r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 

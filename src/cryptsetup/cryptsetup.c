@@ -1047,7 +1047,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
+        r = tpm2_pcr_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, &IOVEC_MAKE_STRING(s), &IOVEC_MAKE(volume_key, volume_key_size), TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
