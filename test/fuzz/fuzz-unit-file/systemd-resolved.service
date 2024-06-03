@@ -22,8 +22,6 @@ Wants=nss-lookup.target
 
 [Service]
 Type=notify
-Restart=always
-RestartSec=0
 ExecStart=!!/usr/lib/systemd/systemd-resolved
 WatchdogSec=3min
 User=systemd-resolve
