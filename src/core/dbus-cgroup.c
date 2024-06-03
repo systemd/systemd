@@ -1312,11 +1312,9 @@ int bus_cgroup_set_property(
                         if (c->cpu_quota_per_sec_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, "CPUQuota", "CPUQuota=");
                         else
-                                /* config_parse_cpu_quota() requires an integer, so truncating division is used on
-                                 * purpose here. */
                                 unit_write_settingf(u, flags, "CPUQuota",
-                                                    "CPUQuota=%0.f%%",
-                                                    (double) (c->cpu_quota_per_sec_usec / 10000));
+                                                    "CPUQuota=%.2f%%",
+                                                    (double) c->cpu_quota_per_sec_usec / 10000);
                 }
 
                 return 1;
