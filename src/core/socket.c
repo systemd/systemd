@@ -1645,11 +1645,13 @@ static int socket_open_fds(Socket *orig_s) {
                         switch (p->address.type) {
 
                         case SOCK_STREAM:
+                                if (s->socket_protocol == IPPROTO_MPTCP)
+                                        p->address.protocol = s->socket_protocol;
+                                break;
                         case SOCK_SEQPACKET:
                                 if (s->socket_protocol == IPPROTO_SCTP)
                                         p->address.protocol = s->socket_protocol;
                                 break;
-
                         case SOCK_DGRAM:
                                 if (s->socket_protocol == IPPROTO_UDPLITE)
                                         p->address.protocol = s->socket_protocol;
