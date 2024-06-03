@@ -5570,11 +5570,13 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.check_ipv6_token_static()
 
-        # Introduce two redirect routes.
+        # Introduce three redirect routes.
         check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:1:1a:2b:3c:4d --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
         check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:2:1a:2b:3c:4d --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:3:1a:2b:3c:4d --redirect-destination 2002:da8:1:3:1a:2b:3c:4d')
         self.wait_route('veth99', '2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route('veth99', '2002:da8:1:2:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', '2002:da8:1:3:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
 
         # Change the target address of the redirects.
         check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address fe80::1 --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
@@ -5591,11 +5593,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(f'veth-peer IPv6LL address: {veth_peer_ipv6ll}')
         check_output(f'{test_ndisc_send} --interface veth-peer --type neighbor-advertisement --target-address {veth_peer_ipv6ll} --is-router no')
         self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
-
-        output = check_output('ip -6 route show dev veth99')
-        print(output)
-        self.assertIn('2002:da8:1:1:1a:2b:3c:4d via fe80::1 proto redirect', output)
-        self.assertIn('2002:da8:1:2:1a:2b:3c:4d via fe80::2 proto redirect', output)
+        self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
 
         # Check if sd-radv refuses RS from the same interface.
         # See https://github.com/systemd/systemd/pull/32267#discussion_r1566721306
