@@ -149,7 +149,7 @@ typedef enum Tpm2UserspaceEventType {
 const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
 Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
 
-int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size, Tpm2UserspaceEventType event, const char *description);
+int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event, const char *description);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
