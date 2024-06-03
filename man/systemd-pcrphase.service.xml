@@ -138,7 +138,8 @@
     <title>Options</title>
 
     <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
-    command line, where it expects the word to extend into PCR 11, as well as the following switches:</para>
+    command line, where it expects the word to extend into a PCR or NvPCR, as well as the following
+    switches:</para>
 
     <variablelist>
       <varlistentry>
@@ -155,9 +156,20 @@
         <term><option>--pcr=</option></term>
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
-        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11.</para>
+        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11. May not be
+        combined with <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nvpcr=</option></term>
+
+        <listitem><para>Takes a name of an NvPCR to extend. NvPCRs are additional PCRs implemented via TPM NV
+        indexes. The name should be a short string such as <literal>hardware</literal> or
+        <literal>disk-encryption</literal>. May not be combined with <option>--pcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,6 +192,17 @@
         TPM2 device will cause the invocation to fail.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--early</option></term>
+
+        <listitem><para>Selects early-boot mode. Specifically this means that the NvPCR anchor secret is not
+        attempted to be written into <filename>/var/lib/</filename> and the boot loader partition in addition
+        to <filename>/run/</filename>. (Unlike the latter the former are generally not mounted and writable
+        during early boot or in the initrd.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -229,6 +252,13 @@
         should acquire a <constant>LOCK_SH</constant> lock while doing so.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/nvpcr/*.nvpcr</filename></term>
+
+        <listitem><para>Definition files for NvPCRs.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
