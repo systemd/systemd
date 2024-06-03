@@ -4952,7 +4952,7 @@ static int undefine_policy_nv_index(
         if (r < 0)
                 return r;
 
-        r = tpm2_undefine_policy_nv_index(
+        r = tpm2_undefine_nv_index(
                         tc,
                         encryption_session,
                         nv_index,

@@ -5889,7 +5889,7 @@ int tpm2_write_policy_nv_index(
         return 0;
 }
 
-int tpm2_undefine_policy_nv_index(
+int tpm2_undefine_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
@@ -5904,14 +5904,14 @@ int tpm2_undefine_policy_nv_index(
                         c->esys_context,
                         /* authHandle= */ ESYS_TR_RH_OWNER,
                         /* nvIndex= */ nv_handle->esys_handle,
-                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_NONE,
+                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
                         /* shandle2= */ ESYS_TR_NONE,
                         /* shandle3= */ ESYS_TR_NONE);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to undefine NV index: %s", sym_Tss2_RC_Decode(rc));
 
-        log_debug("Undefined NV index 0x%x", nv_index);
+        log_debug("Successfully undefined NV index 0x%x.", nv_index);
         return 0;
 }
 
