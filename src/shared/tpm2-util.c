@@ -6160,6 +6160,36 @@ int tpm2_find_device_auto(char **ret) {
 #endif
 }
 
+const uint16_t tpm2_hash_algorithms[] = {
+        TPM2_ALG_SHA1,
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        0,
+};
+
+assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
+
+static size_t tpm2_hash_algorithm_index(uint16_t algorithm) {
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
+                if (tpm2_hash_algorithms[i] == algorithm)
+                        return i;
+
+        return SIZE_MAX;
+}
+
+static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint16_t *algorithm = ASSERT_PTR(userdata);
+        int r;
+
+        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
+        if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
+
+        *algorithm = r;
+        return 0;
+}
+
 #if HAVE_TPM2
 static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
         [TPM2_EVENT_PHASE]      = "phase",
@@ -6406,24 +6436,6 @@ int tpm2_pcr_extend_bytes(
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
-}
-
-const uint16_t tpm2_hash_algorithms[] = {
-        TPM2_ALG_SHA1,
-        TPM2_ALG_SHA256,
-        TPM2_ALG_SHA384,
-        TPM2_ALG_SHA512,
-        0,
-};
-
-assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
-
-static size_t tpm2_hash_algorithm_index(uint16_t algorithm) {
-        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
-                if (tpm2_hash_algorithms[i] == algorithm)
-                        return i;
-
-        return SIZE_MAX;
 }
 
 TPM2B_DIGEST *tpm2_pcr_prediction_result_get_hash(Tpm2PCRPredictionResult *result, uint16_t alg) {
@@ -6901,18 +6913,6 @@ void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         iovec_done(&data->srk_handle);
         iovec_done(&data->pin_public);
         iovec_done(&data->pin_private);
-}
-
-static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint16_t *algorithm = ASSERT_PTR(userdata);
-        int r;
-
-        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
-        if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
-
-        *algorithm = r;
-        return 0;
 }
 
 int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path) {
