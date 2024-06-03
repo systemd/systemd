@@ -225,7 +225,7 @@ Use these APIs to register any kind of process workload with systemd to be place
 
 Note that there's currently no systemd API to retrieve accounting information from cgroups. For now, if you need to retrieve this information use `/proc/&#036;PID/cgroup` to determine the cgroup path for your process in the `cpuacct` controller (or whichever controller matters to you), and then read the attributes directly from the cgroup tree.
 
-If you want to collect the exit status and other runtime parameters of your transient scope or service unit after the processes in them ended set the `RemainAfterExited` boolean property when creating it. This will has the effect that the unit will stay around even after all processes in it died, in the `SubState="exited"` state. Simply watch for state changes until this state is reached, then read the status details from the various properties you need, and finally terminate the unit via `StopUnit()` on the `Manager` object or `Stop()` on the `Unit` object itself.
+If you want to collect the exit status and other runtime parameters of your transient scope or service unit after the processes in them ended set the `RemainAfterExit` boolean property when creating it. This will has the effect that the unit will stay around even after all processes in it died, in the `SubState="exited"` state. Simply watch for state changes until this state is reached, then read the status details from the various properties you need, and finally terminate the unit via `StopUnit()` on the `Manager` object or `Stop()` on the `Unit` object itself.
 
 ### Becoming a Controller
 
