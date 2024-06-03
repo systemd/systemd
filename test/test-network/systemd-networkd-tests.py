@@ -6032,6 +6032,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
+        self.fail('hoge')
+
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
     def setUp(self):
