@@ -580,6 +580,15 @@ def save_existing_links():
     print('### The following links will be protected:')
     print(', '.join(sorted(list(protected_links))))
 
+def unmanage_existing_links():
+    mkdir_p(network_unit_dir)
+
+    with open(os.path.join(network_unit_dir, '00-unmanaged.network'), mode='w', encoding='utf-8') as f:
+        f.write('[Match]\n')
+        for link in protected_links:
+            f.write(f'Name={link}\n')
+        f.write('\n[Link]\nUnmanaged=yes\n')
+
 def flush_links():
     links = os.listdir('/sys/class/net')
     remove_link(*links, protect=True)
@@ -933,6 +942,9 @@ def udevadm_trigger(*args, action='add'):
     udevadm('trigger', '--settle', f'--action={action}', *args)
 
 def setup_common():
+    # Protect existing links
+    unmanage_existing_links()
+
     # We usually show something in each test. So, let's break line to make the title of a test and output
     # from the test mixed. Then, flush stream buffer and journals.
     print()
@@ -1874,6 +1886,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_tuntap(True)
 
         clear_network_units()
+        unmanage_existing_links()
         restart_networkd()
         self.wait_online('testtun99:off', 'testtap99:off', setup_state='unmanaged')
 
