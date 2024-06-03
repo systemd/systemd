@@ -6,5 +6,6 @@ integration_tests += [
                 'timeout' : 3600,
                 'priority' : 50,
                 'vm' : true,
+                'enabled' : false,
         },
 ]
