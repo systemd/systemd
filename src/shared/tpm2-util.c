@@ -6979,7 +6979,7 @@ int tpm2_pcrlock_policy_from_json(
         /* We use a type check of _JSON_VARIANT_TYPE_INVALID for the integer fields to allow
          * json_dispatch_uint32() to parse strings as integers to work around the integer type weakness of
          * JSON's design. */
-        JsonDispatch policy_dispatch[] = {
+        static const JsonDispatch policy_dispatch[] = {
                 { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
                 { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
                 { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
