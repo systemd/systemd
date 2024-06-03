@@ -526,7 +526,8 @@ def setup_system_units():
             'ExecStart=',
             f'ExecStart={networkctl_bin} persistent-storage yes',
             'ExecStop=',
-            f'ExecStop={networkctl_bin} persistent-storage no'
+            f'ExecStop={networkctl_bin} persistent-storage no',
+            'Environment=SYSTEMD_LOG_LEVEL=debug' if enable_debug else '',
         ]
     )
 
