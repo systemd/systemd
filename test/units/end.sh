@@ -13,4 +13,5 @@ set -o pipefail
 (! journalctl -q -o short-monotonic --grep "[F]ailed to parse serialized line" >>/failed)
 (! journalctl -q -o short-monotonic --grep "[F]ailed to (de)?serialize \w+" >>/failed)
 
+systemctl poweroff --no-block
 exit 0
