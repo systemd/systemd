@@ -3,7 +3,6 @@
 Description=End the test
 After=testsuite.target
 OnFailure=poweroff.target
-OnSuccess=poweroff.target
 OnFailureJobMode=replace-irreversibly
 
 [Service]
