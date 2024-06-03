@@ -25,11 +25,7 @@ ASAN_RT_PATH="$(grep libasan.so < <(ldd /usr/lib/systemd/systemd) | cut -d ' ' -
 if [[ -z "$ASAN_RT_PATH" ]]; then
     ASAN_RT_PATH="$(grep libclang_rt.asan < <(ldd /usr/lib/systemd/systemd) | cut -d ' ' -f 3)"
 
-    # As clang's ASan DSO is usually in a non-standard path, let's check if
-    # the environment is set accordingly. If not, warn the user and exit.
-    # We're not setting the LD_LIBRARY_PATH automagically here, because
-    # user should encounter (and fix) the same issue when running the unit
-    # tests (meson test)
+    # As clang's ASan DSO is usually in a non-standard path, let's check if the RUNPATH is set accordingly.
     if ldd /usr/lib/systemd/systemd | grep -q "libclang_rt.asan.*not found"; then
         echo >&2 "clang's ASan DSO libclang_rt.asan is not present in the runtime library path"
         exit 1

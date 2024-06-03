@@ -1268,6 +1268,9 @@ foreach ident : ['crypt_set_metadata_size',
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
+                # crypt_reencrypt() raises a deprecation warning so make sure -Wno-deprecated-declarations is
+                # specified otherwise we fail to detect crypt_reencrypt() if -Werror is used.
+                args : '-Wno-deprecated-declarations',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
