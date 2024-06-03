@@ -6321,14 +6321,12 @@ static int tpm2_userspace_log(
 }
 #endif
 
-int tpm2_extend_bytes(
+int tpm2_pcr_extend_bytes(
                 Tpm2Context *c,
                 char **banks,
                 unsigned pcr_index,
-                const void *data,
-                size_t data_size,
-                const void *secret,
-                size_t secret_size,
+                const struct iovec *data,
+                const struct iovec *secret,
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
 
@@ -6338,16 +6336,14 @@ int tpm2_extend_bytes(
         TSS2_RC rc;
 
         assert(c);
-        assert(data || data_size == 0);
-        assert(secret || secret_size == 0);
-
-        if (data_size == SIZE_MAX)
-                data_size = strlen(data);
-        if (secret_size == SIZE_MAX)
-                secret_size = strlen(secret);
+        assert(iovec_is_valid(data));
+        assert(iovec_is_valid(secret));
 
         if (pcr_index >= TPM2_PCRS_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
+
+        if (!iovec_is_set(data))
+                data = &iovec_empty;
 
         if (strv_isempty(banks))
                 return 0;
@@ -6376,10 +6372,10 @@ int tpm2_extend_bytes(
                  * secret for other purposes, maybe because it needs a shorter secret derived from it for
                  * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
                  * private non-secret string instead. */
-                if (secret_size > 0) {
-                        if (!HMAC(implementation, secret, secret_size, data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL))
+                if (iovec_is_set(secret) > 0) {
+                        if (!HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-                } else if (EVP_Digest(data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                } else if (EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
