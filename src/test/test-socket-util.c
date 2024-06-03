@@ -453,13 +453,10 @@ TEST(send_emptydata) {
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_MAKE_STRING("");  /* zero-length iov */
-                assert_se(iov.iov_len == 0);
-
                 pair[0] = safe_close(pair[0]);
 
                 /* This will succeed, since iov is set. */
-                assert_se(send_one_fd_iov(pair[1], -1, &iov, 1, MSG_DONTWAIT) == 0);
+                assert_se(send_one_fd_iov(pair[1], -1, &iovec_empty, 1, MSG_DONTWAIT) == 0);
                 _exit(EXIT_SUCCESS);
         }
 
