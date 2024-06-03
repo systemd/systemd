@@ -241,7 +241,7 @@ systemctl revert "$UNIT_NAME"
 systemctl set-property --runtime "$UNIT_NAME" CPUAccounting=no CPUQuota=10%
 systemctl cat "$UNIT_NAME"
 grep -r "CPUAccounting=no" "/run/systemd/system.control/${UNIT_NAME}.d/"
-grep -r "CPUQuota=10%" "/run/systemd/system.control/${UNIT_NAME}.d/"
+grep -r "CPUQuota=10.00%" "/run/systemd/system.control/${UNIT_NAME}.d/"
 systemctl revert "$UNIT_NAME"
 (! grep -r "CPUAccounting=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
