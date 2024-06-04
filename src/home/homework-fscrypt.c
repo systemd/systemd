@@ -12,6 +12,7 @@
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
+#include "keyring-util.h"
 #include "memory-util.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
@@ -28,6 +29,111 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+int home_flush_keyring_fscrypt(UserRecord *h) {
+        _cleanup_free_ void *keyring = NULL;
+        size_t keyring_size = 0, n_keys = 0;
+        int r;
+
+        assert(user_record_storage(h) == USER_FSCRYPT);
+        assert(uid_is_valid(h->uid));
+
+        r = safe_fork("(sd-delkey)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                        NULL);
+        if (r < 0)
+                return log_debug_errno(r,
+                                       "Failed delete encryption key from the keyring of user " UID_FMT ": %m",
+                                       h->uid);
+        if (r > 0)
+                return 0;
+
+        /* Child */
+
+        r = fully_set_uid_gid(
+                        h->uid,
+                        user_record_gid(h),
+                        /* supplementary_gids= */ NULL,
+                        /* n_supplementary_gids= */ 0);
+        if (r < 0) {
+                log_debug_errno(r,
+                                "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m",
+                                h->uid,
+                                user_record_gid(h));
+                _exit(EXIT_FAILURE);
+        }
+
+        r = keyring_read(KEY_SPEC_USER_KEYRING, (void **) &keyring, &keyring_size);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read the keyring of user " UID_FMT ": %m", h->uid);
+                _exit(EXIT_FAILURE);
+        }
+
+        n_keys = keyring_size / sizeof(key_serial_t);
+
+        /* Find any key with a description starting with 'fscrypt:' and unlink it. We need to iterate as we
+         * store the key with a description that uses the hash of the secret key, that we do not have when
+         * we are deactivating. */
+        for (size_t i = 0; i < n_keys; i++) {
+                _cleanup_free_ char *tuple = NULL;
+                size_t sz = 64;
+                char *d;
+                int c = -1; /* Workaround for maybe-uninitialized false positive due to missing_syscall indirection */
+
+                for (;;) {
+                        tuple = new(char, sz);
+                        if (!tuple) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        c = keyctl(KEYCTL_DESCRIBE, ((key_serial_t *) keyring)[i], (unsigned long) tuple, c, 0);
+                        if (c < 0) {
+                                log_debug_errno(r,
+                                                "Failed to describe key id %d: %m",
+                                                ((key_serial_t *) keyring)[i]);
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if ((size_t) c <= sz)
+                                break;
+
+                        sz = c;
+                        free(tuple);
+                }
+
+                /* The kernel returns a final NUL in the string, verify that. */
+                assert(tuple[c-1] == 0);
+
+                /* The decription is the final element as per manpage. */
+                d = strrchr(tuple, ';');
+                if (!d) {
+                        log_debug("Failed to parse description of key id %d: %s",
+                                  ((key_serial_t *) keyring)[i],
+                                  tuple);
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!startswith(d + 1, "fscrypt:"))
+                        continue;
+
+                r = keyctl(KEYCTL_UNLINK, ((key_serial_t *) keyring)[i], KEY_SPEC_USER_KEYRING, 0, 0);
+                if (r < 0) {
+                        log_debug_errno(r,
+                                        "Failed to delete encryption key with id '%d' from the keyring of user " UID_FMT
+                                        ": %m",
+                                        ((key_serial_t *) keyring)[i],
+                                        h->uid);
+                        _exit(EXIT_FAILURE);
+                }
+
+                log_debug("Deleted encryption key with id '%d' from the keyring of user " UID_FMT ".",
+                          ((key_serial_t *) keyring)[i],
+                          h->uid);
+        }
+
+        _exit(EXIT_SUCCESS);
+}
 
 static int fscrypt_upload_volume_key(
                 const uint8_t key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
