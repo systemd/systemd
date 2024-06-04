@@ -319,9 +319,10 @@
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
         <listitem><para>Takes one of <option>udplite</option>
-        or <option>sctp</option>. The socket will use the UDP-Lite
+        or <option>sctp</option> or <option>mptcp</option>. The socket will use the UDP-Lite
         (<constant>IPPROTO_UDPLITE</constant>) or SCTP
-        (<constant>IPPROTO_SCTP</constant>) protocol, respectively.</para>
+        (<constant>IPPROTO_SCTP</constant>) or MPTCP
+        (<constant>IPPROTO_MPTCP</constant>) protocol, respectively.</para>
 
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
