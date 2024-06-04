@@ -1,8 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+set -o nounset
 
-if ((NO_SYNC)); then
+if ((${NO_SYNC:-0})); then
     exit 0
 fi
 
