@@ -21,10 +21,11 @@
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
     <refname>systemd-pcrextend</refname>
-    <refpurpose>Measure boot phase into TPM2 PCR 11, machine ID and file system identity into PCR 15</refpurpose>
+    <refpurpose>Measure boot phases, machine ID, product UUID and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -48,6 +49,10 @@
     <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
     (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
     PCR 15.</para>
+
+    <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
+    product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
+    <literal>hardware</literal>.</para>
 
     <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
     services that measure file system identity information (i.e. mount point, file system type, label and
@@ -156,8 +161,9 @@
         <term><option>--pcr=</option></term>
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
-        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11. May not be
-        combined with <option>--nvpcr=</option>.</para>
+        <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
+        <option>--product-id</option> is specified) defaults to 11. May not be combined with
+        <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -167,7 +173,8 @@
 
         <listitem><para>Takes a name of an NvPCR to extend. NvPCRs are additional PCRs implemented via TPM NV
         indexes. The name should be a short string such as <literal>hardware</literal> or
-        <literal>disk-encryption</literal>. May not be combined with <option>--pcr=</option>.</para>
+        <literal>disk-encryption</literal>. If <option>--product-id</option> is specified defaults
+        <literal>hardware</literal>. May not be combined with <option>--pcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
@@ -213,6 +220,15 @@
         host's machine ID into PCR 15.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--product-id</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        firmware's product UUID into an NvPCR named <literal>hardware</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
