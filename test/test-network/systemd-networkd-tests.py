@@ -8655,7 +8655,7 @@ if __name__ == '__main__':
     asan_options = ns.asan_options
     lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
-    with_coverage = ns.with_coverage
+    with_coverage = ns.with_coverage or "COVERAGE_BUILD_DIR" in os.environ
     show_journal = ns.show_journal
 
     if use_valgrind:

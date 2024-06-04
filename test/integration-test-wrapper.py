@@ -4,12 +4,15 @@
 """Test wrapper command for driving integration tests."""
 
 import argparse
+import base64
+import dataclasses
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -33,6 +36,47 @@ ExecStart=false
 """
 
 
+def sandbox(args: argparse.Namespace) -> list[str]:
+    return [
+        args.mkosi,
+        '--directory', os.fspath(args.meson_source_dir),
+        '--extra-search-path', os.fspath(args.meson_build_dir),
+        'sandbox',
+    ]  # fmt: skip
+
+
+@dataclasses.dataclass(frozen=True)
+class Summary:
+    distribution: str
+    release: str
+    architecture: str
+    builddir: Path
+    environment: dict[str, str]
+
+    @classmethod
+    def get(cls, args: argparse.Namespace) -> 'Summary':
+        j = json.loads(
+            subprocess.run(
+                [
+                    args.mkosi,
+                    '--directory', os.fspath(args.meson_source_dir),
+                    '--json',
+                    'summary',
+                ],
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout
+        )  # fmt: skip
+
+        return Summary(
+            distribution=j['Images'][-1]['Distribution'],
+            release=j['Images'][-1]['Release'],
+            architecture=j['Images'][-1]['Architecture'],
+            builddir=Path(j['Images'][-1]['BuildDirectory']),
+            environment=j['Images'][-1]['Environment'],
+        )
+
+
 def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     # Collect executable paths of all coredumps and filter out the expected ones.
 
@@ -42,11 +86,7 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
         exclude_regex = None
 
     result = subprocess.run(
-        [
-            args.mkosi,
-            '--directory', os.fspath(args.meson_source_dir),
-            '--extra-search-path', os.fspath(args.meson_build_dir),
-            'sandbox',
+        sandbox(args) + [
             'coredumpctl',
             '--file', journal_file,
             '--json=short',
@@ -69,11 +109,7 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
         return False
 
     subprocess.run(
-        [
-            args.mkosi,
-            '--directory', os.fspath(args.meson_source_dir),
-            '--extra-search-path', os.fspath(args.meson_build_dir),
-            'sandbox',
+        sandbox(args) + [
             'coredumpctl',
             '--file', journal_file,
             '--no-pager',
@@ -84,6 +120,119 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     )  # fmt: skip
 
     return True
+
+
+def process_coverage(args: argparse.Namespace, summary: Summary, name: str, journal_file: Path) -> None:
+    coverage = subprocess.run(
+        sandbox(args) + [
+            'journalctl',
+            '--file', journal_file,
+            '--field=COVERAGE_TAR',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
+    ).stdout  # fmt: skip
+
+    (args.meson_build_dir / 'test/coverage').mkdir(exist_ok=True)
+
+    initial = args.meson_build_dir / 'test/coverage/initial.coverage-info'
+    output = args.meson_build_dir / f'test/coverage/{name}.coverage-info'
+
+    for b64 in coverage.splitlines():
+        tarball = base64.b64decode(b64)
+
+        with tempfile.TemporaryDirectory(prefix='coverage-') as tmp:
+            subprocess.run(
+                sandbox(args) + [
+                    'tar',
+                    '--extract',
+                    '--file', '-',
+                    '--directory', tmp,
+                    '--keep-directory-symlink',
+                    '--no-overwrite-dir',
+                    '--zstd',
+                ],
+                input=tarball,
+                check=True,
+            )  # fmt: skip
+
+            for p in Path(tmp).iterdir():
+                if not p.name.startswith('#'):
+                    continue
+
+                dst = Path(tmp) / p.name.replace('#', '/').lstrip('/')
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                p.rename(dst)
+
+            subprocess.run(
+                sandbox(args) + [
+                    'find',
+                    tmp,
+                    '-name', '*.gcda',
+                    '-size', '0',
+                    '-delete',
+                ],
+                input=tarball,
+                check=True,
+            )  # fmt: skip
+
+            subprocess.run(
+                sandbox(args)
+                + [
+                    'rsync',
+                    '--archive',
+                    '--prune-empty-dirs',
+                    '--include=*/',
+                    '--include=*.gcno',
+                    '--exclude=*',
+                    f'{os.fspath(args.meson_build_dir / summary.builddir)}/',
+                    os.fspath(Path(tmp) / 'work/build'),
+                ],
+                check=True,
+            )
+
+            subprocess.run(
+                sandbox(args)
+                + [
+                    'lcov',
+                    *(
+                        [
+                            '--gcov-tool', 'llvm-cov',
+                            '--gcov-tool', 'gcov',
+                        ]
+                        if summary.environment.get('LLVM', '0') == '1'
+                        else []
+                    ),
+                    '--directory', tmp,
+                    '--base-directory', 'src/',
+                    '--capture',
+                    '--exclude', '*.gperf',
+                    '--output-file', f'{output}.new',
+                    '--ignore-errors', 'inconsistent,inconsistent,source,negative',
+                    '--substitute', 's#src/src#src#g',
+                    '--no-external',
+                    '--quiet',
+                ],
+                check=True,
+            )  # fmt: skip
+
+            subprocess.run(
+                sandbox(args)
+                + [
+                    'lcov',
+                    '--ignore-errors', 'inconsistent,inconsistent,format,corrupt,empty',
+                    '--add-tracefile', output if output.exists() else initial,
+                    '--add-tracefile', f'{output}.new',
+                    '--output-file', output,
+                    '--quiet',
+                ],
+                check=True,
+            )  # fmt: skip
+
+            Path(f'{output}.new').unlink()
+
+            print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
 
 
 def main() -> None:
@@ -127,6 +276,7 @@ def main() -> None:
 
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
+    summary = Summary.get(args)
 
     if shell and not sys.stderr.isatty():
         print(
@@ -250,6 +400,13 @@ def main() -> None:
 
     coredumps = process_coredumps(args, journal_file)
 
+    if (
+        summary.environment.get('COVERAGE', '0') == '1'
+        and result.returncode in (args.exit_code, 77)
+        and not coredumps
+    ):
+        process_coverage(args, summary, name, journal_file)
+
     if keep_journal == '0' or (
         keep_journal == 'fail' and result.returncode in (args.exit_code, 77) and not coredumps
     ):
@@ -262,22 +419,11 @@ def main() -> None:
 
     if os.getenv('GITHUB_ACTIONS'):
         id = os.environ['GITHUB_RUN_ID']
+        workflow = os.environ['GITHUB_WORKFLOW']
         iteration = os.environ['GITHUB_RUN_ATTEMPT']
-        j = json.loads(
-            subprocess.run(
-                [
-                    args.mkosi,
-                    '--directory', os.fspath(args.meson_source_dir),
-                    '--json',
-                    'summary',
-                ],
-                stdout=subprocess.PIPE,
-                text=True,
-            ).stdout
-        )  # fmt: skip
-        distribution = j['Images'][-1]['Distribution']
-        release = j['Images'][-1]['Release']
-        artifact = f'ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals'
+        artifact = (
+            f'ci-{workflow}-{id}-{iteration}-{summary.distribution}-{summary.release}-failed-test-journals'
+        )
         ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
         journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
