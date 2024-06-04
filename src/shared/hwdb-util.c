@@ -601,6 +601,9 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         if (!trie->strings)
                 return -ENOMEM;
 
+        /* reserve 16M to avoid allocs */
+        strbuf_reserve(trie->strings, 0x10000 * 16);
+
         /* index */
         trie->root = new0(struct trie_node, 1);
         if (!trie->root)
