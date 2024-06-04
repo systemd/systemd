@@ -1723,27 +1723,32 @@ static int service_spawn_internal(
                  * in ENOTCONN), and just use whate we can use. */
 
                 if (getpeername(s->socket_fd, &sa.sa, &salen) >= 0 &&
-                    IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
+                    IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK, AF_UNIX)) {
                         _cleanup_free_ char *addr = NULL;
                         char *t;
-                        unsigned port;
 
-                        r = sockaddr_pretty(&sa.sa, salen, true, false, &addr);
+                        r = sockaddr_pretty(&sa.sa, salen, /* translate_ipv6= */ true, /* include_port= */ false, &addr);
                         if (r < 0)
                                 return r;
 
-                        t = strjoin("REMOTE_ADDR=", addr);
-                        if (!t)
-                                return -ENOMEM;
-                        our_env[n_env++] = t;
+                        if (sa.sa.sa_family != AF_UNIX || IN_SET(addr[0], '/', '@')) {
+                                t = strjoin("REMOTE_ADDR=", addr);
+                                if (!t)
+                                        return -ENOMEM;
+                                our_env[n_env++] = t;
+                        }
 
-                        r = sockaddr_port(&sa.sa, &port);
-                        if (r < 0)
-                                return r;
+                        if (IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
+                                unsigned port;
 
-                        if (asprintf(&t, "REMOTE_PORT=%u", port) < 0)
-                                return -ENOMEM;
-                        our_env[n_env++] = t;
+                                r = sockaddr_port(&sa.sa, &port);
+                                if (r < 0)
+                                        return r;
+
+                                if (asprintf(&t, "REMOTE_PORT=%u", port) < 0)
+                                        return -ENOMEM;
+                                our_env[n_env++] = t;
+                        }
                 }
         }
 
