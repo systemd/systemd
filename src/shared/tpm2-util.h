@@ -142,6 +142,7 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_FILESYSTEM,
         TPM2_EVENT_VOLUME_KEY,
         TPM2_EVENT_MACHINE_ID,
+        TPM2_EVENT_PRODUCT_ID,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
