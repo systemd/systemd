@@ -58,30 +58,37 @@ jobs:
             release: rolling
             sanitizers: ""
             llvm: 0
+            cflags: "-O2 -D_FORTIFY_SOURCE=3"
           - distro: debian
             release: testing
             sanitizers: ""
             llvm: 0
+            cflags: "-Og"
           - distro: ubuntu
             release: noble
             sanitizers: ""
             llvm: 0
+            cflags: "-Og"
           - distro: fedora
             release: "40"
             sanitizers: ""
             llvm: 0
+            cflags: "-Og"
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
+            cflags: "-Og"
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
             llvm: 0
+            cflags: "-Og"
           - distro: centos
             release: "9"
             sanitizers: ""
             llvm: 0
+            cflags: "-Og"
 
     steps:
     - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
@@ -127,8 +134,7 @@ jobs:
         Environment=
                 # Build debuginfo packages since we'll be publishing the packages as artifacts.
                 WITH_DEBUG=1
-                # Enabling optimizations significantly speeds up integration tests.
-                OPTIMIZATION=g
+                CFLAGS="${{ matrix.cflags }}"
                 SANITIZERS=${{ matrix.sanitizers }}
                 MESON_OPTIONS=--werror
                 LLVM=${{ matrix.llvm }}
