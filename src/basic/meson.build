@@ -53,6 +53,7 @@ basic_sources = files(
         'lock-util.c',
         'log.c',
         'login-util.c',
+        'keyring-util.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
