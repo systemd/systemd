@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+set -o nounset
 
 if command -v authselect >/dev/null; then
     # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
