@@ -941,6 +941,7 @@ static int mount_in_namespace_legacy(
                                 /* required_host_os_release_sysext_level= */ NULL,
                                 /* required_host_os_release_confext_level= */ NULL,
                                 /* required_sysext_scope= */ NULL,
+                                /* verity= */ NULL,
                                 /* ret_image= */ NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
@@ -1166,6 +1167,7 @@ static int mount_in_namespace(
                                 /* required_host_os_release_sysext_level= */ NULL,
                                 /* required_host_os_release_confext_level= */ NULL,
                                 /* required_sysext_scope= */ NULL,
+                                /* verity= */ NULL,
                                 &img);
                 if (r < 0)
                         return log_debug_errno(
