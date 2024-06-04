@@ -1155,6 +1155,23 @@ static int names_mac(sd_device *dev, const char *prefix, EventMode mode) {
                                               "Not generating MAC name for device with MAC address of length %zu.",
                                               hw_addr.length);
 
+        const char *s_hw_addr_passthrough;
+        r = sd_device_get_property_value(dev, "ID_NET_PASSTHROUGH_MAC", &s_hw_addr_passthrough);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_debug_errno(dev, r, "Failed to read ID_NET_PASSTHROUGH_MAC property, ignoring: %m");
+        } else {
+                struct hw_addr_data hw_addr_passthrough;
+
+                r = parse_hw_addr(s_hw_addr_passthrough, &hw_addr_passthrough);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to parse ID_NET_PASSTHROUGH_MAC attribute: %s", s_hw_addr_passthrough);
+
+                if (hw_addr_equal(&hw_addr, &hw_addr_passthrough))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ESTALE),
+                                                      "Not generating MAC name for device, since equal to passthrough MAC address: %s", HW_ADDR_TO_STR_FULL(&hw_addr, 0));
+        }
+
         char str[ALTIFNAMSIZ];
         xsprintf(str, "%sx%s", prefix, HW_ADDR_TO_STR_FULL(&hw_addr, HW_ADDR_TO_STRING_NO_COLON));
         udev_builtin_add_property(dev, mode, "ID_NET_NAME_MAC", str);
