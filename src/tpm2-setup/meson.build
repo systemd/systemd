@@ -35,7 +35,7 @@ executables += [
 ]
 
 if conf.get('ENABLE_BOOTLOADER') == 1 and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
-        nvpcrs = []
+        nvpcrs = [ 'hardware' ]
         foreach n : nvpcrs
                 custom_target(
                         input : 'nvpcr/' + n + '.nvpcr.in',
