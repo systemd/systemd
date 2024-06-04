@@ -130,6 +130,25 @@ Deprecations and removals:
 
 Features:
 
+* creds: add a new cred format that reused the JSON structures we use in the
+  LUKS header, so that we get the various newer policies for free.
+
+* drop PCR 7 from default PCR mask in credentials and LUKS2 enrollments
+
+* systemd-analyze: port "pcrs" verb to talk directly to TPM device, instead of
+  using sysfs interface (well, or maybe not, as that would require privileges?)
+
+* pcrextend/tpm2-util: add a concept of "rotation" to event log. i.e. allow
+  trailing parts of the logs if time or disk space limit is hit. Protect the
+  boot-time measurements however (i.e. up to some point where things are
+  settled), since we need those for pcrlock measurements and similar. When
+  deleting entries for rotation, place an event that declares how many items
+  have been dropped, and what the hash before and after that.
+
+* measure information about all DDIs as we actviate them to an NvPCR. We
+  probably should measure the dm-verity root hash from the kernel side, but
+  DDI meta info from userspace.
+
 * consider reworking json_build() to imply a top-level JSON_BUILD_OBJECT(),
   since that's what we want in 99% of cases. Then provide json_build_any() or
   so that can build other variant types top-level too.
@@ -361,13 +380,6 @@ Features:
 * maybe: in PID1, when we detect we run in an initrd, make superblock read-only
   early on, but provide opt-out via kernel cmdline.
 
-* systemd-pcrextend:
-  - support measuring to nvindex with PCR update semantics ("fake PCRs")
-  - add api for "allocating" such an nvindex
-  - once we have that start measuring every sysext we apply, every confext,
-    every RootImage= we apply, every nspawn and so on. All in separate fake
-    PCRs.
-
 * vmspawn:
   - run in scope unit when invoked from command line, and machined registration is off
   - sd_notify support
@@ -378,8 +390,6 @@ Features:
     suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
-
-* systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
 * sd-boot: allow synthesizing additional type1 entries via SMBIOS vendor strings
 
@@ -399,9 +409,6 @@ Features:
   - add kernel-install plugin that automatically creates UKI .pcrlock file when
     UKI is installed, and removes it when it is removed again
   - automatically install PE measurement of sd-boot on "bootctl install"
-  - write generated pcrlock signature files to the ESP as credential, one for
-    each installed OS & pick up generated pcrlock signature file in sd-stub,
-    pass it via initrd to OS
   - pre-calc sysext + kernel cmdline measurements
   - pre-calc cryptsetup root key measurement
   - maybe make systemd-repart generate .pcrlock for old and new GPT header in
