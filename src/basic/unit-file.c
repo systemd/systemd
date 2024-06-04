@@ -568,7 +568,7 @@ int unit_file_build_name_map(
                                                 return log_oom();
                                 }
 
-                                log_debug("%s: normal unit file: %s", __func__, dst);
+                                log_trace("%s: normal unit file: %s", __func__, dst);
                         }
 
                         _cleanup_free_ char *key = strdup(de->d_name);
