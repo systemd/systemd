@@ -27,6 +27,7 @@ static char *arg_tpm2_device = NULL;
 static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
+static bool arg_product_id = false;
 static unsigned arg_pcr_index = UINT_MAX;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
@@ -50,6 +51,7 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s  [OPTIONS...] WORD\n"
                "%1$s  [OPTIONS...] --file-system=PATH\n"
                "%1$s  [OPTIONS...] --machine-id\n"
+               "%1$s  [OPTIONS...] --product-id\n"
                "\n%5$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
@@ -61,6 +63,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --graceful          Exit gracefully if no TPM2 device is found\n"
                "     --file-system=PATH  Measure UUID/labels of file system into PCR 15\n"
                "     --machine-id        Measure machine ID into PCR 15\n"
+               "     --product-id        Measure SMBIOS product ID into NvPCR 'hardware'\n"
                "     --early             Run in early boot mode, without access to /var/\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -83,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_FILE_SYSTEM,
                 ARG_MACHINE_ID,
+                ARG_PRODUCT_ID,
                 ARG_EARLY,
         };
 
@@ -96,6 +100,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
                 { "file-system", required_argument, NULL, ARG_FILE_SYSTEM },
                 { "machine-id",  no_argument,       NULL, ARG_MACHINE_ID  },
+                { "product-id",  no_argument,       NULL, ARG_PRODUCT_ID  },
                 { "early",       no_argument,       NULL, ARG_EARLY       },
                 {}
         };
@@ -176,6 +181,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_machine_id = true;
                         break;
 
+                case ARG_PRODUCT_ID:
+                        arg_product_id = true;
+                        break;
+
                 case ARG_EARLY:
                         arg_early = true;
                         break;
@@ -187,8 +196,8 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!!arg_file_system + arg_machine_id > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id may not be combined.");
+        if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
 
         if (arg_pcr_index != UINT_MAX && arg_nvpcr_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
@@ -198,10 +207,16 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
                 arg_varlink = true;
-        else if (arg_pcr_index == UINT_MAX && !arg_nvpcr_name)
-                arg_pcr_index = (arg_file_system || arg_machine_id) ?
-                        TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
-                        TPM2_PCR_KERNEL_BOOT; /* → PCR 11 */
+        else if (arg_pcr_index == UINT_MAX && !arg_nvpcr_name) {
+                arg_pcr_index =
+                        (arg_file_system || arg_machine_id) ? TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
+                                            !arg_product_id ? TPM2_PCR_KERNEL_BOOT :     /* → PCR 11 */
+                                                              UINT_MAX;
+
+                r = free_and_strdup_warn(&arg_nvpcr_name, arg_product_id ? "hardware" : NULL);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
@@ -463,6 +478,17 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 event = TPM2_EVENT_MACHINE_ID;
+
+        } else if (arg_product_id)  {
+
+                if (optind != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
+
+                r = pcrextend_product_id_word(&word);
+                if (r < 0)
+                        return r;
+
+                event = TPM2_EVENT_PRODUCT_ID;
         } else {
                 if (optind+1 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
