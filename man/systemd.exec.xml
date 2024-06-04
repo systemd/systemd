@@ -519,7 +519,9 @@
         <filename>/opt/</filename> hierarchies for sysext images and <filename>/etc/</filename>
         hierarchy for confext images. The order in which the images are listed will determine the
         order in which the overlay is laid down: images specified first to last will result in overlayfs
-        layers bottom to top.</para>
+        layers bottom to top. If multiple identical dm-verity protected images (i.e. with the same roothash)
+        are specified, the first one is retained and the following ones are pruned, as OverlayFS does not
+        allow referencing the same filesystem multiple times in <option>lowerdir=</option>.</para>
 
         <para>Mount options may be defined as a single comma-separated list of options, in which case they
         will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
