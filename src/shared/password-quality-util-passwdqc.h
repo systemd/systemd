@@ -6,6 +6,8 @@
 #if HAVE_PASSWDQC
 #include <passwdqc.h>
 
+#include "dlfcn-util.h"
+
 DLSYM_PROTOTYPE(passwdqc_params_reset);
 DLSYM_PROTOTYPE(passwdqc_params_load);
 DLSYM_PROTOTYPE(passwdqc_params_parse);
