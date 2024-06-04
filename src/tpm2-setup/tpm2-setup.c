@@ -252,21 +252,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int setup_srk(void) {
         int r;
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        if (arg_graceful && !tpm2_is_fully_supported()) {
-                log_notice("No complete TPM2 support detected, exiting gracefully.");
-                return EXIT_SUCCESS;
-        }
-
-        umask(0022);
 
         _cleanup_(public_key_data_done) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
 
@@ -388,6 +375,25 @@ static int run(int argc, char *argv[]) {
 
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_graceful && !tpm2_is_fully_supported()) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
+
+        umask(0022);
+
+        return setup_srk();
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
