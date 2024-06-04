@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-06-01 15:13+0900\n"
-"PO-Revision-Date: 2024-05-31 07:35+0000\n"
+"PO-Revision-Date: 2024-06-04 05:35+0000\n"
 "Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -1079,13 +1079,10 @@ msgstr ""
 "Une authentification est requise pour reconfigurer une interface réseau."
 
 #: src/network/org.freedesktop.network1.policy:187
-#, fuzzy
-#| msgid ""
-#| "Specify whether persistent storage for systemd-networkd is available."
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Spécifier si un espace de stockage persistent pour systemd-networkd est "
-"disponible."
+"disponible"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
