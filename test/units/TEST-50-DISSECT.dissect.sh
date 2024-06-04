@@ -389,6 +389,22 @@ systemd-run -P \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             "${BIND_LOG_SOCKETS[@]}" \
             cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+
+# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
+mkdir -p /tmp/loop
+cp /tmp/app0.raw /tmp/loop/app0.raw
+veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --root-hash-file /tmp/loop/app0.roothash
+cp /tmp/loop/app0.raw /tmp/loop/app0_copy.raw
+cp /tmp/loop/app0.verity /tmp/loop/app0_copy.verity
+cp /tmp/loop/app0.roothash /tmp/loop/app0_copy.roothash
+systemd-run -P \
+            --property ExtensionImages=/tmp/loop/app0.raw \
+            --property ExtensionImages=/tmp/loop/app0_copy.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            "${BIND_LOG_SOCKETS[@]}" \
+            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+rm -rf /tmp/loop/
+
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
 mkdir -p /tmp/symlink-test/
 cp /tmp/app-nodistro.raw /tmp/symlink-test/app-nodistro-v1.raw
