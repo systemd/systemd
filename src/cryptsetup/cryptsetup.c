@@ -2416,6 +2416,7 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
+                bool use_cached_passphrase = true;
                 _cleanup_strv_free_erase_ char **passwords = NULL;
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         log_debug("Beginning attempt %u to unlock.", tries);
@@ -2451,7 +2452,8 @@ static int run(int argc, char *argv[]) {
                                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                         }
 
-                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, passphrase_type, &passwords);
+                                        r = get_password(volume, source, until, use_cached_passphrase && !arg_verify, passphrase_type, &passwords);
+                                        use_cached_passphrase = false;
                                         if (r == -EAGAIN)
                                                 continue;
                                         if (r < 0)
