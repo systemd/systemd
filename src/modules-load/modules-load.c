@@ -22,27 +22,7 @@
 static char **arg_proc_cmdline_modules = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
-#define MAX_TASKS 4
-static const int max_tasks = MAX_TASKS;
-
-typedef struct {
-        pthread_t thread;
-        struct kmod_ctx *ctx;
-        char *line;
-        int result;
-} thread_data;
-
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
-
-static void *thread_func(void *arg) {
-        thread_data *data = ASSERT_PTR(arg);
-        const int r = module_load_and_warn(data->ctx, data->line, true);
-        if (r == -ENOENT)
-                return NULL;
-
-        data->result = r;
-        return NULL;
-}
 
 static int add_modules(const char *p) {
         _cleanup_strv_free_ char **k = NULL;
@@ -73,27 +53,26 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static void exec_task(int *tasks, int *r, thread_data *data, char *line, const bool to_free) {
-        int i = *tasks;
-        while (*tasks >= max_tasks) {
-                for (i = 0; i < max_tasks; ++i) {
-                        if (pthread_tryjoin_np(data[i].thread, NULL) == 0) {
-                                RET_GATHER(*r, data[i].result);
-                                if (to_free)
-                                        free(data[i].line);
+static void *worker_thread(void *arg) {
+        int sock_fd = *(int *) arg;
+        char buffer[32];
+        ssize_t bytes_received;
+        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        int r = module_setup_context(&ctx);
+        if (r < 0)
+                log_error_errno(r, "Failed to initialize libkmod context: %m");
 
-                                --*tasks;
-                                break;
-                        }
-                }
+        while ((bytes_received = recv(sock_fd, buffer, sizeof(buffer), 0)) > 0) {
+                buffer[bytes_received] = '\0';
+                r = module_load_and_warn(ctx, buffer, true);
         }
 
-        data[i].line = line;
-        pthread_create(&data[i].thread, NULL, thread_func, &data[i]);
-        ++*tasks;
+        // Clean up and close the socket
+        safe_close(sock_fd);
+        return NULL;
 }
 
-static int apply_file(thread_data *data, const char *path, bool ignore_enoent) {
+static int apply_file(const int *sockets, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
         int r;
@@ -109,9 +88,8 @@ static int apply_file(thread_data *data, const char *path, bool ignore_enoent) {
         }
 
         log_debug("apply: %s", pp);
-        int tasks = 0;
         for (;;) {
-                char *line = NULL;
+                _cleanup_free_ char *line = NULL;
                 int k;
 
                 k = read_stripped_line(f, LONG_LINE_MAX, &line);
@@ -125,13 +103,8 @@ static int apply_file(thread_data *data, const char *path, bool ignore_enoent) {
                 if (strchr(COMMENTS, *line))
                         continue;
 
-                exec_task(&tasks, &r, data, line, true);
-        }
-
-        for (int i = 0; i < max_tasks; ++i) {
-                pthread_join(data[i].thread, NULL);
-                RET_GATHER(r, data[i].result);
-                free(data[i].line);
+                if (send(sockets[0], line, strlen(line), 0) == -1)
+                        log_error_errno(errno, "send");
         }
 
         return r;
@@ -191,11 +164,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void threads_data_cleanup(thread_data (*data)[max_tasks]) {
-        for (int i = 0; i < max_tasks; ++i)
-                sym_kmod_unref((*data)[i].ctx);
-}
-
 static int run(int argc, char *argv[]) {
         int r, k;
 
@@ -211,35 +179,41 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        int tasks = 0;
-        _cleanup_(threads_data_cleanup) thread_data data[MAX_TASKS] = { 0 };
-        for (int i = 0; i < max_tasks; ++i) {
-                r = module_setup_context(&data[i].ctx);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to initialize libkmod context: %m");
-        }
+        _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
+        const int max_tasks = MAX(MIN(sysconf(_SC_NPROCESSORS_ONLN) / 2, 10), 2);
+        _cleanup_free_ pthread_t *threads = malloc(sizeof(pthread_t) * max_tasks);
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, seq) == -1)
+                log_error_errno(errno, "socketpair");
+
+        // Create worker threads
+        for (int i = 0; i < max_tasks; ++i)
+                if (pthread_create(&threads[i], NULL, worker_thread, &seq[1]) != 0)
+                        log_error_errno(errno, "pthread_create");
 
         r = 0;
         if (argc > optind) {
                 for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, apply_file(data, argv[i], false));
+                        RET_GATHER(r, apply_file(seq, argv[i], false));
         } else {
                 _cleanup_strv_free_ char **files = NULL;
                 STRV_FOREACH(i, arg_proc_cmdline_modules)
-                        exec_task(&tasks, &r, data, *i, false);
-
-                for (int i = 0; i < tasks; ++i) {
-                        pthread_join(data[i].thread, NULL);
-                        RET_GATHER(r, data[i].result);
-                }
+                        if (send(seq[0], *i, strlen(*i), 0))
+                                log_error_errno(errno, "send");
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
                         return log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
 
                 STRV_FOREACH(fn, files)
-                        RET_GATHER(r, apply_file(data, *fn, true));
+                        RET_GATHER(r, apply_file(seq, *fn, true));
         }
+
+        // Close the sending socket
+        safe_close(seq[0]);
+
+        // Wait for all threads to finish
+        for (int i = 0; i < max_tasks; ++i)
+                pthread_join(threads[i], NULL);
 
         return r;
 }
