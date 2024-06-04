@@ -13,6 +13,7 @@
 #include "hmac.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "keyring-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
@@ -202,7 +203,6 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         char *d, *p, *g, *u, *e;
         unsigned long perms;
         key_serial_t key;
-        size_t sz = 256;
         uid_t uid;
         gid_t gid;
         int r, c;
@@ -221,24 +221,9 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
                 return -errno;
         }
 
-        for (;;) {
-                description = new(char, sz);
-                if (!description)
-                        return -ENOMEM;
-
-                c = keyctl(KEYCTL_DESCRIBE, key, (unsigned long) description, sz, 0);
-                if (c < 0)
-                        return -errno;
-
-                if ((size_t) c <= sz)
-                        break;
-
-                sz = c;
-                free(description);
-        }
-
-        /* The kernel returns a final NUL in the string, verify that. */
-        assert(description[c-1] == 0);
+        r = keyring_describe(key, &description);
+        if (r < 0)
+                return r;
 
         /* Chop off the final description string */
         d = strrchr(description, ';');
