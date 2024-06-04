@@ -42,7 +42,7 @@ DIST="$(rpm --eval %dist)"
 ARCH="$(rpm --eval %_arch)"
 SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
-MKOSI_CFLAGS="-Wp,-U_FORTIFY_SOURCE"
+MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
 if ((WITH_DEBUG)); then
     MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
 fi
