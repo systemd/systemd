@@ -5,6 +5,9 @@ SUBSYSTEM!="net", GOTO="net_end"
 
 IMPORT{builtin}="hwdb 'net:naming:dr$env{ID_NET_DRIVER}:'"
 
+# If MAC address pass-through for laptop docks is used, import the cloned MAC address, so that net_id can filter it
+ENV{ID_NET_PASSTHROUGH_MAC}="$attr{[platform/thinkpad_acpi]auxmac}"
+
 IMPORT{builtin}="net_id"
 
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
