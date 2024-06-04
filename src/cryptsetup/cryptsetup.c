@@ -2465,17 +2465,35 @@ static int run(int argc, char *argv[]) {
                         if (r != -EAGAIN)
                                 return r;
 
-                        /* Key not correct? Let's try again! */
+                        /* Key not correct? Let's try again, but let's invalidate one of the passed fields,
+                         * so that we fallback to the next best thing. */
 
-                        key_file = NULL;
-                        key_data = erase_and_free(key_data);
-                        key_data_size = 0;
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = false;
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = false;
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = false;
+                        if (arg_tpm2_device || arg_tpm2_device_auto) {
+                                arg_tpm2_device = mfree(arg_tpm2_device);
+                                arg_tpm2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_fido2_device || arg_fido2_device_auto) {
+                                arg_fido2_device = mfree(arg_fido2_device);
+                                arg_fido2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
+                                arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                                arg_pkcs11_uri_auto = false;
+                                continue;
+                        }
+
+                        if (key_data) {
+                                key_data = erase_and_free(key_data);
+                                key_data_size = 0;
+                                continue;
+                        }
+
+                        if (key_file)
+                                key_file = NULL;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
