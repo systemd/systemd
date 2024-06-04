@@ -44,7 +44,7 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
-MKOSI_CFLAGS=""
+MKOSI_CFLAGS="-O0"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
     MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
