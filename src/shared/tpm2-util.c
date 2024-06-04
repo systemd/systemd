@@ -6424,6 +6424,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_FILESYSTEM] = "filesystem",
         [TPM2_EVENT_VOLUME_KEY] = "volume-key",
         [TPM2_EVENT_MACHINE_ID] = "machine-id",
+        [TPM2_EVENT_PRODUCT_ID] = "product-id",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
