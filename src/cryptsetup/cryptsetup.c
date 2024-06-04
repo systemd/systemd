@@ -2416,8 +2416,10 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
+                bool use_cached_passphrase = true;
+                _cleanup_strv_free_erase_ char **passwords = NULL;
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
+                        log_debug("Beginning attempt %u to unlock.", tries);
 
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
@@ -2428,7 +2430,9 @@ static int run(int argc, char *argv[]) {
                          *    5. We enquire the user for a password
                          */
 
-                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
+                        if (!passwords && !key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
+
+                                /* If we have nothing to try anymore, then acquire a new password */
 
                                 if (arg_try_empty_password) {
                                         /* Hmm, let's try an empty password now, but only once */
@@ -2448,7 +2452,8 @@ static int run(int argc, char *argv[]) {
                                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                         }
 
-                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, passphrase_type, &passwords);
+                                        r = get_password(volume, source, until, use_cached_passphrase && !arg_verify, passphrase_type, &passwords);
+                                        use_cached_passphrase = false;
                                         if (r == -EAGAIN)
                                                 continue;
                                         if (r < 0)
@@ -2465,17 +2470,44 @@ static int run(int argc, char *argv[]) {
                         if (r != -EAGAIN)
                                 return r;
 
-                        /* Key not correct? Let's try again! */
+                        /* Key not correct? Let's try again, but let's invalidate one of the passed fields,
+                         * so that we fallback to the next best thing. */
 
-                        key_file = NULL;
-                        key_data = erase_and_free(key_data);
-                        key_data_size = 0;
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = false;
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = false;
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = false;
+                        if (arg_tpm2_device || arg_tpm2_device_auto) {
+                                arg_tpm2_device = mfree(arg_tpm2_device);
+                                arg_tpm2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_fido2_device || arg_fido2_device_auto) {
+                                arg_fido2_device = mfree(arg_fido2_device);
+                                arg_fido2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
+                                arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                                arg_pkcs11_uri_auto = false;
+                                continue;
+                        }
+
+                        if (key_data) {
+                                key_data = erase_and_free(key_data);
+                                key_data_size = 0;
+                                continue;
+                        }
+
+                        if (key_file) {
+                                key_file = NULL;
+                                continue;
+                        }
+
+                        if (passwords) {
+                                passwords = strv_free_erase(passwords);
+                                continue;
+                        }
+
+                        log_debug("Prepared for next attempt to unlock.");
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
