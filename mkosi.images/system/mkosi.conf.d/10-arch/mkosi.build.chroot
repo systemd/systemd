@@ -21,10 +21,7 @@ ln --symbolic "$BUILDDIR" "pkg/$ID/build"
 # Because we run with --noextract we are responsible for making sure the source files appear in src/.
 ln --symbolic . "pkg/$ID/src"
 
-# shellcheck source=/dev/null
-. /etc/makepkg.conf
-
-MKOSI_CFLAGS="-Wp,-U_FORTIFY_SOURCE"
+MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
     MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
