@@ -73,7 +73,7 @@ build() {
         $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
         $( ! ((MESON_VERBOSE)) && echo terse) \
         optimize=-lto \
-        hardening=-fortify \
+        $( [[ "${OPTIMIZATION:-0}" =~ ^[0g]$ ]] || [[ -n "$SANITIZERS" ]] && echo hardening=-fortify) \
     ")" \
     DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \

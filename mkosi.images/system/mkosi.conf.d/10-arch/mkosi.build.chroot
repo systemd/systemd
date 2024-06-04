@@ -24,7 +24,10 @@ ln --symbolic . "pkg/$ID/src"
 # shellcheck source=/dev/null
 . /etc/makepkg.conf
 
-MKOSI_CFLAGS="-O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
+MKOSI_CFLAGS="-O${OPTIMIZATION:-0}"
+if [[ "${OPTIMIZATION:-0}" =~ ^[0g]$ ]] || [[ -n "$SANITIZERS" ]]; then
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -Wp,-U_FORTIFY_SOURCE"
+fi
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
     MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
