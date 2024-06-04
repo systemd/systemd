@@ -4034,11 +4034,12 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_sysext_level,
                 const char *required_host_os_release_confext_level,
                 const char *required_sysext_scope,
+                VeritySettings *verity,
                 DissectedImage **ret_image) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_(verity_settings_done) VeritySettings local_verity = VERITY_SETTINGS_DEFAULT;
         DissectImageFlags dissect_image_flags;
         bool relax_extension_release_check;
         int r;
@@ -4050,13 +4051,18 @@ int verity_dissect_and_mount(
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
-        /* We might get an FD for the image, but we use the original path to look for the dm-verity files */
-        r = verity_settings_load(&verity, src, NULL, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load root hash: %m");
+        /* We might get an FD for the image, but we use the original path to look for the dm-verity files.
+         * The caller might also give us a pre-loaded VeritySettings, in which case we just use it. */
+        if (!verity) {
+                r = verity_settings_load(&local_verity, src, NULL, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load root hash: %m");
+
+                verity = &local_verity;
+        }
 
         dissect_image_flags =
-                (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
+                (verity->data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
                 (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
@@ -4068,7 +4074,7 @@ int verity_dissect_and_mount(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                         /* open_flags= */ -1,
                         /* sector_size= */ UINT32_MAX,
-                        verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
+                        verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
                         &loop_device);
         if (r < 0)
@@ -4076,16 +4082,16 @@ int verity_dissect_and_mount(
 
         r = dissect_loop_device(
                         loop_device,
-                        &verity,
+                        verity,
                         options,
                         image_policy,
                         dissect_image_flags,
                         &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
-        if (!verity.data_path && r == -ENOPKG)
+        if (!verity->data_path && r == -ENOPKG)
                  r = dissect_loop_device(
                                 loop_device,
-                                &verity,
+                                verity,
                                 options,
                                 image_policy,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
@@ -4093,14 +4099,14 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
-        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, &verity);
+        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
         if (r < 0)
                 return r;
 
         r = dissected_image_decrypt(
                         dissected_image,
                         NULL,
-                        &verity,
+                        verity,
                         dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
