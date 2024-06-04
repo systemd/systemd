@@ -36,6 +36,7 @@ struct strbuf* strbuf_new(void) {
                 .buf = new0(char, 1),
                 .root = new0(struct strbuf_node, 1),
                 .len = 1,
+                .cap = 1,
                 .nodes_count = 1,
         };
         if (!str->buf || !str->root) {
@@ -45,6 +46,17 @@ struct strbuf* strbuf_new(void) {
         }
 
         return str;
+}
+
+int strbuf_reserve(struct strbuf *str, size_t cap) {
+        void *nbuf;
+        if (cap <= str->cap) return 0;
+        nbuf = realloc(str->buf, cap);
+        if (!nbuf)
+                return -errno;
+        str->buf = nbuf;
+        str->cap = cap;
+        return 0;
 }
 
 static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
@@ -107,7 +119,6 @@ static void bubbleinsert(struct strbuf_node *node,
 /* add string, return the index/offset into the buffer */
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
-        char *buf_new;
         struct strbuf_child_entry *child;
         struct strbuf_node *node;
         ssize_t off;
@@ -146,11 +157,17 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                 node = child->child;
         }
 
-        /* add new string */
-        buf_new = realloc(str->buf, str->len + len+1);
-        if (!buf_new)
-                return -ENOMEM;
-        str->buf = buf_new;
+        /* multiply the capacity if needed */
+        if ((str->len + len + 1) > str->cap) {
+                size_t newcap = str->cap * 2;
+                while ((str->len + len + 1) > newcap)
+                        newcap *= 2;
+                void *newp = realloc(str->buf, newcap);
+                if (!newp)
+                        return -ENOMEM;
+                str->buf = newp;
+                str->cap = newcap;
+        }
         off = str->len;
         memcpy(str->buf + off, s, len);
         str->len += len;
