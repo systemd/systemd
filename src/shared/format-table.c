@@ -315,12 +315,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_INT64:
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
         case TABLE_BPS:
                 return sizeof(uint64_t);
 
         case TABLE_INT32:
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sizeof(uint32_t);
 
         case TABLE_INT16:
@@ -1029,12 +1031,14 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
                         break;
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         buffer.uint64 = va_arg(ap, uint64_t);
                         data = &buffer.uint64;
                         break;
@@ -1439,10 +1443,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         return CMP(a->uint32, b->uint32);
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         return CMP(a->uint64, b->uint64);
 
                 case TABLE_PERCENT:
@@ -1842,6 +1848,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 break;
         }
 
+        case TABLE_UINT32_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 8 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx32, d->uint32);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_UINT64: {
                 _cleanup_free_ char *p = NULL;
 
@@ -1862,6 +1880,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 sprintf(p, "%" PRIx64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT64_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 16 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx64, d->uint64);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -2810,10 +2840,12 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint32);
 
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint64);
 
         case TABLE_PERCENT:
