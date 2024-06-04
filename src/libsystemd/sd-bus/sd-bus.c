@@ -51,20 +51,21 @@
 #define log_debug_bus_message(m)                                         \
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
-                log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s " \
-                          " cookie=%" PRIu64 " reply_cookie=%" PRIu64   \
-                          " signature=%s error-name=%s error-message=%s", \
-                          strna(bus_message_type_to_string(_mm->header->type)), \
-                          strna(sd_bus_message_get_sender(_mm)),         \
-                          strna(sd_bus_message_get_destination(_mm)),    \
-                          strna(sd_bus_message_get_path(_mm)),           \
-                          strna(sd_bus_message_get_interface(_mm)),      \
-                          strna(sd_bus_message_get_member(_mm)),         \
-                          BUS_MESSAGE_COOKIE(_mm),                       \
-                          _mm->reply_cookie,                             \
-                          strna(_mm->root_container.signature),          \
-                          strna(_mm->error.name),                        \
-                          strna(_mm->error.message));                    \
+                if (_mm->header->type != SD_BUS_MESSAGE_SIGNAL || LOG_TRACE) \
+                        log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s " \
+                                " cookie=%" PRIu64 " reply_cookie=%" PRIu64   \
+                                " signature=%s error-name=%s error-message=%s", \
+                                strna(bus_message_type_to_string(_mm->header->type)), \
+                                strna(sd_bus_message_get_sender(_mm)),         \
+                                strna(sd_bus_message_get_destination(_mm)),    \
+                                strna(sd_bus_message_get_path(_mm)),           \
+                                strna(sd_bus_message_get_interface(_mm)),      \
+                                strna(sd_bus_message_get_member(_mm)),         \
+                                BUS_MESSAGE_COOKIE(_mm),                       \
+                                _mm->reply_cookie,                             \
+                                strna(_mm->root_container.signature),          \
+                                strna(_mm->error.name),                        \
+                                strna(_mm->error.message));                    \
         } while (false)
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
@@ -2052,7 +2053,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (r <= 0)
                 return r;
 
-        if (*idx >= BUS_MESSAGE_SIZE(m))
+        if (*idx >= BUS_MESSAGE_SIZE(m) && (m->header->type != SD_BUS_MESSAGE_SIGNAL || LOG_TRACE))
                 log_debug("Sent message type=%s sender=%s destination=%s path=%s interface=%s member=%s"
                           " cookie=%" PRIu64 " reply_cookie=%" PRIu64
                           " signature=%s error-name=%s error-message=%s",
