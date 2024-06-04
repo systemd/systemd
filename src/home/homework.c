@@ -379,6 +379,9 @@ static int keyring_flush(UserRecord *h) {
 
         assert(h);
 
+        if (user_record_storage(h) == USER_FSCRYPT && uid_is_valid(h->uid))
+                (void) home_flush_keyring_fscrypt(h);
+
         name = strjoin("homework-user-", h->user_name);
         if (!name)
                 return log_oom();
