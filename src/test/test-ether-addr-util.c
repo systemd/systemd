@@ -140,10 +140,35 @@ TEST(parse_hw_addr) {
         test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", 0, NULL);
         test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", 8, "12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
+        /* No separator */
+        test_parse_hw_addr_full_one("", 0, NULL);
+        test_parse_hw_addr_full_one("", SIZE_MAX, NULL);
+        test_parse_hw_addr_full_one("1", 0, NULL);
+        test_parse_hw_addr_full_one("1", SIZE_MAX, NULL);
+        test_parse_hw_addr_full_one("12", 0, NULL);
+        test_parse_hw_addr_full_one("12", 1, "12");
+        test_parse_hw_addr_full_one("12", SIZE_MAX, "12");
+        test_parse_hw_addr_full_one("123", 0, NULL);
+        test_parse_hw_addr_full_one("123", SIZE_MAX, NULL);
+        test_parse_hw_addr_full_one("1234", 0, NULL);
+        test_parse_hw_addr_full_one("1234", 2, "12:34");
+        test_parse_hw_addr_full_one("1234", SIZE_MAX, "12:34");
+        test_parse_hw_addr_full_one("1234567890ab", 0, "12:34:56:78:90:ab");
+        test_parse_hw_addr_full_one("1234567890ab", 2, NULL);
+        test_parse_hw_addr_full_one("1234567890ab", 6, "12:34:56:78:90:ab");
+        test_parse_hw_addr_full_one("1234567890ab", 8, NULL);
+        test_parse_hw_addr_full_one("1234567890ab", SIZE_MAX, "12:34:56:78:90:ab");
+        test_parse_hw_addr_full_one("1234567890abcde", 0, NULL);
+        test_parse_hw_addr_full_one("1234567890abcde", SIZE_MAX, NULL);
+        test_parse_hw_addr_full_one("1234567890abcdef", 0, NULL);
+        test_parse_hw_addr_full_one("1234567890abcdef", 8, "12:34:56:78:90:ab:cd:ef");
+        test_parse_hw_addr_full_one("1234567890abcdef", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
+        test_parse_hw_addr_full_one("1234567890ABCDEF", 0, NULL);
+        test_parse_hw_addr_full_one("1234567890ABCDEF", 8, "12:34:56:78:90:ab:cd:ef");
+        test_parse_hw_addr_full_one("1234567890ABCDEF", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
 
         /* Invalid */
         test_parse_hw_addr_full_one("", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12", SIZE_MAX, NULL);
         test_parse_hw_addr_full_one("12.", SIZE_MAX, NULL);
         test_parse_hw_addr_full_one("12.34.", SIZE_MAX, NULL);
         test_parse_hw_addr_full_one(".12", SIZE_MAX, NULL);

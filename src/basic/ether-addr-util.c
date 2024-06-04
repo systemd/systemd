@@ -150,7 +150,7 @@ static int parse_hw_addr_one_field(const char **s, char sep, size_t len, uint8_t
                 p++;
         }
 
-        if (*p != '\0' && *p != sep)
+        if (sep != 0 && *p != '\0' && *p != sep)
                 return -EINVAL;
 
         switch (len) {
@@ -167,7 +167,7 @@ static int parse_hw_addr_one_field(const char **s, char sep, size_t len, uint8_t
 
         cont = *p == sep;
         *s = p + cont;
-        return cont;
+        return *p != 0;
 }
 
 int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *ret) {
@@ -185,6 +185,7 @@ int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *
          * Dot separated 2 bytes format: xxyy.zzaa.bbcc
          * Colon separated 1 bytes format: xx:yy:zz:aa:bb:cc
          * Hyphen separated 1 bytes format: xx-yy-zz-aa-bb-cc
+         * 6 bytes format without separator: xxyyzzaabbcc
          *
          * Moreover, if expected_len == 0, 4, or 16, this also accepts:
          *
@@ -218,11 +219,14 @@ int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *
         max_len =
                 expected_len == 0 ? INFINIBAND_ALEN :
                 expected_len == SIZE_MAX ? HW_ADDR_MAX_SIZE : expected_len;
-        sep = s[strspn(s, HEXDIGITS)];
+        size_t m = strspn(s, HEXDIGITS);
+        sep = s[m];
 
         if (sep == '.')
                 field_size = 2;
         else if (IN_SET(sep, ':', '-'))
+                field_size = 1;
+        else if (sep == 0 && m % 2 == 0 && m > 0)
                 field_size = 1;
         else
                 return -EINVAL;
