@@ -2245,12 +2245,11 @@ static int udev_rule_apply_token_to_event(
                 bool truncated;
 
                 if (udev_builtin_run_once(cmd)) {
-                        /* check if we ran already */
-                        if (event->builtin_run & mask) {
+                        /* check if we ran already and we only skip running again if it succeeded last time */
+                        if ((event->builtin_run & mask) && !(event->builtin_ret & mask)) {
                                 log_event_debug(dev, token, "Skipping builtin '%s' in IMPORT key",
                                                 udev_builtin_name(cmd));
-                                /* return the result from earlier run */
-                                return token->op == (event->builtin_ret & mask ? OP_NOMATCH : OP_MATCH);
+                                return OP_MATCH;
                         }
                         /* mark as ran */
                         event->builtin_run |= mask;
