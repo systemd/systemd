@@ -449,10 +449,7 @@ int unit_watch_cgroup_memory(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);
-void unit_release_cgroup(Unit *u);
-/* Releases the cgroup only if it is recursively empty.
- * Returns true if the cgroup was released, false otherwise. */
-bool unit_maybe_release_cgroup(Unit *u);
+void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime);
 
 void unit_add_to_cgroup_empty_queue(Unit *u);
 int unit_check_oomd_kill(Unit *u);
