@@ -982,6 +982,9 @@ if default_keymap == ''
 endif
 conf.set_quoted('SYSTEMD_DEFAULT_KEYMAP', default_keymap)
 
+default_timezone = get_option('default-timezone')
+conf.set_quoted('SYSTEMD_DEFAULT_TIMEZONE', default_timezone)
+
 localegen_path = get_option('localegen-path')
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
