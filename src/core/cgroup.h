@@ -496,10 +496,10 @@ void unit_reset_io_accounting_last(Unit *u);
 int unit_reset_io_accounting(Unit *u);
 int unit_reset_accounting(Unit *u);
 
-#define UNIT_CGROUP_BOOL(u, name)                       \
-        ({                                              \
-        CGroupContext *cc = unit_get_cgroup_context(u); \
-        cc ? cc->name : false;                          \
+#define UNIT_CGROUP_BOOL(u, name)                               \
+        ({                                                      \
+                CGroupContext *cc = unit_get_cgroup_context(u); \
+                cc ? cc->name : false;                          \
         })
 
 bool manager_owns_host_root_cgroup(Manager *m);
