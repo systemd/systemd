@@ -18,7 +18,7 @@ int clock_reset_timewarp(void) {
         return RET_NERRNO(settimeofday(NULL, &tz));
 }
 
-void clock_apply_epoch(void) {
+void clock_apply_epoch(bool allow_backwards) {
         usec_t epoch_usec = 0, timesyncd_usec = 0;
         struct stat st;
         int r;
@@ -47,7 +47,9 @@ void clock_apply_epoch(void) {
 
         if (now_usec < epoch_usec)
                 advance = true;
-        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 && now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX))
+        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 &&
+                 now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX) &&
+                 allow_backwards)
                 advance = false;
         else
                 return;  /* Nothing to do. */
