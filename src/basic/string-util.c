@@ -24,37 +24,26 @@
 #include "utf8.h"
 
 char* first_word(const char *s, const char *word) {
-        size_t sl, wl;
-        const char *p;
-
         assert(s);
         assert(word);
 
-        /* Checks if the string starts with the specified word, either
-         * followed by NUL or by whitespace. Returns a pointer to the
-         * NUL or the first character after the whitespace. */
+        /* Checks if the string starts with the specified word, either followed by NUL or by whitespace.
+         * Returns a pointer to the NUL or the first character after the whitespace. */
 
-        sl = strlen(s);
-        wl = strlen(word);
-
-        if (sl < wl)
-                return NULL;
-
-        if (wl == 0)
+        if (isempty(word))
                 return (char*) s;
 
-        if (memcmp(s, word, wl) != 0)
+        const char *p = startswith(s, word);
+        if (!p)
                 return NULL;
-
-        p = s + wl;
-        if (*p == 0)
+        if (*p == '\0')
                 return (char*) p;
 
-        if (!strchr(WHITESPACE, *p))
+        const char *nw = skip_leading_chars(p, WHITESPACE);
+        if (p == nw)
                 return NULL;
 
-        p += strspn(p, WHITESPACE);
-        return (char*) p;
+        return (char*) nw;
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
