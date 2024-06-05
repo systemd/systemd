@@ -1073,7 +1073,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, int pty_slave) {
         bool send_term = false;
         int r;
 
@@ -1132,19 +1132,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
         }
 
-        if (pty_path) {
-                _cleanup_close_ int pty_slave = -EBADF;
-
-                pty_slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                if (pty_slave < 0)
-                        return pty_slave;
-
+        if (pty_slave != -EBADF) {
                 r = sd_bus_message_append(m,
-                                          "(sv)(sv)(sv)(sv)",
+                                          "(sv)(sv)(sv)",
                                           "StandardInputFileDescriptor", "h", pty_slave,
                                           "StandardOutputFileDescriptor", "h", pty_slave,
-                                          "StandardErrorFileDescriptor", "h", pty_slave,
-                                          "TTYPath", "s", pty_path);
+                                          "StandardErrorFileDescriptor", "h", pty_slave);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1526,7 +1519,7 @@ static int make_transient_service_unit(
                 sd_bus *bus,
                 sd_bus_message **message,
                 const char *service,
-                const char *pty_path) {
+                int pty_slave) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1553,7 +1546,7 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = transient_service_set_properties(m, pty_path);
+        r = transient_service_set_properties(m, pty_slave);
         if (r < 0)
                 return r;
 
@@ -1674,8 +1667,8 @@ static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_free_ char *service = NULL, *pty_path = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, pty_slave = -EBADF;
+        _cleanup_free_ char *service = NULL;
         int r;
 
         assert(bus);
@@ -1683,6 +1676,8 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
+                        _cleanup_free_ char *pty_path = NULL;
+
                         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
@@ -1702,10 +1697,15 @@ static int start_transient_service(sd_bus *bus) {
                         if (unlockpt(master) < 0)
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
 
+                        pty_slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (pty_slave < 0)
+                                return log_error_errno(pty_slave, "Failed to open %s: %m", pty_path);
+
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
-                        const char *s;
+                        const char *pty_path;
+                        pid_t leader;
 
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
@@ -1720,7 +1720,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
-                        r = sd_bus_message_read(pty_reply, "hs", &master, &s);
+                        r = sd_bus_message_read(pty_reply, "hs", &master, &pty_path);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1728,9 +1728,21 @@ static int start_transient_service(sd_bus *bus) {
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to duplicate master fd: %m");
 
-                        pty_path = strdup(s);
-                        if (!pty_path)
-                                return log_oom();
+                        r = sd_bus_get_property_trivial(
+                                        system_bus,
+                                        "org.freedesktop.machine1",
+                                        strjoina("/org/freedesktop/machine1/machine/", arg_host),
+                                        "org.freedesktop.machine1.Machine",
+                                        "Leader",
+                                        &error,
+                                        'u', &leader);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get machine leader: %s", bus_error_message(&error, r));
+
+                        pty_slave = open_terminal_in_namespace(leader, pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (pty_slave < 0)
+                                return log_error_errno(pty_slave, "Failed to open %s in namespace: %m", pty_path);
+
                 } else
                         assert_not_reached();
         }
@@ -1757,7 +1769,7 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_slave);
         if (r < 0)
                 return r;
 
@@ -2204,7 +2216,7 @@ static int make_transient_trigger_unit(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, NULL);
+                r = transient_service_set_properties(m, -EBADF);
                 if (r < 0)
                         return r;
 
