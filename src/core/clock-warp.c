@@ -19,18 +19,28 @@ int clock_reset_timewarp(void) {
 }
 
 void clock_apply_epoch(void) {
-        usec_t epoch_usec;
+        usec_t epoch_usec = 0, timesyncd_usec = 0;
         struct stat st;
         int r;
 
-        r = RET_NERRNO(stat(EPOCH_CLOCK_FILE, &st));
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_warning_errno(r, "Cannot stat " EPOCH_CLOCK_FILE ": %m");
-
-                epoch_usec = (usec_t) TIME_EPOCH * USEC_PER_SEC;
-        } else
+        r = RET_NERRNO(stat(TIMESYNCD_CLOCK_FILE, &st));
+        if (r >= 0)
                 epoch_usec = timespec_load(&st.st_mtim);
+        else if (r != -ENOENT)
+                log_warning_errno(r, "Could not stat %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
+
+        r = RET_NERRNO(stat(EPOCH_CLOCK_FILE, &st));
+        if (r >= 0)
+                timesyncd_usec = timespec_load(&st.st_mtim);
+        else if (r != -ENOENT)
+                log_warning_errno(r, "Could not stat %s, ignoring: %m", EPOCH_CLOCK_FILE);
+
+        epoch_usec = MAX3(epoch_usec,
+                          timesyncd_usec,
+                          (usec_t) TIME_EPOCH * USEC_PER_SEC);
+
+        if (epoch_usec == 0)  /* Weird, but may happen if mtimes were reset to 0 during compilation. */
+                return log_debug("Clock epoch is 0, skipping clock adjustment.");
 
         usec_t now_usec = now(CLOCK_REALTIME);
         bool advance;
