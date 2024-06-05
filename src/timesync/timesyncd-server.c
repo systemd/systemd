@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "string-table.h"
 #include "timesyncd-server.h"
 
@@ -101,6 +102,8 @@ int server_name_new(
                 return -ENOMEM;
         }
 
+        (void) server_name_parse_port(n); // side effect processes port detail from string if present
+
         switch (type) {
         case SERVER_SYSTEM:
                 LIST_APPEND(names, m->system_servers, n);
@@ -127,7 +130,7 @@ int server_name_new(
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new %s server %s.", server_type_to_string(type), string);
+        log_debug("Added new %s server %s.", server_type_to_string(type), n->string);
 
         if (ret)
                 *ret = n;
@@ -174,4 +177,40 @@ void server_name_flush_addresses(ServerName *n) {
 
         while (n->addresses)
                 server_address_free(n->addresses);
+}
+
+int server_name_parse_port(ServerName *n) {
+        const char *sqr = "]", *col = ":";
+        char *ret_sqr, *ret_col, *last_col;
+
+        ret_sqr = strrchr(n->string, *sqr);
+        ret_col = strchr(n->string, *col);
+        last_col = strrchr(n->string, *col);
+
+        if (ret_sqr == NULL && ret_col == NULL) { // server.domain or I.P.v.4
+                return 0;
+        } else if (ret_sqr == NULL && strlen(ret_col) == strlen(last_col)) { // has no ']' and exactly one ":"
+                const char *word = strdupa_safe(n->string);
+                (void) extract_first_word(&word, &n->string, col, 0);
+                (void) extract_first_word(&word, &n->overridden_port, col, 0);
+                log_debug("Matched single port: %s / %s", n->string, n->overridden_port);
+                return 1;
+        } else if (ret_sqr == NULL && ret_col != NULL && last_col != NULL && strlen(ret_col) != strlen(last_col)) {
+                // naked IP::v:6, no ']' and more than one ':'
+                return 0;
+        } else if (ret_sqr != NULL && strlen(ret_sqr) == strlen(last_col)+1) { // [IP::v:6]:port with "]:" substring
+                const char *word = strdupa_safe(n->string);
+                (void) extract_first_word(&word, &ret_col, sqr, 0);
+                n->string = strncat(ret_col, sqr, strlen(sqr)+1);
+                word = last_col;
+                (void) extract_first_word(&word, &n->overridden_port, col, 0);
+                log_debug("Matched [IP::v:6]:port, output  %s / %s", n->string, n->overridden_port);
+                return 2;
+        } else if (ret_sqr != NULL && last_col != NULL && strlen(ret_sqr) != strlen(last_col)+1) {
+                // [IP::v:6] without port -- no "]:" substring
+                return 0;
+        } else {
+                assert_not_reached();
+                return -1;
+        }
 }
