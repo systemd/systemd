@@ -3835,69 +3835,6 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, NULL);
 }
 
-static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
-        _cleanup_free_ char *dropped = NULL, *kept = NULL;
-
-        assert(el);
-        assert(pcrs);
-
-        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of three
-         * reasons:
-         *
-         * 1. The PCR value doesn't match the event log
-         * 2. The event log for the PCR contains measurements we don't know responsible components for
-         * 3. The event log for the PCR does not contain measurements for components we know
-         *
-         * This function checks for the three conditions and drops the PCR from the mask.
-         */
-
-        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-
-                if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
-                        continue;
-
-                if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
-                        log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                if (!el->registers[pcr].fully_recognized) {
-                        log_notice("PCR %" PRIu32 " (%s) event log contains unrecognized measurements. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                if (FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr)) {
-                        log_notice("PCR %" PRIu32 " (%s) is touched by component we can't find in event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-
-                if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
-                        return log_oom();
-
-                continue;
-
-        drop:
-                *pcrs &= ~(UINT32_C(1) << pcr);
-
-                if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
-                        return log_oom();
-        }
-
-        if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
-        else
-                log_debug("No PCRs dropped from protection mask.");
-
-        if (kept)
-                log_notice("PCRs in protection mask: %s", kept);
-        else
-                log_notice("No PCRs kept in protection mask.");
-
-        return 0;
-}
-
 static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
@@ -3964,6 +3901,69 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
 
 static int verb_unlock_kernel_initrd(int argc, char *argv[], void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
+}
+
+static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
+        _cleanup_free_ char *dropped = NULL, *kept = NULL;
+
+        assert(el);
+        assert(pcrs);
+
+        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of three
+         * reasons:
+         *
+         * 1. The PCR value doesn't match the event log
+         * 2. The event log for the PCR contains measurements we don't know responsible components for
+         * 3. The event log for the PCR does not contain measurements for components we know
+         *
+         * This function checks for the three conditions and drops the PCR from the mask.
+         */
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+
+                if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                if (!el->registers[pcr].fully_recognized) {
+                        log_notice("PCR %" PRIu32 " (%s) event log contains unrecognized measurements. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                if (FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) is touched by component we can't find in event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+
+                if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
+                        return log_oom();
+
+                continue;
+
+        drop:
+                *pcrs &= ~(UINT32_C(1) << pcr);
+
+                if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
+                        return log_oom();
+        }
+
+        if (dropped)
+                log_notice("PCRs dropped from protection mask: %s", dropped);
+        else
+                log_debug("No PCRs dropped from protection mask.");
+
+        if (kept)
+                log_notice("PCRs in protection mask: %s", kept);
+        else
+                log_notice("No PCRs kept in protection mask.");
+
+        return 0;
 }
 
 static int pcr_prediction_add_result(
