@@ -30,9 +30,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/networkd.conf</filename></member>
       <member><filename>/run/systemd/networkd.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/networkd.conf</filename></member>
       <member><filename>/usr/lib/systemd/networkd.conf</filename></member>
       <member><filename>/etc/systemd/networkd.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/networkd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/networkd.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
