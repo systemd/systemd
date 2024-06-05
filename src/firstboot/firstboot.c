@@ -209,7 +209,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
-                        log_warning("No data entered, skipping.");
+                        log_info("No data entered, skipping.");
                         return 0;
                 }
 
@@ -681,7 +681,7 @@ static int prompt_hostname(int rfd) {
                         return log_error_errno(r, "Failed to query hostname: %m");
 
                 if (isempty(h)) {
-                        log_warning("No hostname entered, skipping.");
+                        log_info("No hostname entered, skipping.");
                         break;
                 }
 
@@ -808,7 +808,7 @@ static int prompt_root_password(int rfd) {
                                                "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
-                        log_warning("No password entered, skipping.");
+                        log_info("No password entered, skipping.");
                         break;
                 }
 
@@ -888,7 +888,7 @@ static int prompt_root_shell(int rfd) {
                         return log_error_errno(r, "Failed to query root shell: %m");
 
                 if (isempty(s)) {
-                        log_warning("No shell entered, skipping.");
+                        log_info("No shell entered, skipping.");
                         break;
                 }
 
