@@ -372,6 +372,11 @@ int main(int argc, char *argv[]) {
 
         log_set_always_reopen_console(true);
 
+        /* Re-enable reboot on Ctrl-Alt-Delete, so that if close/broadcast_signal/umount/... stalls,
+         * or an error is encountered and we freeze(), the user can still initiate a force reboot
+         * through kernel. */
+        (void) reboot(RB_ENABLE_CAD);
+
         r = parse_argv(argc, argv);
         if (r < 0)
                 goto error;
