@@ -156,7 +156,11 @@ static int do_mcopy(const char *node, const char *root) {
         if (r == 0) {
                 /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
                  * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
-                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1", "TZ=UTC", strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
+                execve(mcopy, argv,
+                       STRV_MAKE("MTOOLS_SKIP_CHECK=1",
+                                 "TZ=UTC",
+                                 "DEFAULT_CODEPAGE=1250",
+                                 strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
 
                 log_error_errno(errno, "Failed to execute mcopy: %m");
 
@@ -535,6 +539,7 @@ int make_filesystem(
                                 "-i", vol_id,
                                 "-n", label,
                                 "-F", "32",  /* yes, we force FAT32 here */
+                                "--codepage=1250",
                                 node);
 
                 if (sector_size > 0) {
