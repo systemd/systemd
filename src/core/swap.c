@@ -548,10 +548,8 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
                 (void) unit_setup_exec_runtime(u);
-                (void) unit_setup_cgroup_runtime(u);
-        }
 
         swap_set_state(s, new_state);
         return 0;
