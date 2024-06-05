@@ -133,7 +133,7 @@ int clock_reset_timewarp(void) {
 }
 
 int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
-        usec_t epoch_usec, now_usec;
+        usec_t epoch_usec = 0, timesyncd_usec = 0, now_usec;
         struct stat st;
 
         /* NB: we update *ret_attempted_change in *all* cases, both
@@ -141,13 +141,24 @@ int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
 
         assert(ret_attempted_change);
 
-        if (stat(EPOCH_CLOCK_FILE, &st) < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Cannot stat " EPOCH_CLOCK_FILE ": %m");
-
-                epoch_usec = (usec_t) TIME_EPOCH * USEC_PER_SEC;
-        } else
+        if (stat(TIMESYNCD_CLOCK_FILE, &st) >= 0)
                 epoch_usec = timespec_load(&st.st_mtim);
+        else if (errno != ENOENT)
+                log_warning_errno(errno, "Could not stat %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
+
+        if (stat(EPOCH_CLOCK_FILE, &st) >= 0)
+                timesyncd_usec = timespec_load(&st.st_mtim);
+        else if (errno != ENOENT)
+                log_warning_errno(errno, "Could not stat %s, ignoring: %m", EPOCH_CLOCK_FILE);
+
+        epoch_usec = MAX3(epoch_usec,
+                          timesyncd_usec,
+                          (usec_t) TIME_EPOCH * USEC_PER_SEC);
+
+        if (epoch_usec == 0) { /* Weird, but may happen if mtimes were reset to 0 during compilation. */
+                *ret_attempted_change = CLOCK_CHANGE_NOOP;
+                return 0;
+        }
 
         now_usec = now(CLOCK_REALTIME);
         if (now_usec < epoch_usec)
