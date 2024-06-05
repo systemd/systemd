@@ -132,7 +132,7 @@ int clock_reset_timewarp(void) {
         return RET_NERRNO(settimeofday(NULL, &tz));
 }
 
-int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
+int clock_apply_epoch(bool allow_backwards, ClockChangeDirection *ret_attempted_change) {
         usec_t epoch_usec = 0, timesyncd_usec = 0, now_usec;
         struct stat st;
 
@@ -158,7 +158,9 @@ int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
         now_usec = now(CLOCK_REALTIME);
         if (now_usec < epoch_usec)
                 *ret_attempted_change = CLOCK_CHANGE_FORWARD;
-        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 && now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX))
+        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 &&
+                 now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX) &&
+                 allow_backwards)
                 *ret_attempted_change = CLOCK_CHANGE_BACKWARD;
         else {
                 *ret_attempted_change = CLOCK_CHANGE_NOOP;

@@ -1670,7 +1670,7 @@ static int become_shutdown(int objective, int retval) {
         return -errno;
 }
 
-static void initialize_clock(void) {
+static void initialize_clock_timewarp(void) {
         int r;
 
         /* This is called very early on, before we parse the kernel command line or otherwise figure out why
@@ -1682,7 +1682,7 @@ static void initialize_clock(void) {
                 /* The very first call of settimeofday() also does a time warp in the kernel.
                  *
                  * In the rtc-in-local time mode, we set the kernel's timezone, and rely on external tools to
-                 * take care of maintaining the RTC and do all adjustments.  This matches the behavior of
+                 * take care of maintaining the RTC and do all adjustments. This matches the behavior of
                  * Windows, which leaves the RTC alone if the registry tells that the RTC runs in UTC.
                  */
                 r = clock_set_timezone(&min);
@@ -1704,24 +1704,33 @@ static void initialize_clock(void) {
                  * time concepts will be treated as UTC that way.
                  */
                 (void) clock_reset_timewarp();
+}
+
+static void initialize_clock_epoch(bool allow_backwards) {
+        int r;
+
+        /* Optionally reset the clock to the epoch. If we're just starting, consider CLOCK_CHANGE_BACKWARD.
+         * If we're reexecuting, only jump forward. This way we'll update the epoch if were running with a
+         * bad clock and we're reexecuting into a newer systemd with an updated epoch timestamp. But we'll
+         * not jump back if we were running for a long long time and get reexecuted. */
 
         ClockChangeDirection change_dir;
-        r = clock_apply_epoch(&change_dir);
+        r = clock_apply_epoch(allow_backwards, &change_dir);
         if (r > 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_info("System time before build time, advancing clock.");
+                log_info("System time before epoch, advancing clock.");
         else if (r > 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_info("System time is further ahead than %s after build time, resetting clock to build time.",
+                log_info("System time is further ahead than %s after epoch, resetting clock to epoch.",
                          FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
         else if (r < 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
+                log_error_errno(r, "Current system time is before epoch, but cannot correct: %m");
         else if (r < 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_error_errno(r, "Current system time is further ahead %s after build time, but cannot correct: %m",
+                log_error_errno(r, "Current system time is further ahead %s after epoch, but cannot correct: %m",
                                 FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
 }
 
 static void apply_clock_update(void) {
-        /* This is called later than initialize_clock(), i.e. after we parsed configuration files/kernel
-         * command line and such. */
+        /* This is called later than initialize_clock_epoch(), i.e. after we parsed configuration
+         * files/kernel command line and such. */
 
         if (arg_clock_usec == 0)
                 return;
@@ -3048,7 +3057,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (!skip_setup)
-                                initialize_clock();
+                                initialize_clock_timewarp();
+
+                        initialize_clock_epoch(/* allow_backwards= */ !skip_setup);
 
                         /* Set the default for later on, but don't actually open the logs like this for
                          * now. Note that if we are transitioning from the initrd there might still be
