@@ -132,8 +132,6 @@ int clock_reset_timewarp(void) {
         return RET_NERRNO(settimeofday(NULL, &tz));
 }
 
-#define EPOCH_FILE "/usr/lib/clock-epoch"
-
 int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
         usec_t epoch_usec, now_usec;
         struct stat st;
@@ -143,9 +141,9 @@ int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
 
         assert(ret_attempted_change);
 
-        if (stat(EPOCH_FILE, &st) < 0) {
+        if (stat(EPOCH_CLOCK_FILE, &st) < 0) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Cannot stat " EPOCH_FILE ": %m");
+                        log_warning_errno(errno, "Cannot stat " EPOCH_CLOCK_FILE ": %m");
 
                 epoch_usec = (usec_t) TIME_EPOCH * USEC_PER_SEC;
         } else

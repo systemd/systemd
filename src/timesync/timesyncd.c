@@ -81,27 +81,27 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * is particularly helpful on systems lacking a battery backed RTC. We also will adjust the time to
          * at least the build time of systemd. */
 
-        fd = open(CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
+        fd = open(TIMESYNCD_CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
         if (fd < 0) {
                 if (errno != ENOENT)
-                        log_debug_errno(errno, "Unable to open timestamp file '" CLOCK_FILE "', ignoring: %m");
+                        log_debug_errno(errno, "Unable to open timestamp file "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 
-                r = mkdir_safe_label(STATE_DIR, 0755, uid, gid,
+                r = mkdir_safe_label(TIMESYNCD_CLOCK_FILE_DIR, 0755, uid, gid,
                                      MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to create state directory, ignoring: %m");
+                        log_debug_errno(r, "Failed to create "TIMESYNCD_CLOCK_FILE_DIR", ignoring: %m");
 
                 /* create stamp file with the compiled-in date */
-                r = touch_file(CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
+                r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
+                        log_debug_errno(r, "Failed to create %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
         } else {
                 struct stat st;
                 usec_t stamp;
 
                 /* check if the recorded time is later than the compiled-in one */
                 if (fstat(fd, &st) < 0)
-                        return log_error_errno(errno, "Unable to stat timestamp file '" CLOCK_FILE "': %m");
+                        return log_error_errno(errno, "Unable to stat timestamp file "TIMESYNCD_CLOCK_FILE": %m");
 
                 stamp = timespec_load(&st.st_mtim);
                 if (stamp > min)
@@ -112,7 +112,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 r = fchmod_and_chown(fd, 0644, uid, gid);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);
+                                       "Failed to chmod or chown %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
 
                 (void) advance_tstamp(fd, &st);
         }
@@ -220,9 +220,9 @@ static int run(int argc, char *argv[]) {
 
         /* if we got an authoritative time, store it in the file system */
         if (m->save_on_exit) {
-                r = touch(CLOCK_FILE);
+                r = touch(TIMESYNCD_CLOCK_FILE);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to touch " CLOCK_FILE ", ignoring: %m");
+                        log_debug_errno(r, "Failed to touch "TIMESYNCD_CLOCK_FILE", ignoring: %m");
         }
 
         return 0;

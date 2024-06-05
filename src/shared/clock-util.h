@@ -18,3 +18,7 @@ int clock_reset_timewarp(void);
 int clock_get_hwclock(struct tm *tm);
 int clock_set_hwclock(const struct tm *tm);
 int clock_apply_epoch(ClockChangeDirection *ret_attempted_change);
+
+#define EPOCH_CLOCK_FILE "/usr/lib/clock-epoch"
+#define TIMESYNCD_CLOCK_FILE_DIR "/var/lib/systemd/timesync/"
+#define TIMESYNCD_CLOCK_FILE TIMESYNCD_CLOCK_FILE_DIR "clock"
