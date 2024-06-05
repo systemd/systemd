@@ -12,8 +12,21 @@ if [[ -d "$PKG_SUBDIR/.git" ]] && [[ "$(git -C "$PKG_SUBDIR" rev-parse HEAD)" ==
     exit 0
 fi
 
+# The repository on Salsa has the full upstream sources, so it's a waste of space to
+# redownload and duplicate everything, so do a sparse checkout as we only need the
+# packaging directory anyway
+if [[ "$DISTRIBUTION" = "debian" ]] || [[ "$DISTRIBUTION" = "ubuntu" ]]; then
+    sparse="--no-checkout --filter=tree:0"
+else
+    sparse=""
+fi
+
 if [[ ! -e "$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "$PKG_SUBDIR")" ]]; then
-    git clone "$GIT_URL" --branch "$GIT_BRANCH" "$PKG_SUBDIR"
+    # shellcheck disable=SC2086
+    git clone "$GIT_URL" --branch "$GIT_BRANCH" $sparse "$PKG_SUBDIR"
+    if [[ "$DISTRIBUTION" = "debian" ]] || [[ "$DISTRIBUTION" = "ubuntu" ]]; then
+        git -C "$PKG_SUBDIR" sparse-checkout set --no-cone debian
+    fi
 else
     git -C "$PKG_SUBDIR" remote set-url origin "$GIT_URL"
     git -C "$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
