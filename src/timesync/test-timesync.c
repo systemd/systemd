@@ -32,7 +32,7 @@ TEST(server_name_parse_port) {
         _cleanup_(server_name_freep) ServerName *n = NULL;
         n = new(ServerName, 1);
         *n = (ServerName) {
-                .string = strdup("time1.foobar.com"),
+                .string = strdupa_safe("time1.foobar.com"),
                 .overridden_port = NULL,
         };
         ASSERT_NULL(n->overridden_port); //no override
@@ -41,19 +41,22 @@ TEST(server_name_parse_port) {
         ASSERT_STREQ(n->string, "time1.foobar.com");
         ASSERT_NULL(n->overridden_port); //no override
 
-        n->string = strdup("8.8.8.8");
+        n->string = strdupa_safe("8.8.8.8");
         ASSERT_TRUE(server_name_parse_port(n) == 0);
+        ASSERT_STREQ(n->string, "8.8.8.8");
         ASSERT_NULL(n->overridden_port); //no override
 
-        n->string = strdup("[fe:80::1]"); // NB: won't resolve unless you remove the square brackets
+        n->string = strdupa_safe("[fe80::1]"); // NB: won't resolve unless you remove the square brackets
         ASSERT_TRUE(server_name_parse_port(n) == 0);
+        ASSERT_STREQ(n->string, "[fe80::1]");
         ASSERT_NULL(n->overridden_port); //no override
 
-        n->string = strdup("fe:80::1");
+        n->string = strdupa_safe("fe80::1");
         ASSERT_TRUE(server_name_parse_port(n) == 0);
+        ASSERT_STREQ(n->string, "fe80::1");
         ASSERT_NULL(n->overridden_port); //no override
 
-        n->string = strdup("time1.foobar.com:1234");
+        n->string = strdupa_safe("time1.foobar.com:1234");
         ASSERT_TRUE(server_name_parse_port(n) == 1);
         ASSERT_STREQ(n->string, "time1.foobar.com");
         ASSERT_TRUE(streq_ptr(n->overridden_port, "1234"));
@@ -61,12 +64,12 @@ TEST(server_name_parse_port) {
         ASSERT_STREQ(n->string, "time1.foobar.com");
         ASSERT_STREQ(n->overridden_port, "1234"); //reuse (eg when re-connecting) retains override
 
-        n->string = strdup("8.8.8.8:12323");
+        n->string = strdupa_safe("8.8.8.8:12323");
         ASSERT_TRUE(server_name_parse_port(n) == 1);
         ASSERT_STREQ(n->string, "8.8.8.8");
         ASSERT_STREQ(n->overridden_port, "12323");
 
-        n->string = strdup("[fe80::1]:12345");
+        n->string = strdupa_safe("[fe80::1]:12345");
         ASSERT_TRUE(server_name_parse_port(n) == 2);
         ASSERT_STREQ(n->string, "[fe80::1]");
         ASSERT_STREQ(n->overridden_port, "12345");

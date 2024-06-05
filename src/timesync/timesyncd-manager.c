@@ -884,7 +884,7 @@ int manager_connect(Manager *m) {
                  * plus, if the name is [IP::v:6] in brackets, resolve won't accept it unles we remove the brackets
                  * r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m); */
                 addr = m->current_server_name->string;
-                if (NULL != strchr(addr, *sqo) && 0 == strcspn(addr, sqo)
+                if (strchr(addr, *sqo) != NULL && strcspn(addr, sqo) == 0
                                                && strlen(addr)-1 == strcspn(addr, sqc)) {
                         temp = strdup(m->current_server_name->string);
                         (void) extract_first_word(&temp, &addr, sqc, 0);
