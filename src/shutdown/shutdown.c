@@ -189,7 +189,9 @@ static int switch_root_initramfs(void) {
 static int sync_making_progress(unsigned long long *prev_dirty) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned long long val = 0;
-        int ret;
+        int r;
+
+        assert(prev_dirty);
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
@@ -197,13 +199,12 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                unsigned long long ull = 0;
-                int q;
+                unsigned long long ull;
 
-                q = read_line(f, LONG_LINE_MAX, &line);
-                if (q < 0)
-                        return log_warning_errno(q, "Failed to parse /proc/meminfo: %m");
-                if (q == 0)
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse /proc/meminfo: %m");
+                if (r == 0)
                         break;
 
                 if (!first_word(line, "NFS_Unstable:") && !first_word(line, "Writeback:") && !first_word(line, "Dirty:"))
@@ -211,25 +212,20 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
 
                 errno = 0;
                 if (sscanf(line, "%*s %llu %*s", &ull) != 1) {
-                        if (errno != 0)
-                                log_warning_errno(errno, "Failed to parse /proc/meminfo: %m");
-                        else
-                                log_warning("Failed to parse /proc/meminfo");
-
+                        log_warning_errno(errno_or_else(EIO), "Failed to parse /proc/meminfo field, ignoring: %m");
                         return false;
                 }
 
                 val += ull;
         }
 
-        ret = *prev_dirty > val;
+        r = *prev_dirty > val;
         *prev_dirty = val;
-        return ret;
+        return r;
 }
 
-static void sync_with_progress(void) {
+static int sync_with_progress(void) {
         unsigned long long dirty = ULLONG_MAX;
-        unsigned checks;
         pid_t pid;
         int r;
 
@@ -239,37 +235,32 @@ static void sync_with_progress(void) {
          * the progress. If the timeout lapses, the assumption is that the particular sync stalled. */
 
         r = asynchronous_sync(&pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to fork sync(): %m");
-                return;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork sync(): %m");
 
         log_info("Syncing filesystems and block devices.");
 
         /* Start monitoring the sync operation. If more than
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
          * we assume that the sync is stalled */
-        for (checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
+        for (unsigned checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
                 r = wait_for_terminate_with_timeout(pid, SYNC_TIMEOUT_USEC);
                 if (r == 0)
-                        /* Sync finished without error.
-                         * (The sync itself does not return an error code) */
-                        return;
-                else if (r == -ETIMEDOUT) {
-                        /* Reset the check counter if the "Dirty" value is
-                         * decreasing */
-                        if (sync_making_progress(&dirty) > 0)
-                                checks = 0;
-                } else {
-                        log_error_errno(r, "Failed to sync filesystems and block devices: %m");
-                        return;
-                }
+                        /* Sync finished without error (sync() call itself does not return an error code) */
+                        return 0;
+                if (r != -ETIMEDOUT)
+                        return log_error_errno(r, "Failed to sync filesystems and block devices: %m");
+
+                /* Reset the check counter if we made some progress */
+                if (sync_making_progress(&dirty) > 0)
+                        checks = 0;
         }
 
-        /* Only reached in the event of a timeout. We should issue a kill
-         * to the stray process. */
-        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID "PID_FMT".", pid);
+        /* Only reached in the event of a timeout. We should issue a kill to the stray process. */
         (void) kill(pid, SIGKILL);
+        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                               "Syncing filesystems and block devices - timed out, issuing SIGKILL to PID "PID_FMT".",
+                               pid);
 }
 
 static int read_current_sysctl_printk_log_level(void) {
@@ -439,7 +430,7 @@ int main(int argc, char *argv[]) {
          * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
          * result. */
         if (!in_container)
-                sync_with_progress();
+                (void) sync_with_progress();
 
         disable_coredumps();
         disable_binfmt();
@@ -605,7 +596,7 @@ int main(int argc, char *argv[]) {
          * which might have caused IO, hence let's do it once more. Do not remove this sync, data corruption
          * will result. */
         if (!in_container)
-                sync_with_progress();
+                (void) sync_with_progress();
 
         notify_supervisor();
 
