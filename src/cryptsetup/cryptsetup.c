@@ -1122,10 +1122,10 @@ static int attach_tcrypt(
         return 0;
 }
 
-static char *make_bindname(const char *volume) {
+static char *make_bindname(const char *volume, const char *client) {
         char *s;
 
-        if (asprintf(&s, "@%" PRIx64"/cryptsetup/%s", random_u64(), volume) < 0)
+        if (asprintf(&s, "@%" PRIx64"/%s/%s", random_u64(), client, volume) < 0)
                 return NULL;
 
         return s;
@@ -1990,7 +1990,7 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
         assert(key_file);
 
         /* If we read the key via AF_UNIX, make this client recognizable */
-        bindname = make_bindname(name);
+        bindname = make_bindname(name, /* client= */ "cryptsetup");
         if (!bindname)
                 return log_oom();
 
@@ -2263,9 +2263,7 @@ static int run(int argc, char *argv[]) {
 
         if (streq(verb, "attach")) {
                 _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
-                _cleanup_(erase_and_freep) void *key_data = NULL;
                 crypt_status_info status;
-                size_t key_data_size = 0;
                 uint32_t flags = 0;
                 unsigned tries;
                 usec_t until;
@@ -2303,28 +2301,7 @@ static int run(int argc, char *argv[]) {
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);
 
-                if (!key_file) {
-                        _cleanup_free_ char *bindname = NULL;
-                        const char *fn;
-
-                        bindname = make_bindname(volume);
-                        if (!bindname)
-                                return log_oom();
-
-                        /* If a key file is not explicitly specified, search for a key in a well defined
-                         * search path, and load it. */
-
-                        fn = strjoina(volume, ".key");
-                        r = find_key_file(
-                                        fn,
-                                        STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
-                                        bindname,
-                                        &key_data, &key_data_size);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                log_debug("Automatically discovered key for volume '%s'.", volume);
-                } else if (arg_keyfile_erase)
+                if (key_file && arg_keyfile_erase)
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
                 if (arg_header) {
@@ -2387,7 +2364,8 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file && !key_data && use_token_plugins()) {
+                        // maybe prefer non-plugin paths??
+                        if (!key_file && use_token_plugins()) {
                                 r = crypt_activate_by_token_pin_ask_password(
                                                 cd,
                                                 volume,
@@ -2416,19 +2394,51 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
-                bool use_cached_passphrase = true;
+                bool use_cached_passphrase = true, try_discover_key = !key_file;
                 _cleanup_strv_free_erase_ char **passwords = NULL;
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
+                        _cleanup_(erase_and_freep) void *key_data = NULL;
+                        size_t key_data_size;
+
                         log_debug("Beginning attempt %u to unlock.", tries);
 
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
                          *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
-                         *    2. The discovered key: i.e. key_data + key_data_size
-                         *    3. The configured key: i.e. key_file + arg_keyfile_offset + arg_keyfile_size
-                         *    4. The empty password, in case arg_try_empty_password is set
-                         *    5. We enquire the user for a password
+                         *    2. The configured or discovered key, of which both are exclusive and optional
+                         *    3. The empty password, in case arg_try_empty_password is set
+                         *    4. We enquire the user for a password
                          */
+
+                        if (try_discover_key) {
+                                _cleanup_free_ char *bindname = NULL;
+                                const char *fn, *client = "cryptsetup";
+
+                                if (arg_tpm2_device || arg_tpm2_device_auto)
+                                        client = "cryptsetup-tpm2";
+                                else if (arg_fido2_device || arg_fido2_device_auto)
+                                        client = "cryptsetup-fido2";
+                                else if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
+                                        client = "cryptsetup-pkcs11";
+
+                                bindname = make_bindname(volume, client);
+                                if (!bindname)
+                                        return log_oom();
+
+                                /* If a key file is not explicitly specified, search for a key in a well defined
+                                 * search path, and load it. */
+
+                                fn = strjoina(volume, ".key");
+                                r = find_key_file(
+                                                fn,
+                                                STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
+                                                bindname,
+                                                &key_data, &key_data_size);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        log_debug("Automatically discovered key for volume '%s'.", volume);
+                        }
 
                         if (!passwords && !key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
 
@@ -2491,9 +2501,8 @@ static int run(int argc, char *argv[]) {
                                 continue;
                         }
 
-                        if (key_data) {
-                                key_data = erase_and_free(key_data);
-                                key_data_size = 0;
+                        if (try_discover_key) {
+                                try_discover_key = false;
                                 continue;
                         }
 
