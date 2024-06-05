@@ -3531,8 +3531,7 @@ int unit_cgroup_is_empty(Unit *u) {
 
         r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
         if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty, ignoring: %m", empty_to_root(crt->cgroup_path));
-
+                log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(crt->cgroup_path));
         return r;
 }
 
