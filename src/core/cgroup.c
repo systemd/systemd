@@ -2686,7 +2686,7 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
         if (crt && streq_ptr(crt->cgroup_path, path))
                 return 0;
 
-        unit_release_cgroup(u);
+        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
 
         crt = unit_setup_cgroup_runtime(u);
         if (!crt)
@@ -3484,7 +3484,7 @@ int unit_realize_cgroup(Unit *u) {
         return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
-void unit_release_cgroup(Unit *u) {
+void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime) {
         assert(u);
 
         /* Forgets all cgroup details for this cgroup — but does *not* destroy the cgroup. This is hence OK to call
@@ -3515,7 +3515,8 @@ void unit_release_cgroup(Unit *u) {
                 crt->cgroup_memory_inotify_wd = -1;
         }
 
-        *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
+        if (drop_cgroup_runtime)
+                *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
 }
 
 int unit_cgroup_is_empty(Unit *u) {
@@ -3535,14 +3536,13 @@ int unit_cgroup_is_empty(Unit *u) {
         return r;
 }
 
-bool unit_maybe_release_cgroup(Unit *u) {
+static bool unit_maybe_release_cgroup(Unit *u) {
         int r;
 
-        assert(u);
+        /* Releases the cgroup only if it is recursively empty.
+         * Returns true if the cgroup was released, false otherwise. */
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return true;
+        assert(u);
 
         /* Don't release the cgroup if there are still processes under it. If we get notified later when all
          * the processes exit (e.g. the processes were in D-state and exited after the unit was marked as
@@ -3550,7 +3550,10 @@ bool unit_maybe_release_cgroup(Unit *u) {
          * and cleaned up later. */
         r = unit_cgroup_is_empty(u);
         if (r > 0) {
-                unit_release_cgroup(u);
+                /* Do not free CGroupRuntime when called from unit_prune_cgroup. Various accounting data
+                 * we should keep, especially CPU usage and *_peak ones which would be shown even after
+                 * the unit stops. */
+                unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
                 return true;
         }
 
@@ -3558,8 +3561,8 @@ bool unit_maybe_release_cgroup(Unit *u) {
 }
 
 void unit_prune_cgroup(Unit *u) {
-        int r;
         bool is_root_slice;
+        int r;
 
         assert(u);
 
@@ -3597,9 +3600,8 @@ void unit_prune_cgroup(Unit *u) {
         if (!unit_maybe_release_cgroup(u)) /* Returns true if the cgroup was released */
                 return;
 
-        crt = unit_get_cgroup_runtime(u); /* The above might have destroyed the runtime object, let's see if it's still there */
-        if (!crt)
-                return;
+        assert(crt == unit_get_cgroup_runtime(u));
+        assert(!crt->cgroup_path);
 
         crt->cgroup_realized = false;
         crt->cgroup_realized_mask = 0;
