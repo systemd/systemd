@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dns-type.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 
 #include "log.h"
 #include "tests.h"
@@ -247,6 +249,170 @@ TEST(packet_header_reply_dnssec_bits) {
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 4);
         ASSERT_EQ(DNS_PACKET_NSCOUNT(packet), 0);
         ASSERT_EQ(DNS_PACKET_ARCOUNT(packet), 0);
+}
+
+/* ================================================================
+ * queries
+ * ================================================================ */
+
+TEST(packet_query_single) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_multi) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'm', 'a', 'i', 'l',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* MX */        0x00, 0x0f,
+        /* ANY */       0x00, 0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 2u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_MX, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(packet_query_multi_compressed_domain_1) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'm', 'a', 'i', 'l',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0xc0, 0x18,
+        /* MX */        0x00, 0x0f,
+        /* ANY */       0x00, 0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 2u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_MX, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(packet_query_multi_compressed_domain_2) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'm', 'a', 'i', 'l',
+                        0xc0, 0x10,
+        /* MX */        0x00, 0x0f,
+        /* ANY */       0x00, 0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 2u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_MX, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+        dns_resource_key_unref(key);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
