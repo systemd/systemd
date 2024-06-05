@@ -28,7 +28,7 @@ int bus_slice_set_property(
 int bus_slice_commit_properties(Unit *u) {
         assert(u);
 
-        unit_realize_cgroup(u);
+        (void) unit_realize_cgroup(u);
 
         return 0;
 }
