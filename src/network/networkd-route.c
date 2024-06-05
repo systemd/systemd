@@ -1320,7 +1320,7 @@ bool route_can_update(const Route *existing, const Route *requesting) {
                         return false;
                 if (existing->pref != requesting->pref)
                         return false;
-                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec != USEC_INFINITY)
+                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec == USEC_INFINITY)
                         return false; /* We cannot disable expiration timer in the kernel. */
                 if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel))
                         return false;
