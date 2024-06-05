@@ -22,9 +22,8 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-static int advance_tstamp(int fd, const struct stat *st) {
+static int advance_tstamp(int fd, usec_t min) {
         assert_se(fd >= 0);
-        assert_se(st);
 
         /* So here's the problem: whenever we read the timestamp we'd like to ensure the next time we won't
          * restore the exact same time again, but one at least one step further (so that comparing mtimes of
@@ -36,22 +35,20 @@ static int advance_tstamp(int fd, const struct stat *st) {
          * increase the timestamp by 10μs, and do the same, then 100μs, then 1ms, and so on, until it works,
          * or we reach 10s. If it still didn't work then, the fs is just broken and we give up. */
 
-        usec_t target = MAX3(now(CLOCK_REALTIME),
-                             TIME_EPOCH * USEC_PER_SEC,
-                             timespec_load(&st->st_mtim));
+        usec_t target = MAX(min, now(CLOCK_REALTIME));
 
         for (usec_t a = 1; a <= 10 * USEC_PER_SEC; a *= 10) { /* 1μs, 10μs, 100μs, 1ms, … 10s */
                 struct timespec ts[2];
                 struct stat new_st;
 
-                /* Bump to the maximum of the old timestamp advanced by the specified unit,  */
+                /* Bump to the maximum of the old timestamp advanced by the specified unit. */
                 usec_t c = usec_add(target, a);
 
                 timespec_store(&ts[0], c);
                 ts[1] = ts[0];
 
                 if (futimens(fd, ts) < 0) {
-                        /* If this doesn't work at all, log, don't fail but give up */
+                        /* If this doesn't work at all, log and don't fail, but give up. */
                         log_warning_errno(errno, "Unable to update mtime of timestamp file, ignoring: %m");
                         return 0;
                 }
@@ -60,11 +57,11 @@ static int advance_tstamp(int fd, const struct stat *st) {
                         return log_error_errno(errno, "Failed to stat timestamp file: %m");
 
                 if (timespec_load(&new_st.st_mtim) > target) {
-                        log_debug("Successfully bumped timestamp file.");
+                        log_debug("Successfully touched timestamp file.");
                         return 1;
                 }
 
-                log_debug("Tried to advance timestamp file by " USEC_FMT ", but this didn't work, file system timestamp granularity too coarse?", a);
+                log_debug("Tried to advance timestamp mtime by "USEC_FMT", but this didn't work, file system timestamp granularity too coarse?", a);
         }
 
         log_debug("Gave up trying to advance timestamp file.");
@@ -91,21 +88,16 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to create "TIMESYNCD_CLOCK_FILE_DIR", ignoring: %m");
 
-                /* create stamp file with the compiled-in date */
+                /* Create stamp file with the compiled-in date */
                 r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
                 if (r < 0)
                         log_debug_errno(r, "Failed to create %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
         } else {
                 struct stat st;
-                usec_t stamp;
 
-                /* check if the recorded time is later than the compiled-in one */
+                /* Check if the recorded time is later than the compiled-in one */
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Unable to stat timestamp file "TIMESYNCD_CLOCK_FILE": %m");
-
-                stamp = timespec_load(&st.st_mtim);
-                if (stamp > min)
-                        min = stamp;
 
                 /* Try to fix the access mode, so that we can still touch the file after dropping
                  * privileges */
@@ -114,7 +106,9 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                         log_full_errno(ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to chmod or chown %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
 
-                (void) advance_tstamp(fd, &st);
+                min = MAX(min, timespec_load(&st.st_mtim));
+
+                (void) advance_tstamp(fd, min);
         }
 
         ct = now(CLOCK_REALTIME);
@@ -125,14 +119,15 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * because we read n as time previously already and we want to progress here, i.e. not report the
          * same time again. */
         if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min+1)) < 0) {
-                log_warning_errno(errno, "Failed to restore system clock, ignoring: %m");
+                log_warning_errno(errno, "Failed to advance system clock, ignoring: %m");
                 return 0;
         }
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
                    "REALTIME_USEC=" USEC_FMT, min+1,
-                   LOG_MESSAGE("System clock time unset or jumped backwards, restored from recorded timestamp: %s",
+                   LOG_MESSAGE("System clock time advanced to %s: %s",
+                               min > TIME_EPOCH * USEC_PER_SEC ? "recorded timestamp" : "built-in epoch",
                                FORMAT_TIMESTAMP(min+1)));
         return 0;
 }
