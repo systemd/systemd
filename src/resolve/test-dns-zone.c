@@ -215,4 +215,177 @@ TEST(dns_zone_remove_rrs_by_key) {
         dns_resource_key_unref(key);
 }
 
+/* ================================================================
+ * dns_zone_lookup()
+ * ================================================================ */
+
+static void add_zone_rrs(DnsScope *scope) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL, *rr4 = NULL;
+
+        rr1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr1);
+        dns_zone_put(&scope->zone, scope, rr1, 0);
+
+        rr2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(rr2);
+        dns_zone_put(&scope->zone, scope, rr2, 0);
+
+        rr3 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+        ASSERT_NOT_NULL(rr3);
+        rr3->cname.name = strdup("www.example.com");
+        dns_zone_put(&scope->zone, scope, rr3, 0);
+
+        rr4 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "app.example.com");
+        ASSERT_NOT_NULL(rr4);
+        rr4->cname.name = strdup("ns1.app.example.com");
+        dns_zone_put(&scope->zone, scope, rr4, 0);
+}
+
+TEST(dns_zone_lookup_match_a) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_TRUE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 1u);
+        ASSERT_EQ(dns_answer_size(soa), 0u);
+
+        ASSERT_TRUE(dns_answer_match_key(answer, qkey, NULL));
+}
+
+TEST(dns_zone_lookup_match_cname) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_TRUE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 1u);
+        ASSERT_EQ(dns_answer_size(soa), 0u);
+
+        ASSERT_TRUE(dns_answer_match_key(answer, qkey, NULL));
+}
+
+TEST(dns_zone_lookup_match_any) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        DnsResourceKey *akey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_TRUE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 2u);
+        ASSERT_EQ(dns_answer_size(soa), 0u);
+
+        akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(akey);
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        dns_resource_key_unref(akey);
+
+        akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(akey);
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        dns_resource_key_unref(akey);
+}
+
+TEST(dns_zone_lookup_match_any_apex) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        DnsResourceKey *akey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_TRUE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 1u);
+        ASSERT_EQ(dns_answer_size(soa), 0u);
+
+        akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
+        ASSERT_NOT_NULL(akey);
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        dns_resource_key_unref(akey);
+}
+
+TEST(dns_zone_lookup_match_nothing) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "nope.example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_FALSE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 0u);
+        ASSERT_EQ(dns_answer_size(soa), 0u);
+}
+
+TEST(dns_zone_lookup_match_nothing_with_soa) {
+        Manager manager = {};
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        DnsResourceKey *akey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        bool tentative;
+
+        dns_scope_new(&manager, &scope, NULL, DNS_PROTOCOL_DNS, AF_INET);
+        ASSERT_NOT_NULL(scope);
+        add_zone_rrs(scope);
+
+        qkey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(qkey);
+        ASSERT_TRUE(dns_zone_lookup(&scope->zone, qkey, 1, &answer, &soa, &tentative));
+        ASSERT_FALSE(tentative);
+
+        ASSERT_EQ(dns_answer_size(answer), 0u);
+        ASSERT_EQ(dns_answer_size(soa), 1u);
+
+        akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        ASSERT_NOT_NULL(akey);
+        ASSERT_TRUE(dns_answer_match_key(soa, akey, NULL));
+        dns_resource_key_unref(akey);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
