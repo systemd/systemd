@@ -1028,13 +1028,7 @@ int encrypt_credential_and_warn(
         if (ivsz > 0) {
                 assert((size_t) ivsz <= CREDENTIAL_FIELD_SIZE_MAX);
 
-                iv.iov_base = malloc(ivsz);
-                if (!iv.iov_base)
-                        return log_oom();
-
-                iv.iov_len = ivsz;
-
-                r = crypto_random_bytes(iv.iov_base, iv.iov_len);
+                r = crypto_random_bytes_allocate_iovec(ivsz, &iv);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquired randomized IV: %m");
         }
