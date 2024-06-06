@@ -4,9 +4,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/uio.h>
 
 void random_bytes(void *p, size_t n); /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
 int crypto_random_bytes(void *p, size_t n); /* Returns secure random bytes after waiting for the RNG to initialize. */
+int crypto_random_bytes_allocate_iovec(size_t n, struct iovec *ret);
 
 static inline uint64_t random_u64(void) {
         uint64_t u;
