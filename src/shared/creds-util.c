@@ -19,6 +19,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
@@ -1655,6 +1656,55 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 return r;
 
         return 0;
+}
+
+int get_global_boot_credentials_path(char **ret) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        /* Determines where to put global boot credentials in. Returns the path to the "/loader/credentials/"
+         * directory below the XBOOTLDR or ESP partition. Any credentials placed in this directory can be
+         * picked up later in the initrd. */
+
+        r = find_xbootldr_and_warn(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &path,
+                        /* ret_uuid= */ NULL,
+                        /* ret_devid= */ NULL);
+        if (r < 0) {
+                if (r != -ENOKEY)
+                        return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
+
+                r = find_esp_and_warn(
+                                /* root= */ NULL,
+                                /* path= */ NULL,
+                                /* unprivileged_mode= */ false,
+                                &path,
+                                /* ret_part= */ NULL,
+                                /* ret_pstart= */ NULL,
+                                /* ret_psize= */ NULL,
+                                /* ret_uuid= */ NULL,
+                                /* ret_devid= */ NULL);
+                if (r < 0) {
+                        if (r != -ENOKEY)
+                                return log_error_errno(r, "Failed to find ESP partition: %m");
+
+                        *ret = NULL;
+                        return 0; /* not found! */
+                }
+        }
+
+        _cleanup_free_ char *joined = path_join(path, "loader/credentials");
+        if (!joined)
+                return log_oom();
+
+        log_debug("Determined global boot credentials path as: %s", joined);
+
+        *ret = TAKE_PTR(joined);
+        return 1; /* found! */
+
 }
 
 static int pick_up_credential_one(
