@@ -147,7 +147,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         }
 
         /* add new string */
-        buf_new = realloc(str->buf, str->len + len+1);
+        buf_new = GREEDY_REALLOC(str->buf, str->len + len+1);
         if (!buf_new)
                 return -ENOMEM;
         str->buf = buf_new;
