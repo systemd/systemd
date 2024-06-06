@@ -4291,34 +4291,12 @@ static int determine_boot_policy_file(char **ret) {
 
         assert(ret);
 
-        r = find_xbootldr_and_warn(
-                        /* root= */ NULL,
-                        /* path= */ NULL,
-                        /* unprivileged_mode= */ false,
-                        &path,
-                        /* ret_uuid= */ NULL,
-                        /* ret_devid= */ NULL);
-        if (r < 0) {
-                if (r != -ENOKEY)
-                        return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
-
-                r = find_esp_and_warn(
-                                /* root= */ NULL,
-                                /* path= */ NULL,
-                                /* unprivileged_mode= */ false,
-                                &path,
-                                /* ret_part= */ NULL,
-                                /* ret_pstart= */ NULL,
-                                /* ret_psize= */ NULL,
-                                /* ret_uuid= */ NULL,
-                                /* ret_devid= */ NULL);
-                if (r < 0) {
-                        if (r != -ENOKEY)
-                                return log_error_errno(r, "Failed to find ESP partition: %m");
-
-                        *ret = NULL;
-                        return 0; /* not found! */
-                }
+        r = get_global_boot_credentials_path(&path);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = NULL;
+                return 0; /* not found! */
         }
 
         r = sd_id128_get_machine(&machine_id);
@@ -4342,7 +4320,7 @@ static int determine_boot_policy_file(char **ret) {
         if (!filename_is_valid(fn))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fn);
 
-        joined = path_join(path, "loader/credentials", fn);
+        joined = path_join(path, fn);
         if (!joined)
                 return log_oom();
 
