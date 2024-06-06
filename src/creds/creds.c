@@ -871,14 +871,19 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST;
                         else if (streq(optarg, "tpm2"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
-                        else if (streq(optarg, "tpm2-with-public-key"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK;
+                                arg_with_key = _CRED_AUTO_TPM2;
                         else if (STR_IN_SET(optarg, "host+tpm2", "tpm2+host"))
-                                arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
+                                arg_with_key = _CRED_AUTO_HOST_AND_TPM2;
+                        else if (streq(optarg, "null"))
+                                arg_with_key = CRED_AES256_GCM_BY_NULL;
+                        else if (streq(optarg, "tpm2-with-public-key"))
+                                /* Obsolete: not documented, people should use "tpm2" instead! */
+                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK;
                         else if (STR_IN_SET(optarg, "host+tpm2-with-public-key", "tpm2-with-public-key+host"))
+                                /* Obsolete: not documented, people should use "host+tpm2" instead! */
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK;
-                        else if (STR_IN_SET(optarg, "null", "tpm2-absent"))
+                        else if (streq(optarg, "tpm2-absent"))
+                                /* Obsolete: tpm2-absent is obsolete, people should use "null" instead! */
                                 arg_with_key = CRED_AES256_GCM_BY_NULL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
@@ -890,7 +895,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'T':
-                        arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        arg_with_key = _CRED_AUTO_TPM2;
                         break;
 
                 case ARG_TPM2_DEVICE:
