@@ -236,6 +236,12 @@ TEST(chase) {
         ASSERT_STREQ(result, "/test-chase.fsldajfl");
         result = mfree(result);
 
+        r = chase("/.path/with/dot", temp, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result, NULL);
+        ASSERT_OK(r);
+        q = strjoina(temp, "/.path/with/dot");
+        ASSERT_STREQ(result, q);
+        result = mfree(result);
+
         r = chase("/etc/machine-id/foo", NULL, 0, &result, NULL);
         assert_se(IN_SET(r, -ENOTDIR, -ENOENT));
         result = mfree(result);

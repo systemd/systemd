@@ -651,7 +651,7 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
 
                                 assert(!path_is_absolute(p));
 
-                                q = path_join(root, p + (*p == '.'));
+                                q = path_join(root, p + STR_IN_SET(p, ".", "./"));
                                 if (!q)
                                         return -ENOMEM;
 
