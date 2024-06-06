@@ -28,7 +28,6 @@
     <para><simplelist>
       <member><filename>/etc/tmpfiles.d/*.conf</filename></member>
       <member><filename>/run/tmpfiles.d/*.conf</filename></member>
-      <member><filename>/usr/local/lib/tmpfiles.d/*.conf</filename></member>
       <member><filename>/usr/lib/tmpfiles.d/*.conf</filename></member>
     </simplelist></para>
 
@@ -37,7 +36,6 @@
       <member><filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename></member>
       <member><filename>~/.local/share/user-tmpfiles.d/*.conf</filename></member>
       <member><filename index='false'>…</filename></member>
-      <member><filename>/usr/local/share/user-tmpfiles.d/*.conf</filename></member>
       <member><filename>/usr/share/user-tmpfiles.d/*.conf</filename></member>
     </simplelist></para>
 
