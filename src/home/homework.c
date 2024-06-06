@@ -376,8 +376,15 @@ int keyring_unlink(key_serial_t k) {
 static int keyring_flush(UserRecord *h) {
         _cleanup_free_ char *name = NULL;
         long serial;
+        int r;
 
         assert(h);
+
+        if (user_record_storage(h) == USER_FSCRYPT && uid_is_valid(h->uid)) {
+                r = home_flush_keyring_fscrypt(h);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to flush fscrypt keys, ignoring: %m");
+        }
 
         name = strjoin("homework-user-", h->user_name);
         if (!name)
