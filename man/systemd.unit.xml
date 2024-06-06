@@ -544,6 +544,10 @@
     a symlink <filename index='false'>/etc/systemd/system/link1.service</filename> → <filename index='false'>../link1_service_file</filename>
     means that <filename index='false'>link1.service</filename> is a "linked unit" and the contents of
     <filename index='false'>/etc/systemd/link1_service_file</filename> provide its configuration.</para>
+
+    <para>Please note unit files must be available at all times. If <filename>/usr/local/</filename> is a
+    separate partition, it may not be available during early boot, and must not be used for unit files.
+    </para>
   </refsect1>
 
   <refsect1>
