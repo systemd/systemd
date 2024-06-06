@@ -559,8 +559,8 @@ static int process_keymap(int rfd) {
         return 1;
 }
 
-static bool timezone_is_valid_log_error(const char *name) {
-        return timezone_is_valid(name, LOG_ERR);
+static bool timezone_is_valid_log_debug(const char *name) {
+        return timezone_is_valid(name, LOG_DEBUG);
 }
 
 static int prompt_timezone(int rfd) {
@@ -592,7 +592,7 @@ static int prompt_timezone(int rfd) {
         print_welcome(rfd);
 
         r = prompt_loop("Please enter timezone name or number",
-                        zones, 30, timezone_is_valid_log_error, &arg_timezone);
+                        zones, 30, timezone_is_valid_log_debug, &arg_timezone);
         if (r < 0)
                 return r;
 
