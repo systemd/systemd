@@ -122,6 +122,17 @@ Type=oneshot
 ExecStart=sleep infinity</programlisting>
       </listitem>
 
+      <listitem><para>On top of the above, templated units also need a drop-in configuration file for their
+      slice, as they are by default ran inside a slice named after the non-templated part of the unit. For
+      example, for a <filename>foo@test.service</filename> instance configured with the default slice, a
+      drop-in <filename>system-foo.slice.d/survive.conf</filename> is required, with content:</para>
+
+      <programlisting>[Unit]
+SurviveFinalKillSignal=yes
+IgnoreOnIsolate=yes
+DefaultDependencies=no</programlisting>
+      </listitem>
+
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via
       <varname>DefaultDependencies=no</varname>, and by avoiding
