@@ -53,6 +53,7 @@
         <member><filename>/run/systemd/system.attached/*</filename></member>
         <member><filename>/run/systemd/generator/*</filename></member>
         <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/local/lib/systemd/system/*</filename></member>
         <member><filename>/usr/lib/systemd/system/*</filename></member>
         <member><filename>/run/systemd/generator.late/*</filename></member>
       </simplelist></para>
@@ -74,6 +75,7 @@
         <member><filename>$XDG_DATA_HOME/systemd/user/*</filename></member>
         <member><filename>$XDG_DATA_DIRS/systemd/user/*</filename></member>
         <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/local/lib/systemd/user/*</filename></member>
         <member><filename>/usr/lib/systemd/user/*</filename></member>
         <member><filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></member>
       </simplelist></para>

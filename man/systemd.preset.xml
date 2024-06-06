@@ -24,9 +24,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/system-preset/*.preset</filename></member>
       <member><filename>/run/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/system-preset/*.preset</filename></member>
       <member><filename>/usr/lib/systemd/system-preset/*.preset</filename></member>
       <member><filename>/etc/systemd/user-preset/*.preset</filename></member>
       <member><filename>/run/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/user-preset/*.preset</filename></member>
       <member><filename>/usr/lib/systemd/user-preset/*.preset</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

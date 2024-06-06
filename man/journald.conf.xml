@@ -26,13 +26,16 @@
     <para><simplelist>
       <member><filename>/etc/systemd/journald.conf</filename></member>
       <member><filename>/run/systemd/journald.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald.conf</filename></member>
       <member><filename>/etc/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/journald.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></member>
       <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
