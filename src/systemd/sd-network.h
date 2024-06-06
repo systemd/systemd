@@ -167,6 +167,10 @@ int sd_network_link_get_dns_over_tls(int ifindex, char **ret);
  */
 int sd_network_link_get_dnssec(int ifindex, char **ret);
 
+/* Indicates whether or not DNS servers on this link are trusted
+ * to provide authentic data. */
+int sd_network_link_get_trust_ad(int ifindex);
+
 /* Returns the list of per-interface DNSSEC negative trust anchors
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link, or has no such data

@@ -40,6 +40,7 @@ struct Manager {
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
+        bool trust_ad;
         DnsCacheMode enable_cache;
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
@@ -208,6 +209,7 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
 
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
+bool manager_get_trust_ad(Manager *m);
 
 DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
 

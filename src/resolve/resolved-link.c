@@ -453,6 +453,27 @@ static int link_update_dnssec_mode(Link *l) {
         return 0;
 }
 
+static int link_update_trust_ad(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_trust_ad(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->trust_ad = r > 0;
+        return 0;
+
+clear:
+        l->trust_ad = -1;
+        return r;
+}
+
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
         _cleanup_strv_free_ char **ntas = NULL;
         _cleanup_set_free_free_ Set *ns = NULL;
@@ -624,6 +645,10 @@ static void link_read_settings(Link *l) {
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNSSEC mode for the interface, ignoring: %m");
 
+        r = link_update_trust_ad(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read Trust AD mode for the interface, ignoring: %m");
+
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNSSEC negative trust anchors for the interface, ignoring: %m");
@@ -782,6 +807,12 @@ DnssecMode link_get_dnssec_mode(Link *l) {
                 return l->dnssec_mode;
 
         return manager_get_dnssec_mode(l->manager);
+}
+
+bool link_get_trust_ad(Link *l) {
+        assert(l);
+
+        return l->trust_ad > 0;
 }
 
 bool link_dnssec_supported(Link *l) {
@@ -1303,7 +1334,8 @@ int link_load_user(Link *l) {
                 *servers = NULL,
                 *domains = NULL,
                 *ntas = NULL,
-                *default_route = NULL;
+                *default_route = NULL,
+                *trust_ad = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1328,7 +1360,8 @@ int link_load_user(Link *l) {
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
-                           "DEFAULT_ROUTE", &default_route);
+                           "DEFAULT_ROUTE", &default_route,
+                           "TRUST_AD", &trust_ad);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1351,6 +1384,11 @@ int link_load_user(Link *l) {
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);
+
+        /* If we can't parse TRUST_AD, just set it to false */
+        r = parse_boolean(trust_ad);
+        if (r >= 0)
+                l->trust_ad = r;
 
         /* Same for DNSOverTLS */
         l->dns_over_tls_mode = dns_over_tls_mode_from_string(dns_over_tls);
