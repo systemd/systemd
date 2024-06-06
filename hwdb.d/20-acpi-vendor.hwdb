@@ -4728,6 +4728,9 @@ acpi:MOC*:
 acpi:MOD*:
  ID_VENDOR_FROM_DATABASE=Modular Technology
 
+acpi:MOK*:
+ ID_VENDOR_FROM_DATABASE=Moka International limited
+
 acpi:MOM*:
  ID_VENDOR_FROM_DATABASE=Momentum Data Systems
 

@@ -4148,12 +4148,6 @@ BA9000-BA9FFF     (base 16)		Alma
 				Boissy St Léger  PACA  94470
 				FR
 
-70-B3-D5   (hex)		S.I.C.E.S. srl
-EA7000-EA7FFF     (base 16)		S.I.C.E.S. srl
-				Via Molinello, 8B
-				Jerago con Orago  VARESE  21040
-				IT
-
 70-B3-D5   (hex)		RCATSONE
 3AA000-3AAFFF     (base 16)		RCATSONE
 				5925 Airport Road - Suite 905
@@ -7221,6 +7215,30 @@ C45000-C45FFF     (base 16)		Flextroincs International (Taiwain Ltd
 85E000-85EFFF     (base 16)		Apen Group S.p.A.  (VAT IT08767740155) 
 				Via Isonzo, 1
 				Pessano con Bornago  Milano  20042
+				IT
+
+8C-1F-64   (hex)		DEUTA Werke GmbH
+0CD000-0CDFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
+
+8C-1F-64   (hex)		Secury360
+7DF000-7DFFFF     (base 16)		Secury360
+				Industrieweg-Zuid 1320
+				Zonhoven  Limburg  3520
+				BE
+
+8C-1F-64   (hex)		Shenzhen Dongman Technology Co.,Ltd
+49F000-49FFFF     (base 16)		Shenzhen Dongman Technology Co.,Ltd
+				05/F, Block A, Building 10, Shenzhen Bay Science and Technology Park, Yuehai Street, Nanshan District
+				Shenzhen  Guangdong  518054
+				CN
+
+70-B3-D5   (hex)		MECCALTE SPA
+EA7000-EA7FFF     (base 16)		MECCALTE SPA
+				Via Roma 20
+				Creazzo    36051
 				IT
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
@@ -14420,6 +14438,12 @@ EFD000-EFDFFF     (base 16)		Novatera(Shenzhen)Technologies Co.,Ltd.
 				Shenzhen  Guangdong  518118
 				CN
 
+8C-1F-64   (hex)		TSS COMPANY s.r.o.
+2F9000-2F9FFF     (base 16)		TSS COMPANY s.r.o.
+				Pod Rovnicami 41
+				Bratislava    84104
+				SK
+
 8C-1F-64   (hex)		Savant Group
 021000-021FFF     (base 16)		Savant Group
 				4800 James Savage
@@ -14438,11 +14462,23 @@ EFD000-EFDFFF     (base 16)		Novatera(Shenzhen)Technologies Co.,Ltd.
 				Lichtenau    77839
 				DE
 
-8C-1F-64   (hex)		TSS COMPANY s.r.o.
-2F9000-2F9FFF     (base 16)		TSS COMPANY s.r.o.
-				Pod Rovnicami 41
-				Bratislava    84104
-				SK
+8C-1F-64   (hex)		TELETECH SERVICES
+E3F000-E3FFFF     (base 16)		TELETECH SERVICES
+				812, Vakratunda Corporate Park, Off Aarey Road, Churi Wadi, Goregaon East
+				Mumbai  Maharashtra  400097
+				IN
+
+8C-1F-64   (hex)		Grossenbacher Systeme AG
+AF9000-AF9FFF     (base 16)		Grossenbacher Systeme AG
+				Spinnereistrasse 10
+				St. Gallen    9008
+				CH
+
+8C-1F-64   (hex)		HY smart
+AF3000-AF3FFF     (base 16)		HY smart
+				room 1908 ,building 4B , LONGGUANGJIUZUAN, MinZhi Street
+				ShenZhen    518110
+				CN
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -21547,6 +21583,24 @@ CD9000-CD9FFF     (base 16)		Fingoti Limited
 				Unit 4-5 Creative Court 
 				Central Park Avenue  Plymouth  PL4 6NW
 				GB
+
+8C-1F-64   (hex)		Working Set Software Solutions
+AD3000-AD3FFF     (base 16)		Working Set Software Solutions
+				10525 Mopac Dr
+				San Antonio  TX  78217
+				US
+
+8C-1F-64   (hex)		Onbitel
+44A000-44AFFF     (base 16)		Onbitel
+				4F Wintek Building Beolmoruap-gil 14
+				Uiwang-si  Gyeonggi-do  16013
+				KR
+
+8C-1F-64   (hex)		ACS Motion Control
+F13000-F13FFF     (base 16)		ACS Motion Control
+				5 Ha'Tnufa st. 
+				Yokneam    2066717
+				IL
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -28742,6 +28796,18 @@ D23000-D23FFF     (base 16)		PLX Inc.
 				Deer Park  NY  11729
 				US
 
+8C-1F-64   (hex)		Dentalhitec
+F97000-F97FFF     (base 16)		Dentalhitec
+				Rue de champ blanc, Zi de l'appentiere
+				mazieres en mauges  Maine et Loire  49280
+				FR
+
+8C-1F-64   (hex)		Saarni Cloud Oy
+A47000-A47FFF     (base 16)		Saarni Cloud Oy
+				Hatsinanpuisto 8
+				Espoo    02600
+				FI
+
 8C-1F-64   (hex)		Automata GmbH & Co. KG
 6BF000-6BFFFF     (base 16)		Automata GmbH & Co. KG
 				Gewerbering 5
@@ -28753,6 +28819,18 @@ D23000-D23FFF     (base 16)		PLX Inc.
 				 22635 Davis Dr
 				Sterling  VA  20164
 				US
+
+8C-1F-64   (hex)		Nuvation Energy
+4E4000-4E4FFF     (base 16)		Nuvation Energy
+				40 Bathurst Drive
+				Waterloo  Ontario  N2V 1V6
+				CA
+
+8C-1F-64   (hex)		DA-Design Oy
+8B7000-8B7FFF     (base 16)		DA-Design Oy
+				Kassimäenkatu 2
+				Forssa    30300
+				FI
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -35036,12 +35114,6 @@ B3D000-B3DFFF     (base 16)		Inras GmbH
 				Minato-ku  Tokyo  1050014
 				JP
 
-00-1B-C5   (hex)		S.I.C.E.S. srl
-09C000-09CFFF     (base 16)		S.I.C.E.S. srl
-				Via Molinello, 8B
-				Jerago con Orago  VARESE  21040
-				IT
-
 00-1B-C5   (hex)		Cubic Systems, Inc.
 098000-098FFF     (base 16)		Cubic Systems, Inc.
 				139 Dino Drive
@@ -35887,3 +35959,45 @@ D27000-D27FFF     (base 16)		Taiv Inc
 				Lipowa  17
 				Rybnik    44-207
 				PL
+
+8C-1F-64   (hex)		SERAP
+2A2000-2A2FFF     (base 16)		SERAP
+				Route de Fougères
+				Gorron  Mayenne  53120
+				FR
+
+8C-1F-64   (hex)		SHENZHEN ANLIJI ELECTRONICS CO.,LTD
+AA7000-AA7FFF     (base 16)		SHENZHEN ANLIJI ELECTRONICS CO.,LTD
+				14th Floor, Building 9, Zhongsheng Science and Technology Park, Bulan Road, Shanglilang Community, Nanwan Street, Longgang District, Shenzhen, China
+				Shenzhen  Guangdong  518112
+				CN
+
+8C-1F-64   (hex)		MapleCloud Technologies
+D28000-D28FFF     (base 16)		MapleCloud Technologies
+				J-203, Stellar Jeevan, GH - 03 , Sec-01, Greater Noida, GautamBuddha Nagar, Uttar Pradesh, 201318
+				Gautam Buddha Nagar  Uttar Pradesh   201318
+				IN
+
+8C-1F-64   (hex)		Unitron Systems b.v.
+866000-866FFF     (base 16)		Unitron Systems b.v.
+				SCHANSESTRAAT 7
+				IJzendijke    4515 RN
+				NL
+
+8C-1F-64   (hex)		RADA Electronics Industries Ltd.
+E2E000-E2EFFF     (base 16)		RADA Electronics Industries Ltd.
+				7 Gibory Israel St.
+				Netanya    42504
+				IL
+
+8C-1F-64   (hex)		HEITEC AG
+E76000-E76FFF     (base 16)		HEITEC AG
+				Dr.-Otto-Leich-Str. 16
+				Eckental  Bavaria  90542
+				DE
+
+00-1B-C5   (hex)		MECCALTE SPA
+09C000-09CFFF     (base 16)		MECCALTE SPA
+				Via Roma 20
+				Creazzo    36051
+				IT
