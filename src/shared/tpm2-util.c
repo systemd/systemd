@@ -5306,12 +5306,7 @@ int tpm2_calculate_seal(
                 /* No secret provided, generate a random secret. We use SHA256 digest length, though it can
                  * be up to TPM2_MAX_SEALED_DATA. The secret length is not limited to the nameAlg hash
                  * size. */
-                generated_secret.iov_len = TPM2_SHA256_DIGEST_SIZE;
-                generated_secret.iov_base = malloc(generated_secret.iov_len);
-                if (!generated_secret.iov_base)
-                        return log_oom_debug();
-
-                r = crypto_random_bytes(generated_secret.iov_base, generated_secret.iov_len);
+                r = crypto_random_bytes_allocate_iovec(TPM2_SHA256_DIGEST_SIZE, &generated_secret);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to generate secret key: %m");
 
