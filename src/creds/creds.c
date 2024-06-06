@@ -958,7 +958,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "help")) {
                                 if (arg_legend)
                                         puts("Supported key types:");
-
                                 return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
                         }
 
@@ -978,7 +977,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'T':
-                        arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        arg_with_key = _CRED_AUTO_TPM2;
                         break;
 
                 case ARG_TPM2_DEVICE:
