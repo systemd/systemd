@@ -1133,18 +1133,28 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         }
 
         if (pty_path) {
-                _cleanup_close_ int pty_slave = -EBADF;
+                if (arg_transport == BUS_TRANSPORT_MACHINE)
+                        /* Temporary work-around for https://github.com/systemd/systemd/pull/33216. */
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)(sv)",
+                                                  "StandardInput", "s", "tty",
+                                                  "StandardOutput", "s", "tty",
+                                                  "StandardError", "s", "tty",
+                                                  "TTYPath", "s", pty_path);
+                else {
+                        _cleanup_close_ int pty_slave = -EBADF;
 
-                pty_slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                if (pty_slave < 0)
-                        return pty_slave;
+                        pty_slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (pty_slave < 0)
+                                return pty_slave;
 
-                r = sd_bus_message_append(m,
-                                          "(sv)(sv)(sv)(sv)",
-                                          "StandardInputFileDescriptor", "h", pty_slave,
-                                          "StandardOutputFileDescriptor", "h", pty_slave,
-                                          "StandardErrorFileDescriptor", "h", pty_slave,
-                                          "TTYPath", "s", pty_path);
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)(sv)",
+                                                  "StandardInputFileDescriptor", "h", pty_slave,
+                                                  "StandardOutputFileDescriptor", "h", pty_slave,
+                                                  "StandardErrorFileDescriptor", "h", pty_slave,
+                                                  "TTYPath", "s", pty_path);
+                }
                 if (r < 0)
                         return bus_log_create_error(r);
 
