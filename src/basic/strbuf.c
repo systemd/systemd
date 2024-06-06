@@ -107,7 +107,6 @@ static void bubbleinsert(struct strbuf_node *node,
 /* add string, return the index/offset into the buffer */
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
-        char *buf_new;
         struct strbuf_child_entry *child;
         struct strbuf_node *node;
         ssize_t off;
@@ -147,10 +146,8 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         }
 
         /* add new string */
-        buf_new = realloc(str->buf, str->len + len+1);
-        if (!buf_new)
+        if (!GREEDY_REALLOC(str->buf, str->len + len + 1))
                 return -ENOMEM;
-        str->buf = buf_new;
         off = str->len;
         memcpy(str->buf + off, s, len);
         str->len += len;
