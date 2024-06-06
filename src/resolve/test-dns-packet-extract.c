@@ -415,6 +415,526 @@ TEST(packet_query_multi_compressed_domain_2) {
         dns_resource_key_unref(key);
 }
 
+TEST(packet_query_single_missing_bytes) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01
+                        /* missing class */
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_single_unknown_class) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* ??? */       0x00, 0x20
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(32, DNS_TYPE_A, "com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_single_unknown_type) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* ??? */       0x00, 0x50,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, 80, "com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_single_bad_type) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* OPT */       0x00, 0x29,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_single_long_domain) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x10, 'a', 'b', 's', 'o', 'r', 'p', 't', 'i', 'v', 'e', 'n', 'e', 's', 's', 'e', 's',
+                        0x10, 'c', 'a', 'l', 'l', 'i', 'g', 'r', 'a', 'p', 'h', 'i', 'c', 'a', 'l', 'l', 'y',
+                        0x10, 'd', 'e', 'a', 'c', 'i', 'd', 'i', 'f', 'i', 'c', 'a', 't', 'i', 'o', 'n', 's',
+                        0x10, 'e', 'c', 'o', 'p', 'h', 'y', 's', 'i', 'o', 'l', 'o', 'g', 'i', 'c', 'a', 'l',
+                        0x10, 'f', 'a', 'l', 's', 'i', 'f', 'i', 'a', 'b', 'i', 'l', 'i', 't', 'i', 'e', 's',
+                        0x10, 'h', 'e', 't', 'e', 'r', 'o', 'c', 'h', 'r', 'o', 'm', 'a', 't', 'i', 's', 'm',
+                        0x10, 'i', 'c', 'o', 's', 'i', 't', 'e', 't', 'r', 'a', 'h', 'e', 'd', 'r', 'o', 'n',
+                        0x10, 'j', 'o', 'u', 'r', 'n', 'a', 'l', 'i', 's', 't', 'i', 'c', 'a', 'l', 'l', 'y',
+                        0x10, 'k', 'i', 'n', 'a', 'e', 's', 't', 'h', 'e', 't', 'i', 'c', 'a', 'l', 'l', 'y',
+                        0x10, 'l', 'a', 'c', 't', 'o', 'v', 'e', 'g', 'e', 't', 'a', 'r', 'i', 'a', 'n', 's',
+                        0x10, 'm', 'i', 's', 'i', 'n', 't', 'e', 'r', 'p', 'r', 'e', 't', 'a', 'b', 'l', 'e',
+                        0x10, 'n', 'i', 't', 'r', 'o', 's', 'y', 'l', 's', 'u', 'l', 'f', 'u', 'r', 'i', 'c',
+                        0x10, 'o', 'b', 'j', 'e', 'c', 't', 'l', 'e', 's', 's', 'n', 'e', 's', 's', 'e', 's',
+                        0x10, 'p', 'a', 'r', 't', 'r', 'i', 'd', 'g', 'e', 'b', 'e', 'r', 'r', 'i', 'e', 's',
+                        0x10, 'r', 'e', 'a', 's', 'o', 'n', 'l', 'e', 's', 's', 'n', 'e', 's', 's', 'e', 's',
+                        0x10, 's', 'e', 'm', 'i', 'p', 'a', 't', 'h', 'o', 'l', 'o', 'g', 'i', 'c', 'a', 'l',
+                        0x10, 't', 'o', 'm', 'f', 'o', 'o', 'l', 'i', 's', 'h', 'n', 'e', 's', 's', 'e', 's',
+                        0x10, 'u', 'n', 'd', 'e', 'r', 'c', 'a', 'p', 'i', 't', 'a', 'l', 'i', 'z', 'e', 'd',
+                        0x10, 'v', 'e', 'c', 't', 'o', 'r', 'c', 'a', 'r', 'd', 'i', 'o', 'g', 'r', 'a', 'm',
+                        0x10, 'w', 'e', 'a', 't', 'h', 'e', 'r', 'p', 'r', 'o', 'o', 'f', 'n', 'e', 's', 's',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A,
+                "absorptivenesses.calligraphically.deacidifications.ecophysiological."
+                "falsifiabilities.heterochromatism.icositetrahedron.journalistically."
+                "kinaesthetically.lactovegetarians.misinterpretable.nitrosylsulfuric."
+                "objectlessnesses.partridgeberries.reasonlessnesses.semipathological."
+                "tomfoolishnesses.undercapitalized.vectorcardiogram.weatherproofness");
+
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_single_long_label) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x48,   'a', '-', 'd', 'o', 'm', 'a', 'i', 'n', '-',
+                                'n', 'a', 'm', 'e', '-', 'l', 'a', 'b', 'e', 'l', '-',
+                                't', 'h', 'a', 't', '-', 'g', 'o', 'e', 's', '-',
+                                'p', 'a', 's', 't', '-', 't', 'h', 'e', '-',
+                                'l', 'e', 'n', 'g', 't', 'h', '-', 'l', 'i', 'm', 'i', 't', '-',
+                                'o', 'f', '-', 's', 'i', 'x', 't', 'y', '-',
+                                't', 'h', 'r', 'e', 'e', '-', 'b', 'y', 't', 'e', 's',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_single_invalid_label) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, '9', '_', '?',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "9_?");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_single_extra_bytes) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* extra */     0x04, 'm', 'a', 'i', 'l'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_single_domain_overflow) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'm', 'a', 'i', 'l',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_single_domain_underflow) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x04, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_single_domain_missing_root) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        /* missing 0x00 */
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_missing_question) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_extra_question) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x03, 'o', 'r', 'g',
+                        0x00,
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 1u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(packet->question, key));
+}
+
+TEST(packet_query_bad_compression) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0xc0, 0x0b,     /* points 1 byte before start of "com" */
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_bad_compression_2) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0xc0, 0x0d,     /* points 1 byte after start of "com" */
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_bad_compression_3) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0xc0, 0x0c,
+                        0x00,           /* extra null terminator */
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_bad_compression_4) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0xc0, 0x80,     /* points past end of message */
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_query_bad_compression_5) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0xc0, 0x12,     /* points at "com" in next question */
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
 /* ================================================================
  * reply: A
  * ================================================================ */
