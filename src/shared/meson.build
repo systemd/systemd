@@ -100,7 +100,6 @@ shared_sources = files(
         'kbd-util.c',
         'kernel-config.c',
         'kernel-image.c',
-        'keyring-util.c',
         'killall.c',
         'label-util.c',
         'libarchive-util.c',
