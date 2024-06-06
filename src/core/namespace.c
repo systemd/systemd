@@ -2805,7 +2805,7 @@ static int make_tmp_prefix(const char *prefix) {
 
         /* umask will corrupt this access mode, but that doesn't matter, we need to call chmod() anyway for
          * the suid bit, below. */
-        fd = open_mkdir_at(AT_FDCWD, t, O_EXCL|O_CLOEXEC, 0777);
+        fd = open_mkdir(t, O_EXCL|O_CLOEXEC, 0777);
         if (fd < 0)
                 return fd;
 
