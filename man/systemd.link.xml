@@ -35,7 +35,9 @@
 
     <para>The <filename>.link</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
-    <filename>/usr/local/lib/systemd/network</filename>, the volatile runtime network directory
+    <filename>/usr/local/lib/systemd/network</filename>
+    <xi:include href="standard-conf.xml" xpointer="usr-local-footnote" />,
+    the volatile runtime network directory
     <filename>/run/systemd/network</filename>, and the local administration network directory
     <filename>/etc/systemd/network</filename>. All configuration files are collectively sorted and
     processed in alphanumeric order, regardless of the directories in which they live. However, files
