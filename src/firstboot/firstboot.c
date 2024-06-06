@@ -97,7 +97,7 @@ static bool press_any_key(void) {
         char k = 0;
         bool need_nl = true;
 
-        printf("-- Press any key to proceed --");
+        printf("-- Press any key to proceed --\n");
         fflush(stdout);
 
         (void) read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
@@ -193,24 +193,31 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
         return 0;
 }
 
-static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
+static int prompt_loop(const char *text, char **l, const char* fallback, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
         int r;
 
         assert(text);
         assert(is_valid);
+        assert(is_valid(fallback));
         assert(ret);
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
+                char *best_match = NULL;
                 unsigned u;
 
-                r = ask_string(&p, "%s %s (empty to skip, \"list\" to list options): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                r = ask_string(&p, "%s %s (empty to default to \"%s\", \"-\" to skip, \"list\" to list options): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text, fallback);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
-                        log_warning("No data entered, skipping.");
+                        log_debug("No data entered, using default.");
+                        return free_and_strdup_warn(ret, fallback);
+                }
+
+                if (streq(p, "-")) {
+                        log_debug("Skip requested, continuing.");
                         return 0;
                 }
 
@@ -234,12 +241,20 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         return free_and_strdup_warn(ret, l[u-1]);
                 }
 
-                if (!is_valid(p)) {
-                        log_error("Entered data invalid.");
-                        continue;
-                }
+                if (is_valid(p))
+                        return free_and_replace(*ret, p);
 
-                return free_and_replace(*ret, p);
+                /* Be helperful to the user, and give a hint what the user might have wanted to
+                 * type. We search with two mechanisms: a simple prefix match and – if that didn't
+                 * yield results –, a Levenshtein word distance based match. */
+                best_match = strv_find_prefix(l, p);
+                if (!best_match)
+                        best_match = strv_find_closest(l, p);
+
+                if (best_match)
+                        log_error("Invalid data '%s', did you mean '%s'?", p, best_match);
+                else
+                        log_error("Invalid data '%s'.", p);
         }
 }
 
@@ -380,7 +395,7 @@ static int prompt_locale(int rfd) {
                 print_welcome(rfd);
 
                 r = prompt_loop("Please enter system locale name or number",
-                                locales, 60, is_valid, &arg_locale);
+                                locales, SYSTEMD_DEFAULT_LOCALE, 60, is_valid, &arg_locale);
                 if (r < 0)
                         return r;
 
@@ -388,7 +403,7 @@ static int prompt_locale(int rfd) {
                         return 0;
 
                 r = prompt_loop("Please enter system message locale name or number",
-                                locales, 60, is_valid, &arg_locale_messages);
+                                locales, arg_locale, 60, is_valid, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -503,7 +518,7 @@ static int prompt_keymap(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop("Please enter system keymap name or number",
-                           kmaps, 60, determine_keymap_validity_func(rfd), &arg_keymap);
+                           kmaps, SYSTEMD_DEFAULT_KEYMAP, 60, determine_keymap_validity_func(rfd), &arg_keymap);
 }
 
 static int process_keymap(int rfd) {
@@ -593,7 +608,7 @@ static int prompt_timezone(int rfd) {
         print_welcome(rfd);
 
         r = prompt_loop("Please enter timezone name or number",
-                        zones, 30, timezone_is_valid_log_error, &arg_timezone);
+                        zones, SYSTEMD_DEFAULT_TIMEZONE, 30, timezone_is_valid_log_error, &arg_timezone);
         if (r < 0)
                 return r;
 
@@ -676,13 +691,22 @@ static int prompt_hostname(int rfd) {
 
         for (;;) {
                 _cleanup_free_ char *h = NULL;
+                _cleanup_free_ char *fallback = NULL;
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                fallback = get_default_hostname();
+
+                r = ask_string(&h, "%s Please enter hostname for new system (empty to default to \"%s\", \"-\" to skip): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), fallback);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
 
                 if (isempty(h)) {
-                        log_warning("No hostname entered, skipping.");
+                        log_debug("No hostname entered, using default.");
+                        return free_and_strdup_warn(&arg_hostname, fallback);
+                }
+
+                if (streq(h, "-")) {
+                        log_debug("Skip requested, continuing.");
                         break;
                 }
 
@@ -809,7 +833,7 @@ static int prompt_root_password(int rfd) {
                                                "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
-                        log_warning("No password entered, skipping.");
+                        log_debug("No password entered, skipping.");
                         break;
                 }
 
@@ -884,12 +908,18 @@ static int prompt_root_shell(int rfd) {
         for (;;) {
                 _cleanup_free_ char *s = NULL;
 
-                r = ask_string(&s, "%s Please enter root shell for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                r = ask_string(&s, "%s Please enter root shell for new system (empty to default to \"%s\", \"-\" to skip): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), DEFAULT_USER_SHELL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root shell: %m");
 
                 if (isempty(s)) {
-                        log_warning("No shell entered, skipping.");
+                        log_debug("No shell entered, using default.");
+                        return free_and_strdup_warn(&arg_root_shell, DEFAULT_USER_SHELL);
+                }
+
+                if (streq(s, "-")) {
+                        log_debug("Skip requested, continuing.");
                         break;
                 }
 
