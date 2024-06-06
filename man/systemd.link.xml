@@ -69,6 +69,10 @@
     <filename>99-default.link</filename> is shipped by the system. Any user-supplied
     <filename>.link</filename> should hence have a lexically earlier name to be considered at all.</para>
 
+    <para>Please note that those configuration files must be available at all times. If
+    <filename>/usr/local/</filename> is a separate partition, it may not be available during early boot, and
+    must not be used for configuration.</para>
+
     <para>See <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
     diagnosing problems with <filename>.link</filename> files.</para>
   </refsect1>

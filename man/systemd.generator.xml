@@ -82,6 +82,10 @@
     directories with the highest priority is reversed with respect to the unit load path, and generators in
     <filename>/run/</filename> overwrite those in <filename>/etc/</filename>.</para>
 
+    <para>Please note that those configuration files must be available at all times. If
+    <filename>/usr/local/</filename> is a separate partition, it may not be available during early boot, and
+    must not be used for configuration.</para>
+
     <para>After installing new generators or updating the configuration, <command>systemctl
     daemon-reload</command> may be executed. This will delete the previous configuration created by
     generators, re-run all generators, and cause <command>systemd</command> to reload units from disk. See

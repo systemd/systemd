@@ -67,6 +67,10 @@
     <filename>/etc/</filename> take precedence over those in <filename>/run/</filename> which in turn
     take precedence over those in <filename>/usr/lib/</filename>. Drop-in files under any of these
     directories take precedence over the main network file wherever located.</para>
+
+    <para>Please note that those configuration files must be available at all times. If
+    <filename>/usr/local/</filename> is a separate partition, it may not be available during early boot, and
+    must not be used for configuration.</para>
   </refsect1>
 
   <refsect1>
