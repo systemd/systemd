@@ -1717,4 +1717,171 @@ TEST(packet_reply_soa_rdata_partial_final_field) {
         ASSERT_EQ(dns_answer_size(packet->answer), 0u);
 }
 
+/* ================================================================
+ * reply: SRV
+ * ================================================================ */
+
+TEST(packet_reply_srv_with_a) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x05, '_', 'l', 'd', 'a', 'p',
+                        0x04, '_', 't', 'c', 'p',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SRV */       0x00, 0x21,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x19,
+        /* priority */  0x43, 0x21,
+        /* weight */    0x65, 0x78,
+        /* port */      0x01, 0x85,
+        /* name */      0x05, 'c', 'l', 'o', 'u', 'd',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+
+        /* name */      0xc0, 0x34,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 2u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "_ldap._tcp.example.com");
+        rr->ttl = 3600;
+        rr->srv.priority = 17185;
+        rr->srv.weight = 25976;
+        rr->srv.port = 389;
+        rr->srv.name = strdup("cloud.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "cloud.example.com");
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+/* we allow compression of the SRV target field even though RFC 2782 advises against it */
+
+TEST(packet_reply_srv_compression) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x05, '_', 'l', 'd', 'a', 'p',
+                        0x04, '_', 't', 'c', 'p',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SRV */       0x00, 0x21,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x0e,
+        /* priority */  0x00, 0x0a,
+        /* weight */    0x00, 0x05,
+        /* port */      0x01, 0x85,
+        /* name */      0x05, 'c', 'l', 'o', 'u', 'd',
+                        0xc0, 0x17,
+
+        /* name */      0xc0, 0x34,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 2u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "_ldap._tcp.example.com");
+        rr->ttl = 3600;
+        rr->srv.priority = 10;
+        rr->srv.weight = 5;
+        rr->srv.port = 389;
+        rr->srv.name = strdup("cloud.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "cloud.example.com");
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_srv_allow_non_srv_names) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SRV */       0x00, 0x21,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x0e,
+        /* priority */  0x00, 0x0a,
+        /* weight */    0x00, 0x05,
+        /* port */      0x01, 0x85,
+        /* name */      0x05, 'c', 'l', 'o', 'u', 'd',
+                        0xc0, 0x10
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        rr->ttl = 3600;
+        rr->srv.priority = 10;
+        rr->srv.weight = 5;
+        rr->srv.port = 389;
+        rr->srv.name = strdup("cloud.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
