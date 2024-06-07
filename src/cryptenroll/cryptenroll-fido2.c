@@ -3,11 +3,15 @@
 #include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
 #include "cryptsetup-fido2.h"
+#include "fido2-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "libfido2-util.h"
 #include "memory-util.h"
+#include "pretty-print.h"
 #include "random-util.h"
+#include "terminal-util.h"
 
 int load_volume_key_fido2(
                 struct crypt_device *cd,
@@ -67,7 +71,10 @@ int enroll_fido2(
                 size_t volume_key_size,
                 const char *device,
                 Fido2EnrollFlags lock_with,
-                int cred_alg) {
+                int cred_alg,
+                const char *salt_file,
+                uint64_t salt_file_offset,
+                bool manual_mode) {
 
         _cleanup_(erase_and_freep) void *salt = NULL, *secret = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -88,6 +95,17 @@ int enroll_fido2(
 
         un = strempty(crypt_get_uuid(cd));
 
+        if (salt_file)
+                r = fido2_read_salt_file(
+                                salt_file, salt_file_offset,
+                                /* size= */ SIZE_MAX,
+                                /* client= */ "cryptenroll",
+                                un, &salt, &salt_size);
+        else
+                r = fido2_generate_salt(&salt, &salt_size);
+        if (r < 0)
+                return r;
+
         r = fido2_generate_hmac_hash(
                         device,
                         /* rp_id= */ "io.systemd.cryptsetup",
@@ -100,8 +118,8 @@ int enroll_fido2(
                         /* askpw_credential= */ "cryptenroll.fido2-pin",
                         lock_with,
                         cred_alg,
+                        salt, salt_size,
                         &cid, &cid_size,
-                        &salt, &salt_size,
                         &secret, &secret_size,
                         NULL,
                         &lock_with);
@@ -127,25 +145,61 @@ int enroll_fido2(
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new FIDO2 key to %s: %m", node);
 
-        if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
-                return log_oom();
+        if (manual_mode) {
+                _cleanup_free_ char *base64_encoded_cid = NULL, *link = NULL;
 
-        r = json_build(&v,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
-                                       JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
-                                       JSON_BUILD_PAIR("fido2-credential", JSON_BUILD_BASE64(cid, cid_size)),
-                                       JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
-                                       JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
-                                       JSON_BUILD_PAIR("fido2-clientPin-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
-                                       JSON_BUILD_PAIR("fido2-up-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
-                                       JSON_BUILD_PAIR("fido2-uv-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))));
-        if (r < 0)
-                return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m");
+                r = base64mem(cid, cid_size, &base64_encoded_cid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode FIDO2 credential ID: %m");
 
-        r = cryptsetup_add_token_json(cd, v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add FIDO2 JSON token to LUKS2 header: %m");
+                r = terminal_urlify_man("crypttab", "5", &link);
+                if (r < 0)
+                        return log_oom();
+
+                fflush(stdout);
+                fprintf(stderr,
+                        "A FIDO2 credential has been registered for this volume:\n\n"
+                        "    %s%sfido2-cid=%s",
+                        emoji_enabled() ? special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY) : "",
+                        emoji_enabled() ? " " : "",
+                        ansi_highlight());
+                fflush(stderr);
+
+                fputs(base64_encoded_cid, stdout);
+                fflush(stdout);
+
+                fputs(ansi_normal(), stderr);
+                fflush(stderr);
+
+                fputc('\n', stdout);
+                fflush(stdout);
+
+                fprintf(stderr,
+                        "\nPlease save this FIDO2 credential ID. It is required when unloocking the volume\n"
+                        "using the associated FIDO2 keyslot which we just created. To configure automatic\n"
+                        "unlocking using this FIDO2 token, add an appropriate entry to your /etc/crypttab\n"
+                        "file, see %s for details.\n", link);
+                fflush(stderr);
+        } else {
+                if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
+                        return log_oom();
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
+                                JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
+                                JSON_BUILD_PAIR("fido2-credential", JSON_BUILD_BASE64(cid, cid_size)),
+                                JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
+                                JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
+                                JSON_BUILD_PAIR("fido2-clientPin-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
+                                JSON_BUILD_PAIR("fido2-up-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
+                                JSON_BUILD_PAIR("fido2-uv-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m");
+
+                r = cryptsetup_add_token_json(cd, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add FIDO2 JSON token to LUKS2 header: %m");
+        }
 
         log_info("New FIDO2 token enrolled as key slot %i.", keyslot);
         return keyslot;

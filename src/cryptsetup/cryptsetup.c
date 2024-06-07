@@ -1690,6 +1690,10 @@ static bool use_token_plugins(void) {
         if (arg_tpm2_measure_pcr != UINT_MAX)
                 return false;
 
+        /* Disable tokens if we're in FIDO2 mode with manual parameters. */
+        if (arg_fido2_cid)
+                return false;
+
         r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
