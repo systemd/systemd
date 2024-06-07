@@ -280,6 +280,22 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC
  KEYBOARD_KEY_0=volumedown
 
 ###########################################################
+# Ayaneo
+###########################################################
+
+# The Ayaneo Kun is a portable PC handheld console. Four of its
+# face buttons are not exposed through the integrated Xbox360
+# controller, but by a raw AT keyboard.
+#
+# All four of these buttons generate a multi-scancode sequence
+# consisting of Left_Meta, Right_Ctrl and another scancode.
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
+ KEYBOARD_KEY_18=f13                              # LC (next to the left shoulder button)
+ KEYBOARD_KEY_20=f14                              # RC (next to the right shoulder button)
+ KEYBOARD_KEY_30=f15                              # Start (upper-right corner of screen)
+ KEYBOARD_KEY_28=f16                              # Ayaneo (lower-right corner of screen)
+
+###########################################################
 # BenQ
 ###########################################################
 
