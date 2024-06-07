@@ -140,8 +140,6 @@ jobs:
                 LLVM=${{ matrix.llvm }}
 
         [Host]
-        ToolsTree=default
-        ToolsTreeDistribution=fedora
         QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
@@ -153,24 +151,20 @@ jobs:
     - name: Show image summary
       run: mkosi summary
 
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
-        sudo apt-get install \
-            meson \
+        mkosi dependencies |
+        xargs -d '\n' sudo apt-get install \
             gperf \
+            libblkid-dev \
+            libcap-dev \
+            libcryptsetup-dev \
+            libcurl4-openssl-dev \
             libfdisk-dev \
+            libmicrohttpd-dev \
             libmount-dev \
             libtss2-dev \
-            libblkid-dev \
-            libmicrohttpd-dev \
-            libcap-dev \
-            libcurl4-openssl-dev \
-            libcryptsetup-dev \
-            erofs-utils \
-            dosfstools \
-            python3-pefile \
-            sbsigntool \
-            mtools
+            meson
 
     - name: Configure meson
       run: |
@@ -183,7 +177,7 @@ jobs:
             -Dtpm2=enabled \
             -Dlibcryptsetup=enabled \
             -Dlibcurl=enabled \
-            -Drepart=disabled \
+            -Drepart=enabled \
             -Dfirstboot=true \
             -Dsysusers=true \
             -Dtmpfiles=true \
