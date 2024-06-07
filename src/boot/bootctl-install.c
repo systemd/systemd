@@ -208,11 +208,12 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(ESTALE),
                                          "Skipping \"%s\", newer boot loader version in place already.", to);
-        if (r == 0)
-                return log_info_errno(SYNTHETIC_ERRNO(ESTALE),
-                                      "Skipping \"%s\", same boot loader version in place already.", to);
+        if (r == 0) {
+                log_info("Skipping \"%s\", same boot loader version in place already.", to);
+                return 0;
+        }
 
-        return 0;
+        return 1;
 }
 
 static int copy_file_with_version_check(const char *from, const char *to, bool force) {
@@ -231,7 +232,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
                 } else {
                         r = version_check(fd_from, from, fd_to, to);
-                        if (r < 0)
+                        if (r <= 0)
                                 return r;
 
                         if (lseek(fd_from, 0, SEEK_SET) < 0)
