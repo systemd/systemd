@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     name: Lint Code Base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@4e51915f4a812abf59fed160bb14595c0a38a9e7
+        uses: super-linter/super-linter/slim@88ea3923a7e1f89dd485d079f6eb5f5e8f937589
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false

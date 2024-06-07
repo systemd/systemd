@@ -24,7 +24,7 @@ permissions:
 jobs:
   triage:
     if: github.repository == 'systemd/systemd'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: write
 
