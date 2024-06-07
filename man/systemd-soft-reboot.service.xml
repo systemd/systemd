@@ -106,7 +106,8 @@
       normal shutdown, reboot and maintenance mode. Finally, they have to be ordered after
       <constant>basic.target</constant> to ensure correct ordering on boot. Note that in case any new or
       custom units are used to isolate to, or that implement an equivalent shutdown functionality, they will
-      also have to be configured manually for correct ordering and conflicting. For example:</para>
+      also have to be configured manually for correct ordering and conflicting. In addition, to ensure
+      logging via the journal API continues to work, the sockets have to be mounted too. For example:</para>
 
       <programlisting>[Unit]
 Description=My Surviving Service
@@ -116,6 +117,7 @@ DefaultDependencies=no
 After=basic.target
 Conflicts=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
 Before=shutdown.target rescue.target emergency.target
+BindReadOnlyPaths=/run/systemd/journal/socket /run/systemd/journal/stdout
 
 [Service]
 Type=oneshot
