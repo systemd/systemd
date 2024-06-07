@@ -604,7 +604,7 @@ static int manager_setup_signals(Manager *m) {
          * misunderstand this as a boolean concept. Signal level 2 shall refer to the signals PID 1
          * understands at the time of release of systemd v256, i.e. including basic SIGRTMIN+18 handling for
          * memory pressure and stuff. When more signals are hooked up (or more SIGRTMIN+18 multiplex
-         * operations added, this level should be increased).  */
+         * operations added, this level should be increased). */
         (void) sd_notify(/* unset_environment= */ false,
                          "X_SYSTEMD_SIGNALS_LEVEL=2");
 
@@ -1037,9 +1037,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         r = xdg_user_runtime_dir(&units_path, "/systemd/units");
                         if (r < 0)
                                 return r;
+
                         r = mkdir_p_label(units_path, 0755);
                 }
-
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -1049,12 +1049,12 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 if (m->executor_fd < 0)
                         return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
-                _cleanup_free_ char *executor_path = NULL;
-                r = fd_get_path(m->executor_fd, &executor_path);
-                if (r < 0)
-                        return r;
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *executor_path = NULL;
 
-                log_debug("Using systemd-executor binary from '%s'.", executor_path);
+                        (void) fd_get_path(m->executor_fd, &executor_path);
+                        log_debug("Using systemd-executor binary from '%s'.", strna(executor_path));
+                }
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
