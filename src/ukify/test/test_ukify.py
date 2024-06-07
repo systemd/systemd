@@ -521,11 +521,87 @@ baz,3
 
     assert found is True
 
+
+def test_sign_uki(kernel_initrd, tmp_path, signing_crt_key):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+
+    # Build a UKI first
+    first_uki_output = f'{tmp_path}/basic.efi'
+    opts = ukify.parse_args([
+        'build',
+        *kernel_initrd,
+        f'--output={first_uki_output}',
+        '--uname=1.2.3',
+        '--cmdline=ARG1 ARG2 ARG3',
+        '--os-release=K1=V1\nK2=V2\n',
+        '--section=.test:CONTENTZ',
+    ])
+
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    cert, key = signing_crt_key
+
+    output = f'{tmp_path}/signed.efi'
+    opts = ukify.parse_args([
+        'sign',
+        f'--uki={first_uki_output}',
+        f'--output={output}',
+        '--cmdline=ARG1 ARG2 ARG3',
+        '--append-cmdline',
+        f'--secureboot-certificate={cert.name}',
+        f'--secureboot-private-key={key.name}',
+        '--sign-kernel'
+    ])
+    ukify.sign_uki(opts)
+
+    # let's check that objdump likes the resulting file
+    dump = subprocess.check_output(['objdump', '-h', output], text=True)
+
+    for sect in ['text', 'cmdline', 'test', 'sbat']:
+        assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
+
+    pe_original = pefile.PE(first_uki_output, fast_load=True)
+    pe = pefile.PE(output, fast_load=True)
+
+    # Check that no section has gone missing
+    for original_section in pe_original.sections:
+        assert any(
+            section.Name.rstrip(b"\x00") == original_section.Name.rstrip(b"\x00")
+            for section in pe.sections
+        )
+
+    if shutil.which('sbverify'):
+        # let's check that sbverify likes the resulting file
+        sbverify_out = subprocess.check_output([
+            'sbverify',
+            '--cert', cert.name,
+            output,
+        ], text=True)
+
+        assert 'Signature verification OK' in sbverify_out
+
+    shutil.rmtree(tmp_path)
+
+
 def unbase64(filename):
     tmp = tempfile.NamedTemporaryFile()
     base64.decode(filename.open('rb'), tmp)
     tmp.flush()
     return tmp
+
+@pytest.fixture(scope='session')
+def signing_crt_key():
+    ourdir = pathlib.Path(__file__).parent
+    cert = unbase64(ourdir / 'example.signing.crt.base64')
+    key = unbase64(ourdir / 'example.signing.key.base64')
+    return cert, key
+
 
 def test_uname_scraping(kernel_initrd):
     if kernel_initrd is None:
@@ -537,15 +613,13 @@ def test_uname_scraping(kernel_initrd):
 
 @pytest.mark.skipif(not slow_tests, reason='slow')
 @pytest.mark.parametrize("days", [365*10, None])
-def test_efi_signing_sbsign(days, kernel_initrd, tmp_path):
+def test_efi_signing_sbsign(days, kernel_initrd, tmp_path, signing_crt_key):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     if not shutil.which('sbsign'):
         pytest.skip('sbsign not found')
 
-    ourdir = pathlib.Path(__file__).parent
-    cert = unbase64(ourdir / 'example.signing.crt.base64')
-    key = unbase64(ourdir / 'example.signing.key.base64')
+    cert, key = signing_crt_key
 
     output = f'{tmp_path}/signed.efi'
     args = [
@@ -627,15 +701,13 @@ def test_efi_signing_pesign(kernel_initrd, tmp_path):
 
     shutil.rmtree(tmp_path)
 
-def test_inspect(kernel_initrd, tmp_path, capsys):
+def test_inspect(kernel_initrd, tmp_path, signing_crt_key, capsys):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     if not shutil.which('sbsign'):
         pytest.skip('sbsign not found')
 
-    ourdir = pathlib.Path(__file__).parent
-    cert = unbase64(ourdir / 'example.signing.crt.base64')
-    key = unbase64(ourdir / 'example.signing.key.base64')
+    cert, key = signing_crt_key
 
     output = f'{tmp_path}/signed2.efi'
     uname_arg='1.2.3'
