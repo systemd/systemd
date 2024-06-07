@@ -2282,7 +2282,9 @@ static int install_context_mark_for_removal(
                         else {
                                 log_debug_errno(r, "Unit %s not found, removing name.", i->name);
                                 r = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
-                                if (r < 0)
+                                /* In case there's no unit, we still want to remove any leftover symlink, even if
+                                 * the unit might have been removed already, hence treating ENOENT as non-fatal. */
+                                if (r != -ENOENT)
                                         return r;
                         }
                 } else if (r < 0) {
@@ -2874,9 +2876,13 @@ static int do_unit_file_disable(
                 r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, &info);
                 if (r >= 0)
                         r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
-
-                if (r < 0)
-                        return install_changes_add(changes, n_changes, r, *name, NULL);
+                if (r < 0) {
+                        r = install_changes_add(changes, n_changes, r, *name, NULL);
+                        /* In case there's no unit, we still want to remove any leftover symlink, even if
+                         * the unit might have been removed already, hence treating ENOENT as non-fatal. */
+                        if (r != -ENOENT)
+                                return r;
+                }
 
                 /* If we enable multiple units, some with install info and others without,
                  * the "empty [Install] section" warning is not shown. Let's make the behavior
