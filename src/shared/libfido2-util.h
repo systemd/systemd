@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "iovec-util.h"
 #include "macro.h"
+
+#define FIDO2_SALT_SIZE 32U
 
 typedef enum Fido2EnrollFlags {
         FIDO2ENROLL_PIN           = 1 << 0,
@@ -116,8 +119,8 @@ int fido2_generate_hmac_hash(
                 const char *askpw_credential,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
+                const struct iovec *salt,
                 void **ret_cid, size_t *ret_cid_size,
-                void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with);
