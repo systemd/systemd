@@ -1461,4 +1461,199 @@ TEST(packet_reply_cname_full_compression) {
         check_cname_reply_compression(data, sizeof(data));
 }
 
+/* ================================================================
+ * reply: SOA
+ * ================================================================ */
+
+TEST(packet_reply_soa_basic) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x27,
+        /* mname */     0x03, 'n', 's', '0',
+                        0xc0, 0x0c,
+        /* rname */     0x0a, 'h', 'o', 's', 't', 'm', 'a', 's', 't', 'e', 'r',
+                        0xc0, 0x0c,
+        /* serial */    0x78, 0x85, 0x75, 0x2e,
+        /* refresh */   0x00, 0x02, 0xa3, 0x00,
+        /* retry */     0x00, 0x00, 0x00, 0xb4,
+        /* expire */    0x00, 0x24, 0xea, 0x00,
+        /* minimum */   0x00, 0x00, 0x00, 0x3c
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
+        rr->ttl = 3600;
+        rr->soa.mname = strdup("ns0.example.com");
+        rr->soa.rname = strdup("hostmaster.example.com");
+        rr->soa.serial = 2022012206;
+        rr->soa.refresh = 172800;
+        rr->soa.retry = 180;
+        rr->soa.expire = 2419200;
+        rr->soa.minimum = 60;
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_AUTHORITY);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_soa_rdata_overflow) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x26,
+        /* mname */     0x03, 'n', 's', '0',
+                        0xc0, 0x0c,
+        /* rname */     0x0a, 'h', 'o', 's', 't', 'm', 'a', 's', 't', 'e', 'r',
+                        0xc0, 0x0c,
+        /* serial */    0x78, 0x85, 0x75, 0x2e,
+        /* refresh */   0x00, 0x02, 0xa3, 0x00,
+        /* retry */     0x00, 0x00, 0x00, 0xb4,
+        /* expire */    0x00, 0x24, 0xea, 0x00,
+        /* minimum */   0x00, 0x00, 0x00, 0x3c
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_soa_rdata_underminated_domain) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x31,
+        /* mname */     0x03, 'n', 's', '0',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        /* missing 0x00 */
+        /* rname */     0x0a, 'h', 'o', 's', 't', 'm', 'a', 's', 't', 'e', 'r',
+                        0xc0, 0x0c,
+        /* serial */    0x78, 0x85, 0x75, 0x2e,
+        /* refresh */   0x00, 0x02, 0xa3, 0x00,
+        /* retry */     0x00, 0x00, 0x00, 0xb4,
+        /* expire */    0x00, 0x24, 0xea, 0x00,
+        /* minimum */   0x00, 0x00, 0x00, 0x3c
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_soa_rdata_missing_field) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x23,
+        /* mname */     0x03, 'n', 's', '0',
+                        0xc0, 0x0c,
+        /* rname */     0x0a, 'h', 'o', 's', 't', 'm', 'a', 's', 't', 'e', 'r',
+                        0xc0, 0x0c,
+        /* serial */    0x78, 0x85, 0x75, 0x2e,
+        /* refresh */   0x00, 0x02, 0xa3, 0x00,
+        /* retry */     0x00, 0x00, 0x00, 0xb4,
+        /* expire */    0x00, 0x24, 0xea, 0x00
+        /* minimum (missing) */
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_soa_rdata_partial_final_field) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x26,
+        /* mname */     0x03, 'n', 's', '0',
+                        0xc0, 0x0c,
+        /* rname */     0x0a, 'h', 'o', 's', 't', 'm', 'a', 's', 't', 'e', 'r',
+                        0xc0, 0x0c,
+        /* serial */    0x78, 0x85, 0x75, 0x2e,
+        /* refresh */   0x00, 0x02, 0xa3, 0x00,
+        /* retry */     0x00, 0x00, 0x00, 0xb4,
+        /* expire */    0x00, 0x24, 0xea, 0x00,
+        /* minimum */   0x00, 0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
