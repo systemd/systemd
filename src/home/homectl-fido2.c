@@ -6,6 +6,7 @@
 
 #include "ask-password-api.h"
 #include "errno-util.h"
+#include "fido2-util.h"
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "homectl-fido2.h"
@@ -107,7 +108,7 @@ static int add_fido2_salt(
 
         r = json_variant_set_field(&w, "fido2HmacSalt", l);
         if (r < 0)
-                return log_error_errno(r, "Failed to set FDO2 salt: %m");
+                return log_error_errno(r, "Failed to set FIDO2 salt: %m");
 
         r = json_variant_set_field(v, "privileged", w);
         if (r < 0)
@@ -158,6 +159,10 @@ int identity_add_fido2_parameters(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "realName field of user record is not a string");
 
+        r = fido2_generate_salt(&salt, &salt_size);
+        if (r < 0)
+               return r;
+
         r = fido2_generate_hmac_hash(
                         device,
                         /* rp_id= */ "io.systemd.home",
@@ -170,8 +175,8 @@ int identity_add_fido2_parameters(
                         /* askpw_credential= */ "home.token-pin",
                         lock_with,
                         cred_alg,
+                        salt, salt_size,
                         &cid, &cid_size,
-                        &salt, &salt_size,
                         &secret, &secret_size,
                         &used_pin,
                         &lock_with);

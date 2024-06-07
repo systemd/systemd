@@ -3,6 +3,8 @@
 
 #include "macro.h"
 
+#define FIDO2_SALT_SIZE 32
+
 typedef enum Fido2EnrollFlags {
         FIDO2ENROLL_PIN           = 1 << 0,
         FIDO2ENROLL_UP            = 1 << 1, /* User presence (ie: touching token) */
@@ -116,8 +118,8 @@ int fido2_generate_hmac_hash(
                 const char *askpw_credential,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
+                const void *salt, size_t salt_size,
                 void **ret_cid, size_t *ret_cid_size,
-                void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with);

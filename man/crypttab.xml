@@ -724,8 +724,7 @@
         (configured in the line's third column) to operate. If not configured and the volume is of type
         LUKS2, the CID and the key are read from LUKS2 JSON token metadata instead. Use
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        as simple tool for enrolling FIDO2 security tokens, compatible with this automatic mode, which is
-        only available for LUKS2 volumes.</para>
+        as simple tool for enrolling FIDO2 security tokens for LUKS2 volumes.</para>
 
         <para>Use <command>systemd-cryptenroll --fido2-device=list</command> to list all suitable FIDO2
         security tokens currently plugged in, along with their device nodes.</para>

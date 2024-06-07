@@ -3,6 +3,7 @@
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
 #include "env-util.h"
+#include "fido2-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
@@ -32,7 +33,7 @@ int acquire_fido2_key(
 
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
-        _cleanup_free_ void *loaded_salt = NULL;
+        _cleanup_(erase_and_freep) void *loaded_salt = NULL;
         bool device_exists = false;
         const char *salt;
         size_t salt_size;
@@ -51,19 +52,11 @@ int acquire_fido2_key(
                 salt = key_data;
                 salt_size = key_data_size;
         } else {
-                _cleanup_free_ char *bindname = NULL;
-
-                /* If we read the salt via AF_UNIX, make this client recognizable */
-                if (asprintf(&bindname, "@%" PRIx64"/cryptsetup-fido2/%s", random_u64(), volume_name) < 0)
-                        return log_oom();
-
-                r = read_full_file_full(
-                                AT_FDCWD, key_file,
-                                key_file_offset == 0 ? UINT64_MAX : key_file_offset,
-                                key_file_size == 0 ? SIZE_MAX : key_file_size,
-                                READ_FULL_FILE_CONNECT_SOCKET,
-                                bindname,
-                                (char**) &loaded_salt, &salt_size);
+                r = fido2_read_salt_file(
+                                key_file, key_file_offset, key_file_size,
+                                /* client= */ "cryptsetup",
+                                /* node= */ volume_name,
+                                &loaded_salt, &salt_size);
                 if (r < 0)
                         return r;
 
