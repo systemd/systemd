@@ -769,6 +769,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>fido2-pin=</option></term>
+
+        <listitem><para>Controls whether to require the user to enter a PIN when unlocking the volume (the
+        FIDO2 <literal>clientPin</literal> feature). This option only applies when in manual mode, i.e.
+        when <option>fido2-cid=</option> option is set. Defaults to neither true or false, but rather to
+        <constant>v248</constant> behavior, that is: try with no PIN first, but if token reports that PIN
+        is required, try again asking for PIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-up=</option></term>
+
+        <listitem><para>Controls whether to require the user to verify presence (tap the token, the FIDO2
+        <literal>up</literal> feature) when unlocking the volume. This option only applies when in manual
+        mode, i.e. when <option>fido2-cid=</option> option is set. Defaults to neither true or false,
+        but rather to <constant>v248</constant> behavior, that is: try with no UP first, but if token reports
+        that UP is required, try again with UP enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-uv=</option></term>
+
+        <listitem><para>Controls whether to require user verification (the FIDO2 <literal>uv</literal> feature)
+        when unlocking the volume. This option only applies when in manual mode, i.e. when
+        <option>fido2-cid=</option> option is set. Defaults to neither true or false, but rather to
+        <constant>v248</constant> behavior, that is: omit configuring UV whatsoever.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tpm2-device=</option></term>
 
         <listitem><para>Takes either the special value <literal>auto</literal> or the path to a device node

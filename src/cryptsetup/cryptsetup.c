@@ -95,6 +95,7 @@ static bool arg_fido2_device_auto = false;
 static void *arg_fido2_cid = NULL;
 static size_t arg_fido2_cid_size = 0;
 static char *arg_fido2_rp_id = NULL;
+static Fido2EnrollFlags arg_fido2_manual_flags = 0;
 static char *arg_tpm2_device = NULL; /* These and the following fields are about locking an encrypted volume to the local TPM */
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
@@ -391,6 +392,39 @@ static int parse_one_option(const char *option) {
                 r = free_and_strdup(&arg_fido2_rp_id, val);
                 if (r < 0)
                         return log_oom();
+
+        } else if ((val = startswith(option, "fido2-pin="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_PIN_IF_NEEDED;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_PIN, r);
+
+        } else if ((val = startswith(option, "fido2-up="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_UP_IF_NEEDED;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_UP, r);
+
+        } else if ((val = startswith(option, "fido2-uv="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_UV_OMIT;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_UV, r);
 
         } else if ((val = startswith(option, "tpm2-device="))) {
 
@@ -1359,33 +1393,18 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        size_t decrypted_key_size, cid_size = 0;
+        size_t decrypted_key_size;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        const char *rp_id = NULL;
-        const void *cid = NULL;
-        Fido2EnrollFlags required;
         bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
 
         assert(cd);
         assert(name);
         assert(arg_fido2_device || arg_fido2_device_auto);
 
-        if (arg_fido2_cid) {
-                if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
-
-                rp_id = arg_fido2_rp_id;
-                cid = arg_fido2_cid;
-                cid_size = arg_fido2_cid_size;
-
-                /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
-                 * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
-                 * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
-                 * explicitly configurable. */
-                required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
-        }
+        if (arg_fido2_cid && !key_file && !key_data)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
         friendly = friendly_disk_name(crypt_get_device_name(cd), name);
         if (!friendly)
@@ -1399,17 +1418,17 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
 
                 } else {
-                        if (cid)
+                        if (arg_fido2_cid)
                                 r = acquire_fido2_key(
                                                 name,
                                                 friendly,
                                                 arg_fido2_device,
-                                                rp_id,
-                                                cid, cid_size,
+                                                arg_fido2_rp_id,
+                                                arg_fido2_cid, arg_fido2_cid_size,
                                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                                 key_data, key_data_size,
                                                 until,
-                                                required,
+                                                arg_fido2_manual_flags,
                                                 "cryptsetup.fido2-pin",
                                                 arg_ask_password_flags,
                                                 &decrypted_key,
@@ -2290,6 +2309,11 @@ static int run(int argc, char *argv[]) {
                         log_warning("Password file path '%s' is not absolute. Ignoring.", key_file);
                         key_file = NULL;
                 }
+
+                /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
+                 * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
+                 * use PIN + UP when needed, and do not configure UV at all. */
+                arg_fido2_manual_flags = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
 
                 if (config) {
                         r = parse_crypt_config(config);
