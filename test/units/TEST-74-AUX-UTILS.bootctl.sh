@@ -38,7 +38,7 @@ basic_tests() {
     bootctl "$@" remove  --make-entry-directory=yes --all-architectures
 
     bootctl "$@" install
-    (! bootctl "$@" update)
+    bootctl "$@" update
     bootctl "$@" update --graceful
 
     bootctl "$@" is-installed
