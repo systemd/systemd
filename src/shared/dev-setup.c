@@ -22,7 +22,7 @@ int lock_dev_console(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
