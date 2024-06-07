@@ -2282,7 +2282,7 @@ static int install_context_mark_for_removal(
                         else {
                                 log_debug_errno(r, "Unit %s not found, removing name.", i->name);
                                 r = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
-                                if (r < 0)
+                                if (r < 0 && r != -ENOENT) /* Remove leftover symlinks even if the unit is gone */
                                         return r;
                         }
                 } else if (r < 0) {
@@ -2874,7 +2874,10 @@ static int do_unit_file_disable(
                 r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, &info);
                 if (r >= 0)
                         r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
-
+                if (r == -ENOENT)
+                        /* In case there's no unit, we still want to remove any leftover symlink, even if
+                         * the unit might have been removed already. */
+                        continue;
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *name, NULL);
 
