@@ -3,6 +3,8 @@
 set -e
 set -o nounset
 
+useradd --uid 4711 --create-home --user-group testuser
+
 if command -v authselect >/dev/null; then
     # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
     # let's use the new name if it exists.
