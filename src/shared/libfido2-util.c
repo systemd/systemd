@@ -10,7 +10,6 @@
 #include "glyph-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "random-util.h"
 #include "strv.h"
 #include "unistd.h"
 
@@ -683,8 +682,6 @@ finish:
         return r;
 }
 
-#define FIDO2_SALT_SIZE 32
-
 int fido2_generate_hmac_hash(
                 const char *device,
                 const char *rp_id,
@@ -697,13 +694,13 @@ int fido2_generate_hmac_hash(
                 const char *askpw_credential,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
+                const struct iovec *salt,
                 void **ret_cid, size_t *ret_cid_size,
-                void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with) {
 
-        _cleanup_(erase_and_freep) void *salt = NULL, *secret_copy = NULL;
+        _cleanup_(erase_and_freep) void *secret_copy = NULL;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
         _cleanup_(fido_cred_free_wrapper) fido_cred_t *c = NULL;
         _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
@@ -717,12 +714,10 @@ int fido2_generate_hmac_hash(
         assert(device);
         assert(ret_cid);
         assert(ret_cid_size);
-        assert(ret_salt);
-        assert(ret_salt_size);
         assert(ret_secret);
         assert(ret_secret_size);
 
-        /* Construction is like this: we generate a salt of 32 bytes. We then ask the FIDO2 device to
+        /* Construction is like this: we read or generate a salt of 32 bytes. We then ask the FIDO2 device to
          * HMAC-SHA256 it for us with its internal key. The result is the key used by LUKS and account
          * authentication. LUKS and UNIX password auth all do their own salting before hashing, so that FIDO2
          * device never sees the volume key.
@@ -731,24 +726,17 @@ int fido2_generate_hmac_hash(
          *
          * with: S → LUKS/account authentication key                                         (never stored)
          *       I → internal key on FIDO2 device                              (stored in the FIDO2 device)
-         *       D → salt we generate here               (stored in the privileged part of the JSON record)
+         *       D → salt     (stored in the privileged part of the JSON record or read from a file/socket)
          *
          */
 
         assert(device);
         assert((lock_with & ~(FIDO2ENROLL_PIN|FIDO2ENROLL_UP|FIDO2ENROLL_UV)) == 0);
+        assert(iovec_is_set(salt));
 
         r = dlopen_libfido2();
         if (r < 0)
                 return log_error_errno(r, "FIDO2 token support is not installed.");
-
-        salt = malloc(FIDO2_SALT_SIZE);
-        if (!salt)
-                return log_oom();
-
-        r = crypto_random_bytes(salt, FIDO2_SALT_SIZE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate salt: %m");
 
         d = sym_fido_dev_new();
         if (!d)
@@ -935,7 +923,7 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to enable HMAC-SECRET extension on FIDO2 assertion: %s", sym_fido_strerr(r));
 
-        r = sym_fido_assert_set_hmac_salt(a, salt, FIDO2_SALT_SIZE);
+        r = sym_fido_assert_set_hmac_salt(a, salt->iov_base, salt->iov_len);
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
@@ -1072,8 +1060,6 @@ int fido2_generate_hmac_hash(
 
         *ret_cid = TAKE_PTR(cid_copy);
         *ret_cid_size = cid_size;
-        *ret_salt = TAKE_PTR(salt);
-        *ret_salt_size = FIDO2_SALT_SIZE;
         *ret_secret = TAKE_PTR(secret_copy);
         *ret_secret_size = secret_size;
 
