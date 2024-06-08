@@ -46,7 +46,7 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
@@ -92,7 +92,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
-    - uses: systemd/mkosi@38668e8099653cd8499fc8842af894d31ebc0f07
+    - uses: systemd/mkosi@1cc81fb92ef0bb1ef7d51ac1e76327614d41ed74
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
@@ -140,8 +140,6 @@ jobs:
                 LLVM=${{ matrix.llvm }}
 
         [Host]
-        ToolsTree=default
-        ToolsTreeDistribution=fedora
         QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
@@ -153,23 +151,20 @@ jobs:
     - name: Show image summary
       run: mkosi summary
 
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
-        sudo apt-get install \
-            meson \
+        mkosi dependencies |
+        xargs -d '\n' sudo apt-get install \
             gperf \
-            libfdisk-dev \
-            libtss2-dev \
             libblkid-dev \
-            libmicrohttpd-dev \
             libcap-dev \
-            libcurl4-openssl-dev \
             libcryptsetup-dev \
-            erofs-utils \
-            dosfstools \
-            python3-pefile \
-            sbsigntool \
-            mtools
+            libcurl4-openssl-dev \
+            libfdisk-dev \
+            libmicrohttpd-dev \
+            libmount-dev \
+            libtss2-dev \
+            meson
 
     - name: Configure meson
       run: |
@@ -182,7 +177,7 @@ jobs:
             -Dtpm2=enabled \
             -Dlibcryptsetup=enabled \
             -Dlibcurl=enabled \
-            -Drepart=disabled \
+            -Drepart=enabled \
             -Dfirstboot=true \
             -Dsysusers=true \
             -Dtmpfiles=true \

@@ -23,7 +23,7 @@ jobs:
   analysis:
     name: Scorecards analysis
     if: github.repository == 'systemd/systemd'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write # Used to receive a badge.
 

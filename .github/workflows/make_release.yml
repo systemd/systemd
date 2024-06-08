@@ -11,7 +11,7 @@ permissions:
 jobs:
   release:
     if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: write

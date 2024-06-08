@@ -3,6 +3,8 @@
 set -e
 set -o nounset
 
+useradd --uid 4711 --create-home --user-group testuser
+
 if command -v authselect >/dev/null; then
     # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
     # let's use the new name if it exists.
@@ -38,15 +40,10 @@ cp "$SRCDIR/factory/etc/nsswitch.conf" /etc/nsswitch.conf
 # Remove to make TEST-73-LOCALE pass on Ubuntu.
 rm -f /etc/default/keyboard
 
-# mkfs.ext4 on CentOS doesn't know the orphan_file feature so clear the mkfs options when we're building for
-# CentOS.
-if [[ "$DISTRIBUTION" == "centos" ]]; then
-    SYSTEMD_REPART_MKFS_OPTIONS_EXT4=""
-fi
-
-export SYSTEMD_REPART_MKFS_OPTIONS_EXT4
-
-systemd-repart \
+# This is executed inside the chroot so no need to disable any features as the default features will match
+# the kernel's supported features.
+SYSTEMD_REPART_MKFS_OPTIONS_EXT4="" \
+    systemd-repart \
     --empty=create \
     --dry-run=no \
     --size=auto \
