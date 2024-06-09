@@ -1600,26 +1600,36 @@ static int unit_add_startup_units(Unit *u) {
         return set_ensure_put(&u->manager->startup_units, NULL, u);
 }
 
-static int unit_validate_on_failure_job_mode(
-                Unit *u,
-                const char *job_mode_setting,
-                JobMode job_mode,
-                const char *dependency_name,
-                UnitDependencyAtom atom) {
+static const struct {
+        UnitDependencyAtom atom;
+        size_t job_mode_offset;
+        const char *dependency_name;
+        const char *job_mode_setting_name;
+} on_termination_settings[] = {
+        { UNIT_ATOM_ON_SUCCESS, offsetof(Unit, on_success_job_mode), "OnSuccess=", "OnSuccessJobMode=" },
+        { UNIT_ATOM_ON_FAILURE, offsetof(Unit, on_failure_job_mode), "OnFailure=", "OnFailureJobMode=" },
+};
 
-        Unit *other, *found = NULL;
+static int unit_validate_on_termination_job_modes(Unit *u) {
+        assert(u);
 
-        if (job_mode != JOB_ISOLATE)
-                return 0;
+        /* Verify that if On{Success,Failure}JobMode=isolate, only one unit gets specified. */
 
-        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
-                if (!found)
-                        found = other;
-                else if (found != other)
-                        return log_unit_error_errno(
-                                        u, SYNTHETIC_ERRNO(ENOEXEC),
-                                        "More than one %s dependencies specified but %sisolate set. Refusing.",
-                                        dependency_name, job_mode_setting);
+        FOREACH_ELEMENT(setting, on_termination_settings) {
+                JobMode job_mode = *(JobMode*) ((uint8_t*) u + setting->job_mode_offset);
+
+                if (job_mode != JOB_ISOLATE)
+                        continue;
+
+                Unit *other, *found = NULL;
+                UNIT_FOREACH_DEPENDENCY(other, u, setting->atom) {
+                        if (!found)
+                                found = other;
+                        else if (found != other)
+                                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
+                                                            "More than one %s dependencies specified but %sisolate set. Refusing.",
+                                                            setting->dependency_name, setting->job_mode_setting_name);
+                }
         }
 
         return 0;
@@ -1678,11 +1688,7 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_failure_job_mode(u, "OnSuccessJobMode=", u->on_success_job_mode, "OnSuccess=", UNIT_ATOM_ON_SUCCESS);
-                if (r < 0)
-                        goto fail;
-
-                r = unit_validate_on_failure_job_mode(u, "OnFailureJobMode=", u->on_failure_job_mode, "OnFailure=", UNIT_ATOM_ON_FAILURE);
+                r = unit_validate_on_termination_job_modes(u);
                 if (r < 0)
                         goto fail;
 
@@ -2246,40 +2252,44 @@ static void retroactively_stop_dependencies(Unit *u) {
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
-void unit_start_on_failure(
-                Unit *u,
-                const char *dependency_name,
-                UnitDependencyAtom atom,
-                JobMode job_mode) {
-
-        int n_jobs = -1;
-        Unit *other;
+void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
+        const char *dependency_name = NULL;
+        JobMode job_mode;
+        unsigned n_jobs = 0;
         int r;
-
-        assert(u);
-        assert(dependency_name);
-        assert(IN_SET(atom, UNIT_ATOM_ON_SUCCESS, UNIT_ATOM_ON_FAILURE));
 
         /* Act on OnFailure= and OnSuccess= dependencies */
 
+        assert(u);
+        assert(u->manager);
+        assert(dependency_name);
+        assert(IN_SET(atom, UNIT_ATOM_ON_SUCCESS, UNIT_ATOM_ON_FAILURE));
+
+        FOREACH_ELEMENT(setting, on_termination_settings)
+                if (atom == setting->atom) {
+                        job_mode = *(JobMode*) ((uint8_t*) u + setting->job_mode_offset);
+                        dependency_name = setting->dependency_name;
+                        break;
+                }
+
+        assert(dependency_name);
+
+        Unit *other;
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                if (n_jobs < 0) {
+                if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
-                        n_jobs = 0;
-                }
 
                 r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
-                        log_unit_warning_errno(
-                                        u, r, "Failed to enqueue %s job, ignoring: %s",
-                                        dependency_name, bus_error_message(&error, r));
+                        log_unit_warning_errno(u, r, "Failed to enqueue %s%s job, ignoring: %s",
+                                               dependency_name, other->id, bus_error_message(&error, r));
                 n_jobs++;
         }
 
-        if (n_jobs >= 0)
-                log_unit_debug(u, "Triggering %s dependencies done (%i %s).",
+        if (n_jobs > 0)
+                log_unit_debug(u, "Triggering %s dependencies done (%u %s).",
                                dependency_name, n_jobs, n_jobs == 1 ? "job" : "jobs");
 }
 
@@ -2597,9 +2607,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
-        const char *reason;
-        Manager *m;
-
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
         assert(ns < _UNIT_ACTIVE_STATE_MAX);
@@ -2608,23 +2615,22 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * UnitActiveState! That means that ns == os is an expected behavior here. For example: if a mount point is
          * remounted this function will be called too! */
 
-        m = u->manager;
+        Manager *m = ASSERT_PTR(u->manager);
 
         /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
          * the bus queue, so that any job change signal queued will force out the unit change signal first. */
         unit_add_to_dbus_queue(u);
 
-        /* Update systemd-oomd on the property/state change */
-        if (os != ns) {
-                /* Always send an update if the unit is going into an inactive state so systemd-oomd knows to stop
-                 * monitoring.
-                 * Also send an update whenever the unit goes active; this is to handle a case where an override file
-                 * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
-                 * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
-                 * have the information on the property. Thus, indiscriminately send an update. */
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        (void) manager_varlink_send_managed_oom_update(u);
-        }
+        /* Update systemd-oomd on the property/state change.
+         *
+         * Always send an update if the unit is going into an inactive state so systemd-oomd knows to
+         * stop monitoring.
+         * Also send an update whenever the unit goes active; this is to handle a case where an override file
+         * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
+         * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
+         * have the information on the property. Thus, indiscriminately send an update. */
+        if (os != ns && (UNIT_IS_INACTIVE_OR_FAILED(ns) || UNIT_IS_ACTIVE_OR_RELOADING(ns)))
+                (void) manager_varlink_send_managed_oom_update(u);
 
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
@@ -2676,20 +2682,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                                 retroactively_stop_dependencies(u);
                 }
 
-                if (ns != os && ns == UNIT_FAILED) {
-                        log_unit_debug(u, "Unit entered failed state.");
-                        unit_start_on_failure(u, "OnFailure=", UNIT_ATOM_ON_FAILURE, u->on_failure_job_mode);
-                }
-
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns) && !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* This unit just finished starting up */
 
                         unit_emit_audit_start(u);
                         manager_send_unit_plymouth(m, u);
                         manager_send_unit_supervisor(m, u, /* active= */ true);
-                }
 
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
+                } else if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
 
                         unit_emit_audit_stop(u, ns);
@@ -2698,7 +2698,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 }
 
                 if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE))
-                        unit_start_on_failure(u, "OnSuccess=", UNIT_ATOM_ON_SUCCESS, u->on_success_job_mode);
+                        unit_start_on_termination_deps(u, UNIT_ATOM_ON_SUCCESS);
+                else if (ns != os && ns == UNIT_FAILED)
+                        unit_start_on_termination_deps(u, UNIT_ATOM_ON_FAILURE);
         }
 
         manager_recheck_journal(m);
@@ -2707,6 +2709,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         unit_trigger_notify(u);
 
         if (!MANAGER_IS_RELOADING(m)) {
+                const char *reason;
+
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
                         emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
@@ -2735,9 +2739,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 /* Maybe we can release some resources now? */
                 unit_submit_to_release_resources_queue(u);
-        }
 
-        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+        } else if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                 /* Start uphold units regardless if going up was expected or not */
                 check_uphold_dependencies(u);
 

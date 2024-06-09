@@ -916,7 +916,7 @@ bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
-void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyAtom atom, JobMode job_mode);
+void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
