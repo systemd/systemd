@@ -33,6 +33,10 @@ int open_credentials_dir(void);
 #define SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@system"
 #define ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@encrypted"
 
+/* Where system creds have been passed */
+int get_system_credentials_dir(const char **ret);
+int get_encrypted_system_credentials_dir(const char **ret);
+
 int read_credential(const char *name, void **ret, size_t *ret_size); /* use in services! */
 int read_credential_with_decryption(const char *name, void **ret, size_t *ret_size); /* use in generators + pid1! */
 
