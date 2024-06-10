@@ -129,33 +129,36 @@ static int property_get_exit_status_set(
 }
 
 static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        const char *dest, *src, *propagate_directory;
-        int read_only, make_file_or_directory;
         Unit *u = ASSERT_PTR(userdata);
-        ExecContext *c;
         int r;
 
         assert(message);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
+
+        if (u->type != UNIT_SERVICE)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not of type .service");
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
+
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        const char *src, *dest;
+        int read_only, make_file_or_directory;
 
         r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
         if (r < 0)
                 return r;
 
         if (!path_is_absolute(src) || !path_is_normalized(src))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized");
 
         if (!is_image && isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized");
 
         if (is_image) {
                 r = bus_read_mount_options(message, error, &options, NULL, "");
@@ -174,26 +177,25 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (u->type != UNIT_SERVICE)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not of type .service");
+        const PidRef *unit_pid = unit_main_pid(u);
+        if (!pidref_is_set(unit_pid) || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is not running");
 
-        /* If it would be dropped at startup time, return an error. The context should always be available, but
-         * there's an assert in exec_needs_mount_namespace, so double-check just in case. */
-        c = unit_get_exec_context(u);
+        /* The context should always be available, but there's an assert in exec_needs_mount_namespace,
+         * so double-check just in case. */
+        ExecContext *c = unit_get_exec_context(u);
         if (!c)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot access unit execution context");
-        if (path_startswith_strv(dest, c->inaccessible_paths))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not accessible to this unit", dest);
+                return -ENXIO;
 
         /* Ensure that the unit was started in a private mount namespace */
         if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
 
-        PidRef* unit_pid = unit_main_pid(u);
-        if (!pidref_is_set(unit_pid) || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
+        /* If it would be dropped at startup time, return an error. */
+        if (path_startswith_strv(dest, c->inaccessible_paths))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FILE_EXISTS, "%s is not accessible to this unit", dest);
 
-        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
+        const char *propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
                 r = mount_image_in_namespace(
                                 unit_pid,
@@ -213,7 +215,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                                 read_only,
                                 make_file_or_directory);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in unit's namespace: %m", src, dest);
+                return sd_bus_error_set_errnof(error, r, "Failed to mount '%s' on '%s' in unit's namespace: %m", src, dest);
 
         return sd_bus_reply_method_return(message, NULL);
 }
