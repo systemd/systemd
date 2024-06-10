@@ -1,0 +1,28 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+# By default Suggests are not installed (and often Recommends are disabled too), which means we will miss
+# the dlopen optional dependencies, but the tests need them, so parse them from the package metadata and
+# install them.
+
+# apt needs network access to install packages
+if [ "$1" = "build" ] || [ "$WITH_NETWORK" = 0 ]; then
+    exit 0
+fi
+
+# Query the Recommends and Suggests of all systemd packages, by matching on the version
+systemd_version="$(dpkg-query "--admindir=$BUILDROOT/var/lib/dpkg" -f '${Version}' -W systemd)"
+mapfile -t systemd_packages < <( dpkg "--admindir=$BUILDROOT/var/lib/dpkg" -l | grep '^ii' | grep "$systemd_version" | awk '{print $2}' | tr '\n' ' ' )
+extra_packages=()
+# shellcheck disable=SC2068
+for package in ${systemd_packages[@]}; do
+    mapfile -t -O "${#extra_packages[@]}" extra_packages < <(dpkg-query "--admindir=$BUILDROOT/var/lib/dpkg" -f '${Suggests}' -W "$package" | sed -e "s/, /\n/g" -e "s/|.*//" | grep "lib")
+    mapfile -t -O "${#extra_packages[@]}" extra_packages < <(dpkg-query "--admindir=$BUILDROOT/var/lib/dpkg" -f '${Recommends}' -W "$package" | sed -e "s/, /\n/g" -e "s/|.*//" | grep "lib")
+done
+
+if [ "${#extra_packages[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+apt install "${extra_packages[@]}"
