@@ -1105,20 +1105,16 @@ static int mount_in_namespace(
         if (!pidref_is_set(target))
                 return -ESRCH;
 
-        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
+        r = pidref_namespace_open(target, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
-        r = in_same_namespace(target->pid, 0, NAMESPACE_MOUNT);
+        r = inode_same_at(mntns_fd, "", AT_FDCWD, "/proc/self/ns/mnt", AT_EMPTY_PATH);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine if mount namespaces are equal: %m");
         /* We can't add new mounts at runtime if the process wasn't started in a namespace */
         if (r > 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
-
-        r = pidref_verify(target);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to verify target process '" PID_FMT "': %m", target->pid);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace.");
 
         r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
         if (r < 0)
