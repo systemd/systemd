@@ -41,6 +41,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 
@@ -878,6 +879,11 @@ int encrypt_credential_and_warn(
                 else if (r < 0)
                         return log_error_errno(r, "Failed to determine local credential host secret: %m");
         }
+
+        if (tpm2_hash_pcr_mask == UINT32_MAX)
+                tpm2_hash_pcr_mask = 0;
+        if (tpm2_pubkey_pcr_mask == UINT32_MAX)
+                tpm2_pubkey_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
 
 #if HAVE_TPM2
         bool try_tpm2;
