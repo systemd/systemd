@@ -769,4 +769,86 @@ TEST(packet_append_answer_single_srv) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_answer_rrsig_with_a) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        answer = dns_answer_new(2);
+        ASSERT_NOT_NULL(answer);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+        rr->rrsig.type_covered = DNS_TYPE_A;
+        rr->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        rr->rrsig.labels = 3;
+        rr->rrsig.original_ttl = 3600;
+        rr->rrsig.expiration = 1720361303;
+        rr->rrsig.inception = 1717769303;
+        rr->rrsig.key_tag = 0x1234;
+        rr->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        rr->rrsig.signature_size = sizeof(signature);
+        rr->rrsig.signature = memdup(signature, rr->rrsig.signature_size);
+
+        dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(dns_answer_size(answer));
+
+        ASSERT_OK(dns_packet_append_answer(packet, answer, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA | BIT_RD, BIT_RA | DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x02,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x11,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f,
+
+        /* name */      0xc0, 0x0c,
+        /* RRSIG */     0x00, 0x2e,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x11,
+        /* rdata */     0x00, 0x27,
+        /* type */      0x00, 0x01,
+        /* algo */      0x04,
+        /* labels */    0x03,
+        /* orig ttl */  0x00, 0x00, 0x0e, 0x10,
+        /* expiry */    0x66, 0x8a, 0xa1, 0x57,
+        /* inception */ 0x66, 0x63, 0x14, 0x57,
+        /* key tag */   0x12, 0x34,
+        /* signer */    0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* signature */ 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
