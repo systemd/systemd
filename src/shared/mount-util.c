@@ -759,27 +759,19 @@ int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath
          * this is not supported (minimum kernel v6.5), or if there is no mount on the mountpoint, we get
          * -EINVAL and then we fallback to normal mounting. */
 
-        r = RET_NERRNO(move_mount(
-                        fsmount_fd,
-                        /* from_path= */ "",
-                        /* to_fd= */ -EBADF,
-                        dest,
-                        MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
+        r = RET_NERRNO(move_mount(fsmount_fd, /* from_path = */ "",
+                                  /* to_fd = */ -EBADF, dest,
+                                  MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
         if (mount_beneath) {
+                if (r >= 0) /* Mounting beneath worked! Now unmount the upper mount. */
+                        return umount_verbose(LOG_DEBUG, dest, UMOUNT_NOFOLLOW|MNT_DETACH);
+
                 if (r == -EINVAL) { /* Fallback if mount_beneath is not supported */
                         log_debug_errno(r,
-                                        "Failed to mount beneath '%s', falling back to overmount",
+                                        "Cannot mount beneath '%s', falling back to overmount: %m",
                                         dest);
-                        return RET_NERRNO(move_mount(
-                                        fsmount_fd,
-                                        /* from_path= */ "",
-                                        /* to_fd= */ -EBADF,
-                                        dest,
-                                        MOVE_MOUNT_F_EMPTY_PATH));
+                        return mount_exchange_graceful(fsmount_fd, dest, /* mount_beneath = */ false);
                 }
-
-                if (r >= 0) /* If it is, now remove the old mount */
-                        return umount_verbose(LOG_DEBUG, dest, UMOUNT_NOFOLLOW|MNT_DETACH);
         }
 
         return r;
