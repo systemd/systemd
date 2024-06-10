@@ -827,7 +827,6 @@ int read_full_file_full(
         XfopenFlags xflags = XFOPEN_UNLOCKED;
         int r;
 
-        assert(filename);
         assert(ret_contents);
 
         if (FLAGS_SET(flags, READ_FULL_FILE_CONNECT_SOCKET) && /* If this is enabled, let's try to connect to it */
@@ -1002,11 +1001,10 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         /* A combination of fopen() with openat() */
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(mode);
         assert(ret);
 
-        if (dir_fd == AT_FDCWD && open_flags == 0)
+        if (dir_fd == AT_FDCWD && open_flags == 0 && path)
                 f = fopen(path, mode);
         else {
                 _cleanup_close_ int fd = -EBADF;
@@ -1016,9 +1014,18 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
                 if (mode_flags < 0)
                         return mode_flags;
 
-                fd = openat(dir_fd, path, mode_flags | open_flags);
-                if (fd < 0)
-                        return -errno;
+                if (path) {
+                        fd = openat(dir_fd, path, mode_flags | open_flags);
+                        if (fd < 0)
+                                return -errno;
+                } else {
+                        if (dir_fd == AT_FDCWD)
+                                return -EBADF;
+
+                        fd = fd_reopen(dir_fd, mode_flags | open_flags);
+                        if (fd < 0)
+                                return fd;
+                }
 
                 f = take_fdopen(&fd, mode);
         }
@@ -1035,7 +1042,6 @@ static int xfopenat_unix_socket(int dir_fd, const char *path, const char *bind_n
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
 
         sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
@@ -1084,7 +1090,6 @@ int xfopenat_full(
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(mode);
         assert(ret);
 
