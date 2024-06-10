@@ -664,6 +664,12 @@ int read_full_stream_full(
                 if (fstat(fd, &st) < 0)
                         return -errno;
 
+                if (FLAGS_SET(flags, READ_FULL_FILE_VERIFY_REGULAR)) {
+                        r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (S_ISREG(st.st_mode)) {
 
                         /* Try to start with the right file size if we shall read the file in full. Note
@@ -685,7 +691,8 @@ int read_full_stream_full(
                         if (flags & READ_FULL_FILE_WARN_WORLD_READABLE)
                                 (void) warn_file_is_world_accessible(filename, &st, NULL, 0);
                 }
-        }
+        } else if (FLAGS_SET(flags, READ_FULL_FILE_VERIFY_REGULAR))
+                return -EBADFD;
 
         /* If we don't know how much to read, figure it out now. If we shall read a part of the file, then
          * allocate the requested size. If we shall load the full file start with LINE_MAX. Note that if
