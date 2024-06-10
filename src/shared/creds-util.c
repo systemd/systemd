@@ -125,6 +125,30 @@ int open_credentials_dir(void) {
         return RET_NERRNO(open(d, O_CLOEXEC|O_DIRECTORY));
 }
 
+int get_system_credentials_dir(const char **ret) {
+        int r;
+
+        /* Note that for system credentials the environment variable we honour is just for debugging purpose
+         * (unlike for the per-service credential path env var where it's key part of the protocol). */
+        r = get_credentials_dir_internal("SYSTEMD_SYSTEM_CREDENTIALS_DIRECTORY", ret);
+        if (r >= 0 || r != -ENXIO)
+                return r;
+
+        *ret = SYSTEM_CREDENTIALS_DIRECTORY;
+        return 0;
+}
+
+int get_encrypted_system_credentials_dir(const char **ret) {
+        int r;
+
+        r = get_credentials_dir_internal("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY", ret);
+        if (r >= 0 || r != -ENXIO)
+                return r;
+
+        *ret = ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+        return 0;
+}
+
 int read_credential(const char *name, void **ret, size_t *ret_size) {
         _cleanup_free_ char *fn = NULL;
         const char *d;
