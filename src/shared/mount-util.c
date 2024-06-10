@@ -1083,24 +1083,20 @@ static int mount_in_namespace(
                 const char *dest,
                 bool read_only,
                 bool make_file_or_directory,
+                bool is_image,
                 const MountOptions *options,
-                const ImagePolicy *image_policy,
-                bool is_image) {
+                const ImagePolicy *image_policy) {
 
-        _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF,
-                            new_mount_fd = -EBADF;
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
         _cleanup_free_ char *chased_src_path = NULL;
         struct stat st;
-        pid_t child;
         int r;
 
         assert(propagate_path);
         assert(incoming_path);
         assert(src);
         assert(dest);
-        assert(!options || is_image);
+        assert(is_image || (!options && !image_policy));
 
         if (!pidref_is_set(target))
                 return -ESRCH;
@@ -1118,13 +1114,13 @@ static int mount_in_namespace(
 
         r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
         if (r < 0)
-                return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
-        log_debug("Chased source path of %s to %s", src, chased_src_path);
+                return log_debug_errno(r, "Failed to resolve source path '%s': %m", src);
+        log_debug("Chased source path '%s': %s", src, chased_src_path);
 
         if (fstat(chased_src_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
+                return log_debug_errno(errno, "Failed to stat() resolved source path '%s': %m", src);
         if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
+                return log_debug_errno(SYNTHETIC_ERRNO(ELOOP), "Source path '%s' can't be a symbolic link.", src);
 
         if (!mount_new_api_supported()) /* Fallback if we can't use the new mount API */
                 return mount_in_namespace_legacy(
@@ -1143,6 +1139,11 @@ static int mount_in_namespace(
                                 image_policy,
                                 is_image);
 
+        _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
+        _cleanup_close_ int new_mount_fd = -EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        pid_t child;
+
         if (is_image) {
                 r = verity_dissect_and_mount(
                                 chased_src_fd,
@@ -1158,10 +1159,9 @@ static int mount_in_namespace(
                                 /* verity= */ NULL,
                                 &img);
                 if (r < 0)
-                        return log_debug_errno(
-                                        r,
-                                        "Failed to dissect and mount image %s: %m",
-                                        chased_src_path);
+                        return log_debug_errno(r,
+                                               "Failed to dissect and mount image '%s': %m",
+                                               chased_src_path);
         } else {
                 new_mount_fd = open_tree(
                                 chased_src_fd,
@@ -1170,17 +1170,16 @@ static int mount_in_namespace(
                 if (new_mount_fd < 0)
                         return log_debug_errno(
                                         errno,
-                                        "Failed to open mount point \"%s\": %m",
+                                        "Failed to open mount source '%s': %m",
                                         chased_src_path);
 
                 if (read_only && mount_setattr(new_mount_fd, "", AT_EMPTY_PATH,
                                                &(struct mount_attr) {
                                                        .attr_set = MOUNT_ATTR_RDONLY,
                                                }, MOUNT_ATTR_SIZE_VER0) < 0)
-                        return log_debug_errno(
-                                        errno,
-                                        "Failed to set mount flags for \"%s\": %m",
-                                        chased_src_path);
+                        return log_debug_errno(errno,
+                                               "Failed to set mount for '%s' to read only: %m",
+                                               chased_src_path);
         }
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
@@ -1193,12 +1192,12 @@ static int mount_in_namespace(
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd,
                            mntns_fd,
-                           /* netns_fd= */ -1,
-                           /* userns_fd= */ -1,
+                           /* netns_fd= */ -EBADF,
+                           /* userns_fd= */ -EBADF,
                            root_fd,
                            &child);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork off: %m");
+                return log_debug_errno(r, "Failed to fork off mount helper into namespace: %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
@@ -1246,7 +1245,7 @@ static int mount_in_namespace(
                 return log_debug_errno(r, "Failed to wait for child: %m");
         if (r != EXIT_SUCCESS) {
                 if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
-                        return log_debug_errno(r, "Failed to mount: %m");
+                        return log_debug_errno(r, "Failed to mount into namespace: %m");
 
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
         }
@@ -1255,7 +1254,7 @@ static int mount_in_namespace(
 }
 
 int bind_mount_in_namespace(
-                PidRef * target,
+                const PidRef *target,
                 const char *propagate_path,
                 const char *incoming_path,
                 const char *src,
@@ -1263,11 +1262,20 @@ int bind_mount_in_namespace(
                 bool read_only,
                 bool make_file_or_directory) {
 
-        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, /* options= */ NULL, /* image_policy= */ NULL, /* is_image= */ false);
+        return mount_in_namespace(target,
+                                  propagate_path,
+                                  incoming_path,
+                                  src,
+                                  dest,
+                                  read_only,
+                                  make_file_or_directory,
+                                  /* is_image = */ false,
+                                  /* options = */ NULL,
+                                  /* image_policy = */ NULL);
 }
 
 int mount_image_in_namespace(
-                PidRef * target,
+                const PidRef *target,
                 const char *propagate_path,
                 const char *incoming_path,
                 const char *src,
@@ -1277,7 +1285,16 @@ int mount_image_in_namespace(
                 const MountOptions *options,
                 const ImagePolicy *image_policy) {
 
-        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, image_policy, /* is_image=*/ true);
+        return mount_in_namespace(target,
+                                  propagate_path,
+                                  incoming_path,
+                                  src,
+                                  dest,
+                                  read_only,
+                                  make_file_or_directory,
+                                  /* is_image = */ true,
+                                  options,
+                                  image_policy);
 }
 
 int make_mount_point(const char *path) {
