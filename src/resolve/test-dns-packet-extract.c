@@ -893,6 +893,30 @@ TEST(packet_query_bad_compression_5) {
         ASSERT_EQ(dns_answer_size(packet->answer), 0u);
 }
 
+TEST(packet_query_bad_compression_6) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     0x01, 0x00,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0xc0, 0x0c,     /* points at the current name */
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
 /* ================================================================
  * reply: A
  * ================================================================ */
