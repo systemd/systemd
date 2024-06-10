@@ -484,3 +484,14 @@ enum {
 
 int tpm2_pcr_index_from_string(const char *s) _pure_;
 const char *tpm2_pcr_index_to_string(int pcr) _const_;
+
+/* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
+ * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */
+#define TPM2_NV_INDEX_UNASSIGNED_FIRST UINT32_C(0x01800000)
+#define TPM2_NV_INDEX_UNASSIGNED_LAST  UINT32_C(0x01BFFFFF)
+
+#if HAVE_TPM2
+/* Verify that the above is indeed a subset of the general NV Index range */
+assert_cc(TPM2_NV_INDEX_UNASSIGNED_FIRST >= TPM2_NV_INDEX_FIRST);
+assert_cc(TPM2_NV_INDEX_UNASSIGNED_LAST <= TPM2_NV_INDEX_LAST);
+#endif
