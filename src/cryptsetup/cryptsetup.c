@@ -1212,7 +1212,7 @@ static int run_security_device_monitor(
         }
 }
 
-static bool libcryptsetup_plugins_support(void) {
+static bool use_token_plugins(void) {
 
 #if HAVE_TPM2
         /* Currently, there's no way for us to query the volume key when plugins are used. Hence don't use
@@ -1365,7 +1365,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         const char *rp_id = NULL;
         const void *cid = NULL;
         Fido2EnrollFlags required;
-        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        bool use_libcryptsetup_plugin = use_token_plugins();
 
         assert(cd);
         assert(name);
@@ -1529,7 +1529,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_free_ void *discovered_key = NULL;
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
-        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        bool use_libcryptsetup_plugin = use_token_plugins();
 
         assert(cd);
         assert(name);
@@ -1683,20 +1683,6 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
-static bool use_token_plugins(void) {
-        int r;
-
-        /* Disable tokens if we shall measure, since we won't get access to the volume key then. */
-        if (arg_tpm2_measure_pcr != UINT_MAX)
-                return false;
-
-        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
-
-        return r != 0;
-}
-
 static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
@@ -1711,9 +1697,9 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .pcrlock_path = arg_tpm2_pcrlock,
         };
 
-        if (!libcryptsetup_plugins_support())
+        if (!use_token_plugins())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Libcryptsetup has external plugins support disabled.");
+                                       "libcryptsetup has external plugins support disabled.");
 
         return crypt_activate_by_token_pin_ask_password(
                         cd,
