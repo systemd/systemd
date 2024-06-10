@@ -4,6 +4,7 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 
+#include "list.h"
 #include "log.h"
 #include "tests.h"
 
@@ -889,6 +890,101 @@ TEST(packet_append_answer_rrsig_with_a) {
                         0x03, 'c', 'o', 'm',
                         0x00,
         /* signature */ 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const char *value, size_t len) {
+        DnsSvcParam *param = calloc(1, offsetof(DnsSvcParam, value) + len);
+        ASSERT_NOT_NULL(param);
+
+        param->key = key;
+        param->length = len;
+
+        if (value != NULL)
+                memcpy(param->value, value, len);
+
+        LIST_APPEND(params, rr->svcb.params, param);
+        return param;
+}
+
+TEST(packet_append_answer_single_svcb) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsSvcParam *param = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+        rr->svcb.priority = 9;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_MANDATORY, "\x00\x01\x00\x03", 4);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_ALPN, "\x09websocket", 10);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN, NULL, 0);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_PORT, "\x01\xbb", 2);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV4HINT, NULL, 2 * sizeof(struct in_addr));
+        param->value_in_addr[0].s_addr = htobe32(0x7284fd3a);
+        param->value_in_addr[1].s_addr = htobe32(0x48bcc7c0);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV6HINT, NULL, sizeof(struct in6_addr));
+        param->value_in6_addr[0] = (struct in6_addr) { .s6_addr = { 0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35, 0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb } };
+
+        answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(answer);
+        dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(dns_answer_size(answer));
+
+        ASSERT_OK(dns_packet_append_answer(packet, answer, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA | BIT_RD, BIT_RA | DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x11,
+        /* rdata */     0x00, 0x54,
+        /* priority */  0x00, 0x09,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* mandatory */ 0x00, 0x00,
+                        0x00, 0x04,
+                        0x00, 0x01, 0x00, 0x03,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x0a,
+                        0x09, 'w', 'e', 'b', 's', 'o', 'c', 'k', 'e', 't',
+        /* no-deflt */  0x00, 0x02,
+                        0x00, 0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbb,
+        /* ipv4hint */  0x00, 0x04,
+                        0x00, 0x08,
+                        0x72, 0x84, 0xfd, 0x3a,
+                        0x48, 0xbc, 0xc7, 0xc0,
+        /* ipv6hint */  0x00, 0x06,
+                        0x00, 0x10,
+                        0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35,
+                        0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb
         };
 
         ASSERT_EQ(packet->size, sizeof(data));
