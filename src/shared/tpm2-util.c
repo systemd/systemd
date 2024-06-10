@@ -7065,9 +7065,12 @@ int tpm2_pcrlock_policy_from_credentials(
          * multi-boot), hence we use the SRK and NV data from the LUKS2 header as search key, and parse all
          * such JSON policies until we find a matching one. */
 
-        const char *cp = secure_getenv("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY") ?: ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+        const char *dp;
+        r = get_encrypted_system_credentials_dir(&dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
-        dfd = open(cp, O_CLOEXEC|O_DIRECTORY);
+        dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
                         log_debug("No encrypted system credentials passed.");
@@ -7100,7 +7103,7 @@ int tpm2_pcrlock_policy_from_credentials(
                 if (r == -ENOENT)
                         continue;
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to read credentials file %s/%s, skipping: %m", ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                        log_warning_errno(r, "Failed to read credentials file %s/%s, skipping: %m", dp, d->d_name);
                         continue;
                 }
 
