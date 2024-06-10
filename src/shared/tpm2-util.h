@@ -150,6 +150,12 @@ const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _co
 Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
 
 int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event, const char *description);
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
+int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
+int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
+int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index);
+bool tpm2_nvpcr_name_is_valid(const char *name);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
@@ -296,7 +302,10 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
 
 int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
+int tpm2_define_nvpcr_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, TPMI_ALG_HASH algorithm, Tpm2Handle **ret_nv_handle);
+int tpm2_extend_nvpcr_nv_index(Tpm2Context *c, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const struct iovec *digest);
 int tpm2_undefine_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
+int tpm2_read_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, struct iovec *ret_value);
 
 int tpm2_seal_data(Tpm2Context *c, const struct iovec *data, const Tpm2Handle *primary_handle, const Tpm2Handle *encryption_session, const TPM2B_DIGEST *policy, struct iovec *ret_public, struct iovec *ret_private);
 int tpm2_unseal_data(Tpm2Context *c, const struct iovec *public, const struct iovec *private, const Tpm2Handle *primary_handle, const Tpm2Handle *policy_session, const Tpm2Handle *encryption_session, struct iovec *ret_data);
