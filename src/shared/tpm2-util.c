@@ -5795,7 +5795,8 @@ int tpm2_unseal(Tpm2Context *c,
 }
 
 static TPM2_HANDLE generate_random_nv_index(void) {
-        return TPM2_NV_INDEX_FIRST + (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_LAST - TPM2_NV_INDEX_FIRST + 1);
+        return TPM2_NV_INDEX_UNASSIGNED_FIRST +
+                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_UNASSIGNED_LAST - TPM2_NV_INDEX_UNASSIGNED_FIRST + 1);
 }
 
 int tpm2_define_policy_nv_index(
