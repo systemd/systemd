@@ -4389,15 +4389,10 @@ static int write_boot_policy_file(const char *json_text) {
         if (r < 0)
                 return log_error_errno(r, "Failed to encode policy as credential: %m");
 
-        _cleanup_free_ char *base64_buf = NULL;
-        ssize_t base64_size;
-        base64_size = base64mem_full(encoded.iov_base, encoded.iov_len, 79, &base64_buf);
-        if (base64_size < 0)
-                return base64_size;
-
-        r = write_string_file(
+        r = write_base64_file_at(
+                        AT_FDCWD,
                         boot_policy_file,
-                        base64_buf,
+                        &encoded,
                         WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot policy file to '%s': %m", boot_policy_file);
