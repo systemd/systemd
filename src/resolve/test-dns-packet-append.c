@@ -417,4 +417,78 @@ TEST(packet_append_opt_nsid) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_key_and_opt) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, 0, NULL));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_truncate_opt) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, 0, NULL));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+
+        ASSERT_TRUE(dns_packet_truncate_opt(packet));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
