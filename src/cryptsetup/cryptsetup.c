@@ -487,7 +487,7 @@ static int parse_one_option(const char *option) {
                 if (r < 0) {
                         r = parse_boolean(val);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                                log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                                 return 0;
                         }
 
