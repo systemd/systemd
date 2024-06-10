@@ -253,4 +253,147 @@ TEST(packet_append_question_compression) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+/* ================================================================
+ * dns_packet_append_opt()
+ * ================================================================ */
+
+TEST(packet_append_opt_basic) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_append_opt_change_max_udp) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 4100, false, false, NULL, 0, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x10, 0x04,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_append_opt_dnssec_ok) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, true, false, NULL, 0, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_append_opt_rcode) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0x97a, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x97,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_append_opt_nsid) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, "nsid.example.com", 0, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x14,
+                        0x00, 0x03,
+                        0x00, 0x10,
+                        'n', 's', 'i', 'd', '.', 'e', 'x', 'a',
+                        'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
