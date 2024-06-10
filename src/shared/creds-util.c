@@ -877,6 +877,11 @@ int encrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to determine local credential host secret: %m");
         }
 
+        if (tpm2_hash_pcr_mask == UINT32_MAX)
+                tpm2_hash_pcr_mask = TPM2_PCR_MASK_DEFAULT;
+        if (tpm2_pubkey_pcr_mask == UINT32_MAX)
+                tpm2_pubkey_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
+
 #if HAVE_TPM2
         bool try_tpm2;
         if (CRED_KEY_WANTS_TPM2(with_key)) {
