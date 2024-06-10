@@ -207,4 +207,66 @@ TEST(packet_append_key_single_soa_any_class) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+/* ================================================================
+ * dns_packet_append_question()
+ * ================================================================ */
+
+TEST(packet_append_question_compression) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        DnsResourceKey *key = NULL;
+
+        question = dns_question_new(3);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_question_add(question, key, 0));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_MX, "mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_question_add(question, key, 0));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "host.mail.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_question_add(question, key, 0));
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
+
+        ASSERT_OK(dns_packet_append_question(packet, question));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x03,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'm', 'a', 'i', 'l',
+                        0xc0, 0x10,
+        /* MX */        0x00, 0x0f,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'h', 'o', 's', 't',
+                        0xc0, 0x21,
+        /* SOA */       0x00, 0x06,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
