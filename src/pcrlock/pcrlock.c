@@ -4357,7 +4357,7 @@ static int determine_boot_policy_file(char **ret) {
 
         r = boot_entry_token_ensure(
                         /* root= */ NULL,
-                        "/etc/kernel",
+                        /* conf_root= */ NULL,
                         machine_id,
                         /* machine_id_is_random = */ false,
                         &arg_entry_token_type,
