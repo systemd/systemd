@@ -6512,6 +6512,18 @@ C00000-CFFFFF     (base 16)		Odin Solutions, S.L. - B73845893
 				Murcia  Murcia  30009
 				ES
 
+48-E6-C6   (hex)		Q-PAC
+B00000-BFFFFF     (base 16)		Q-PAC
+				4010 Deerpark Blvd
+				Elkton  FL  32033
+				US
+
+48-E6-C6   (hex)		Macriot
+700000-7FFFFF     (base 16)		Macriot
+				#1202, 120 Heungdeokjungang-ro Giheung-gu 
+				Youngin-Si  Gyeonggi-DO  16950
+				KR
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -12584,11 +12596,29 @@ EC-5B-CD   (hex)		Doosan Bobcat North America
 				Shenzhen    518000
 				CN
 
+48-E6-C6   (hex)		DEICO MUH. A.S.
+100000-1FFFFF     (base 16)		DEICO MUH. A.S.
+				Ankara Teknopark Yerleşkesi, Serhat Mahallesi, 2224. Cadde, No:1 F Blok Z-12 Yenimahalle, Tax Office: İvedik Tax Number: 2730650061
+				Ankara    06374 
+				TR
+
 48-E6-C6   (hex)		Annapurna labs
 500000-5FFFFF     (base 16)		Annapurna labs
 				Matam Scientific Industries Center,   Building 8.2
 				Mail box 15123  Haifa  3508409
 				IL
+
+48-E6-C6   (hex)		Takiguchi Corporation
+900000-9FFFFF     (base 16)		Takiguchi Corporation
+				1-23-20,Kamata
+				Otaku  Tokyo  144-0052
+				JP
+
+48-E6-C6   (hex)		Moff Inc.
+600000-6FFFFF     (base 16)		Moff Inc.
+				101-TenshoOfficeAzabuJuban, 1-3-40, Mita
+				Minatoku  Tokyo  1080073
+				JP
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -25480,6 +25510,24 @@ A00000-AFFFFF     (base 16)		JAKA Robotics Co., Ltd.
 				Rue Claude Daunesse
 				Valbonne    06560
 				FR
+
+48-E6-C6   (hex)		AL HAMI INFORMATION TECHNOLOGY - L.L.C
+A00000-AFFFFF     (base 16)		AL HAMI INFORMATION TECHNOLOGY - L.L.C
+				Blue Sky Tower, Office No. 1302, Abu Dhabi
+				AbuDhabi  AbuDhabi  29100
+				AE
+
+48-E6-C6   (hex)		Digital Matter Pty Ltd
+D00000-DFFFFF     (base 16)		Digital Matter Pty Ltd
+				9/100 Railway Rd
+				Subiaco  WA  6008
+				AU
+
+48-E6-C6   (hex)		Satlab
+200000-2FFFFF     (base 16)		Satlab
+				Alfred Nobels Vej 27
+				Aalborg Ø    9220
+				DK
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
