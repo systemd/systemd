@@ -3656,4 +3656,55 @@ TEST(packet_reply_svcb_service_mode_bad_ipv6hint) {
         ASSERT_EQ(dns_answer_size(packet->answer), 0u);
 }
 
+/* ================================================================
+ * dns_packet_equal()
+ * ================================================================ */
+
+TEST(packet_equal_match) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p1 = NULL, *p2 = NULL;
+
+        dns_packet_new(&p1, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(p1, 0);
+
+        dns_packet_new(&p2, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(p2, 0);
+
+        const uint8_t data[] = {
+                0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                0x00, 0x00,     0x00, 0x02,     0x00, 0x00,     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(p1, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_append_blob(p2, data, sizeof(data), NULL));
+
+        ASSERT_TRUE(dns_packet_equal(p1, p2));
+}
+
+TEST(packet_equal_no_match) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p1 = NULL, *p2 = NULL;
+
+        dns_packet_new(&p1, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(p1, 0);
+
+        const uint8_t data1[] = {
+                0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                0x00, 0x00,     0x00, 0x02,     0x00, 0x00,     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(p1, data1, sizeof(data1), NULL));
+
+        dns_packet_new(&p2, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(p2, 0);
+
+        const uint8_t data2[] = {
+                0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                0x00, 0x00,     0x00, 0x02,     0x00, 0x00,     0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(p2, data2, sizeof(data2), NULL));
+
+        ASSERT_FALSE(dns_packet_equal(p1, p2));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
