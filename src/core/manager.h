@@ -149,7 +149,6 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_ENV_GENERATORS      = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS          = 1 << 3,  /* also run unit generators */
         MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4,  /* run while ignoring dependencies */
-        MANAGER_TEST_DONT_OPEN_EXECUTOR      = 1 << 5,  /* avoid trying to load sd-executor */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
@@ -505,10 +504,6 @@ struct Manager {
 
         /* For NFTSet= */
         FirewallContext *fw_ctx;
-
-        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
-         * serialization/deserialization compatibility issues during upgrades. */
-        int executor_fd;
 
         unsigned soft_reboots_count;
 };

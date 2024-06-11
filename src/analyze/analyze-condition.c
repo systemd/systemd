@@ -83,7 +83,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
                         return log_error_errno(r, "Failed to set unit load path: %m");
         }
 
-        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 
