@@ -105,12 +105,15 @@ static void bubbleinsert(struct strbuf_node *node,
 }
 
 /* add string, return the index/offset into the buffer */
-ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
+ssize_t strbuf_add_string_full(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
         ssize_t off;
 
         assert(str);
         assert(s || len == 0);
+
+        if (len == SIZE_MAX)
+                len = strlen(s);
 
         if (!str->root)
                 return -EINVAL;

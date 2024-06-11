@@ -33,7 +33,10 @@ struct strbuf_child_entry {
 };
 
 struct strbuf* strbuf_new(void);
-ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len);
+ssize_t strbuf_add_string_full(struct strbuf *str, const char *s, size_t len);
+static inline ssize_t strbuf_add_string(struct strbuf *str, const char *s) {
+        return strbuf_add_string_full(str, s, SIZE_MAX);
+}
 void strbuf_complete(struct strbuf *str);
 struct strbuf* strbuf_free(struct strbuf *str);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct strbuf*, strbuf_free);
