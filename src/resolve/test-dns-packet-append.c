@@ -520,6 +520,51 @@ TEST(packet_patch_max_udp_size_no_opt) {
 }
 
 /* ================================================================
+ * dns_packet_dup()
+ * ================================================================ */
+
+TEST(packet_dup) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p1 = NULL, *p2 = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        rr->ttl = 3601;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        answer = dns_answer_new(1);
+        dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_OK(dns_packet_new(&p1, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(p1) = htobe16(42);
+        DNS_PACKET_HEADER(p1)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(p1)->ancount = htobe16(dns_answer_size(answer));
+
+        ASSERT_OK(dns_packet_append_answer(p1, answer, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA | BIT_RD, BIT_RA | DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x11,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f
+        };
+
+        ASSERT_OK(dns_packet_dup(&p2, p1));
+
+        ASSERT_EQ(p2->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(p2), data, sizeof(data)), 0);
+}
+
+/* ================================================================
  * dns_packet_append_answer()
  * ================================================================ */
 
