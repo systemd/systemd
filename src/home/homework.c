@@ -1870,7 +1870,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
-static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer **ret) {
+static int user_session_freezer_new(uid_t uid, UnitFreezer **ret) {
         _cleanup_free_ char *unit = NULL;
         int r;
 
@@ -1881,10 +1881,6 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer **ret) {
         if (r < 0 && r != -ENXIO)
                 log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring: %m");
         else if (r == 0) {
-                if (freeze_now)
-                        log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION=0).\n"
-                                   "This is not recommended, and might result in unexpected behavior including data loss!");
-
                 *ret = NULL;
                 return 0;
         }
@@ -1892,10 +1888,7 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer **ret) {
         if (asprintf(&unit, "user-" UID_FMT ".slice", uid) < 0)
                 return log_oom();
 
-        if (freeze_now)
-                r = unit_freezer_new_freeze(unit, ret);
-        else
-                r = unit_freezer_new(unit, ret);
+        r = unit_freezer_new(unit, ret);
         if (r < 0)
                 return r;
 
@@ -1921,9 +1914,16 @@ static int home_lock(UserRecord *h) {
 
         _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
 
-        r = user_session_freezer(h->uid, /* freeze_now= */ true, &f);
+        r = user_session_freezer_new(h->uid, &f);
         if (r < 0)
                 return r;
+        if (r > 0) {
+                r = unit_freezer_freeze(f);
+                if (r < 0)
+                        return r;
+        } else
+                log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION=0).\n"
+                           "This is not recommended, and might result in unexpected behavior including data loss!");
 
         r = home_lock_luks(h, &setup);
         if (r < 0) {
@@ -1966,7 +1966,7 @@ static int home_unlock(UserRecord *h) {
         _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
 
         /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer(h->uid, /* freeze_now= */ false, &f);
+        r = user_session_freezer_new(h->uid, &f);
         if (r > 0)
                 r = unit_freezer_thaw(f);
         if (r < 0)
