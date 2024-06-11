@@ -122,10 +122,10 @@ Type=oneshot
 ExecStart=sleep infinity</programlisting>
       </listitem>
 
-      <listitem><para>On top of the above, templated units also need a drop-in configuration file for their
-      slice, as they are by default ran inside a slice named after the non-templated part of the unit. For
-      example, for a <filename>foo@test.service</filename> instance configured with the default slice, a
-      drop-in <filename>system-foo.slice.d/survive.conf</filename> is required, with content:</para>
+      <listitem><para>On top of the above, templated units also need a configuration file for their slice, as
+      they by default use a slice named after the non-templated part of the unit. For example, for a
+      <filename>foo@test.service</filename> instance, a <filename>system-foo.slice</filename> unit may be
+      added with the following content:</para>
 
       <programlisting>[Unit]
 SurviveFinalKillSignal=yes
