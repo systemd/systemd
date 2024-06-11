@@ -5699,23 +5699,17 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         networkctl_reconfigure('veth99')
         self.wait_online('veth99:routable')
-
-        output = check_output('ip -6 address show dev veth99')
-        print(output)
-        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
-        self.assertIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
+        self.wait_address('veth99', '2002:da8:1:0:da5d:e50a:43fd:5d0f/64', ipv='-6', timeout_sec=10) # the 2nd prefixstable
+        self.wait_address_dropped('veth99', '2002:da8:1:0:b47e:7975:fc7a:7d6e/64', ipv='-6', timeout_sec=10) # the 1st prefixstable
 
         check_output('ip address del 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth99')
         check_output('ip address add 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth-peer nodad')
 
         networkctl_reconfigure('veth99')
         self.wait_online('veth99:routable')
-
-        output = check_output('ip -6 address show dev veth99')
-        print(output)
-        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
-        self.assertNotIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
-        self.assertIn('2002:da8:1:0:c7e4:77ec:eb31:1b0d/64', output) # the 3rd prefixstable
+        self.wait_address('veth99', '2002:da8:1:0:c7e4:77ec:eb31:1b0d/64', ipv='-6', timeout_sec=10) # the 3rd prefixstable
+        self.wait_address_dropped('veth99', '2002:da8:1:0:da5d:e50a:43fd:5d0f/64', ipv='-6', timeout_sec=10) # the 2nd prefixstable
+        self.wait_address_dropped('veth99', '2002:da8:1:0:b47e:7975:fc7a:7d6e/64', ipv='-6', timeout_sec=10) # the 1st prefixstable
 
     def test_ipv6_token_prefixstable_without_address(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable-without-address.network')
