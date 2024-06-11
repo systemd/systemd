@@ -461,7 +461,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
 
-                offset = strbuf_add_string(sb, payload, strlen(payload));
+                offset = strbuf_add_string(sb, payload);
                 if (offset < 0)
                         return log_oom();
 
