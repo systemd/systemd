@@ -2016,6 +2016,107 @@ TEST(packet_reply_srv_allow_non_srv_names) {
 }
 
 /* ================================================================
+ * reply: NAPTR
+ * ================================================================ */
+
+TEST(packet_reply_naptr_basic) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x01, '4', 0x01, '3', 0x01, '2', 0x01, '1',
+                        0x01, '5', 0x01, '5', 0x01, '5',
+                        0x01, '0', 0x01, '0', 0x01, '8', 0x01, '1',
+                        0x04, 'e', '1', '6', '4',
+                        0x04, 'a', 'r', 'p', 'a',
+                        0x00,
+        /* NAPTR */     0x00, 0x23,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x4d,
+        /* order */     0x00, 0x66,
+        /* pref */      0x00, 0x0a,
+        /* flags */     0x01, 'U',
+        /* services */  0x07, 'E', '2', 'U', '+', 's', 'i', 'p',
+        /* regexp */    0x27,
+                        '!', '^', '.', '*', '$', '!', 's', 'i',
+                        'p', ':', 'c', 'u', 's', 't', 'o', 'm',
+                        'e', 'r', '-', 's', 'e', 'r', 'v', 'i',
+                        'c', 'e', '@', 'e', 'x', 'a', 'm', 'p',
+                        'l', 'e', '.', 'c', 'o', 'm', '!',
+        /* replace */   0x04, '_', 's', 'i', 'p',
+                        0x04, '_', 'u', 'd', 'p',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        rr->ttl = 3600;
+        rr->naptr.order = 102;
+        rr->naptr.preference = 10;
+        rr->naptr.flags = strdup("U");
+        rr->naptr.services = strdup("E2U+sip");
+        rr->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        rr->naptr.replacement = strdup("_sip._udp.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_naptr_compressed_replace) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x01, '4', 0x01, '3', 0x01, '2', 0x01, '1',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* NAPTR */     0x00, 0x23,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x4d,
+        /* order */     0x00, 0x66,
+        /* pref */      0x00, 0x0a,
+        /* flags */     0x01, 'U',
+        /* services */  0x07, 'E', '2', 'U', '+', 's', 'i', 'p',
+        /* regexp */    0x27,
+                        '!', '^', '.', '*', '$', '!', 's', 'i',
+                        'p', ':', 'c', 'u', 's', 't', 'o', 'm',
+                        'e', 'r', '-', 's', 'e', 'r', 'v', 'i',
+                        'c', 'e', '@', 'e', 'x', 'a', 'm', 'p',
+                        'l', 'e', '.', 'c', 'o', 'm', '!',
+        /* replace */   0x04, '_', 's', 'i', 'p',
+                        0x04, '_', 'u', 'd', 'p',
+                        0xc0, 0x14
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+/* ================================================================
  * reply: RRSIG
  * ================================================================ */
 
