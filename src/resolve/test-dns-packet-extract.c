@@ -2119,6 +2119,391 @@ TEST(packet_reply_naptr_compressed_replace) {
 }
 
 /* ================================================================
+ * reply: OPT
+ * ================================================================ */
+
+TEST(packet_reply_opt_no_do_empty) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_NXDOMAIN,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x9a,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        rr = dns_resource_record_new_full(513, DNS_TYPE_OPT, "");
+        rr->ttl = 2046820352;
+
+        ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 513u);
+        ASSERT_EQ(DNS_PACKET_RCODE(packet), 2467u);
+        ASSERT_EQ(DNS_PACKET_DO(packet), 0u);
+}
+
+TEST(packet_reply_opt_multiple) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x02,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x7a,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x7a,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+TEST(packet_reply_opt_not_root) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x03, 'c', 'o', 'm',
+                        0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+TEST(packet_reply_opt_wrong_section) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+TEST(packet_query_opt_version_ok) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x01,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        rr = dns_resource_record_new_full(513, DNS_TYPE_OPT, "");
+        rr->ttl = 65536;
+
+        ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 513u);
+        ASSERT_EQ(DNS_PACKET_DO(packet), 0u);
+}
+
+TEST(packet_reply_opt_version_bad) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x01,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+TEST(packet_reply_opt_with_do) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x10, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        rr = dns_resource_record_new_full(4097, DNS_TYPE_OPT, "");
+        rr->ttl = 32768;
+
+        ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 4097u);
+        ASSERT_EQ(DNS_PACKET_DO(packet), 1u);
+}
+
+TEST(packet_reply_opt_with_data) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x12,
+                        0x00, 0x01,
+                        0x00, 0x05,
+                        'h', 'e', 'l', 'l', 'o',
+                        0x00, 0x02,
+                        0x00, 0x05,
+                        'w', 'o', 'r', 'l', 'd'
+        };
+
+        const uint8_t opt_data[] = {
+                        0x00, 0x01,
+                        0x00, 0x05,
+                        'h', 'e', 'l', 'l', 'o',
+                        0x00, 0x02,
+                        0x00, 0x05,
+                        'w', 'o', 'r', 'l', 'd'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        rr = dns_resource_record_new_full(513, DNS_TYPE_OPT, "");
+        rr->ttl = 0;
+        rr->opt.data_size = sizeof(opt_data);
+        rr->opt.data = calloc(rr->opt.data_size, sizeof(uint8_t));
+        memcpy(rr->opt.data, opt_data, sizeof(opt_data));
+
+        ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_opt_bad_data_size) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x13,
+                        0x00, 0x01,
+                        0x00, 0x05,
+                        'h', 'e', 'l', 'l', 'o',
+                        0x00, 0x02,
+                        0x00, 0x05,
+                        'w', 'o', 'r', 'l', 'd'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+TEST(packet_query_opt_with_rfc6975_data) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     0x00, 0x00,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x05,
+                        0x00, 0x05,     /* RFC 6975 defines codes 5, 6, 7 */
+                        0x00, 0x01,
+                        0xff
+        };
+
+        const uint8_t opt_data[] = { 0x00, 0x05, 0x00, 0x01, 0xff };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+
+        rr = dns_resource_record_new_full(513, DNS_TYPE_OPT, "");
+        rr->ttl = 0;
+        rr->opt.data_size = sizeof(opt_data);
+        rr->opt.data = calloc(rr->opt.data_size, sizeof(uint8_t));
+        memcpy(rr->opt.data, opt_data, sizeof(opt_data));
+
+        ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_opt_with_rfc6975_data) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x05,
+                        0x00, 0x05,     /* RFC 6975 defines codes 5, 6, 7 */
+                        0x00, 0x01,
+                        0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+        ASSERT_NULL(packet->opt);
+}
+
+/* ================================================================
  * reply: RRSIG
  * ================================================================ */
 
