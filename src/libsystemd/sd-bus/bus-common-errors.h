@@ -34,6 +34,7 @@
 #define BUS_ERROR_FREEZE_CANCELLED             "org.freedesktop.systemd1.FreezeCancelled"
 #define BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED        \
                                                "org.freedesktop.systemd1.FileDescriptorStoreDisabled"
+#define BUS_ERROR_FROZEN_BY_PARENT             "org.freedesktop.systemd1.FrozenByParent"
 
 #define BUS_ERROR_NO_SUCH_MACHINE              "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE                "org.freedesktop.machine1.NoSuchImage"
