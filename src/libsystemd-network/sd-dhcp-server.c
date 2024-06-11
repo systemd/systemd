@@ -1252,7 +1252,7 @@ static int server_receive_message(sd_event_source *s, int fd,
                 /* Preallocate the additional size for DHCP Relay Agent Information Option if needed */
                 buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
 
-        message = malloc(buflen);
+        message = malloc0(buflen);
         if (!message)
                 return -ENOMEM;
 
