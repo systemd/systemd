@@ -81,6 +81,11 @@ CHANGES WITH 256:
         * systemd.crash_reboot and related settings are deprecated in favor of
           systemd.crash_action=.
 
+        * Stable releases for version v256 and newer will now be pushed in the
+          main repository. The systemd-stable repository will be used for existing
+          stable branches (v255-stable and lower), and when they reach EOL it will
+          be archived.
+
         General Changes and New Features:
 
         * Various programs will now attempt to load the main configuration file
