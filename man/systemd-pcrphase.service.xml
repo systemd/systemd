@@ -21,10 +21,11 @@
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
     <refname>systemd-pcrextend</refname>
-    <refpurpose>Measure boot phase into TPM2 PCR 11, machine ID and file system identity into PCR 15</refpurpose>
+    <refpurpose>Measure boot phases, machine ID, product UUID and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -48,6 +49,9 @@
     <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
     (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
     PCR 15.</para>
+
+    <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware product UUID
+    (e.g. SMBIOS, Devictree, …) into a NvPCR named <literal>hardware</literal>.</para>
 
     <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
     services that measure file system identity information (i.e. mount point, file system type, label and
@@ -135,7 +139,8 @@
     <title>Options</title>
 
     <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
-    command line, where it expects the word to extend into PCR 11, as well as the following switches:</para>
+    command line, where it expects the word to extend into a PCR or NvPCR, as well as the following
+    switches:</para>
 
     <variablelist>
       <varlistentry>
@@ -152,9 +157,48 @@
         <term><option>--pcr=</option></term>
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
-        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11.</para>
+        <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
+        <option>--product-id</option> is specified) defaults to 11. May not be combined with
+        <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nvpcr=</option></term>
+
+        <listitem><para>Takes a name of an NvPCR to extend. NvPCRs are additional PCRs implemented via TPM NV
+        indexes. The name should be a short string such as <literal>hardware</literal> or
+        <literal>disk-encryption</literal>. If <option>--product-id</option> is specified defaults
+        <literal>hardware</literal>. May not be combined with <option>--pcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--allocate</option></term>
+
+        <listitem><para>Allocate and initialize an NvPCR. NvPCRs are additional PCRs implemented via TPM NV
+        indexes. The name of the NvPCR to allocate must be specified via <option>--nvpcr=</option>. If an
+        NvPCR by the specified name already exists no operation is executed. This option may either be
+        specified without any word to measure (in which case the NvPCR is allocated and initialized, but
+        nothing else is measured) or together with one (in which case the NvPCR is allocated/initialized if
+        needed, and the word then measured). This option may not be combined with
+        <option>--pcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--delete</option></term>
+
+        <listitem><para>Delete an NvPCR. NvPCRs are additional PCRs implemented via TPM NV indexes. The name
+        of the NvPCR to allocate must be specified via <option>--nvpcr=</option>. If an NvPCR by the
+        specified name does not exist no operation is executed. This option may not be specified in
+        combination with a word to measure. This option may not be combined with
+        <option>--pcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,12 +224,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--early</option></term>
+
+        <listitem><para>Selects early-boot mode. Specifically this means that when executing an
+        <option>--allocate</option> or <option>--delete</option> operation the NvPCR data is not attempted to
+        be written into <filename>/var/lib/systemd/nvpcr/</filename> and the boot loader partition in
+        addition to <filename>/run/systemd/nvpcr/</filename>. (Unlike the latter the former are generally not
+        mounted and writable during early boot or in the initrd.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine-id</option></term>
 
         <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
         host's machine ID into PCR 15.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--product-id</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        firmware's product UUID into an NvPCR named <literal>hardware</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -226,6 +291,29 @@
         should acquire a <constant>LOCK_SH</constant> lock while doing so.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/run/systemd/*.nvpcr</filename></term>
+        <term><filename>/var/lib/systemd/nvpcr/*.nvpcr</filename></term>
+
+        <listitem><para>Definition files for NvPCRs.</para>
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/run/credentials/@encrypted/nvpcr.*</filename></term>
+
+        <listitem><para>Definition files for NvPCRs, received into the system via system credentials.</para>
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>$BOOT/loader/credentials/nvpcr.*.cred</filename></term>
+
+        <listitem><para>Definition files for NvPCRs, to be picked up by the kernel loader stub,
+        i.e. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
