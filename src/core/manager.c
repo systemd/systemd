@@ -922,8 +922,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .test_run_flags = test_run_flags,
 
                 .dump_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_MINUTE, .burst = 10 },
-
-                .executor_fd = -EBADF,
         };
 
         unit_defaults_init(&m->defaults, runtime_scope);
@@ -1044,21 +1042,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
         }
 
-        if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH);
-                if (m->executor_fd < 0)
-                        return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
-
-                _cleanup_free_ char *executor_path = NULL;
-                r = fd_get_path(m->executor_fd, &executor_path);
-                if (r < 0)
-                        return r;
-
-                log_debug("Using systemd-executor binary from '%s'.", executor_path);
-        }
-
         /* Note that we do not set up the notify fd here. We do that after deserialization,
-         * since they might have gotten serialized across the reexec. */
+         * since it might have been serialized across the reexec. */
 
         *ret = TAKE_PTR(m);
 
@@ -1763,8 +1748,6 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
 #endif
-
-        safe_close(m->executor_fd);
 
         return mfree(m);
 }
