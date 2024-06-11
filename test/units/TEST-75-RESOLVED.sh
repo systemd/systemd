@@ -345,6 +345,18 @@ grep -qE "^10\.0\.0\.1\s+STREAM\s+ns1\.unsigned\.test" "$RUN_OUT"
 monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
 enable_ipv6
 
+# Issue: https://github.com/systemd/systemd/issues/33256
+run getent -s resolve hosts cname-chain.signed.test
+grep -qE "10\.0\.0\.14\s+follow14\.final\.signed\.test\s+cname-chain\.signed\.test$" "$RUN_OUT"
+# The original name should be normalized.
+run getent -s resolve hosts cname-chain.signed.test.
+grep -qE "^10\.0\.0\.14\s+follow14\.final\.signed\.test\s+cname-chain\.signed\.test$" "$RUN_OUT"
+# No alias when a canonical name is given.
+run getent -s resolve hosts follow14.final.signed.test
+grep -qE "^10\.0\.0\.14\s+follow14\.final\.signed\.test$" "$RUN_OUT"
+run getent -s resolve hosts follow14.final.signed.test.
+grep -qE "^10\.0\.0\.14\s+follow14\.final\.signed\.test$" "$RUN_OUT"
+
 # Issue: https://github.com/systemd/systemd/issues/18812
 # PR: https://github.com/systemd/systemd/pull/18896
 # Follow-up issue: https://github.com/systemd/systemd/issues/23152
