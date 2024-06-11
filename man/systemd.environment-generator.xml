@@ -61,11 +61,12 @@
     above. System and user environment generators are loaded from directories with names ending in
     <filename>system-environment-generators/</filename> and
     <filename>user-environment-generators/</filename>, respectively. Generators found in directories
-    listed earlier override the ones with the same name in directories lower in the list. A symlink
-    to <filename>/dev/null</filename> or an empty file can be used to mask a generator, thereby
-    preventing it from running. Please note that the order of the two directories with the highest
-    priority is reversed with respect to the unit load path, and generators in
-    <filename>/run/</filename> overwrite those in <filename>/etc/</filename>.</para>
+    listed earlier override the ones with the same name in directories lower in the list
+    <xi:include href="standard-conf.xml" xpointer="usr-local-footnote" />.
+    A symlink to <filename>/dev/null</filename> or an empty file can be used to mask a generator,
+    thereby preventing it from running. Please note that the order of the two directories with the highest
+    priority is reversed with respect to the unit load path, and generators in <filename>/run/</filename>
+    overwrite those in <filename>/etc/</filename>.</para>
 
     <para>After installing new generators or updating the configuration, <command>systemctl
     daemon-reload</command> may be executed. This will re-run all generators, updating environment

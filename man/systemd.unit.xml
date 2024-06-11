@@ -353,7 +353,9 @@
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the two tables below. Unit files found
     in directories listed earlier override files with the same name in
-    directories lower in the list.</para>
+    directories lower in the list
+    <xi:include href="standard-conf.xml" xpointer="usr-local-footnote" />.
+    </para>
 
     <para>When the variable <varname>$SYSTEMD_UNIT_PATH</varname> is set,
     the contents of this variable overrides the unit load path. If
@@ -407,7 +409,7 @@
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/system</filename></entry>
-            <entry>System units installed by the administrator </entry>
+            <entry>System units installed by the administrator</entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/system</filename></entry>
@@ -2687,5 +2689,4 @@ OnFailure=failure-handler@%N.service
       <member><citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
-
 </refentry>
