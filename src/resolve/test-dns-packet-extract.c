@@ -1348,6 +1348,144 @@ TEST(packet_validate_reply_llmnr_no_questions) {
 }
 
 /* ================================================================
+ * dns_packet_is_reply_for()
+ * ================================================================ */
+
+TEST(packet_is_reply_for_no_question) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_packet_is_reply_for(packet, key));
+}
+
+TEST(packet_is_reply_for_too_many_questions) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x02,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+
+        /* name */      0x04, 'm', 'a', 'i', 'l',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* MX */        0x00, 0x0f,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_packet_is_reply_for(packet, key));
+}
+
+TEST(packet_is_reply_for_match_question) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_packet_is_reply_for(packet, key));
+}
+
+TEST(packet_is_reply_for_no_match_question) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* AAAA */      0x00, 0x1c,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_FALSE(dns_packet_is_reply_for(packet, key));
+}
+
+TEST(packet_is_reply_for_extract_failure) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0xc0, 0x0c,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_ERROR(dns_packet_is_reply_for(packet, key), EBADMSG);
+}
+
+/* ================================================================
  * reply: bad keys
  * ================================================================ */
 
