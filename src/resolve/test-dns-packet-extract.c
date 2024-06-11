@@ -3836,4 +3836,25 @@ TEST(packet_equal_no_match) {
         ASSERT_FALSE(dns_packet_equal(p1, p2));
 }
 
+/* ================================================================
+ * dns_ede_rcode_is_dnssec()
+ * ================================================================ */
+
+TEST(dns_ede_rcode_is_dnssec) {
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_DNSSEC_INDETERMINATE));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_DNSSEC_BOGUS));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_SIG_EXPIRED));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_SIG_NOT_YET_VALID));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_DNSKEY_MISSING));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_RRSIG_MISSING));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NO_ZONE_KEY_BIT));
+        ASSERT_TRUE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_NSEC_MISSING));
+
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_BLOCKED));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_CENSORED));
+        ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_OTHER));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
