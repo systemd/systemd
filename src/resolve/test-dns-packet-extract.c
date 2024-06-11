@@ -2908,6 +2908,123 @@ TEST(packet_ede_rcode_malformed_ede_payload) {
 }
 
 /* ================================================================
+ * dns_packet_has_nsid_request()
+ * ================================================================ */
+
+TEST(packet_has_nsid_request_no_match) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_FALSE(dns_packet_has_nsid_request(packet));
+}
+
+TEST(packet_has_nsid_request_match_empty_option) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x04,
+                        0x00, 0x03,     /* NSID option code */
+                        0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_TRUE(dns_packet_has_nsid_request(packet));
+}
+
+TEST(packet_has_nsid_request_match_multiple) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x08,
+                        0x00, 0x03,     /* NSID option code */
+                        0x00, 0x00,
+                        0x00, 0x03,     /* NSID option code */
+                        0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_has_nsid_request(packet), EBADMSG);
+}
+
+TEST(packet_has_nsid_request_match_not_empty) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x05,
+                        0x00, 0x03,     /* NSID option code */
+                        0x00, 0x01,
+                        0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_has_nsid_request(packet), EBADMSG);
+}
+
+/* ================================================================
  * reply: RRSIG
  * ================================================================ */
 
