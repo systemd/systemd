@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "dns-domain.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "glyph-util.h"
@@ -393,6 +394,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_(varlink_unrefp) Varlink *link = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *cparams = NULL;
         _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
+        _cleanup_free_ char *alias = NULL;
         JsonVariant *rparams, *entry;
         int r;
 
@@ -463,11 +465,22 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         }
 
         const char *canonical = p.name ?: name;
+        size_t canonical_len = strlen(canonical);
+
+        r = dns_name_normalize(name, /* flags = */ 0, &alias);
+        if (r < 0)
+                goto fail;
+        r = dns_name_equal(canonical, alias);
+        if (r < 0)
+                goto fail;
+        size_t alias_len = (r == 0 ? strlen(alias) : 0);
 
         size_t alen = FAMILY_ADDRESS_SIZE(af);
-        size_t l = strlen(canonical);
-
-        size_t idx, ms = ALIGN(l + 1) + n_addresses * ALIGN(alen) + (n_addresses + 2) * sizeof(char*);
+        size_t ms =
+                ALIGN(canonical_len + 1) +
+                (alias_len > 0 ? ALIGN(alias_len + 1) + 2 * sizeof(char*) : sizeof(char*)) +
+                n_addresses * ALIGN(alen) + (n_addresses + 1) * sizeof(char*);
+        size_t idx;
 
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
@@ -478,13 +491,25 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         /* First, append name */
         char *r_name = buffer;
-        memcpy(r_name, canonical, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, canonical, canonical_len + 1);
+        idx = ALIGN(canonical_len + 1);
 
-        /* Second, create empty aliases array */
-        char *r_aliases = buffer + idx;
-        ((char**) r_aliases)[0] = NULL;
-        idx += sizeof(char*);
+        /* Second, create aliases array */
+        char *r_aliases;
+        if (alias_len > 0) {
+                char *r_alias_one = buffer + idx;
+                memcpy(r_alias_one, alias, alias_len + 1);
+                idx += ALIGN(alias_len + 1);
+
+                r_aliases = buffer + idx;
+                ((char**) r_aliases)[0] = r_alias_one;
+                ((char**) r_aliases)[1] = NULL;
+                idx += sizeof(char*) * 2;
+        } else {
+                r_aliases = buffer + idx;
+                ((char**) r_aliases)[0] = NULL;
+                idx += sizeof(char*);
+        }
 
         /* Third, append addresses */
         char *r_addr = buffer + idx;
