@@ -484,6 +484,32 @@ userdbctl groups-of-user 🐱
 (! userdbctl groups-of-user '')
 (! userdbctl groups-of-user foo '' bar)
 
+echo >"/run/userdb/dropinuser:dropingroup.membership"
+echo >"/run/userdb/dropinuser:nobody.membership"
+echo >"/run/userdb/nobody:dropingroup.membership"
+
+userdbctl user dropinuser | tee /tmp/userdbctl
+grep -qFw dropingroup /tmp/userdbctl
+grep -qFw nobody /tmp/userdbctl
+
+userdbctl group dropingroup | tee /tmp/userdbctl
+grep -qFw dropinuser /tmp/userdbctl
+grep -qFw nobody /tmp/userdbctl
+
+userdbctl user -j dropinuser | jq -e '.memberOf == ["dropingroup", "nobody"]'
+userdbctl group -j dropingroup | jq -e '.members == ["dropinuser", "nobody"]'
+
+userdbctl groups-of-user -j dropinuser | jq -e -s 'sort == [
+    {"user": "dropinuser", "group": "dropingroup"},
+    {"user": "dropinuser", "group": "nobody"}
+]'
+userdbctl users-in-group -j dropingroup | jq -e -s 'sort == [
+    {"group": "dropingroup", "user": "dropinuser"},
+    {"group": "dropingroup", "user": "nobody"}
+]'
+
+[[ $(userdbctl group --output=classic dropingroup) == dropingroup:x:1000000:dropinuser,nobody ]]
+
 userdbctl services
 userdbctl services -j | jq
 
