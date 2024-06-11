@@ -45,5 +45,3 @@ int unit_freezer_new(const char *name, UnitFreezer **ret);
 
 int unit_freezer_freeze(UnitFreezer *f);
 int unit_freezer_thaw(UnitFreezer *f);
-
-int unit_freezer_new_freeze(const char *name, UnitFreezer **ret);
