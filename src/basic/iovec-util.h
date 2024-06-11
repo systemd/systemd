@@ -14,6 +14,12 @@
                 .iov_len = 1,                                   \
         }
 
+/* An iovec pointing to an empty but valid buffer */
+#define IOVEC_EMPTY (const struct iovec) {                      \
+                .iov_base = (void*) (const uint8_t[1]) { 0 },   \
+                .iov_len = 0,                                   \
+        }
+
 size_t iovec_total_size(const struct iovec *iovec, size_t n);
 
 bool iovec_increment(struct iovec *iovec, size_t n, size_t k);

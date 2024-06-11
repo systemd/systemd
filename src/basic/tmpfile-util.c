@@ -308,7 +308,7 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
         return fd;
 }
 
-int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE **ret_file) {
+int fopen_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -317,7 +317,7 @@ int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE 
         assert(ret_file);
         assert(ret_path);
 
-        fd = open_tmpfile_linkable(target, flags, &path);
+        fd = open_tmpfile_linkable_at(dir_fd, target, flags, &path);
         if (fd < 0)
                 return fd;
 
@@ -367,7 +367,7 @@ int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, Li
         return 0;
 }
 
-int flink_tmpfile(FILE *f, const char *path, const char *target, LinkTmpfileFlags flags) {
+int flink_tmpfile_at(FILE *f, int dfd, const char *path, const char *target, LinkTmpfileFlags flags) {
         int fd, r;
 
         assert(f);
@@ -381,7 +381,7 @@ int flink_tmpfile(FILE *f, const char *path, const char *target, LinkTmpfileFlag
         if (r < 0)
                 return r;
 
-        return link_tmpfile(fd, path, target, flags);
+        return link_tmpfile_at(fd, dfd, path, target, flags);
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {

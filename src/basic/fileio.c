@@ -355,6 +355,21 @@ int write_string_filef(
         return write_string_file(fn, p, flags);
 }
 
+int write_base64_file_at(
+                int dir_fd,
+                const char *fn,
+                const struct iovec *data,
+                WriteStringFileFlags flags) {
+
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t n;
+        n = base64mem_full(data ? data->iov_base : NULL, data ? data->iov_len : 0, 79, &encoded);
+        if (n < 0)
+                return n;
+
+        return write_string_file_at(dir_fd, fn, encoded, flags);
+}
+
 int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -614,6 +629,12 @@ int read_full_stream_full(
                 if (fstat(fd, &st) < 0)
                         return -errno;
 
+                if (FLAGS_SET(flags, READ_FULL_FILE_VERIFY_REGULAR)) {
+                        r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (S_ISREG(st.st_mode)) {
 
                         /* Try to start with the right file size if we shall read the file in full. Note
@@ -635,7 +656,8 @@ int read_full_stream_full(
                         if (flags & READ_FULL_FILE_WARN_WORLD_READABLE)
                                 (void) warn_file_is_world_accessible(filename, &st, NULL, 0);
                 }
-        }
+        } else if (FLAGS_SET(flags, READ_FULL_FILE_VERIFY_REGULAR))
+                return -EBADFD;
 
         /* If we don't know how much to read, figure it out now. If we shall read a part of the file, then
          * allocate the requested size. If we shall load the full file start with LINE_MAX. Note that if
@@ -777,7 +799,6 @@ int read_full_file_full(
         XfopenFlags xflags = XFOPEN_UNLOCKED;
         int r;
 
-        assert(filename);
         assert(ret_contents);
 
         if (FLAGS_SET(flags, READ_FULL_FILE_CONNECT_SOCKET) && /* If this is enabled, let's try to connect to it */
@@ -959,11 +980,10 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         /* A combination of fopen() with openat() */
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(mode);
         assert(ret);
 
-        if (dir_fd == AT_FDCWD && open_flags == 0)
+        if (dir_fd == AT_FDCWD && open_flags == 0 && path)
                 f = fopen(path, mode);
         else {
                 _cleanup_close_ int fd = -EBADF;
@@ -973,9 +993,18 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
                 if (mode_flags < 0)
                         return mode_flags;
 
-                fd = openat(dir_fd, path, mode_flags | open_flags);
-                if (fd < 0)
-                        return -errno;
+                if (path) {
+                        fd = openat(dir_fd, path, mode_flags | open_flags);
+                        if (fd < 0)
+                                return -errno;
+                } else {
+                        if (dir_fd == AT_FDCWD)
+                                return -EBADF;
+
+                        fd = fd_reopen(dir_fd, mode_flags | open_flags);
+                        if (fd < 0)
+                                return fd;
+                }
 
                 f = take_fdopen(&fd, mode);
         }
@@ -992,7 +1021,6 @@ static int xfopenat_unix_socket(int dir_fd, const char *path, const char *bind_n
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
 
         sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
@@ -1041,7 +1069,6 @@ int xfopenat_full(
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(mode);
         assert(ret);
 
