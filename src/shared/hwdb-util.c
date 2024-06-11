@@ -138,15 +138,15 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         ssize_t k, v, fn = 0;
         struct trie_value_entry *val;
 
-        k = strbuf_add_string(trie->strings, key, strlen(key));
+        k = strbuf_add_string(trie->strings, key);
         if (k < 0)
                 return k;
-        v = strbuf_add_string(trie->strings, value, strlen(value));
+        v = strbuf_add_string(trie->strings, value);
         if (v < 0)
                 return v;
 
         if (!compat) {
-                fn = strbuf_add_string(trie->strings, filename, strlen(filename));
+                fn = strbuf_add_string(trie->strings, filename);
                 if (fn < 0)
                         return fn;
         }
@@ -224,7 +224,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         if (!s)
                                 return -ENOMEM;
 
-                        off = strbuf_add_string(trie->strings, s, p);
+                        off = strbuf_add_string_full(trie->strings, s, p);
                         if (off < 0)
                                 return off;
 
@@ -254,7 +254,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         if (!new_child)
                                 return -ENOMEM;
 
-                        off = strbuf_add_string(trie->strings, search + i+1, strlen(search + i+1));
+                        off = strbuf_add_string(trie->strings, search + i+1);
                         if (off < 0)
                                 return off;
 
