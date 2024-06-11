@@ -6308,7 +6308,7 @@ int unit_freezer_action(Unit *u, FreezerAction action) {
         if (action == FREEZER_THAW && u->freezer_state == FREEZER_THAWING)
                 return -EALREADY;
         if (action == FREEZER_THAW && IN_SET(u->freezer_state, FREEZER_FREEZING_BY_PARENT, FREEZER_FROZEN_BY_PARENT))
-                return -ECHILD;
+                return -EDEADLK;
 
         r = UNIT_VTABLE(u)->freezer_action(u, action);
         if (r <= 0)
