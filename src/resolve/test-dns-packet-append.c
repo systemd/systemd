@@ -468,6 +468,58 @@ TEST(packet_truncate_opt) {
 }
 
 /* ================================================================
+ * dns_packet_patch_max_udp_size()
+ * ================================================================ */
+
+TEST(packet_patch_max_udp_size) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+
+        ASSERT_TRUE(dns_packet_patch_max_udp_size(packet, 4097));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x10, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(packet_patch_max_udp_size_no_opt) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_FALSE(dns_packet_patch_max_udp_size(packet, 4097));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+/* ================================================================
  * dns_packet_append_answer()
  * ================================================================ */
 
