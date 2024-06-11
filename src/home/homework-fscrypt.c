@@ -69,7 +69,7 @@ static int fscrypt_unlink_key(UserRecord *h) {
                         return log_error_errno(r, "Failed to describe key id %d: %m", *key);
                 }
 
-                /* The decription is the final element as per manpage. */
+                /* The description is the final element as per manpage. */
                 d = strrchr(description, ';');
                 if (!d)
                         return log_error_errno(
