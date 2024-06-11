@@ -14,6 +14,14 @@
                 .iov_len = 1,                                   \
         }
 
+/* An iovec pointing to an empty but valid buffer. We just want a valid (i.e. non-NULL) pointer here, and
+ * ideally one that when actually dereferenced is not writable. Hence we just use a function pointer to the
+ * next best function. */
+#define IOVEC_EMPTY (const struct iovec) {                      \
+                .iov_base = (void*) iovec_total_size,           \
+                .iov_len = 0,                                   \
+        }
+
 size_t iovec_total_size(const struct iovec *iovec, size_t n);
 
 bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
