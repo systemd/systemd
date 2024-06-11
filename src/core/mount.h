@@ -50,10 +50,9 @@ struct Mount {
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
-        bool invalidated_state:1; /* Set when the 'state' of the mount unit may be outdated, and we need to
-                                   * re-read /proc/self/mountinfo. */
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
+        bool rmdir_on_stop:1;
 
         MountProcFlags proc_flags;
 
@@ -96,7 +95,7 @@ extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
 
-int mount_invalidate_state_by_path(Manager *manager, const char *path);
+int mount_stop_by_path(Manager *manager, const char *path);
 
 char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);

@@ -156,11 +156,13 @@ int exec_context_destroy_credentials(Unit *u) {
                 return r;
 
         /* This is either a tmpfs/ramfs of its own, or a plain directory. Either way, let's first try to
-         * unmount it, and afterwards remove the mount point */
-        if (umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW) >= 0)
-                (void) mount_invalidate_state_by_path(u->manager, p);
-
-        (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
+         * unmount it, and afterwards remove the mount point.
+         * If there exists the relevant mount unit, then let's unmount the path by the unit. */
+        if (mount_stop_by_path(u->manager, p) <= 0) {
+                /* No relevant mount unit exists, let's do that here manually. */
+                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
+        }
 
         return 0;
 }
