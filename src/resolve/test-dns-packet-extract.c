@@ -2711,6 +2711,204 @@ TEST(packet_reply_opt_with_rfc6975_data) {
 }
 
 /* ================================================================
+ * dns_packet_ede_rcode()
+ * ================================================================ */
+
+TEST(packet_ede_rcode_empty) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int ret_ede_rcode;
+        char *ret_ede_msg;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), ENOENT);
+}
+
+TEST(packet_ede_rcode_ede_option_code) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *ret_ede_msg;
+        int ret_ede_rcode;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x12,
+                        0x00, 0x0f,     /* extended DNS error */
+                        0x00, 0x0e,     /* length */
+                        0x00, 0x06,     /* DNSSEC bogus */
+                        'D', 'N', 'S', 'S', 'E', 'C', ' ', 'b', 'o', 'g', 'u', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_EQ(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), 0);
+        ASSERT_EQ(ret_ede_rcode, DNS_EDE_RCODE_DNSSEC_BOGUS);
+        ASSERT_STREQ(ret_ede_msg, "DNSSEC bogus");
+}
+
+TEST(packet_ede_rcode_ede_valid_utf8) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *ret_ede_msg;
+        int ret_ede_rcode;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x0d,
+                        0x00, 0x0f,     /* extended DNS error */
+                        0x00, 0x09,     /* length */
+                        0x00, 0x06,     /* DNSSEC bogus */
+                        'b', 0xc3, 0xb8, 'g', 0xc3, 0xbc, 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_EQ(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), 0);
+        ASSERT_EQ(ret_ede_rcode, DNS_EDE_RCODE_DNSSEC_BOGUS);
+        ASSERT_STREQ(ret_ede_msg, "bøgüs");
+}
+
+TEST(packet_ede_rcode_ede_invalid_utf8) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *ret_ede_msg;
+        int ret_ede_rcode;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x0d,
+                        0x00, 0x0f,     /* extended DNS error */
+                        0x00, 0x09,     /* length */
+                        0x00, 0x06,     /* DNSSEC bogus */
+                        'b', 0xc3, 0xb8, 'g', 0xc3, 0xbc, 0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_EQ(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), 0);
+        ASSERT_EQ(ret_ede_rcode, DNS_EDE_RCODE_DNSSEC_BOGUS);
+        ASSERT_STREQ(ret_ede_msg, "b\\303\\270g\\303\\274\\377");
+}
+
+TEST(packet_ede_rcode_non_ede_code) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int ret_ede_rcode;
+        char *ret_ede_msg;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x12,
+                        0x00, 0x01,     /* not EDE option code */
+                        0x00, 0x0e,     /* length */
+                        0x00, 0x06,     /* DNSSEC bogus */
+                        'D', 'N', 'S', 'S', 'E', 'C', ' ', 'b', 'o', 'g', 'u', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), ENOENT);
+}
+
+TEST(packet_ede_rcode_malformed_ede_payload) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int ret_ede_rcode;
+        char *ret_ede_msg;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x01,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x80, 0x00,
+        /* rdata */     0x00, 0x12,
+                        0x00, 0x0f,     /* extended DNS error */
+                        0x00, 0x0d,     /* length */
+                        0x00, 0x06,     /* DNSSEC bogus */
+                        'D', 'N', 'S', 'S', 'E', 'C', ' ', 'b', 'o', 'g', 'u', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+
+        ASSERT_ERROR(dns_packet_ede_rcode(packet, &ret_ede_rcode, &ret_ede_msg), ENOENT);
+}
+
+/* ================================================================
  * reply: RRSIG
  * ================================================================ */
 
