@@ -4517,4 +4517,73 @@ TEST(dns_ede_rcode_is_dnssec) {
         ASSERT_FALSE(dns_ede_rcode_is_dnssec(DNS_EDE_RCODE_OTHER));
 }
 
+/* ================================================================
+ * format_dns_rcode()
+ * ================================================================ */
+
+TEST(format_dns_rcode) {
+        const char *str;
+
+        str = FORMAT_DNS_RCODE(DNS_RCODE_SUCCESS);
+        ASSERT_STREQ(str, "SUCCESS");
+
+        str = FORMAT_DNS_RCODE(DNS_RCODE_NXDOMAIN);
+        ASSERT_STREQ(str, "NXDOMAIN");
+
+        str = FORMAT_DNS_RCODE(DNS_RCODE_SERVFAIL);
+        ASSERT_STREQ(str, "SERVFAIL");
+
+        str = FORMAT_DNS_RCODE(DNS_RCODE_REFUSED);
+        ASSERT_STREQ(str, "REFUSED");
+
+        str = FORMAT_DNS_RCODE(DNS_RCODE_BADTIME);
+        ASSERT_STREQ(str, "BADTIME");
+}
+
+/* ================================================================
+ * format_dns_ede_rcode()
+ * ================================================================ */
+
+TEST(format_dns_ede_rcode) {
+        const char *str;
+
+        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_DNSSEC_BOGUS);
+        ASSERT_STREQ(str, "DNSSEC Bogus");
+
+        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_SIG_EXPIRED);
+        ASSERT_STREQ(str, "Signature Expired");
+
+        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_CENSORED);
+        ASSERT_STREQ(str, "Censored");
+
+        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_OTHER);
+        ASSERT_STREQ(str, "Other");
+
+        str = FORMAT_DNS_EDE_RCODE(DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER);
+        ASSERT_STREQ(str, "Stale NXDOMAIN Answer");
+}
+
+/* ================================================================
+ * format_dns_svc_param_key()
+ * ================================================================ */
+
+TEST(format_dns_svc_param_key) {
+        const char *str;
+
+        str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_ALPN);
+        ASSERT_STREQ(str, "alpn");
+
+        str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN);
+        ASSERT_STREQ(str, "no-default-alpn");
+
+        str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_PORT);
+        ASSERT_STREQ(str, "port");
+
+        str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_IPV4HINT);
+        ASSERT_STREQ(str, "ipv4hint");
+
+        str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_OHTTP);
+        ASSERT_STREQ(str, "ohttp");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
