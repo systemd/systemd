@@ -8,7 +8,7 @@ typedef struct BusWaitForUnits BusWaitForUnits;
 
 typedef enum BusWaitForUnitsState {
         BUS_WAIT_SUCCESS,    /* Nothing to wait for anymore and nothing failed */
-        BUS_WAIT_FAILURE,    /* dito, but something failed */
+        BUS_WAIT_FAILURE,    /* ditto, but something failed */
         BUS_WAIT_RUNNING,    /* Still something to wait for */
         _BUS_WAIT_FOR_UNITS_STATE_MAX,
         _BUS_WAIT_FOR_UNITS_STATE_INVALID = -EINVAL,
