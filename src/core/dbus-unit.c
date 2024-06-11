@@ -756,7 +756,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == -EALREADY)
                 return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Previously requested freezer operation for unit is still in progress");
         if (r == -ECHILD)
-                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice");
+                return sd_bus_error_set(error, BUS_ERROR_FROZEN_BY_PARENT, "Unit is frozen by a parent slice");
         if (r < 0)
                 return r;
 
