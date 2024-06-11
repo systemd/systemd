@@ -2092,4 +2092,720 @@ TEST(packet_reply_rrsig_signer_overflow) {
         ASSERT_EQ(dns_answer_size(packet->answer), 0u);
 }
 
+/* ================================================================
+ * reply: SVCB/HTTPS
+ * ================================================================ */
+
+static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const char *value, size_t len) {
+        DnsSvcParam *param = calloc(1, offsetof(DnsSvcParam, value) + len);
+
+        param->key = key;
+        param->length = len;
+
+        if (value != NULL)
+                memcpy(param->value, value, len);
+
+        LIST_APPEND(params, rr->svcb.params, param);
+        return param;
+}
+
+TEST(packet_reply_svcb_alias_mode) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x14,
+        /* priority */  0x00, 0x00,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        rr->ttl = 3600;
+        rr->svcb.priority = 0;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_svcb_compressed_target) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x09,
+        /* priority */  0x00, 0x00,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0xc0, 0x16
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+/* RFC 9460 says that alias-mode RRs SHOULD NOT have the same owner and target.
+ * We accept this when parsing messages. */
+
+TEST(packet_reply_svcb_alias_mode_same_owner_and_target) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x14,
+        /* priority */  0x00, 0x00,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "sock.example.com");
+        rr->ttl = 3600;
+        rr->svcb.priority = 0;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+/* RFC 9460 says that recipients MUST ignore any params presented in alias mode RRs. We parse them out of the
+ * message and their handling is down to further business logic, rather than rejecting such RRs in the
+ * parser. */
+
+TEST(packet_reply_svcb_alias_mode_with_param) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x18,
+        /* priority */  0x00, 0x00,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* no-deflt */  0x00, 0x02,
+                        0x00, 0x00,
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        rr->ttl = 3600;
+        rr->svcb.priority = 0;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN, NULL, 0);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_svcb_service_mode) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsSvcParam *param = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x54,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* mandatory */ 0x00, 0x00,
+                        0x00, 0x04,
+                        0x00, 0x01, 0x00, 0x03,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x0a,
+                        0x09, 'w', 'e', 'b', 's', 'o', 'c', 'k', 'e', 't',
+        /* no-deflt */  0x00, 0x02,
+                        0x00, 0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbb,
+        /* ipv4hint */  0x00, 0x04,
+                        0x00, 0x08,
+                        0x72, 0x84, 0xfd, 0x3a,
+                        0x48, 0xbc, 0xc7, 0xc0,
+        /* ipv6hint */  0x00, 0x06,
+                        0x00, 0x10,
+                        0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35,
+                        0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        rr->ttl = 3600;
+        rr->svcb.priority = 2;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_MANDATORY, "\x00\x01\x00\x03", 4);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_ALPN, "\x09websocket", 10);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN, "", 0);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_PORT, "\x01\xbb", 2);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV4HINT, NULL, 2 * sizeof(struct in_addr));
+        param->value_in_addr[0].s_addr = htobe32(0x7284fd3a);
+        param->value_in_addr[1].s_addr = htobe32(0x48bcc7c0);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV6HINT, NULL, sizeof(struct in6_addr));
+        param->value_in6_addr[0] = (struct in6_addr) { .s6_addr = { 0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35, 0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb } };
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+/* RFC 9460 says that clients MUST ignore any param keys that they do not recognise. We allow such keys to be
+ * parsed; handling of them is down to later business logic. */
+
+TEST(packet_reply_svcb_service_mode_unknown_param) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* HTTPS */     0x00, 0x41,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x18,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* unknown */   0x00, 0x99,
+                        0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HTTPS, "_443._wss.example.com");
+        rr->ttl = 3600;
+        rr->svcb.priority = 2;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        add_svcb_param(rr, 153, NULL, 0);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ADDITIONAL);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_svcb_service_mode_duplicate_key) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x20,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbb,
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbc,
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_key_bad_order) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x1e,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbb,
+        /* no-deflt */  0x00, 0x02,
+                        0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_alpn_too_long) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x20,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x07,
+                        0x04, 'h', 't', 't', 'p',
+                        0x02, 'w', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_alpn_too_short) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x20,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x09,
+                        0x04, 'h', 't', 't', 'p',
+                        0x02, 'w', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EMSGSIZE);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_valid_alpn_overflows_rdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x1f,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x08,
+                        0x04, 'h', 't', 't', 'p',
+                        0x02, 'w', 's'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_valid_alpn_and_port_overflows_rdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x25,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* alpn */      0x00, 0x01,
+                        0x00, 0x08,
+                        0x04, 'h', 't', 't', 'p',
+                        0x02, 'w', 's',
+        /* port */      0x00, 0x03,
+                        0x00, 0x02,
+                        0x01, 0xbb
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_bad_no_default_alpn) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x19,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* no-deflt */  0x00, 0x02,
+                        0x00, 0x01,
+                        0x0a
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_port_too_long) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x1b,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x03,
+                        0x01, 0xbb, 0xff
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_port_too_short) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x19,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* port */      0x00, 0x03,
+                        0x00, 0x01,
+                        0xbb
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_bad_ipv4hint) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x1b,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* ipv4hint */  0x00, 0x04,
+                        0x00, 0x03,
+                        0x2f, 0x47, 0x34
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+TEST(packet_reply_svcb_service_mode_bad_ipv6hint) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* name */      0x04, '_', '4', '4', '3',
+                        0x04, '_', 'w', 's', 's',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* SVCB */      0x00, 0x40,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x27,
+        /* priority */  0x00, 0x02,
+        /* target */    0x04, 's', 'o', 'c', 'k',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* ipv6hint */  0x00, 0x06,
+                        0x00, 0x0f,
+                        0x09, 0x36, 0xba, 0x5d, 0x17, 0x42, 0x47, 0xa2,
+                        0x14, 0xcc, 0x77, 0x67, 0x51, 0x68, 0xef
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
