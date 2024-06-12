@@ -367,6 +367,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindJournalSockets=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, sockets from <citerefentry>
+        <refentrytitle>systemd-journald.socket</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will be bind mounted into the mount namespace. This is particularly useful when a different rootfs
+        is used (e.g. through <varname>RootDirectory=</varname> or <varname>RootImage=</varname>), as
+        <varname>MountAPIVFS=yes</varname> mounts a fresh <filename>/run/</filename> inside the new root.</para>
+
+        <para>This option is implied when <varname>LogNamespace=</varname> is used,
+        when <varname>MountAPIVFS=yes</varname>, or when <varname>PrivateDevices=yes</varname> is used
+        in conjunction with either <varname>RootDirectory=</varname> or <varname>RootImage=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectProc=</varname></term>
 
         <listitem><para>Takes one of <literal>noaccess</literal>, <literal>invisible</literal>,
