@@ -1355,4 +1355,247 @@ TEST(dns_resource_record_equal_naptr_bad_replacement) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : RRSIG
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_rrsig_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_type_covered) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.type_covered = DNS_TYPE_AAAA;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_algorithm) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.algorithm = DNSSEC_ALGORITHM_DSA;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_labels) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.labels = 2;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_original_ttl) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.original_ttl = 3601;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_expiration) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.expiration = a->rrsig.expiration + 1;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_inception) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.inception = a->rrsig.inception - 1;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_key_tag) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.key_tag = 0x4321;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_signer) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.signer = strdup("www.example.com");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_rrsig_bad_signature) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        a->rrsig.type_covered = DNS_TYPE_A;
+        a->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        a->rrsig.labels = 3;
+        a->rrsig.original_ttl = 3600;
+        a->rrsig.expiration = 1720361303;
+        a->rrsig.inception = 1717769303;
+        a->rrsig.key_tag = 0x1234;
+        a->rrsig.signer = strdup("example.com");
+
+        const uint8_t signature[] = {
+                0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
+        };
+        a->rrsig.signature_size = sizeof(signature);
+        a->rrsig.signature = memdup(signature, a->rrsig.signature_size);
+
+        b = dns_resource_record_copy(a);
+        b->rrsig.signature_size -= 1;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
