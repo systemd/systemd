@@ -63,7 +63,7 @@ int mac_selinux_setup(bool *loaded_policy) {
         before_load = now(CLOCK_MONOTONIC);
         r = selinux_init_load_policy(&enforce);
         if (r == 0) {
-                _cleanup_(mac_selinux_freep) char *label = NULL;
+                _cleanup_freecon_ char *label = NULL;
 
                 mac_selinux_retest();
 
