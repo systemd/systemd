@@ -1396,6 +1396,142 @@ TEST(dns_resource_record_equal_txt_different_text) {
 }
 
 /* ================================================================
+ * dns_resource_record_equal() : LOC
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_loc_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_bad_size) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.size = 0x28;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_bad_horiz_pre) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.horiz_pre = 0x35;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_vert_pre) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.vert_pre = 0x54;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_bad_latitude) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.latitude = 2332887286;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_bad_longitude) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.longitude = 2146974023;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_loc_bad_altitude) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->loc.version = 0;
+        a->loc.size = 0x29;
+        a->loc.horiz_pre = 0x34;
+        a->loc.vert_pre = 0x53;
+        a->loc.latitude = 2332887285;
+        a->loc.longitude = 2146974024;
+        a->loc.altitude = 10000000;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->loc.altitude = 10000001;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+/* ================================================================
  * dns_resource_record_equal() : SRV
  * ================================================================ */
 
