@@ -841,6 +841,32 @@ TEST(dns_resource_record_equal_cname_fail) {
 }
 
 /* ================================================================
+ * dns_resource_record_equal() : DNAME
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_dname) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
+        a->dname.name = strdup("example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_dname_fail) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
+        a->dname.name = strdup("example.com");
+
+        b = dns_resource_record_copy(a);
+        free(b->dname.name);
+        b->dname.name = strdup("example.orb");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+/* ================================================================
  * dns_resource_record_equal() : SOA
  * ================================================================ */
 
