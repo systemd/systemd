@@ -95,7 +95,7 @@ void json_variant_unref_many(JsonVariant **array, size_t n);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant *, json_variant_unref);
 
-const char *json_variant_string(JsonVariant *v);
+const char* json_variant_string(JsonVariant *v);
 int64_t json_variant_integer(JsonVariant *v);
 uint64_t json_variant_unsigned(JsonVariant *v);
 double json_variant_real(JsonVariant *v);
@@ -511,5 +511,5 @@ static inline int json_variant_unhex_iovec(JsonVariant *v, struct iovec *ret) {
         return json_variant_unhex(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
 }
 
-const char *json_variant_type_to_string(JsonVariantType t);
+const char* json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);

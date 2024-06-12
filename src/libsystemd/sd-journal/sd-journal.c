@@ -431,7 +431,7 @@ static char *match_make_string(Match *m) {
         return TAKE_PTR(p);
 }
 
-char *journal_make_match_string(sd_journal *j) {
+char* journal_make_match_string(sd_journal *j) {
         assert(j);
 
         return match_make_string(j->level0);

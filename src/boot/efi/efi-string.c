@@ -212,7 +212,7 @@ char16_t *xstrn8_to_16(const char *str8, size_t n) {
         return str16;
 }
 
-char *startswith8(const char *s, const char *prefix) {
+char* startswith8(const char *s, const char *prefix) {
         size_t l;
 
         assert(prefix);
@@ -412,7 +412,7 @@ bool parse_boolean(const char *v, bool *ret) {
         return false;
 }
 
-char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value) {
+char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value) {
         char *line, *value;
         size_t linelen;
 

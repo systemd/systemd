@@ -273,7 +273,7 @@ int bus_message_type_from_string(const char *s, uint8_t *u) {
         return 0;
 }
 
-const char *bus_message_type_to_string(uint8_t u) {
+const char* bus_message_type_to_string(uint8_t u) {
         if (u == SD_BUS_MESSAGE_SIGNAL)
                 return "signal";
         else if (u == SD_BUS_MESSAGE_METHOD_CALL)
@@ -286,7 +286,7 @@ const char *bus_message_type_to_string(uint8_t u) {
                 return NULL;
 }
 
-char *bus_address_escape(const char *v) {
+char* bus_address_escape(const char *v) {
         const char *a;
         char *r, *b;
 

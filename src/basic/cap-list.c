@@ -18,7 +18,7 @@ static const struct capability_name* lookup_capability(register const char *str,
 #include "cap-from-name.h"
 #include "cap-to-name.h"
 
-const char *capability_to_name(int id) {
+const char* capability_to_name(int id) {
         if (id < 0)
                 return NULL;
         if (id >= capability_list_length())
@@ -27,7 +27,7 @@ const char *capability_to_name(int id) {
         return capability_names[id];
 }
 
-const char *capability_to_string(int id, char buf[static CAPABILITY_TO_STRING_MAX]) {
+const char* capability_to_string(int id, char buf[static CAPABILITY_TO_STRING_MAX]) {
         const char *p;
 
         if (id < 0)

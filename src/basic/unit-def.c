@@ -6,7 +6,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 
-char *unit_dbus_path_from_name(const char *name) {
+char* unit_dbus_path_from_name(const char *name) {
         _cleanup_free_ char *e = NULL;
 
         assert(name);
@@ -58,7 +58,7 @@ const char* unit_dbus_interface_from_type(UnitType t) {
         return table[t];
 }
 
-const char *unit_dbus_interface_from_name(const char *name) {
+const char* unit_dbus_interface_from_name(const char *name) {
         UnitType t;
 
         t = unit_name_to_type(name);

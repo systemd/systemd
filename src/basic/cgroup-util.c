@@ -1691,7 +1691,7 @@ int cg_escape(const char *p, char **ret) {
         return 0;
 }
 
-char *cg_unescape(const char *p) {
+char* cg_unescape(const char *p) {
         assert(p);
 
         /* The return value of this function (unlike cg_escape())

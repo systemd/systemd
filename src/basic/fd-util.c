@@ -1091,7 +1091,7 @@ int fds_are_same_mount(int fd1, int fd2) {
         return statx_mount_same(&st1.nsx, &st2.nsx);
 }
 
-const char *accmode_to_string(int flags) {
+const char* accmode_to_string(int flags) {
         switch (flags & O_ACCMODE) {
         case O_RDONLY:
                 return "ro";
@@ -1104,7 +1104,7 @@ const char *accmode_to_string(int flags) {
         }
 }
 
-char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
+char* format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
         assert(buf);
         assert(fd >= 0);
         assert(pid >= 0);

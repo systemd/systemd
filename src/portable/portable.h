@@ -80,8 +80,8 @@ int portable_get_profiles(char ***ret);
 
 void portable_changes_free(PortableChange *changes, size_t n_changes);
 
-const char *portable_change_type_to_string(int t) _const_;
+const char* portable_change_type_to_string(int t) _const_;
 int portable_change_type_from_string(const char *t) _pure_;
 
-const char *portable_state_to_string(PortableState t) _const_;
+const char* portable_state_to_string(PortableState t) _const_;
 PortableState portable_state_from_string(const char *t) _pure_;

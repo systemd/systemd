@@ -346,7 +346,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         return strjoin("/dev/disk/by-", by, "/", t);
 }
 
-char *fstab_node_to_udev_node(const char *p) {
+char* fstab_node_to_udev_node(const char *p) {
         const char *q;
 
         assert(p);

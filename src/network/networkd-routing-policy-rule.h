@@ -53,7 +53,7 @@ typedef struct RoutingPolicyRule {
         int32_t suppress_ifgroup;
 } RoutingPolicyRule;
 
-const char *fr_act_type_full_to_string(int t) _const_;
+const char* fr_act_type_full_to_string(int t) _const_;
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 

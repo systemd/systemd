@@ -231,5 +231,5 @@ bool home_shall_rebalance(Home *h);
 
 bool home_is_busy(Home *h);
 
-const char *home_state_to_string(HomeState state);
+const char* home_state_to_string(HomeState state);
 HomeState home_state_from_string(const char *s);
