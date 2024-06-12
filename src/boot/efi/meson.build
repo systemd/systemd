@@ -253,6 +253,7 @@ endif
 ############################################################
 
 libefi_sources = files(
+        'addon-util.c',
         'console.c',
         'device-path-util.c',
         'devicetree.c',

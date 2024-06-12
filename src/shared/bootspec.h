@@ -50,6 +50,7 @@ typedef struct BootEntry {
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char **initrd;
+        char **addons;
         char *device_tree;
         char **device_tree_overlay;
         unsigned tries_left;
