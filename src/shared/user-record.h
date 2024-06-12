@@ -451,6 +451,8 @@ int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlag
 int json_dispatch_user_group_list(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
+int user_record_augment_json_membership(UserRecord *h);
+
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
 int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
