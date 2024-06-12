@@ -2345,6 +2345,82 @@ TEST(dns_resource_record_to_wire_format) {
 }
 
 /* ================================================================
+ * dns_resource_record_signer()
+ * dns_resource_record_is_signer()
+ * dns_resource_record_source()
+ * dns_resource_record_is_synthetic()
+ * ================================================================ */
+
+static void prepare_rrsig(DnsResourceRecord **rr) {
+        *rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
+        ASSERT_NOT_NULL(*rr);
+
+        (*rr)->ttl = 3600;
+        (*rr)->rrsig.type_covered = DNS_TYPE_A;
+        (*rr)->rrsig.algorithm = DNSSEC_ALGORITHM_ECC;
+        (*rr)->rrsig.labels = 1;
+        (*rr)->rrsig.original_ttl = 3600;
+        (*rr)->rrsig.expiration = 1720361303;
+        (*rr)->rrsig.inception = 1717769303;
+        (*rr)->rrsig.key_tag = 0x1234;
+        (*rr)->rrsig.signer = strdup("example.com");
+
+        /* normally set by dnssec_rrsig_prepare() during dnssec_verify_rrset() */
+        (*rr)->n_skip_labels_signer = 1;
+        (*rr)->n_skip_labels_source = 2;
+}
+
+TEST(dns_resource_record_signer) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *signer = NULL;
+
+        prepare_rrsig(&rr);
+
+        ASSERT_OK(dns_resource_record_signer(rr, &signer));
+        ASSERT_STREQ(signer, "example.com");
+}
+
+TEST(dns_resource_record_is_signer) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        prepare_rrsig(&rr);
+
+        ASSERT_TRUE(dns_resource_record_is_signer(rr, "example.com"));
+        ASSERT_FALSE(dns_resource_record_is_signer(rr, "www.example.com"));
+        ASSERT_FALSE(dns_resource_record_is_signer(rr, "com"));
+}
+
+TEST(dns_resource_record_source) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *source = NULL;
+
+        prepare_rrsig(&rr);
+
+        ASSERT_OK(dns_resource_record_source(rr, &source));
+        ASSERT_STREQ(source, "com");
+}
+
+TEST(dns_resource_record_is_synthetic) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        prepare_rrsig(&rr);
+
+        ASSERT_TRUE(dns_resource_record_is_synthetic(rr));
+
+        rr->n_skip_labels_source = -1;
+        ASSERT_ERROR(dns_resource_record_is_synthetic(rr), ENODATA);
+
+        rr->n_skip_labels_source = 0;
+        ASSERT_FALSE(dns_resource_record_is_synthetic(rr));
+
+        rr->n_skip_labels_source = 1;
+        ASSERT_TRUE(dns_resource_record_is_synthetic(rr));
+
+        rr->key->_name = strdup("*.example.com");
+        ASSERT_FALSE(dns_resource_record_is_synthetic(rr));
+}
+
+/* ================================================================
  * dns_resource_record_clamp_ttl()
  * ================================================================ */
 
