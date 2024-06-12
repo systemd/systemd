@@ -13,6 +13,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "json.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
@@ -128,6 +129,29 @@ not_found:
         return 0;
 }
 
+static int is_tmpfs_with_noswap(dev_t devno) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        int r;
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_mtab(table, /* filename= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct libmnt_fs *fs = mnt_table_find_devno(table, devno, MNT_ITER_FORWARD);
+        if (!fs)
+                return -ENODEV;
+
+        r = mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        if (r < 0)
+                return r;
+
+        return r == 0;
+}
+
 static int add_credentials_to_table(Table *t, bool encrypted) {
         _cleanup_closedir_ DIR *d = NULL;
         const char *prefix;
@@ -184,12 +208,25 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                         secure = "insecure"; /* Anything that is accessible more than read-only to its owner is insecure */
                         secure_color = ansi_highlight_red();
                 } else {
-                        r = fd_is_fs_type(fd, RAMFS_MAGIC);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine backing file system of '%s': %m", de->d_name);
+                        bool is_secure = false;
+                        struct statfs sfs;
 
-                        secure = r > 0 ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
-                        secure_color = r > 0 ? ansi_highlight_green() : ansi_highlight_yellow4();
+                        if (fstatfs(fd, &sfs) < 0)
+                                return log_error_errno(r, "fstatfs() failed on '%s': %m", de->d_name);
+
+                        if (is_fs_type(&sfs, RAMFS_MAGIC))
+                                is_secure = true; /* ramfs is not swappable, hence "secure" */
+                        else if (is_fs_type(&sfs, TMPFS_MAGIC)) {
+                                r = is_tmpfs_with_noswap(st.st_dev);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if file system of '%s' has 'noswap' enabled, assuming not.", de->d_name);
+
+                                is_secure = r > 0;
+                        } else
+                                is_secure = false; /* everything else we assume is not "secure" */
+
+                        secure = is_secure ? "secure" : "weak";
+                        secure_color = is_secure ? ansi_highlight_green() : ansi_highlight_yellow4();
                 }
 
                 j = path_join(prefix, de->d_name);
