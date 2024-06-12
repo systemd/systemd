@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
 #include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -13,40 +12,6 @@
 #include "fileio.h"
 #include "macro.h"
 #include "string-util.h"
-
-int clock_get_hwclock(struct tm *tm) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(tm);
-
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        /* This leaves the timezone fields of struct tm uninitialized! */
-        if (ioctl(fd, RTC_RD_TIME, tm) < 0)
-                /* Some drivers return -EINVAL in case the time could not be kept, i.e. power loss
-                 * happened. Let's turn that into a clearly recognizable error */
-                return errno == EINVAL ? -ENODATA : -errno;
-
-        /* We don't know daylight saving, so we reset this in order not
-         * to confuse mktime(). */
-        tm->tm_isdst = -1;
-
-        return 0;
-}
-
-int clock_set_hwclock(const struct tm *tm) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(tm);
-
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return RET_NERRNO(ioctl(fd, RTC_SET_TIME, tm));
-}
 
 int clock_is_localtime(const char* adjtime_path) {
         _cleanup_fclose_ FILE *f = NULL;

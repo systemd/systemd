@@ -5,7 +5,11 @@ executables += [
                 'name' : 'systemd-timedated',
                 'dbus' : true,
                 'conditions' : ['ENABLE_TIMEDATED'],
-                'sources' : files('timedated.c'),
+                'sources' : files(
+                        'timedated.c',
+                        'hwclock-util.c',
+                ),
+
         },
         executable_template + {
                 'name' : 'timedatectl',
