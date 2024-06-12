@@ -2048,6 +2048,105 @@ TEST(packet_reply_txt_overflow_rdata) {
 }
 
 /* ================================================================
+ * reply: LOC
+ * ================================================================ */
+
+TEST(packet_reply_loc_basic) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* LOC */       0x00, 0x1d,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x10,
+        /* version */   0x00,
+        /* size */      0x29,
+        /* horiz pre */ 0x34,
+        /* vert pre */  0x53,
+        /* latitude */  0x8b, 0x0d, 0x08, 0xf5,
+        /* longitude */ 0x7f, 0xf8, 0x39, 0x48,
+        /* altitude */  0x00, 0x98, 0x96, 0x80
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->loc.version = 0;
+        rr->loc.size = 0x29;
+        rr->loc.horiz_pre = 0x34;
+        rr->loc.vert_pre = 0x53;
+        rr->loc.latitude = 2332887285;
+        rr->loc.longitude = 2146974024;
+        rr->loc.altitude = 10000000;
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_loc_bad_version) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* LOC */       0x00, 0x1d,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x10,
+        /* version */   0x01,
+        /* size */      0x29,
+        /* horiz pre */ 0x34,
+        /* vert pre */  0x53,
+        /* latitude */  0x8b, 0x0d, 0x08, 0xf5,
+        /* longitude */ 0x7f, 0xf8, 0x39, 0x48,
+        /* altitude */  0x00, 0x98, 0x96, 0x80
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->unparsable = true;
+        rr->generic.data_size = 16;
+        rr->generic.data = calloc(rr->generic.data_size, sizeof(uint8_t));
+        ASSERT_NOT_NULL(rr->generic.data);
+        memcpy(rr->generic.data, data + 35, rr->generic.data_size);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
+/* ================================================================
  * reply: SRV
  * ================================================================ */
 
