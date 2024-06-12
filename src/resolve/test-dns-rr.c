@@ -1478,4 +1478,137 @@ TEST(dns_resource_record_equal_srv_bad_port) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : NAPTR
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_naptr_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_order) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->naptr.order = 103;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_preference) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->naptr.preference = 9;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_flags) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->naptr.flags);
+        b->naptr.flags = strdup("S");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_services) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->naptr.services);
+        b->naptr.services = strdup("E2U-sip");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_regexp) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->naptr.regexp);
+        b->naptr.regexp = strdup("a*");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_naptr_bad_replacement) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
+        ASSERT_NOT_NULL(a);
+        a->naptr.order = 102;
+        a->naptr.preference = 10;
+        a->naptr.flags = strdup("U");
+        a->naptr.services = strdup("E2U+sip");
+        a->naptr.regexp = strdup("!^.*$!sip:customer-service@example.com!");
+        a->naptr.replacement = strdup("_sip._udp.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->naptr.replacement);
+        b->naptr.replacement = strdup("_sip._udp.example.org");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
