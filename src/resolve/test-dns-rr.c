@@ -2050,6 +2050,42 @@ TEST(dns_resource_record_to_string_svcb) {
 }
 
 /* ================================================================
+ * dns_resource_record_to_wire_format()
+ * ================================================================ */
+
+TEST(dns_resource_record_to_wire_format) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        int r;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        rr->ttl = 3600;
+        rr->cname.name = strdup("example.com");
+
+        ASSERT_OK(dns_resource_record_to_wire_format(rr, true));
+
+        const uint8_t data[] = {
+        /* name */      0x03, 'w', 'w', 'w',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* CNAME */     0x00, 0x05,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x0d,
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00
+        };
+
+        ASSERT_EQ(rr->wire_format_size, sizeof(data));
+        ASSERT_EQ(rr->wire_format_rdata_offset, 27u);
+        ASSERT_EQ(rr->wire_format_canonical, true);
+
+        r = memcmp(rr->wire_format, data, sizeof(data));
+        ASSERT_EQ(r, 0);
+}
+
+/* ================================================================
  * dns_resource_record_clamp_ttl()
  * ================================================================ */
 
