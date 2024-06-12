@@ -105,12 +105,15 @@ static void bubbleinsert(struct strbuf_node *node,
 }
 
 /* add string, return the index/offset into the buffer */
-ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
+ssize_t strbuf_add_string_full(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
-        char *buf_new;
-        struct strbuf_child_entry *child;
-        struct strbuf_node *node;
         ssize_t off;
+
+        assert(str);
+        assert(s || len == 0);
+
+        if (len == SIZE_MAX)
+                len = strlen(s);
 
         if (!str->root)
                 return -EINVAL;
@@ -124,10 +127,8 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         }
         str->in_len += len;
 
-        node = str->root;
+        struct strbuf_node *node = str->root;
         for (size_t depth = 0; depth <= len; depth++) {
-                struct strbuf_child_entry search;
-
                 /* match against current node */
                 off = node->value_off + node->value_len - len;
                 if (depth == len || (node->value_len >= len && memcmp(str->buf + off, s, len) == 0)) {
@@ -139,7 +140,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                 c = s[len - 1 - depth];
 
                 /* lookup child node */
-                search.c = c;
+                struct strbuf_child_entry *child, search = { .c = c };
                 child = typesafe_bsearch(&search, node->children, node->children_count, strbuf_children_cmp);
                 if (!child)
                         break;
@@ -147,10 +148,8 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         }
 
         /* add new string */
-        buf_new = realloc(str->buf, str->len + len+1);
-        if (!buf_new)
+        if (!GREEDY_REALLOC(str->buf, str->len + len + 1))
                 return -ENOMEM;
-        str->buf = buf_new;
         off = str->len;
         memcpy(str->buf + off, s, len);
         str->len += len;
@@ -168,13 +167,11 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         };
 
         /* extend array, add new entry, sort for bisection */
-        child = reallocarray(node->children, node->children_count + 1, sizeof(struct strbuf_child_entry));
-        if (!child)
+        if (!GREEDY_REALLOC(node->children, node->children_count + 1))
                 return -ENOMEM;
 
         str->nodes_count++;
 
-        node->children = child;
         bubbleinsert(node, c, TAKE_PTR(node_child));
 
         return off;
