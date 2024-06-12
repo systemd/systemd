@@ -74,9 +74,11 @@ struct strbuf* strbuf_free(struct strbuf *str) {
         return mfree(str);
 }
 
-static int strbuf_children_cmp(const struct strbuf_child_entry *n1,
-                               const struct strbuf_child_entry *n2) {
-        return n1->c - n2->c;
+static int strbuf_children_cmp(const struct strbuf_child_entry *n1, const struct strbuf_child_entry *n2) {
+        assert(n1);
+        assert(n2);
+
+        return CMP(n1->c, n2->c);
 }
 
 static void bubbleinsert(struct strbuf_node *node,
