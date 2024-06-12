@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -30,9 +29,8 @@ int clock_is_localtime(const char* adjtime_path) {
         f = fopen(adjtime_path, "re");
         if (f) {
                 _cleanup_free_ char *line = NULL;
-                unsigned i;
 
-                for (i = 0; i < 2; i++) { /* skip the first two lines */
+                for (unsigned i = 0; i < 2; i++) { /* skip the first two lines */
                         r = read_line(f, LONG_LINE_MAX, NULL);
                         if (r < 0)
                                 return r;
@@ -58,14 +56,12 @@ int clock_is_localtime(const char* adjtime_path) {
 int clock_set_timezone(int *ret_minutesdelta) {
         struct timespec ts;
         struct tm tm;
-        int minutesdelta;
-        struct timezone tz;
 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
         assert_se(localtime_r(&ts.tv_sec, &tm));
-        minutesdelta = tm.tm_gmtoff / 60;
+        int minutesdelta = tm.tm_gmtoff / 60;
 
-        tz = (struct timezone) {
+        struct timezone tz = {
                 .tz_minuteswest = -minutesdelta,
                 .tz_dsttime = 0, /* DST_NONE */
         };
