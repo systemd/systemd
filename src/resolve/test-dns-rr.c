@@ -1254,4 +1254,50 @@ TEST(dns_resource_record_equal_hinfo_bad_os) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : MX
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_mx_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->mx.priority = 10;
+        a->mx.exchange = strdup("mail.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_mx_bad_priority) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->mx.priority = 10;
+        a->mx.exchange = strdup("mail.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->mx.priority = 9;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_mx_bad_exchange) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->mx.priority = 10;
+        a->mx.exchange = strdup("mail.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->mx.exchange);
+        b->mx.exchange = strdup("mail.example.org");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
