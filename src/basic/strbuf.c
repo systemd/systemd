@@ -48,20 +48,21 @@ struct strbuf* strbuf_new(void) {
 }
 
 static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
-        size_t i;
+        assert(node);
 
-        for (i = 0; i < node->children_count; i++)
-                strbuf_node_cleanup(node->children[i].child);
+        FOREACH_ARRAY(child, node->children, node->children_count)
+                strbuf_node_cleanup(child->child);
+
         free(node->children);
         return mfree(node);
 }
 
 /* clean up trie data, leave only the string buffer */
 void strbuf_complete(struct strbuf *str) {
-        if (!str)
+        if (!str || !str->root)
                 return;
-        if (str->root)
-                str->root = strbuf_node_cleanup(str->root);
+
+        str->root = strbuf_node_cleanup(str->root);
 }
 
 /* clean up everything */
