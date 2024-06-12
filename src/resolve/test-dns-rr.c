@@ -1160,4 +1160,34 @@ TEST(dns_resource_record_equal_soa_bad_minimum) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : PTR
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_ptr_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
+        ASSERT_NOT_NULL(a);
+        a->ptr.name = strdup("example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_ptr_fail) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
+        ASSERT_NOT_NULL(a);
+        a->ptr.name = strdup("example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->ptr.name);
+        b->ptr.name = strdup("example.org");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
