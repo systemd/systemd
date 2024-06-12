@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -13,8 +12,7 @@
 #include "macro.h"
 #include "string-util.h"
 
-int clock_is_localtime(const char* adjtime_path) {
-        _cleanup_fclose_ FILE *f = NULL;
+int clock_is_localtime(const char *adjtime_path) {
         int r;
 
         if (!adjtime_path)
@@ -27,45 +25,42 @@ int clock_is_localtime(const char* adjtime_path) {
          *   0
          *   UTC
          */
-        f = fopen(adjtime_path, "re");
-        if (f) {
-                _cleanup_free_ char *line = NULL;
-                unsigned i;
+        _cleanup_fclose_ FILE *f = fopen(adjtime_path, "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return -errno;
 
-                for (i = 0; i < 2; i++) { /* skip the first two lines */
-                        r = read_line(f, LONG_LINE_MAX, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                return false; /* less than three lines → default to UTC */
-                }
+                /* adjtime_path not present → default to UTC */
+                return false;
+        }
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+        _cleanup_free_ char *line = NULL;
+        for (unsigned i = 0; i < 2; i++) { /* skip the first two lines */
+                r = read_line(f, LONG_LINE_MAX, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return false; /* less than three lines → default to UTC */
+        }
 
-                return streq(line, "LOCAL");
+        r = read_line(f, LONG_LINE_MAX, &line);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return false; /* less than three lines → default to UTC */
 
-        } else if (errno != ENOENT)
-                return -errno;
-
-        /* adjtime not present → default to UTC */
-        return false;
+        return streq(line, "LOCAL");
 }
 
 int clock_set_timezone(int *ret_minutesdelta) {
         struct timespec ts;
         struct tm tm;
-        int minutesdelta;
-        struct timezone tz;
 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
         assert_se(localtime_r(&ts.tv_sec, &tm));
-        minutesdelta = tm.tm_gmtoff / 60;
+        int minutesdelta = tm.tm_gmtoff / 60;
 
-        tz = (struct timezone) {
+        struct timezone tz = {
                 .tz_minuteswest = -minutesdelta,
                 .tz_dsttime = 0, /* DST_NONE */
         };
