@@ -421,14 +421,13 @@ static int bpf_firewall_prepare_access_maps(
 
         _cleanup_close_ int ipv4_map_fd = -EBADF, ipv6_map_fd = -EBADF;
         size_t n_ipv4 = 0, n_ipv6 = 0;
-        Unit *p;
         int r;
 
         assert(ret_ipv4_map_fd);
         assert(ret_ipv6_map_fd);
         assert(ret_has_any);
 
-        for (p = u; p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
                 Set *prefixes;
                 bool *reduced;
@@ -459,7 +458,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv4 > 0) {
-                char *name = strjoina("4_", u->id);
+                const char *name = strjoina("4_", u->id);
                 ipv4_map_fd = bpf_map_new(
                                 name,
                                 BPF_MAP_TYPE_LPM_TRIE,
@@ -472,7 +471,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv6 > 0) {
-                char *name = strjoina("6_", u->id);
+                const char *name = strjoina("6_", u->id);
                 ipv6_map_fd = bpf_map_new(
                                 name,
                                 BPF_MAP_TYPE_LPM_TRIE,
@@ -484,7 +483,7 @@ static int bpf_firewall_prepare_access_maps(
                         return ipv6_map_fd;
         }
 
-        for (p = u; p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
 
                 cc = unit_get_cgroup_context(p);
@@ -511,7 +510,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
 
         if (enabled) {
                 if (crt->ip_accounting_ingress_map_fd < 0) {
-                        char *name = strjoina("I_", u->id);
+                        const char *name = strjoina("I_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
@@ -520,7 +519,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
                 }
 
                 if (crt->ip_accounting_egress_map_fd < 0) {
-                        char *name = strjoina("E_", u->id);
+                        const char *name = strjoina("E_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
