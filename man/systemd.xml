@@ -62,10 +62,32 @@
     <filename>user.conf.d</filename> directories. See
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information.</para>
+
+    <para><command>systemd</command> contains native implementations of various tasks that need to be
+    executed as part of the boot process. For example, it sets the hostname or configures the loopback
+    network device. It also sets up and mounts various API file systems, such as <filename>/sys/</filename>,
+    <filename>/proc/</filename>, and <filename>/dev/</filename>.</para>
+
+    <para><command>systemd</command> will also reset the system clock during early boot if it appears to be
+    set incorrectly. See "System clock epoch" section below.</para>
+
+    <para>Note that some but not all interfaces provided by systemd are covered by the
+    <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability Promise</ulink>.</para>
+
+    <para>The D-Bus API of <command>systemd</command> is described in
+    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or
+    <ulink url="https://systemd.io/INITRD_INTERFACE/">initrd Interface</ulink>
+    specifications, respectively.</para>
   </refsect1>
 
   <refsect1>
-    <title>Concepts</title>
+    <title>Units</title>
 
     <para>systemd provides a dependency system between various
     entities called "units" of 11 different types. Units encapsulate
@@ -261,34 +283,10 @@
     example, start jobs for any of those inactive units getting queued as
     well.</para>
 
-    <para>systemd contains native implementations of various tasks
-    that need to be executed as part of the boot process. For example,
-    it sets the hostname or configures the loopback network device. It
-    also sets up and mounts various API file systems, such as
-    <filename>/sys/</filename> or <filename>/proc/</filename>.</para>
-
-    <para>For more information about the concepts and
-    ideas behind systemd, please refer to the
-    <ulink url="https://0pointer.de/blog/projects/systemd.html">Original Design Document</ulink>.</para>
-
-    <para>Note that some but not all interfaces provided by systemd are covered by the
-    <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability Promise</ulink>.</para>
-
     <para>Units may be generated dynamically at boot and system
     manager reload time, for example based on other configuration
     files or parameters passed on the kernel command line. For details, see
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-
-    <para>The D-Bus API of <command>systemd</command> is described in
-    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
-
-    <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
-    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or
-    <ulink url="https://systemd.io/INITRD_INTERFACE/">initrd Interface</ulink>
-    specifications, respectively.</para>
   </refsect1>
 
   <refsect1>
@@ -1487,7 +1485,26 @@
   </refsect1>
 
   <refsect1>
-    <title>Sockets and FIFOs</title>
+    <title>System clock epoch</title>
+
+    <para>When <command>systemd</command> is started or restarted, it may set the system clock to the
+    "epoch". This mechanism is used to ensure that the system clock remains somewhat reasonably initialized
+    and roughly monotonic across reboots, in case no battery-backed local RTC is available or it does not
+    work correctly.</para>
+
+    <para>The epoch is the lowest date above which the system clock time is assumed to be set correctly. When
+    initializing, the local clock is <emphasis>advanced</emphasis> to the epoch if it was set to a lower
+    value. As a special case, if the local clock is sufficiently far in the future (by default 15 years, but
+    this can be configured at build time), the hardware clock is assumed to be broken, and the system clock
+    is <emphasis>rewound</emphasis> to the epoch.</para>
+
+    <para>The epoch is set to the highest of: the build time of <filename>systemd</filename>, the
+    modification time ("mtime") of <filename>/usr/lib/clock-epoch</filename>, and the modification time of
+    <filename>/var/lib/systemd/timesync/clock</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
 
     <variablelist>
       <varlistentry>
@@ -1520,6 +1537,26 @@
         <filename>systemd-initctl.service</filename> unit. This is a
         named pipe in the file system. This interface is obsolete and
         should not be used in new applications.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/clock-epoch</filename></term>
+
+        <listitem><para>The modification time ("mtime") of this file is used for the time epoch, see previous
+        section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/var/lib/systemd/timesync/clock</filename></term>
+
+        <listitem><para>The modification time ("mtime") of this file is updated by
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        If present, the modification time of file is used for the epoch, see previous section.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -1558,6 +1595,10 @@
       <member><citerefentry project='man-pages'><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
     </simplelist></para>
+
+    <para>For more information about the concepts and
+    ideas behind systemd, please refer to the
+    <ulink url="https://0pointer.de/blog/projects/systemd.html">Original Design Document</ulink>.</para>
   </refsect1>
 
 </refentry>
