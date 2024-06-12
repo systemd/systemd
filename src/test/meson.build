@@ -183,6 +183,7 @@ simple_tests += files(
         'test-umask-util.c',
         'test-unaligned.c',
         'test-unit-file.c',
+        'test-user-record.c',
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
