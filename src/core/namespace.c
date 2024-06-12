@@ -464,6 +464,52 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
         return 0;
 }
 
+static void verities_done_many(VeritySettings *v, size_t n) {
+        assert(v || n == 0);
+
+        FOREACH_ARRAY(i, v, n)
+                verity_settings_done(i);
+
+        free(v);
+}
+
+static int verities_find(const char *path, VeritySettings **verities, size_t *n_verities) {
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        bool dup = false;
+        int r;
+
+        assert(path);
+        assert(verities);
+        assert(n_verities);
+
+        r = verity_settings_load(&verity, path, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check verity root hash of %s: %m", path);
+
+        if (verity.root_hash_size == 0)
+                return 0;
+
+        FOREACH_ARRAY(v, *verities, *n_verities)
+                if (memcmp_nn(v->root_hash,
+                              v->root_hash_size,
+                              verity.root_hash,
+                              verity.root_hash_size) == 0) {
+                        dup = true;
+                        break;
+                }
+
+        if (dup) {
+                log_debug("Skipping duplicate extension image %s", path);
+                return 0;
+        }
+
+        if (!GREEDY_REALLOC(*verities, *n_verities + 1))
+                return -ENOMEM;
+        (*verities)[(*n_verities)++] = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT);
+
+        return 1;
+}
+
 static int append_extensions(
                 MountList *ml,
                 const char *root,
@@ -473,8 +519,9 @@ static int append_extensions(
                 size_t n,
                 char **extension_directories) {
 
+        VeritySettings *verities = NULL;
         char ***overlays = NULL;
-        size_t n_overlays = 0;
+        size_t n_overlays = 0, n_verities = 0;
         int r;
 
         assert(ml);
@@ -498,9 +545,20 @@ static int append_extensions(
 
         CLEANUP_ARRAY(overlays, n_overlays, strv_free_many);
 
+        /* Prepare a list of verity metadata, that will be used to check the root hash of each image and
+         * drop duplicates. Overlayfs rejects supplying the same directory inode twice as determined by
+         * filesystem UUID and file handle in lowerdir=, even if they are mounted on different paths, as it
+         * resolves each mount to its source filesystem. */
+        verities = new0(VeritySettings, n);
+        if (!verities)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(verities, n_verities, verities_done_many);
+
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
         for (size_t i = 0; i < n; i++) {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
@@ -518,6 +576,12 @@ static int append_extensions(
                                         SYNTHETIC_ERRNO(ENOENT),
                                         "No matching entry in .v/ directory %s found.",
                                         m->source);
+
+                /* If this is a dm-verity image, check for duplicates, as Overlayfs rejects them as
+                 * explained above. */
+                r = verities_find(result.path, &verities, &n_verities);
+                if (r < 0)
+                        return r;
 
                 if (asprintf(&mount_point, "%s/%zu", extension_dir, i) < 0)
                         return -ENOMEM;
