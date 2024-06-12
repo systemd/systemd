@@ -2151,6 +2151,163 @@ TEST(dns_resource_record_equal_svcb_param_different) {
 }
 
 /* ================================================================
+ * dns_resource_record_to_string()
+ * ================================================================ */
+
+TEST(dns_resource_record_to_string_a) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN A 192.168.1.127");
+}
+
+TEST(dns_resource_record_to_string_aaaa) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->aaaa.in6_addr = (struct in6_addr) {
+                .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 }
+        };
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN AAAA ff02::1:3");
+}
+
+TEST(dns_resource_record_to_string_ns) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ns.name = strdup("ns1.example.com");
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN NS ns1.example.com");
+}
+
+TEST(dns_resource_record_to_string_cname) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ns.name = strdup("example.com");
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN CNAME example.com");
+}
+
+TEST(dns_resource_record_to_string_soa) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->soa.mname = strdup("ns0.example.com");
+        rr->soa.rname = strdup("ns0.example.com");
+        rr->soa.serial = 1111111111;
+        rr->soa.refresh = 86400;
+        rr->soa.retry = 7200;
+        rr->soa.expire = 4000000;
+        rr->soa.minimum = 3600;
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN SOA ns0.example.com ns0.example.com 1111111111 86400 7200 4000000 3600");
+}
+
+TEST(dns_resource_record_to_string_ptr) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
+
+        ASSERT_OK(dns_resource_record_new_reverse(&rr, AF_INET, &addr, "www.example.com"));
+        ASSERT_NOT_NULL(rr);
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "127.1.168.192.in-addr.arpa IN PTR www.example.com");
+}
+
+TEST(dns_resource_record_to_string_hinfo) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->hinfo.cpu = strdup("Intel x64");
+        rr->hinfo.os = strdup("GNU/Linux");
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "www.example.com IN HINFO Intel x64 GNU/Linux");
+}
+
+TEST(dns_resource_record_to_string_mx) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "mail.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->mx.priority = 6;
+        rr->mx.exchange= strdup("exchange.example.com");
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "mail.example.com IN MX 6 exchange.example.com");
+}
+
+TEST(dns_resource_record_to_string_srv) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "_ldap._tcp.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+        rr->srv.priority = 17185;
+        rr->srv.weight = 25976;
+        rr->srv.port = 389;
+        rr->srv.name = strdup("cloud.example.com");
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "_ldap._tcp.example.com IN SRV 17185 25976 389 cloud.example.com");
+}
+
+TEST(dns_resource_record_to_string_svcb) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        DnsSvcParam *param = NULL;
+        const char *str;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+        rr->svcb.priority = 9;
+        rr->svcb.target_name = strdup("sock.example.com");
+
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_MANDATORY, "\x00\x01\x00\x03", 4);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_ALPN, "\x09websocket", 10);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN, NULL, 0);
+        add_svcb_param(rr, DNS_SVC_PARAM_KEY_PORT, "\x01\xbb", 2);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV4HINT, NULL, 2 * sizeof(struct in_addr));
+        param->value_in_addr[0].s_addr = htobe32(0x7284fd3a);
+        param->value_in_addr[1].s_addr = htobe32(0x48bcc7c0);
+
+        param = add_svcb_param(rr, DNS_SVC_PARAM_KEY_IPV6HINT, NULL, sizeof(struct in6_addr));
+        param->value_in6_addr[0] = (struct in6_addr) { .s6_addr = { 0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35, 0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb } };
+
+        /* undefined key */
+        add_svcb_param(rr, 99, NULL, 0);
+
+        str = dns_resource_record_to_string(rr);
+        ASSERT_STREQ(str, "_443._wss.example.com IN SVCB 9 sock.example.com mandatory=\"\\000\\001\\000\\003\" alpn=\"websocket\" no-default-alpn port=443 ipv4hint=114.132.253.58,72.188.199.192 ipv6hint=f234:322e:b825:3835:2fd7:db7b:287e:60bb key99");
+}
+
+/* ================================================================
  * dns_resource_record_clamp_ttl()
  * ================================================================ */
 
