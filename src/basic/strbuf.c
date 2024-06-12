@@ -27,24 +27,22 @@
  */
 
 struct strbuf* strbuf_new(void) {
-        struct strbuf *str;
+        _cleanup_(strbuf_freep) struct strbuf *str = NULL;
 
         str = new(struct strbuf, 1);
         if (!str)
                 return NULL;
+
         *str = (struct strbuf) {
                 .buf = new0(char, 1),
                 .root = new0(struct strbuf_node, 1),
                 .len = 1,
                 .nodes_count = 1,
         };
-        if (!str->buf || !str->root) {
-                free(str->buf);
-                free(str->root);
-                return mfree(str);
-        }
+        if (!str->buf || !str->root)
+                return NULL;
 
-        return str;
+        return TAKE_PTR(str);
 }
 
 static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
