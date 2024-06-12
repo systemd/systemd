@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-
-#include "macro.h"
 #include "ip-protocol-list.h"
+#include "macro.h"
+#include "missing_network.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
