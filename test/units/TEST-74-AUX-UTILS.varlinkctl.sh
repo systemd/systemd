@@ -25,6 +25,15 @@ varlinkctl info -j /run/systemd/journal/io.systemd.journal | jq .
 varlinkctl list-interfaces /run/systemd/journal/io.systemd.journal
 varlinkctl list-interfaces -j /run/systemd/journal/io.systemd.journal | jq .
 
+varlinkctl list-methods /run/systemd/journal/io.systemd.journal
+varlinkctl list-methods -j /run/systemd/journal/io.systemd.journal | jq .
+
+varlinkctl list-methods /run/systemd/journal/io.systemd.journal io.systemd.Journal
+varlinkctl list-methods -j /run/systemd/journal/io.systemd.journal io.systemd.Journal | jq .
+
+varlinkctl introspect /run/systemd/journal/io.systemd.journal
+varlinkctl introspect -j /run/systemd/journal/io.systemd.journal | jq --seq .
+
 varlinkctl introspect /run/systemd/journal/io.systemd.journal io.systemd.Journal
 varlinkctl introspect -j /run/systemd/journal/io.systemd.journal io.systemd.Journal | jq .
 
@@ -52,6 +61,7 @@ if [[ -x /usr/lib/systemd/systemd-pcrextend ]]; then
     varlinkctl info exec:/usr/lib/systemd/systemd-pcrextend
     varlinkctl list-interfaces /usr/lib/systemd/systemd-pcrextend
     varlinkctl introspect /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend
+    varlinkctl introspect /usr/lib/systemd/systemd-pcrextend
 fi
 
 # SSH transport
@@ -83,10 +93,18 @@ SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh:foobar:/run/systemd/journal/io.
 # Go through all varlink sockets we can find under /run/systemd/ for some extra coverage
 find /run/systemd/ -name "io.systemd*" -type s | while read -r socket; do
     varlinkctl info "$socket"
+    varlinkctl info -j "$socket"
+    varlinkctl list-interfaces "$socket"
+    varlinkctl list-interfaces -j "$socket"
+    varlinkctl list-methods "$socket"
+    varlinkctl list-methods -j "$socket"
+    varlinkctl introspect "$socket"
+    varlinkctl introspect -j "$socket"
 
     varlinkctl list-interfaces "$socket" | while read -r interface; do
         varlinkctl introspect "$socket" "$interface"
     done
+
 done
 
 (! varlinkctl)
@@ -104,9 +122,12 @@ done
 (! varlinkctl list-interfaces)
 (! varlinkctl list-interfaces "")
 (! varlinkctl introspect)
-(! varlinkctl introspect /run/systemd/journal/io.systemd.journal)
 (! varlinkctl introspect /run/systemd/journal/io.systemd.journal "")
 (! varlinkctl introspect "" "")
+(! varlinkctl list-methods /run/systemd/journal/io.systemd.journal "")
+(! varlinkctl list-methods -j /run/systemd/journal/io.systemd.journal "")
+(! varlinkctl list-methods "")
+(! varlinkctl list-methods -j "")
 (! varlinkctl call)
 (! varlinkctl call "")
 (! varlinkctl call "" "")
