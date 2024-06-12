@@ -1003,4 +1003,161 @@ TEST(dns_resource_record_equal_cname_fail) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : SOA
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_soa_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_mname) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->soa.mname);
+        b->soa.mname = strdup("ns.example.org");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_rname) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->soa.rname);
+        b->soa.rname = strdup("admin.example.org");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_serial) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->soa.serial = 1111111112;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_refresh) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->soa.refresh = 86401;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_retry) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->soa.retry = 7201;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_expire) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->soa.expire = 4000001;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_soa_bad_minimum) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->soa.mname = strdup("ns.example.com");
+        a->soa.rname = strdup("admin.example.com");
+        a->soa.serial = 1111111111;
+        a->soa.refresh = 86400;
+        a->soa.retry = 7200;
+        a->soa.expire = 4000000;
+        a->soa.minimum = 3600;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->soa.minimum = 3601;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
