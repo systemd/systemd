@@ -86,6 +86,12 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
+                r = user_record_augment_json_membership(ur);
+                if (r == -ENOMEM)
+                        return log_oom();
+                else if (r < 0)
+                        return r;
+
                 json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
@@ -469,12 +475,19 @@ static int show_group(GroupRecord *gr, Table *table) {
         switch (arg_output) {
 
         case OUTPUT_CLASSIC: {
+                _cleanup_strv_free_ char **members = NULL;
                 _cleanup_free_ char *m = NULL;
 
                 if (!gid_is_valid(gr->gid))
                         break;
 
-                m = strv_join(gr->members, ",");
+                r = membershipdb_by_group_strv(gr->group_name, USERDB_SUPPRESS_SHADOW, &members);
+                if (r == -ENOMEM)
+                        return log_oom();
+                else if (r < 0)
+                        return r;
+
+                m = strv_join(members, ",");
                 if (!m)
                         return log_oom();
 
@@ -486,6 +499,12 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
+                r = group_record_augment_json_membership(gr);
+                if (r == -ENOMEM)
+                        return log_oom();
+                else if (r < 0)
+                        return r;
+
                 json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
