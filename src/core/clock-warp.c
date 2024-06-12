@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#include "sd-messages.h"
+
 #include "clock-util.h"
 #include "clock-warp.h"
 #include "errno-util.h"
@@ -55,14 +57,33 @@ void clock_apply_epoch(bool allow_backwards) {
                 return;  /* Nothing to do. */
 
         r = RET_NERRNO(clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(epoch_usec)));
-        if (r < 0 && advance)
-                return (void) log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
-        else if (r < 0)
-                return (void) log_error_errno(r, "Current system time is further ahead than %s after build time, but cannot correct: %m",
-                                              FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
-        else if (advance)
-                log_info("System time was before build time, advanced clock.");
+        if (r < 0) {
+                if (advance)
+                        return (void) log_error_errno(r, "Current system time is before epoch, but cannot correct: %m");
+                else
+                        return (void) log_error_errno(r, "Current system time is further ahead than %s after epoch, but cannot correct: %m",
+                                                      FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
+        }
+
+        const char *from =
+                epoch_usec == (usec_t) TIME_EPOCH * USEC_PER_SEC ? "built-in epoch" :
+                epoch_usec == timesyncd_usec ? "timestamp on "TIMESYNCD_CLOCK_FILE :
+                "timestamp on "EPOCH_CLOCK_FILE;
+        if (advance)
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
+                           "REALTIME_USEC=" USEC_FMT, epoch_usec,
+                           "DIRECTION=forwards",
+                           LOG_MESSAGE("System time advanced to %s: %s",
+                                       from,
+                                       FORMAT_TIMESTAMP(epoch_usec)));
         else
-                log_info("System time was further ahead than %s after build time, reset clock to build time.",
-                         FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
+                           "REALTIME_USEC=" USEC_FMT, epoch_usec,
+                           "DIRECTION=backwards",
+                           LOG_MESSAGE("System time was further ahead than %s after %s, clock reset to %s",
+                                       FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY),
+                                       from,
+                                       FORMAT_TIMESTAMP(epoch_usec)));
 }

@@ -126,6 +126,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
                    "REALTIME_USEC=" USEC_FMT, epoch + 1,
+                   "DIRECTION=forwards",
                    LOG_MESSAGE("System clock time advanced to %s: %s",
                                epoch > TIME_EPOCH * USEC_PER_SEC ? "recorded timestamp" : "built-in epoch",
                                FORMAT_TIMESTAMP(epoch + 1)));
