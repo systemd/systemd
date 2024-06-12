@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-type.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 
 #include "log.h"
@@ -1595,6 +1596,142 @@ TEST(dns_resource_record_equal_rrsig_bad_signature) {
 
         b = dns_resource_record_copy(a);
         b->rrsig.signature_size -= 1;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+/* ================================================================
+ * dns_resource_record_equal() : SVCB
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_svcb_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        DnsSvcParam *param = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, a->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 2);
+        param->key = 99;
+        param->length = 0;
+        LIST_APPEND(params, a->svcb.params, param);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_svcb_bad_priority) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        b = dns_resource_record_copy(a);
+        b->svcb.priority = 8;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_svcb_bad_target_name) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        b = dns_resource_record_copy(a);
+        b->svcb.target_name = strdup("other.example.com");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_svcb_param_missing) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        DnsSvcParam *param = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        b = dns_resource_record_copy(a);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, a->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 2);
+        param->key = 99;
+        param->length = 0;
+        LIST_APPEND(params, a->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, b->svcb.params, param);
+
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_svcb_param_extra) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        DnsSvcParam *param = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        b = dns_resource_record_copy(a);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, a->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, b->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 2);
+        param->key = 99;
+        param->length = 0;
+        LIST_APPEND(params, b->svcb.params, param);
+
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_svcb_param_different) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        DnsSvcParam *param = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
+        a->svcb.priority = 9;
+        a->svcb.target_name = strdup("sock.example.com");
+
+        b = dns_resource_record_copy(a);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 10);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 10;
+        memcpy(param->value, "\x09websocket", 10);
+        LIST_APPEND(params, a->svcb.params, param);
+
+        param = calloc(1, offsetof(DnsSvcParam, value) + 5);
+        param->key = DNS_SVC_PARAM_KEY_ALPN;
+        param->length = 5;
+        memcpy(param->value, "\x04xmpp", 5);
+        LIST_APPEND(params, b->svcb.params, param);
+
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
