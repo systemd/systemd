@@ -1330,4 +1330,68 @@ TEST(dns_resource_record_equal_mx_bad_exchange) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : TXT
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_txt_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        const char *data = "the quick brown fox and so on";
+        size_t len = strlen(data);
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->txt.items = calloc(1, offsetof(DnsTxtItem, data) + len + 1);
+        ASSERT_NOT_NULL(a->txt.items);
+        a->txt.items->length = len;
+        memcpy(a->txt.items->data, data, len);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_txt_missing) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        const char *data = "the quick brown fox and so on";
+        size_t len = strlen(data);
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->txt.items = calloc(1, offsetof(DnsTxtItem, data) + len + 1);
+        ASSERT_NOT_NULL(a->txt.items);
+        a->txt.items->length = len;
+        memcpy(a->txt.items->data, data, len);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        dns_txt_item_free_all(b->txt.items);
+        dns_txt_item_new_empty(&b->txt.items);
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_txt_different_text) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        const char *data = "the quick brown fox and so on";
+        size_t len = strlen(data);
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->txt.items = calloc(1, offsetof(DnsTxtItem, data) + len + 1);
+        ASSERT_NOT_NULL(a->txt.items);
+        a->txt.items->length = len;
+        memcpy(a->txt.items->data, data, len);
+
+        const char *other_data = "jumped over, etc";
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->txt.items->length = strlen(other_data);
+        memcpy(b->txt.items->data, other_data, strlen(other_data));
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
