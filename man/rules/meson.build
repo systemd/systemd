@@ -418,6 +418,7 @@ manpages = [
   '3',
   ['sd_bus_path_decode', 'sd_bus_path_decode_many', 'sd_bus_path_encode_many'],
   ''],
+ ['sd_bus_pending_method_calls', '3', [], ''],
  ['sd_bus_process', '3', [], ''],
  ['sd_bus_query_sender_creds', '3', ['sd_bus_query_sender_privilege'], ''],
  ['sd_bus_reply_method_error',
