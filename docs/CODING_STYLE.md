@@ -164,28 +164,62 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   thread. Use `is_main_thread()` to detect whether the calling thread is the
   main thread.
 
-- Do not write functions that clobber call-by-reference variables on
-  failure. Use temporary variables for these cases and change the passed in
-  variables only on success. The rule is: never clobber return parameters on
-  failure, always initialize return parameters on success.
+- Typically, function parameters fit into four categories: input parameters,
+  mutable objects, call-by-reference return parameters that are initialized on
+  success, and call-by-reference return parameters that are initialized on
+  failure. Input parameters should always carry suitable `const` declarators if
+  they are pointers, to indicate they are input-only and not changed by the
+  function. The name of return parameters that are initialized on success
+  should be prefixed with `ret_`, to clarify they are return parameters. The
+  name of return parameters that are initialized on failure should be prefixed
+  with `reterr_`. (Examples of such parameters: those which carry additional
+  error information, such as the row/column of parse errors or so). –
+  Conversely, please do not prefix parameters that aren't output-only with
+  `ret_` or `reterr_`, in particular not mutable parameters that are both input
+  as well as output.
 
-- Typically, function parameters fit into three categories: input parameters,
-  mutable objects, and call-by-reference return parameters. Input parameters
-  should always carry suitable "const" declarators if they are pointers, to
-  indicate they are input-only and not changed by the function. Return
-  parameters are best prefixed with "ret_", to clarify they are return
-  parameters. (Conversely, please do not prefix parameters that aren't
-  output-only with "ret_", in particular not mutable parameters that are both
-  input as well as output). Example:
+  Example:
 
   ```c
   static int foobar_frobnicate(
                   Foobar* object,            /* the associated mutable object */
                   const char *input,         /* immutable input parameter */
-                  char **ret_frobnicated) {  /* return parameter */
+                  char **ret_frobnicated,    /* return parameter on success */
+                  unsigned *reterr_line,     /* return parameter on failure */
+                  unsigned *reterr_column) { /* ditto */
           …
           return 0;
   }
+  ```
+
+- Do not write functions that clobber call-by-reference success return
+  parameters on failure (i.e. `ret_xyz`, see above), or that clobber
+  call-by-reference failure return parameters on success
+  (i.e. `reterr_xyz`). Use temporary variables for these cases and change the
+  passed in variables only in the right condition. The rule is: never clobber
+  success return parameters on failure, always initialize success return
+  parameters on success (and the reverse for failure return parameters, of
+  course).
+
+- Please put `reterr_` return parameters in the function parameter list last,
+  and `ret_` return parameters immediately before that.
+
+  Good:
+
+  ```c
+  static int do_something(
+                  const char *input,
+                  const char *ret_on_success,
+                  const char *reterr_on_failure);
+  ```
+
+  Not good:
+
+  ```c
+  static int do_something(
+                  const char *reterr_on_failure,
+                  const char *ret_on_success,
+                  const char *input);
   ```
 
 - The order in which header files are included doesn't matter too
