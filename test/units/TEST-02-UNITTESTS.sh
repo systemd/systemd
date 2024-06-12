@@ -95,6 +95,20 @@ export -f run_test
 find /usr/lib/systemd/tests/unit-tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}" -print0 |
     xargs -0 -I {} --max-procs="$MAX_QUEUE_SIZE" bash -ec "run_test {}"
 
+# Write all pending messages, so they don't get mixed with the summaries below
+journalctl --sync
+
+# No need for full test logs in this case
+if [[ -s /skipped-tests ]]; then
+    : "=== SKIPPED TESTS ==="
+    cat /skipped-tests
+fi
+
+if [[ -s /failed ]]; then
+    : "=== FAILED TESTS ==="
+    cat /failed
+fi
+
 # Test logs are sometimes lost, as the system shuts down immediately after
 journalctl --sync
 
