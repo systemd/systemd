@@ -1368,8 +1368,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        CGroupRuntime *crt;
-        crt = unit_get_cgroup_runtime(u);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path) {
                 r = append_cgroup(reply, crt->cgroup_path, pids);
                 if (r < 0)
