@@ -30,6 +30,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
+#include "clock-warp.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
 #include "copy.h"
@@ -1705,18 +1706,7 @@ static void initialize_clock(void) {
                  */
                 (void) clock_reset_timewarp();
 
-        ClockChangeDirection change_dir;
-        r = clock_apply_epoch(&change_dir);
-        if (r > 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_info("System time before build time, advancing clock.");
-        else if (r > 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_info("System time is further ahead than %s after build time, resetting clock to build time.",
-                         FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
-        else if (r < 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
-        else if (r < 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_error_errno(r, "Current system time is further ahead %s after build time, but cannot correct: %m",
-                                FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
+        clock_apply_epoch();
 }
 
 static void apply_clock_update(void) {
