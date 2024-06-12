@@ -37,12 +37,4 @@ test_append_files() {
     fi
 }
 
-check_result_nspawn() {
-    check_result_nspawn_unittests "${1}"
-}
-
-check_result_qemu() {
-    check_result_qemu_unittests
-}
-
 do_test "$@"
