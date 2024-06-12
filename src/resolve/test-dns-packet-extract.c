@@ -1852,6 +1852,118 @@ TEST(packet_reply_hinfo_invalid_utf8) {
 }
 
 /* ================================================================
+ * reply: TXT
+ * ================================================================ */
+
+TEST(packet_reply_txt) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsTxtItem *item = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* TXT */       0x00, 0x10,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x09,
+                        0x02, 'h', 'i',
+                        0x05, 'w', 'o', 'r', 'l', 'd'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "example.com");
+        rr->ttl = 3600;
+
+        item = calloc(1, offsetof(DnsTxtItem, data) + 3);
+        item->length = 2;
+        memcpy(item->data, "hi", 3);
+        LIST_APPEND(items, rr->txt.items, item);
+
+        item = calloc(1, offsetof(DnsTxtItem, data) + 6);
+        item->length = 5;
+        memcpy(item->data, "world", 6);
+        LIST_APPEND(items, rr->txt.items, item);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_txt_empty) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* TXT */       0x00, 0x10,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x00
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "example.com");
+        rr->ttl = 3600;
+        dns_txt_item_new_empty(&rr->txt.items);
+
+        check_answer_contains(packet, rr, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE);
+        dns_resource_record_unref(rr);
+}
+
+TEST(packet_reply_txt_overflow_rdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                        0x00, 0x42,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* TXT */       0x00, 0x10,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x08,
+                        0x02, 'h', 'i',
+                        0x05, 'w', 'o', 'r', 'l', 'd'
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+        ASSERT_EQ(dns_question_size(packet->question), 0u);
+        ASSERT_EQ(dns_answer_size(packet->answer), 0u);
+}
+
+/* ================================================================
  * reply: SRV
  * ================================================================ */
 
