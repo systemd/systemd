@@ -415,6 +415,9 @@ typedef struct LinkInfo {
         uint16_t priority;
         uint8_t mcast_igmp_version;
         uint8_t port_state;
+        uint32_t fdb_max_learned;
+        uint32_t fdb_n_learned;
+        bool has_fdb_learned;
 
         /* vxlan info */
         VxLanInfo vxlan_info;
@@ -522,6 +525,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
                 (void) sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &info->port_state);
+                if (sd_netlink_message_read_u32(m, IFLA_BR_FDB_MAX_LEARNED, &info->fdb_max_learned) >= 0 &&
+                    sd_netlink_message_read_u32(m, IFLA_BR_FDB_N_LEARNED, &info->fdb_n_learned) >= 0)
+                        info->has_fdb_learned = true;
         } if (streq(info->netdev_kind, "bond")) {
                 (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
@@ -1909,6 +1915,16 @@ static int link_status_one(
                                    TABLE_UINT32, info->cost);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                if (info->has_fdb_learned) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "FDB Learned",
+                                           TABLE_UINT32, info->fdb_n_learned,
+                                           TABLE_FIELD, "FDB Max Learned",
+                                           TABLE_UINT32, info->fdb_max_learned);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
                 if (info->port_state <= BR_STATE_BLOCKING) {
                         r = table_add_many(table,
