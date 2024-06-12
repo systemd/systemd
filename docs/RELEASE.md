@@ -23,8 +23,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 14. "Draft" a new release on github (https://github.com/systemd/systemd/releases/new), mark "This is a pre-release" if appropriate.
 15. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 16. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released | Online resources https://systemd.io/`)
-17. [FINAL] Push commits to stable, create an empty -stable branch: `git push systemd-stable --atomic origin/main:main origin/main:refs/heads/${version}-stable`.
+17. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
 18. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
-19. [FINAL] Change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
-20. [FINAL] Change the Github Pages branch in the stable repository to the newly created branch (https://github.com/systemd/systemd-stable/settings/pages) and set the 'Custom domain' to 'systemd.io'
+20. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
 21. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `v256` to `v257~devel`)
