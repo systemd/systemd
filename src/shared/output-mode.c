@@ -3,21 +3,21 @@
 #include "output-mode.h"
 #include "string-table.h"
 
-JsonFormatFlags output_mode_to_json_format_flags(OutputMode m) {
+sd_json_format_flags_t output_mode_to_json_format_flags(OutputMode m) {
 
         switch (m) {
 
         case OUTPUT_JSON_SSE:
-                return JSON_FORMAT_SSE;
+                return SD_JSON_FORMAT_SSE;
 
         case OUTPUT_JSON_SEQ:
-                return JSON_FORMAT_SEQ;
+                return SD_JSON_FORMAT_SEQ;
 
         case OUTPUT_JSON_PRETTY:
-                return JSON_FORMAT_PRETTY;
+                return SD_JSON_FORMAT_PRETTY;
 
         default:
-                return JSON_FORMAT_NEWLINE;
+                return SD_JSON_FORMAT_NEWLINE;
         }
 }
 

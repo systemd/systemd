@@ -33,7 +33,7 @@ enum {
 
 JournalctlAction arg_action = ACTION_SHOW;
 OutputMode arg_output = OUTPUT_SHORT;
-JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 PagerFlags arg_pager_flags = 0;
 bool arg_utc = false;
 bool arg_follow = false;
@@ -460,9 +460,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_quiet = true;
 
                         if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO;
                         else
-                                arg_json_format_flags = JSON_FORMAT_OFF;
+                                arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
                         break;
 

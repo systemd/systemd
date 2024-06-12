@@ -19,10 +19,10 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 &vl_method_SetLogLevel);
 
-int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int varlink_method_ping(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         log_debug("Received io.systemd.service.Ping");
@@ -30,9 +30,9 @@ int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFla
         return varlink_reply(link, NULL);
 }
 
-int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        static const JsonDispatch dispatch_table[] = {
-                { "level", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int64, 0, JSON_MANDATORY },
+int varlink_method_set_log_level(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY },
                 {}
         };
 
@@ -44,8 +44,8 @@ int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, Varlink
         assert(parameters);
 
         /* NOTE: The method does have 1 parameter, but we must compare to 2 here, because
-         * json_variant_elements() breaks abstraction and exposes internal structure of JsonObject. */
-        if (json_variant_elements(parameters) != 2)
+         * sd_json_variant_elements() breaks abstraction and exposes internal structure of JsonObject. */
+        if (sd_json_variant_elements(parameters) != 2)
                 return varlink_error_invalid_parameter(link, parameters);
 
         r = varlink_dispatch(link, parameters, dispatch_table, &level);

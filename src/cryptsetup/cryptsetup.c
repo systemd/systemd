@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -28,6 +29,7 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
+#include "json-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -720,9 +722,9 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
 
         /* Iterate all LUKS2 tokens and keep track of all their slots */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 const char *type;
-                JsonVariant *w, *z;
+                sd_json_variant *w, *z;
                 int tk;
 
                 tk = cryptsetup_get_token_as_json(cd, token, NULL, &v);
@@ -733,21 +735,21 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                         continue;
                 }
 
-                w = json_variant_by_key(v, "type");
-                if (!w || !json_variant_is_string(w)) {
+                w = sd_json_variant_by_key(v, "type");
+                if (!w || !sd_json_variant_is_string(w)) {
                         log_warning("Token JSON data lacks type field, ignoring.");
                         continue;
                 }
 
-                type = json_variant_string(w);
+                type = sd_json_variant_string(w);
                 if (STR_IN_SET(type, "systemd-recovery", "systemd-pkcs11", "systemd-fido2", "systemd-tpm2")) {
 
                         /* At least exists one recovery key */
                         if (streq(type, "systemd-recovery"))
                                 passphrase_type |= PASSPHRASE_RECOVERY_KEY;
 
-                        w = json_variant_by_key(v, "keyslots");
-                        if (!w || !json_variant_is_array(w)) {
+                        w = sd_json_variant_by_key(v, "keyslots");
+                        if (!w || !sd_json_variant_is_array(w)) {
                                 log_warning("Token JSON data lacks keyslots field, ignoring.");
                                 continue;
                         }
@@ -756,12 +758,12 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                                 unsigned u;
                                 int at;
 
-                                if (!json_variant_is_string(z)) {
+                                if (!sd_json_variant_is_string(z)) {
                                         log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
                                         continue;
                                 }
 
-                                at = safe_atou(json_variant_string(z), &u);
+                                at = safe_atou(sd_json_variant_string(z), &u);
                                 if (at < 0) {
                                         log_warning_errno(at, "Token JSON data's keyslot field is not an integer formatted as string, ignoring.");
                                         continue;

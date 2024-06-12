@@ -34,7 +34,7 @@ static bool client_is_trusted(Varlink *link, Home *h) {
         return peer_uid == 0 || peer_uid == h->uid;
 }
 
-static int build_user_json(Home *h, bool trusted, JsonVariant **ret) {
+static int build_user_json(Home *h, bool trusted, sd_json_variant **ret) {
         _cleanup_(user_record_unrefp) UserRecord *augmented = NULL;
         UserRecordLoadFlags flags;
         int r;
@@ -52,9 +52,9 @@ static int build_user_json(Home *h, bool trusted, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(augmented->json)),
-                                          JSON_BUILD_PAIR("incomplete", JSON_BUILD_BOOLEAN(augmented->incomplete))));
+        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(augmented->json)),
+                                          SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(augmented->incomplete))));
 }
 
 static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
@@ -70,16 +70,16 @@ static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
         return true;
 }
 
-int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "uid",            JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0         },
-                { "userName",       JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, user_name), JSON_SAFE },
-                { "service",        JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),   0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
+                { "userName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, user_name), SD_JSON_STRICT },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),   0              },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -118,7 +118,7 @@ int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMet
                                 if (r < 0)
                                         return r;
 
-                                v = json_variant_unref(v);
+                                v = sd_json_variant_unref(v);
                         }
 
                         trusted = client_is_trusted(link, h);
@@ -149,7 +149,7 @@ int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMet
         return varlink_reply(link, v);
 }
 
-static int build_group_json(Home *h, JsonVariant **ret) {
+static int build_group_json(Home *h, sd_json_variant **ret) {
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         int r;
 
@@ -167,9 +167,9 @@ static int build_group_json(Home *h, JsonVariant **ret) {
         assert(!FLAGS_SET(g->mask, USER_RECORD_SECRET));
         assert(!FLAGS_SET(g->mask, USER_RECORD_PRIVILEGED));
 
-        return json_build(ret,
-                          JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR("record", JSON_BUILD_VARIANT(g->json))));
+        return sd_json_build(ret,
+                          SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(g->json))));
 }
 
 static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
@@ -185,16 +185,16 @@ static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
         return true;
 }
 
-int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "gid",       JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0         },
-                { "groupName", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, group_name), JSON_SAFE },
-                { "service",   JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParameters, service),    0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
+                { "groupName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
+                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
                 {}
         };
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -227,7 +227,7 @@ int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMe
                                 if (r < 0)
                                         return r;
 
-                                v = json_variant_unref(v);
+                                v = sd_json_variant_unref(v);
                         }
 
                         r = build_group_json(h, &v);
@@ -254,12 +254,12 @@ int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMe
         return varlink_reply(link, v);
 }
 
-int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  JSON_SAFE },
-                { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), JSON_SAFE },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0         },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
+                { "groupName", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
+                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
                 {}
         };
 
@@ -288,14 +288,14 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                         if (!strv_contains(h->record->member_of, p.group_name))
                                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(h->user_name)),
-                                                                      JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(p.group_name))));
+                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
                 }
 
                 STRV_FOREACH(i, h->record->member_of) {
                         if (last) {
-                                r = varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(h->user_name)),
-                                                                            JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last))));
+                                r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                                                            SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last))));
                                 if (r < 0)
                                         return r;
                         }
@@ -304,8 +304,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                 }
 
                 if (last)
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(h->user_name)),
-                                                                      JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last))));
+                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last))));
 
         } else if (p.group_name) {
                 const char *last = NULL;
@@ -316,8 +316,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                                 continue;
 
                         if (last) {
-                                r = varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last)),
-                                                                            JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(p.group_name))));
+                                r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
+                                                                            SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
                                 if (r < 0)
                                         return r;
                         }
@@ -326,8 +326,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                 }
 
                 if (last)
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last)),
-                                                                      JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(p.group_name))));
+                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
+                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
         } else {
                 const char *last_user_name = NULL, *last_group_name = NULL;
 
@@ -337,8 +337,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                                 if (last_user_name) {
                                         assert(last_group_name);
 
-                                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                                                    JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
+                                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                                                                    SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
 
                                         if (r < 0)
                                                 return r;
@@ -350,8 +350,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
 
                 if (last_user_name) {
                         assert(last_group_name);
-                        return varlink_replyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(last_user_name)),
-                                                                      JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
+                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
                 }
         }
 

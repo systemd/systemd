@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "group-record.h"
+#include "json-util.h"
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-util.h"
@@ -36,73 +37,73 @@ static GroupRecord *group_record_free(GroupRecord *g) {
         strv_free(g->administrators);
         strv_free_erase(g->hashed_password);
 
-        json_variant_unref(g->json);
+        sd_json_variant_unref(g->json);
 
         return mfree(g);
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(GroupRecord, group_record, group_record_free);
 
-static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int dispatch_privileged(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
-        static const JsonDispatch privileged_dispatch_table[] = {
-                { "hashedPassword", _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv, offsetof(GroupRecord, hashed_password), JSON_SAFE },
+        static const sd_json_dispatch_field privileged_dispatch_table[] = {
+                { "hashedPassword", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_strv, offsetof(GroupRecord, hashed_password), SD_JSON_STRICT },
                 {},
         };
 
-        return json_dispatch(variant, privileged_dispatch_table, flags, userdata);
+        return sd_json_dispatch(variant, privileged_dispatch_table, flags, userdata);
 }
 
-static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int dispatch_binding(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
-        static const JsonDispatch binding_dispatch_table[] = {
-                { "gid", JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid, offsetof(GroupRecord, gid), 0 },
+        static const sd_json_dispatch_field binding_dispatch_table[] = {
+                { "gid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(GroupRecord, gid), 0 },
                 {},
         };
 
-        JsonVariant *m;
+        sd_json_variant *m;
         sd_id128_t mid;
         int r;
 
         if (!variant)
                 return 0;
 
-        if (!json_variant_is_object(variant))
+        if (!sd_json_variant_is_object(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
+        m = sd_json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
-        return json_dispatch(m, binding_dispatch_table, flags, userdata);
+        return sd_json_dispatch(m, binding_dispatch_table, flags, userdata);
 }
 
-static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
-        static const JsonDispatch per_machine_dispatch_table[] = {
-                { "matchMachineId", _JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0         },
-                { "matchHostname",  _JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0         },
-                { "gid",            JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,          offsetof(GroupRecord, gid),            0         },
-                { "members",        JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),        JSON_RELAX},
-                { "administrators", JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators), JSON_RELAX},
+        static const sd_json_dispatch_field per_machine_dispatch_table[] = {
+                { "matchMachineId", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0             },
+                { "matchHostname",  _SD_JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0             },
+                { "gid",            SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,       offsetof(GroupRecord, gid),            0             },
+                { "members",        SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),        SD_JSON_RELAX },
+                { "administrators", SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators), SD_JSON_RELAX },
                 {},
         };
 
-        JsonVariant *e;
+        sd_json_variant *e;
         int r;
 
         if (!variant)
                 return 0;
 
-        if (!json_variant_is_array(variant))
+        if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                if (!json_variant_is_object(e))
+                if (!sd_json_variant_is_object(e))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
                 r = per_machine_match(e, flags);
@@ -111,7 +112,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 if (r == 0)
                         continue;
 
-                r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
+                r = sd_json_dispatch(e, per_machine_dispatch_table, flags, userdata);
                 if (r < 0)
                         return r;
         }
@@ -119,35 +120,35 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
         return 0;
 }
 
-static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
-        static const JsonDispatch status_dispatch_table[] = {
-                { "service", JSON_VARIANT_STRING, json_dispatch_string, offsetof(GroupRecord, service), JSON_SAFE },
+        static const sd_json_dispatch_field status_dispatch_table[] = {
+                { "service", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(GroupRecord, service), SD_JSON_STRICT },
                 {},
         };
 
-        JsonVariant *m;
+        sd_json_variant *m;
         sd_id128_t mid;
         int r;
 
         if (!variant)
                 return 0;
 
-        if (!json_variant_is_object(variant))
+        if (!sd_json_variant_is_object(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
+        m = sd_json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
-        return json_dispatch(m, status_dispatch_table, flags, userdata);
+        return sd_json_dispatch(m, status_dispatch_table, flags, userdata);
 }
 
-static int group_record_augment(GroupRecord *h, JsonDispatchFlags json_flags) {
+static int group_record_augment(GroupRecord *h, sd_json_dispatch_flags_t json_flags) {
         assert(h);
 
         if (!FLAGS_SET(h->mask, USER_RECORD_REGULAR))
@@ -166,36 +167,36 @@ static int group_record_augment(GroupRecord *h, JsonDispatchFlags json_flags) {
 
 int group_record_load(
                 GroupRecord *h,
-                JsonVariant *v,
+                sd_json_variant *v,
                 UserRecordLoadFlags load_flags) {
 
-        static const JsonDispatch group_dispatch_table[] = {
-                { "groupName",      JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
-                { "realm",          JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
-                { "description",    JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0         },
-                { "disposition",    JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
-                { "service",        JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
-                { "lastChangeUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },
-                { "gid",            JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,          offsetof(GroupRecord, gid),              0         },
-                { "members",        JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),          JSON_RELAX},
-                { "administrators", JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   JSON_RELAX},
+        static const sd_json_dispatch_field group_dispatch_table[] = {
+                { "groupName",      SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       SD_JSON_RELAX  },
+                { "realm",          SD_JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0              },
+                { "description",    SD_JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0              },
+                { "disposition",    SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0              },
+                { "service",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(GroupRecord, service),          SD_JSON_STRICT },
+                { "lastChangeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(GroupRecord, last_change_usec), 0              },
+                { "gid",            SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,       offsetof(GroupRecord, gid),              0              },
+                { "members",        SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),          SD_JSON_RELAX  },
+                { "administrators", SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   SD_JSON_RELAX  },
 
-                { "privileged",     JSON_VARIANT_OBJECT,        dispatch_privileged,            0,                                       0         },
+                { "privileged",     SD_JSON_VARIANT_OBJECT,        dispatch_privileged,            0,                                       0              },
 
                 /* Not defined for now, for groups, but let's at least generate sensible errors about it */
-                { "secret",         JSON_VARIANT_OBJECT,        json_dispatch_unsupported,      0,                                       0         },
+                { "secret",         SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_unsupported,   0,                                       0              },
 
                 /* Ignore the perMachine, binding and status stuff here, and process it later, so that it overrides whatever is set above */
-                { "perMachine",     JSON_VARIANT_ARRAY,         NULL,                           0,                                       0         },
-                { "binding",        JSON_VARIANT_OBJECT,        NULL,                           0,                                       0         },
-                { "status",         JSON_VARIANT_OBJECT,        NULL,                           0,                                       0         },
+                { "perMachine",     SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0              },
+                { "binding",        SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0              },
+                { "status",         SD_JSON_VARIANT_OBJECT,        NULL,                           0,                                       0              },
 
                 /* Ignore 'signature', we check it with explicit accessors instead */
-                { "signature",      JSON_VARIANT_ARRAY,         NULL,                           0,                                       0         },
+                { "signature",      SD_JSON_VARIANT_ARRAY,         NULL,                           0,                                       0              },
                 {},
         };
 
-        JsonDispatchFlags json_flags = USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(load_flags);
+        sd_json_dispatch_flags_t json_flags = USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(load_flags);
         int r;
 
         assert(h);
@@ -210,22 +211,22 @@ int group_record_load(
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, group_dispatch_table, json_flags | JSON_ALLOW_EXTENSIONS, h);
+        r = sd_json_dispatch(h->json, group_dispatch_table, json_flags | SD_JSON_ALLOW_EXTENSIONS, h);
         if (r < 0)
                 return r;
 
         /* During the parsing operation above we ignored the 'perMachine', 'binding' and 'status' fields, since we want
          * them to override the global options. Let's process them now. */
 
-        r = dispatch_per_machine("perMachine", json_variant_by_key(h->json, "perMachine"), json_flags, h);
+        r = dispatch_per_machine("perMachine", sd_json_variant_by_key(h->json, "perMachine"), json_flags, h);
         if (r < 0)
                 return r;
 
-        r = dispatch_binding("binding", json_variant_by_key(h->json, "binding"), json_flags, h);
+        r = dispatch_binding("binding", sd_json_variant_by_key(h->json, "binding"), json_flags, h);
         if (r < 0)
                 return r;
 
-        r = dispatch_status("status", json_variant_by_key(h->json, "status"), json_flags, h);
+        r = dispatch_status("status", sd_json_variant_by_key(h->json, "status"), json_flags, h);
         if (r < 0)
                 return r;
 
@@ -240,7 +241,7 @@ int group_record_load(
 }
 
 int group_record_build(GroupRecord **ret, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         va_list ap;
         int r;
@@ -248,7 +249,7 @@ int group_record_build(GroupRecord **ret, ...) {
         assert(ret);
 
         va_start(ap, ret);
-        r = json_buildv(&v, ap);
+        r = sd_json_buildv(&v, ap);
         va_end(ap);
 
         if (r < 0)

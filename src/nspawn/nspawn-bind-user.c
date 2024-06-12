@@ -4,8 +4,9 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "nspawn-bind-user.h"
+#include "json-util.h"
 #include "nspawn.h"
+#include "nspawn-bind-user.h"
 #include "path-util.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -87,7 +88,7 @@ static int convert_user(
         _cleanup_(group_record_unrefp) GroupRecord *converted_group = NULL;
         _cleanup_(user_record_unrefp) UserRecord *converted_user = NULL;
         _cleanup_free_ char *h = NULL;
-        JsonVariant *p, *hp = NULL;
+        sd_json_variant *p, *hp = NULL;
         int r;
 
         assert(u);
@@ -113,31 +114,31 @@ static int convert_user(
                 return log_oom();
 
         /* Acquire the source hashed password array as-is, so that it retains the JSON_VARIANT_SENSITIVE flag */
-        p = json_variant_by_key(u->json, "privileged");
+        p = sd_json_variant_by_key(u->json, "privileged");
         if (p)
-                hp = json_variant_by_key(p, "hashedPassword");
+                hp = sd_json_variant_by_key(p, "hashedPassword");
 
         r = user_record_build(
                         &converted_user,
-                        JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(u->user_name)),
-                                        JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(allocate_uid)),
-                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(allocate_uid)),
-                                        JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
-                                        JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING(h)),
-                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
-                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "privileged", JSON_BUILD_OBJECT(
-                                                                                  JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_VARIANT(hp))))));
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(u->user_name)),
+                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
+                                        SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
+                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(
+                                                                                  SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_VARIANT(hp))))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build container user record: %m");
 
         r = group_record_build(
                         &converted_group,
-                        JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(g->group_name)),
-                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(allocate_uid)),
-                                        JSON_BUILD_PAIR_CONDITION(g->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(g->disposition))),
-                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn"))));
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
+                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(g->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(g->disposition))),
+                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn"))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build container group record: %m");
 
@@ -314,7 +315,7 @@ int bind_user_prepare(
 
 static int write_and_symlink(
                 const char *root,
-                JsonVariant *v,
+                sd_json_variant *v,
                 const char *name,
                 uid_t uid,
                 const char *suffix,
@@ -329,7 +330,7 @@ static int write_and_symlink(
         assert(uid_is_valid(uid));
         assert(suffix);
 
-        r = json_variant_format(v, JSON_FORMAT_NEWLINE, &j);
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &j);
         if (r < 0)
                 return log_error_errno(r, "Failed to format user record JSON: %m");
 
@@ -410,7 +411,7 @@ int bind_user_setup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract privileged information from group record: %m");
 
-                if (!json_variant_is_blank_object(shadow_group->json)) {
+                if (!sd_json_variant_is_blank_object(shadow_group->json)) {
                         r = write_and_symlink(
                                         root,
                                         shadow_group->json,
@@ -442,7 +443,7 @@ int bind_user_setup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract privileged information from user record: %m");
 
-                if (!json_variant_is_blank_object(shadow_user->json)) {
+                if (!sd_json_variant_is_blank_object(shadow_user->json)) {
                         r = write_and_symlink(
                                         root,
                                         shadow_user->json,
