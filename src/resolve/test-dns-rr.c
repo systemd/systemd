@@ -943,4 +943,34 @@ TEST(dns_resource_record_equal_aaaa_fail) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : NS
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_ns_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->ns.name = strdup("ns1.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_ns_fail) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->ns.name = strdup("ns1.example.com");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->ns.name);
+        b->ns.name = strdup("ns2.example.com");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
