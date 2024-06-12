@@ -214,6 +214,16 @@ static int service_set_main_pidref(Service *s, PidRef pidref_consume, const dual
 
         if (!pidref_equal(&s->main_pid, &pidref)) {
                 service_unwatch_main_pid(s);
+
+                dual_timestamp pid_start_time;
+
+                if (!start_timestamp) {
+                        usec_t t;
+
+                        if (pidref_get_start_time(&pidref, &t) >= 0)
+                                start_timestamp = dual_timestamp_from_boottime(&pid_start_time, t);
+                }
+
                 exec_status_start(&s->main_exec_status, pidref.pid, start_timestamp);
         }
 

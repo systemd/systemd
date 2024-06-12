@@ -56,6 +56,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -731,7 +732,7 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         return 0;
 }
 
-int pid_get_start_time(pid_t pid, uint64_t *ret) {
+int pid_get_start_time(pid_t pid, usec_t *ret) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         int r;
@@ -751,13 +752,12 @@ int pid_get_start_time(pid_t pid, uint64_t *ret) {
         p = strrchr(line, ')');
         if (!p)
                 return -EIO;
-
         p++;
 
         unsigned long llu;
 
         if (sscanf(p, " "
-                   "%*c "  /* state */
+                   "%*c " /* state */
                    "%*u " /* ppid */
                    "%*u " /* pgrp */
                    "%*u " /* session */
@@ -781,13 +781,13 @@ int pid_get_start_time(pid_t pid, uint64_t *ret) {
                 return -EIO;
 
         if (ret)
-                *ret = llu;
+                *ret = jiffies_to_usec(llu); /* CLOCK_BOOTTIME */
 
         return 0;
 }
 
-int pidref_get_start_time(const PidRef *pid, uint64_t *ret) {
-        uint64_t t;
+int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
+        usec_t t;
         int r;
 
         if (!pidref_is_set(pid))
