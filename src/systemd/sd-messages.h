@@ -252,6 +252,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_TIME_BUMP                          SD_ID128_MAKE(7d,b7,3c,8a,f0,d9,4e,eb,82,2a,e0,43,23,fe,6a,b6)
 #define SD_MESSAGE_TIME_BUMP_STR                      SD_ID128_MAKE_STR(7d,b7,3c,8a,f0,d9,4e,eb,82,2a,e0,43,23,fe,6a,b6)
 
+#define SD_MESSAGE_TIME_SET_EPOCH                     SD_ID128_MAKE(d9,3d,93,46,71,97,42,bd,ad,92,75,df,52,66,cb,58)
+#define SD_MESSAGE_TIME_SET_EPOCH_STR                 SD_ID128_MAKE_STR(d9,3d,93,46,71,97,42,bd,ad,92,75,df,52,66,cb,58)
+
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED                 SD_ID128_MAKE(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED_STR             SD_ID128_MAKE_STR(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
 
