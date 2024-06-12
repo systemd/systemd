@@ -44,3 +44,5 @@ int group_record_clone(GroupRecord *g, UserRecordLoadFlags flags, GroupRecord **
 
 const char *group_record_group_name_and_realm(GroupRecord *h);
 UserDisposition group_record_disposition(GroupRecord *h);
+
+int group_record_augment_json_membership(GroupRecord *h);

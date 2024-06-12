@@ -53,6 +53,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
 int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret);
 int membershipdb_all(UserDBFlags flags, UserDBIterator **ret);
 int membershipdb_iterator_get(UserDBIterator *iterator, char **user, char **group);
+int membershipdb_by_user_strv(const char *name, UserDBFlags flags, char ***ret);
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret);
 
 int userdb_block_nss_systemd(int b);
