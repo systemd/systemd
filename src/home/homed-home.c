@@ -23,8 +23,9 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
-#include "homed-home-bus.h"
 #include "homed-home.h"
+#include "homed-home-bus.h"
+#include "json-util.h"
 #include "memfd-util.h"
 #include "missing_magic.h"
 #include "missing_mman.h"
@@ -266,12 +267,12 @@ int home_set_record(Home *h, UserRecord *hr) {
                 return -EINVAL;
 
         if (FLAGS_SET(h->record->mask, USER_RECORD_STATUS)) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 /* Hmm, the existing record has status fields? If so, copy them over */
 
-                v = json_variant_ref(hr->json);
-                r = json_variant_set_field(&v, "status", json_variant_by_key(h->record->json, "status"));
+                v = sd_json_variant_ref(hr->json);
+                r = sd_json_variant_set_field(&v, "status", sd_json_variant_by_key(h->record->json, "status"));
                 if (r < 0)
                         return r;
 
@@ -308,19 +309,19 @@ int home_set_record(Home *h, UserRecord *hr) {
 }
 
 int home_save_record(Home *h) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fn;
         int r;
 
         assert(h);
 
-        v = json_variant_ref(h->record->json);
-        r = json_variant_normalize(&v);
+        v = sd_json_variant_ref(h->record->json);
+        r = sd_json_variant_normalize(&v);
         if (r < 0)
                 log_warning_errno(r, "User record could not be normalized.");
 
-        r = json_variant_format(v, JSON_FORMAT_PRETTY|JSON_FORMAT_NEWLINE, &text);
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_NEWLINE, &text);
         if (r < 0)
                 return r;
 
@@ -523,7 +524,7 @@ static void home_set_state(Home *h, HomeState state) {
 }
 
 static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_close_ int fd = _fd; /* take possession, even on failure */
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -559,7 +560,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 rewind(f);
         }
 
-        r = json_parse_file(f, "stdout", JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
 
@@ -1199,7 +1200,7 @@ static int home_start_work(
                 UserRecord *secret,
                 Hashmap *blobs,
                 uint64_t flags) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *fdmap = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *fdmap = NULL;
         _cleanup_(erase_and_freep) char *formatted = NULL;
         _cleanup_close_ int stdin_fd = -EBADF, stdout_fd = -EBADF;
         _cleanup_free_ int *blob_fds = NULL;
@@ -1216,16 +1217,16 @@ static int home_start_work(
         assert(h->worker_stdout_fd < 0);
         assert(!h->worker_event_source);
 
-        v = json_variant_ref(hr->json);
+        v = sd_json_variant_ref(hr->json);
 
         if (secret) {
-                JsonVariant *sub = NULL;
+                sd_json_variant *sub = NULL;
 
-                sub = json_variant_by_key(secret->json, "secret");
+                sub = sd_json_variant_by_key(secret->json, "secret");
                 if (!sub)
                         return -ENOKEY;
 
-                r = json_variant_set_field(&v, "secret", sub);
+                r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
         }
@@ -1242,26 +1243,26 @@ static int home_start_work(
                 /* homework needs to be able to tell the difference between blobs being null
                  * (the fdmap field is completely missing) and it being empty (the field is an
                  * empty object) */
-                r = json_variant_new_object(&fdmap, NULL, 0);
+                r = sd_json_variant_new_object(&fdmap, NULL, 0);
                 if (r < 0)
                         return r;
 
                 HASHMAP_FOREACH_KEY(fd_ptr, blob_filename, blobs) {
                         blob_fds[i] = PTR_TO_FD(fd_ptr);
 
-                        r = json_variant_set_field_integer(&fdmap, blob_filename, i);
+                        r = sd_json_variant_set_field_integer(&fdmap, blob_filename, i);
                         if (r < 0)
                                 return r;
 
                         i++;
                 }
 
-                r = json_variant_set_field(&v, HOMEWORK_BLOB_FDMAP_FIELD, fdmap);
+                r = sd_json_variant_set_field(&v, HOMEWORK_BLOB_FDMAP_FIELD, fdmap);
                 if (r < 0)
                         return r;
         }
 
-        r = json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, 0, &formatted);
         if (r < 0)
                 return r;
 
@@ -1666,20 +1667,20 @@ int home_remove(Home *h, sd_bus_error *error) {
 }
 
 static int user_record_extend_with_binding(UserRecord *hr, UserRecord *with_binding, UserRecordLoadFlags flags, UserRecord **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *nr = NULL;
-        JsonVariant *binding;
+        sd_json_variant *binding;
         int r;
 
         assert(hr);
         assert(with_binding);
         assert(ret);
 
-        assert_se(v = json_variant_ref(hr->json));
+        assert_se(v = sd_json_variant_ref(hr->json));
 
-        binding = json_variant_by_key(with_binding->json, "binding");
+        binding = sd_json_variant_by_key(with_binding->json, "binding");
         if (binding) {
-                r = json_variant_set_field(&v, "binding", binding);
+                r = sd_json_variant_set_field(&v, "binding", binding);
                 if (r < 0)
                         return r;
         }
@@ -2611,7 +2612,7 @@ int home_augment_status(
                 UserRecord **ret) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         statfs_f_type_t magic;
         const char *fstype;
@@ -2653,42 +2654,42 @@ int home_augment_status(
         if (disk_ceiling == UINT64_MAX || disk_ceiling > USER_DISK_SIZE_MAX)
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
-        r = json_build(&status,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
-                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
-                                       JSON_BUILD_PAIR("useFallback", JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
-                                       JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
-                                       JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
-                                       JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
-                                       JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
-                                       JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", JSON_BUILD_UNSIGNED(disk_ceiling)),
-                                       JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", JSON_BUILD_UNSIGNED(disk_floor)),
-                                       JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", JSON_BUILD_BOOLEAN(h->signed_locally)),
-                                       JSON_BUILD_PAIR_CONDITION(fstype, "fileSystemType", JSON_BUILD_STRING(fstype)),
-                                       JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", JSON_BUILD_UNSIGNED(access_mode))
+        r = sd_json_build(&status,
+                       SD_JSON_BUILD_OBJECT(
+                                       SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
+                                       SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
+                                       SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
+                                       SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                       SD_JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", SD_JSON_BUILD_UNSIGNED(disk_size)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", SD_JSON_BUILD_UNSIGNED(disk_usage)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", SD_JSON_BUILD_UNSIGNED(disk_free)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", SD_JSON_BUILD_UNSIGNED(disk_ceiling)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", SD_JSON_BUILD_UNSIGNED(disk_floor)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", SD_JSON_BUILD_BOOLEAN(h->signed_locally)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(!!fstype, "fileSystemType", SD_JSON_BUILD_STRING(fstype)),
+                                       SD_JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", SD_JSON_BUILD_UNSIGNED(access_mode))
                        ));
         if (r < 0)
                 return r;
 
-        j = json_variant_ref(h->record->json);
-        v = json_variant_ref(json_variant_by_key(j, "status"));
-        m = json_variant_ref(json_variant_by_key(v, SD_ID128_TO_STRING(id)));
+        j = sd_json_variant_ref(h->record->json);
+        v = sd_json_variant_ref(sd_json_variant_by_key(j, "status"));
+        m = sd_json_variant_ref(sd_json_variant_by_key(v, SD_ID128_TO_STRING(id)));
 
-        r = json_variant_filter(&m, STRV_MAKE("diskSize", "diskUsage", "diskFree", "diskCeiling", "diskFloor", "signedLocally"));
+        r = sd_json_variant_filter(&m, STRV_MAKE("diskSize", "diskUsage", "diskFree", "diskCeiling", "diskFloor", "signedLocally"));
         if (r < 0)
                 return r;
 
-        r = json_variant_merge_object(&m, status);
+        r = sd_json_variant_merge_object(&m, status);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, SD_ID128_TO_STRING(id), m);
+        r = sd_json_variant_set_field(&v, SD_ID128_TO_STRING(id), m);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&j, "status", v);
+        r = sd_json_variant_set_field(&j, "status", v);
         if (r < 0)
                 return r;
 

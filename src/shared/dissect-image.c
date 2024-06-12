@@ -20,6 +20,7 @@
 
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "architecture.h"
 #include "ask-password-api.h"
@@ -51,6 +52,7 @@
 #include "id128-util.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
@@ -3343,12 +3345,12 @@ int dissected_image_load_verity_sig_partition(
                 VeritySettings *verity) {
 
         _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         size_t root_hash_size, root_hash_sig_size;
         _cleanup_free_ char *buf = NULL;
         PartitionDesignator d;
         DissectedPartition *p;
-        JsonVariant *rh, *sig;
+        sd_json_variant *rh, *sig;
         ssize_t n;
         char *e;
         int r;
@@ -3396,17 +3398,17 @@ int dissected_image_load_verity_sig_partition(
         } else
                 buf[p->size] = 0;
 
-        r = json_parse(buf, 0, &v, NULL, NULL);
+        r = sd_json_parse(buf, 0, &v, NULL, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature JSON data: %m");
 
-        rh = json_variant_by_key(v, "rootHash");
+        rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
-        if (!json_variant_is_string(rh))
+        if (!sd_json_variant_is_string(rh))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
 
-        r = unhexmem(json_variant_string(rh), &root_hash, &root_hash_size);
+        r = unhexmem(sd_json_variant_string(rh), &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
@@ -3421,13 +3423,13 @@ int dissected_image_load_verity_sig_partition(
                 return log_debug_errno(r, "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
 
-        sig = json_variant_by_key(v, "signature");
+        sig = sd_json_variant_by_key(v, "signature");
         if (!sig)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
-        if (!json_variant_is_string(sig))
+        if (!sd_json_variant_is_string(sig))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'signature' field of signature JSON object is not a string.");
 
-        r = unbase64mem(json_variant_string(sig), &root_hash_sig, &root_hash_sig_size);
+        r = unbase64mem(sd_json_variant_string(sig), &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 
@@ -4223,7 +4225,7 @@ static void partition_fields_done(PartitionFields *f) {
 }
 
 typedef struct ReplyParameters {
-        JsonVariant *partitions;
+        sd_json_variant *partitions;
         char *image_policy;
         uint64_t image_size;
         uint32_t sector_size;
@@ -4234,7 +4236,7 @@ static void reply_parameters_done(ReplyParameters *p) {
         assert(p);
 
         p->image_policy = mfree(p->image_policy);
-        p->partitions = json_variant_unref(p->partitions);
+        p->partitions = sd_json_variant_unref(p->partitions);
 }
 
 #endif
@@ -4249,12 +4251,12 @@ int mountfsd_mount_image(
 #if HAVE_BLKID
         _cleanup_(reply_parameters_done) ReplyParameters p = {};
 
-        static const JsonDispatch dispatch_table[] = {
-                { "partitions",  JSON_VARIANT_ARRAY,         json_dispatch_variant,  offsetof(struct ReplyParameters, partitions),   JSON_MANDATORY },
-                { "imagePolicy", JSON_VARIANT_STRING,        json_dispatch_string,   offsetof(struct ReplyParameters, image_policy), 0              },
-                { "imageSize",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,   offsetof(struct ReplyParameters, image_size),   JSON_MANDATORY },
-                { "sectorSize",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,   offsetof(struct ReplyParameters, sector_size),  JSON_MANDATORY },
-                { "imageUuid",   JSON_VARIANT_STRING,        json_dispatch_id128,    offsetof(struct ReplyParameters, image_uuid),   0              },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "partitions",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct ReplyParameters, partitions),   SD_JSON_MANDATORY },
+                { "imagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct ReplyParameters, image_policy), 0              },
+                { "imageSize",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct ReplyParameters, image_size),   SD_JSON_MANDATORY },
+                { "sectorSize",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct ReplyParameters, sector_size),  SD_JSON_MANDATORY },
+                { "imageUuid",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct ReplyParameters, image_uuid),   0              },
                 {}
         };
 
@@ -4301,31 +4303,31 @@ int mountfsd_mount_image(
                         return log_error_errno(r, "Failed format image policy to string: %m");
         }
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = varlink_callb(
                         vl,
                         "io.systemd.MountFileSystem.MountImage",
                         &reply,
                         &error_id,
-                        JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("imageFileDescriptor", JSON_BUILD_UNSIGNED(0)),
-                                        JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", JSON_BUILD_UNSIGNED(1)),
-                                        JSON_BUILD_PAIR("readOnly", JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY))),
-                                        JSON_BUILD_PAIR("growFileSystems", JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))),
-                                        JSON_BUILD_PAIR_CONDITION(ps, "imagePolicy", JSON_BUILD_STRING(ps)),
-                                        JSON_BUILD_PAIR("allowInteractiveAuthentication", JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)))));
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("imageFileDescriptor", SD_JSON_BUILD_UNSIGNED(0)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(1)),
+                                        SD_JSON_BUILD_PAIR("readOnly", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY))),
+                                        SD_JSON_BUILD_PAIR("growFileSystems", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))),
+                                        SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
+                                        SD_JSON_BUILD_PAIR("allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)))));
         if (r < 0)
                 return log_error_errno(r, "Failed to call MountImage() varlink call: %m");
         if (!isempty(error_id))
                 return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to call MountImage() varlink call: %s", error_id);
 
-        r = json_dispatch(reply, dispatch_table, JSON_ALLOW_EXTENSIONS, &p);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse MountImage() reply: %m");
 
         log_debug("Effective image policy: %s", p.image_policy);
 
-        JsonVariant *i;
+        sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, p.partitions) {
                 _cleanup_close_ int fsmount_fd = -EBADF;
 
@@ -4337,22 +4339,22 @@ int mountfsd_mount_image(
                         .fsmount_fd_idx = UINT_MAX,
                 };
 
-                static const JsonDispatch partition_dispatch_table[] = {
-                        { "designator",          JSON_VARIANT_STRING,        dispatch_partition_designator, offsetof(struct PartitionFields, designator),       JSON_MANDATORY },
-                        { "writable",            JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,         offsetof(struct PartitionFields, rw),               JSON_MANDATORY },
-                        { "growFileSystem",      JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,         offsetof(struct PartitionFields, growfs),           JSON_MANDATORY },
-                        { "partitionNumber",     _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,            offsetof(struct PartitionFields, partno),           0              },
-                        { "architecture",        JSON_VARIANT_STRING,        dispatch_architecture,         offsetof(struct PartitionFields, architecture),     0              },
-                        { "partitionUuid",       JSON_VARIANT_STRING,        json_dispatch_id128,           offsetof(struct PartitionFields, uuid),             0              },
-                        { "fileSystemType",      JSON_VARIANT_STRING,        json_dispatch_string,          offsetof(struct PartitionFields, fstype),           JSON_MANDATORY },
-                        { "partitionLabel",      JSON_VARIANT_STRING,        json_dispatch_string,          offsetof(struct PartitionFields, label),            0              },
-                        { "size",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,          offsetof(struct PartitionFields, size),             JSON_MANDATORY },
-                        { "offset",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,          offsetof(struct PartitionFields, offset),           JSON_MANDATORY },
-                        { "mountFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,            offsetof(struct PartitionFields, fsmount_fd_idx),   JSON_MANDATORY },
+                static const sd_json_dispatch_field partition_dispatch_table[] = {
+                        { "designator",          SD_JSON_VARIANT_STRING,        dispatch_partition_designator, offsetof(struct PartitionFields, designator),       SD_JSON_MANDATORY },
+                        { "writable",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(struct PartitionFields, rw),               SD_JSON_MANDATORY },
+                        { "growFileSystem",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(struct PartitionFields, growfs),           SD_JSON_MANDATORY },
+                        { "partitionNumber",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(struct PartitionFields, partno),           0                 },
+                        { "architecture",        SD_JSON_VARIANT_STRING,        dispatch_architecture,         offsetof(struct PartitionFields, architecture),     0                 },
+                        { "partitionUuid",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(struct PartitionFields, uuid),             0                 },
+                        { "fileSystemType",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(struct PartitionFields, fstype),           SD_JSON_MANDATORY },
+                        { "partitionLabel",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(struct PartitionFields, label),            0                 },
+                        { "size",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(struct PartitionFields, size),             SD_JSON_MANDATORY },
+                        { "offset",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(struct PartitionFields, offset),           SD_JSON_MANDATORY },
+                        { "mountFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(struct PartitionFields, fsmount_fd_idx),   SD_JSON_MANDATORY },
                         {}
                 };
 
-                r = json_dispatch(i, partition_dispatch_table, JSON_ALLOW_EXTENSIONS, &pp);
+                r = sd_json_dispatch(i, partition_dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &pp);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse partition data: %m");
 

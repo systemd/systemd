@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -19,7 +20,6 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "json.h"
 #include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
@@ -38,7 +38,7 @@
 #include "verbs.h"
 #include "version.h"
 
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static int arg_full = -1;
@@ -69,7 +69,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
-static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_message(sd_bus_message *m, sd_json_variant **ret);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
@@ -1198,7 +1198,7 @@ static int message_pcap(sd_bus_message *m, FILE *f) {
 }
 
 static int message_json(sd_bus_message *m, FILE *f) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         char e[2];
         int r;
         usec_t ts;
@@ -1214,28 +1214,28 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (ts == 0)
                 ts = now(CLOCK_REALTIME);
 
-        r = json_build(&w, JSON_BUILD_OBJECT(
-                JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
-                JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
-                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(m->header->flags)),
-                JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
-                JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
-                JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
-                JSON_BUILD_PAIR("timestamp-realtime", JSON_BUILD_UNSIGNED(ts)),
-                JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
-                JSON_BUILD_PAIR_CONDITION(m->destination, "destination", JSON_BUILD_STRING(m->destination)),
-                JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
-                JSON_BUILD_PAIR_CONDITION(m->interface, "interface", JSON_BUILD_STRING(m->interface)),
-                JSON_BUILD_PAIR_CONDITION(m->member, "member", JSON_BUILD_STRING(m->member)),
-                JSON_BUILD_PAIR_CONDITION(m->monotonic != 0, "monotonic", JSON_BUILD_INTEGER(m->monotonic)),
-                JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", JSON_BUILD_INTEGER(m->realtime)),
-                JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", JSON_BUILD_INTEGER(m->seqnum)),
-                JSON_BUILD_PAIR_CONDITION(m->error.name, "error_name", JSON_BUILD_STRING(m->error.name)),
-                JSON_BUILD_PAIR("payload", JSON_BUILD_VARIANT(v))));
+        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(
+                SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
+                SD_JSON_BUILD_PAIR("endian", SD_JSON_BUILD_STRING(e)),
+                SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(m->header->flags)),
+                SD_JSON_BUILD_PAIR("version", SD_JSON_BUILD_INTEGER(m->header->version)),
+                SD_JSON_BUILD_PAIR("cookie", SD_JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
+                SD_JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", SD_JSON_BUILD_INTEGER(m->reply_cookie)),
+                SD_JSON_BUILD_PAIR("timestamp-realtime", SD_JSON_BUILD_UNSIGNED(ts)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->sender, "sender", SD_JSON_BUILD_STRING(m->sender)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->destination, "destination", SD_JSON_BUILD_STRING(m->destination)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->path, "path", SD_JSON_BUILD_STRING(m->path)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->interface, "interface", SD_JSON_BUILD_STRING(m->interface)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->member, "member", SD_JSON_BUILD_STRING(m->member)),
+                SD_JSON_BUILD_PAIR_CONDITION(m->monotonic != 0, "monotonic", SD_JSON_BUILD_INTEGER(m->monotonic)),
+                SD_JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", SD_JSON_BUILD_INTEGER(m->realtime)),
+                SD_JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", SD_JSON_BUILD_INTEGER(m->seqnum)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!m->error.name, "error_name", SD_JSON_BUILD_STRING(m->error.name)),
+                SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-        json_variant_dump(w, arg_json_format_flags, f, NULL);
+        sd_json_variant_dump(w, arg_json_format_flags, f, NULL);
         return 0;
 }
 
@@ -1313,7 +1313,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
-        if (!arg_quiet && arg_json_format_flags == JSON_FORMAT_OFF)
+        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
                 log_info("Monitoring bus message stream.");
 
         (void) sd_notify(/* unset_environment=false */ false, "READY=1");
@@ -1347,7 +1347,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         fflush(stdout);
 
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
-                                if (!arg_quiet && arg_json_format_flags == JSON_FORMAT_OFF)
+                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
                                         log_info("Connection terminated, exiting.");
                                 return 0;
                         }
@@ -1365,7 +1365,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, (arg_json_format_flags & JSON_FORMAT_OFF) ? message_dump : message_json);
+        return monitor(argc, argv, (arg_json_format_flags & SD_JSON_FORMAT_OFF) ? message_dump : message_json);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -1681,10 +1681,10 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
         return 0;
 }
 
-static int json_transform_one(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_one(sd_bus_message *m, sd_json_variant **ret);
 
-static int json_transform_and_append(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *element = NULL;
+static int json_transform_and_append(sd_bus_message *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *element = NULL;
         int r;
 
         assert(m);
@@ -1694,11 +1694,11 @@ static int json_transform_and_append(sd_bus_message *m, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        return json_variant_append_array(ret, element);
+        return sd_json_variant_append_array(ret, element);
 }
 
-static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         int r;
 
         assert(m);
@@ -1717,14 +1717,14 @@ static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) 
         }
 
         if (!array)
-                return json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, NULL, 0);
 
         *ret = TAKE_PTR(array);
         return 0;
 }
 
-static int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *value = NULL;
+static int json_transform_variant(sd_bus_message *m, const char *contents, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *value = NULL;
         int r;
 
         assert(m);
@@ -1735,23 +1735,23 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, JsonV
         if (r < 0)
                 return r;
 
-        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(contents)),
-                                              JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(value))));
+        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
+                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value))));
         if (r < 0)
                 return log_oom();
 
         return r;
 }
 
-static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
-        JsonVariant **elements = NULL;
+static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
+        sd_json_variant **elements = NULL;
         size_t n_elements = 0;
         int r;
 
         assert(m);
         assert(ret);
 
-        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+        CLEANUP_ARRAY(elements, n_elements, sd_json_variant_unref_many);
 
         for (;;) {
                 const char *contents;
@@ -1793,11 +1793,11 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
                         return bus_log_parse_error(r);
         }
 
-        return json_variant_new_object(ret, elements, n_elements);
+        return sd_json_variant_new_object(ret, elements, n_elements);
 }
 
-static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *contents;
         char type;
         int r;
@@ -1818,7 +1818,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_unsigned(&v, b);
+                r = sd_json_variant_new_unsigned(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform byte: %m");
 
@@ -1832,7 +1832,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_boolean(&v, b);
+                r = sd_json_variant_new_boolean(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform boolean: %m");
 
@@ -1846,7 +1846,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_integer(&v, b);
+                r = sd_json_variant_new_integer(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform int16: %m");
 
@@ -1860,7 +1860,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_unsigned(&v, b);
+                r = sd_json_variant_new_unsigned(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform uint16: %m");
 
@@ -1874,7 +1874,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_integer(&v, b);
+                r = sd_json_variant_new_integer(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform int32: %m");
 
@@ -1888,7 +1888,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_unsigned(&v, b);
+                r = sd_json_variant_new_unsigned(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform uint32: %m");
 
@@ -1902,7 +1902,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_integer(&v, b);
+                r = sd_json_variant_new_integer(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform int64: %m");
 
@@ -1916,7 +1916,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_unsigned(&v, b);
+                r = sd_json_variant_new_unsigned(&v, b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform uint64: %m");
 
@@ -1930,7 +1930,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_real(&v, d);
+                r = sd_json_variant_new_real(&v, d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform double: %m");
 
@@ -1946,7 +1946,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_string(&v, s);
+                r = sd_json_variant_new_string(&v, s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform double: %m");
 
@@ -1958,7 +1958,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_variant_new_null(&v);
+                r = sd_json_variant_new_null(&v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform fd: %m");
 
@@ -1994,8 +1994,8 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
         return 0;
 }
 
-static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *type;
         int r;
 
@@ -2008,8 +2008,8 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type",  JSON_BUILD_STRING(type)),
-                                              JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(v))));
+        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
+                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v))));
         if (r < 0)
                 return log_oom();
 
@@ -2083,17 +2083,17 @@ static int call(int argc, char **argv, void *userdata) {
 
         if (r == 0 && !arg_quiet) {
 
-                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                                 pager_open(arg_pager_flags);
 
                         r = json_transform_message(reply, &v);
                         if (r < 0)
                                 return r;
 
-                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         pager_open(arg_pager_flags);
@@ -2191,17 +2191,17 @@ static int get_property(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                                 pager_open(arg_pager_flags);
 
                         r = json_transform_variant(reply, contents, &v);
                         if (r < 0)
                                 return r;
 
-                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         pager_open(arg_pager_flags);
@@ -2558,7 +2558,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
