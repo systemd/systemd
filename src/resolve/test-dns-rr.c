@@ -997,4 +997,56 @@ TEST(dns_resource_record_equal_ptr_fail) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : HINFO
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_hinfo_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
+        a->hinfo.cpu = strdup("intel x64");
+        a->hinfo.os = strdup("linux");
+
+        b = dns_resource_record_copy(a);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_hinfo_case_insensitive) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
+        a->hinfo.cpu = strdup("intel x64");
+        a->hinfo.os = strdup("linux");
+
+        b = dns_resource_record_copy(a);
+        b->hinfo.cpu = strdup("INTEL x64");
+        b->hinfo.os = strdup("LINUX");
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_hinfo_bad_cpu) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
+        a->hinfo.cpu = strdup("intel x64");
+        a->hinfo.os = strdup("linux");
+
+        b = dns_resource_record_copy(a);
+        b->hinfo.cpu = strdup("arm64");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_hinfo_bad_os) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
+        a->hinfo.cpu = strdup("intel x64");
+        a->hinfo.os = strdup("linux");
+
+        b = dns_resource_record_copy(a);
+        b->hinfo.os = strdup("windows");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
