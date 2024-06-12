@@ -889,4 +889,58 @@ TEST(dns_resource_record_equal_different_types) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : A, AAAA
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_a_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_a_fail) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->a.in_addr.s_addr = htobe32(0xc0a80180);
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_aaaa_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->aaaa.in6_addr = (struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } };
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_aaaa_fail) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->aaaa.in6_addr = (struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } };
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->aaaa.in6_addr = (struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x04 } };
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
