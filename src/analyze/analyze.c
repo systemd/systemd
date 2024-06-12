@@ -26,6 +26,7 @@
 #include "analyze-exit-status.h"
 #include "analyze-fdstore.h"
 #include "analyze-filesystems.h"
+#include "analyze-has-tpm2.h"
 #include "analyze-image-policy.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
@@ -205,43 +206,52 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sProfile systemd, show unit dependencies, check unit files.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sProfile systemd, show unit dependencies, check unit files.%6$s\n"
+               "\n%3$sBoot Analysis:%4$s\n"
                "  [time]                     Print time required to boot the machine\n"
                "  blame                      Print list of running units ordered by\n"
                "                             time to init\n"
                "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
                "                             of units\n"
+               "\n%3$sDependency Analysis:%4$s\n"
                "  plot                       Output SVG graphic showing service\n"
                "                             initialization\n"
-               "  dot [UNIT...]              Output dependency graph in %s format\n"
+               "  dot [UNIT...]              Output dependency graph in %7$s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
+               "\n%3$sConfiguration Files and Search Paths:%4$s\n"
                "  cat-config NAME|PATH...    Show configuration file and drop-ins\n"
                "  unit-files                 List files and symlinks for units\n"
                "  unit-paths                 List load directories for units\n"
+               "\n%3$sEnumerate OS Concepts:%4$s\n"
                "  exit-status [STATUS...]    List exit status definitions\n"
                "  capability [CAP...]        List capability definitions\n"
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
                "  architectures [NAME...]    List known architectures\n"
+               "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
                "                             Compare two version strings\n"
-               "  verify FILE...             Check unit files for correctness\n"
+               "  image-policy POLICY...     Analyze image policy string\n"
+               "\n%3$sClock & Time:%4$s\n"
                "  calendar SPEC...           Validate repetitive calendar time\n"
                "                             events\n"
                "  timestamp TIMESTAMP...     Validate a timestamp\n"
                "  timespan SPAN...           Validate a time span\n"
+               "\n%3$sUnit & Service Analysis:%4$s\n"
+               "  verify FILE...             Check unit files for correctness\n"
                "  security [UNIT...]         Analyze security of unit\n"
-               "  inspect-elf FILE...        Parse and print ELF package metadata\n"
-               "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
-               "  image-policy POLICY...     Analyze image policy string\n"
+               "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "\n%3$sExecutable Analysis:%4$s\n"
+               "  inspect-elf FILE...        Parse and print ELF package metadata\n"
+               "\n%3$sTPM Operations:%4$s\n"
+               "  has-tpm2                   Report whether TPM2 support is available\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
                "     --threshold=N           Exit with a non-zero status when overall\n"
@@ -281,12 +291,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
                ansi_highlight(),
                ansi_normal(),
-               dot_link,
-               link);
+               dot_link);
 
         /* When updating this list, including descriptions, apply changes to
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
@@ -654,6 +666,7 @@ static int run(int argc, char *argv[]) {
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
+                { "has-tpm2",          VERB_ANY, 1,        0,            verb_has_tpm2          },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
