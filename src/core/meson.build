@@ -142,6 +142,7 @@ core_includes = [includes, include_directories('.')]
 systemd_sources = files(
         'main.c',
         'crash-handler.c',
+        'clock-warp.c',
 )
 
 in_files = [['system.conf',                     pkgsysconfdir],

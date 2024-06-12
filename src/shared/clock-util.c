@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <time.h>
 #include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -119,48 +115,4 @@ int clock_set_timezone(int *ret_minutesdelta) {
                 *ret_minutesdelta = minutesdelta;
 
         return 0;
-}
-
-int clock_reset_timewarp(void) {
-        static const struct timezone tz = {
-                .tz_minuteswest = 0,
-                .tz_dsttime = 0, /* DST_NONE */
-        };
-
-        /* The very first call to settimeofday() does time warp magic. Do a dummy call here, so the time
-         * warping is sealed and all later calls behave as expected. */
-        return RET_NERRNO(settimeofday(NULL, &tz));
-}
-
-int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
-        usec_t epoch_usec, now_usec;
-        struct stat st;
-
-        /* NB: we update *ret_attempted_change in *all* cases, both
-         * on success and failure, to indicate what we intended to do! */
-
-        assert(ret_attempted_change);
-
-        if (stat(EPOCH_CLOCK_FILE, &st) < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Cannot stat " EPOCH_CLOCK_FILE ": %m");
-
-                epoch_usec = (usec_t) TIME_EPOCH * USEC_PER_SEC;
-        } else
-                epoch_usec = timespec_load(&st.st_mtim);
-
-        now_usec = now(CLOCK_REALTIME);
-        if (now_usec < epoch_usec)
-                *ret_attempted_change = CLOCK_CHANGE_FORWARD;
-        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 && now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX))
-                *ret_attempted_change = CLOCK_CHANGE_BACKWARD;
-        else {
-                *ret_attempted_change = CLOCK_CHANGE_NOOP;
-                return 0;
-        }
-
-        if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(epoch_usec)) < 0)
-                return -errno;
-
-        return 1;
 }
