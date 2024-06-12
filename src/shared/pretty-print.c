@@ -289,7 +289,7 @@ void print_separator(void) {
                 size_t c = columns();
 
                 flockfile(stdout);
-                fputs_unlocked(ANSI_UNDERLINE, stdout);
+                fputs_unlocked(ANSI_GREY_UNDERLINE, stdout);
 
                 for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
