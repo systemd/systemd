@@ -1337,10 +1337,6 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        r = unit_add_default_credential_dependencies(u, c);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
@@ -6101,7 +6097,7 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
         if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
-        exec_context_destroy_credentials(u);
+        exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
         exec_context_destroy_mount_ns_dir(u);
 }
 
