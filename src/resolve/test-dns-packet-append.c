@@ -761,6 +761,61 @@ TEST(packet_append_answer_single_mx) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_answer_single_txt) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsTxtItem *item = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3601;
+
+        item = calloc(1, offsetof(DnsTxtItem, data) + 3);
+        ASSERT_NOT_NULL(item);
+        item->length = 2;
+        memcpy(item->data, "hi", 3);
+        LIST_APPEND(items, rr->txt.items, item);
+
+        item = calloc(1, offsetof(DnsTxtItem, data) + 6);
+        ASSERT_NOT_NULL(item);
+        item->length = 5;
+        memcpy(item->data, "world", 6);
+        LIST_APPEND(items, rr->txt.items, item);
+
+        answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(answer);
+        dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(dns_answer_size(answer));
+
+        ASSERT_OK(dns_packet_append_answer(packet, answer, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA | BIT_RD, BIT_RA | DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* TXT */       0x00, 0x10,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x11,
+        /* rdata */     0x00, 0x09,
+                        0x02, 'h', 'i',
+                        0x05, 'w', 'o', 'r', 'l', 'd'
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 TEST(packet_append_answer_single_srv) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
