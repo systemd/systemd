@@ -1394,4 +1394,88 @@ TEST(dns_resource_record_equal_txt_different_text) {
         ASSERT_FALSE(dns_resource_record_equal(a, b));
 }
 
+/* ================================================================
+ * dns_resource_record_equal() : SRV
+ * ================================================================ */
+
+TEST(dns_resource_record_equal_srv_copy) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->srv.name = strdup("mail.example.com");
+        a->srv.priority = 10;
+        a->srv.weight = 5;
+        a->srv.port = 587;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        ASSERT_TRUE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_srv_bad_name) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->srv.name = strdup("mail.example.com");
+        a->srv.priority = 10;
+        a->srv.weight = 5;
+        a->srv.port = 587;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        free(b->srv.name);
+        b->srv.name = strdup("example.com");
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_srv_bad_priority) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->srv.name = strdup("mail.example.com");
+        a->srv.priority = 10;
+        a->srv.weight = 5;
+        a->srv.port = 587;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->srv.priority = 9;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_srv_bad_weight) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->srv.name = strdup("mail.example.com");
+        a->srv.priority = 10;
+        a->srv.weight = 5;
+        a->srv.port = 587;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->srv.weight = 6;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
+TEST(dns_resource_record_equal_srv_bad_port) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
+        ASSERT_NOT_NULL(a);
+        a->srv.name = strdup("mail.example.com");
+        a->srv.priority = 10;
+        a->srv.weight = 5;
+        a->srv.port = 587;
+
+        b = dns_resource_record_copy(a);
+        ASSERT_NOT_NULL(b);
+        b->srv.port = 588;
+        ASSERT_FALSE(dns_resource_record_equal(a, b));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
