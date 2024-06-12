@@ -32,10 +32,7 @@ __get_all_sysdevs() {
 }
 
 __get_all_device_nodes() {
-    local i
-    for i in /dev/* /dev/*/* /dev/*/*/*; do
-        echo $i
-    done
+    find /dev -xtype b -o -xtype c
 }
 
 __get_all_device_units() {
