@@ -517,6 +517,10 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
                 }                                                       \
         }
 
+/* Restriction/bug (see above) was fixed in GCC 15 and clang 19.*/
+#if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
+#define DECLARE_FLEX_ARRAY(type, name) type name[];
+#else
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
  * and might go away in some future version of the standard.
@@ -528,6 +532,7 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
                 dummy_t __empty__ ## name;             \
                 type name[];                           \
         }
+#endif
 
 /* Declares an ELF read-only string section that does not occupy memory at runtime. */
 #define DECLARE_NOALLOC_SECTION(name, text)   \
