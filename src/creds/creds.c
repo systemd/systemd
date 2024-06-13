@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "build.h"
+#include "build-path.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
@@ -689,36 +690,36 @@ static int verb_setup(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
-static int verb_has_tpm2(int argc, char **argv, void *userdata) {
-        Tpm2Support s;
+static int chainload_analyze(int argc, char **argv, void *userdata) {
+        int r;
 
-        s = tpm2_support();
+        if (!arg_quiet)
+                log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[optind]);
 
-        if (!arg_quiet) {
-                if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
-                else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
-                else
-                        puts("partial");
+        _cleanup_strv_free_ char **c = strv_new("systemd-analyze");
+        if (!c)
+                return log_oom();
 
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
+        if (FLAGS_SET(arg_pager_flags, PAGER_DISABLE))
+                if (strv_extend(&c, "--no-pager") < 0)
+                        return log_oom();
+        if (!arg_legend)
+                if (strv_extend(&c, "--no-legend") < 0)
+                        return log_oom();
+        if (arg_quiet)
+                if (strv_extend(&c, "--quiet") < 0)
+                        return log_oom();
+
+        if (strv_extend_strv(&c, argv + optind, /* filter_duplicates= */ false) < 0)
+                return log_oom();
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(c, " ");
+                log_debug("Chainloading: %s", joined);
         }
 
-        /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
-         * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
-         * what is there, acknowledging the fact that for process exit statuses it is customary to return
-         * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
-        return ~s & TPM2_SUPPORT_FULL;
+        r = invoke_callout_binary(BINDIR "/systemd-analyze", c);
+        return log_error_errno(r, "Failed to invoke 'systemd-analyze': %m");
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -739,7 +740,6 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          ciphertext credential file\n"
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
-               "  has-tpm2                Report whether TPM2 support is available\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
@@ -1067,13 +1067,13 @@ static int parse_argv(int argc, char *argv[]) {
 static int creds_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list",     VERB_ANY, 1,        VERB_DEFAULT, verb_list     },
-                { "cat",      2,        VERB_ANY, 0,            verb_cat      },
-                { "encrypt",  3,        3,        0,            verb_encrypt  },
-                { "decrypt",  2,        3,        0,            verb_decrypt  },
-                { "setup",    VERB_ANY, 1,        0,            verb_setup    },
-                { "help",     VERB_ANY, 1,        0,            verb_help     },
-                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 },
+                { "list",     VERB_ANY, 1,        VERB_DEFAULT, verb_list         },
+                { "cat",      2,        VERB_ANY, 0,            verb_cat          },
+                { "encrypt",  3,        3,        0,            verb_encrypt      },
+                { "decrypt",  2,        3,        0,            verb_decrypt      },
+                { "setup",    VERB_ANY, 1,        0,            verb_setup        },
+                { "help",     VERB_ANY, 1,        0,            verb_help         },
+                { "has-tpm2", VERB_ANY, 1,        0,            chainload_analyze },
                 {}
         };
 
