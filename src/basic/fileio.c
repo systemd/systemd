@@ -1354,6 +1354,29 @@ int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *sp
         return 0;
 }
 
+int fputs_with_newline(FILE *f, const char *s) {
+
+        /* This is like fputs() but outputs a trailing newline char, but only if the string isn't empty
+         * and doesn't end in a newline already. Returns 0 in case we didn't append a newline, > 0 otherwise. */
+
+        if (isempty(s))
+                return 0;
+
+        if (!f)
+                f = stdout;
+
+        if (fputs(s, f) < 0)
+                return -EIO;
+
+        if (endswith(s, "\n"))
+                return 0;
+
+        if (fputc('\n', f) < 0)
+                return -EIO;
+
+        return 1;
+}
+
 /* A bitmask of the EOL markers we know */
 typedef enum EndOfLineMarker {
         EOL_NONE     = 0,
