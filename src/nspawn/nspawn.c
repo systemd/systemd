@@ -1087,11 +1087,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
                 case ARG_NO_NEW_PRIVILEGES:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--no-new-privileges=", optarg, &arg_no_new_privileges);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --no-new-privileges= argument: %s", optarg);
+                                return r;
 
-                        arg_no_new_privileges = r;
                         arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
                         break;
 
@@ -1165,13 +1164,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --register= argument: %s", optarg);
+                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        if (r < 0)
                                 return r;
-                        }
 
-                        arg_register = r;
                         break;
 
                 case ARG_KEEP_UNIT:
@@ -1663,12 +1659,6 @@ static int verify_arguments(void) {
         SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged);
 
         if (!arg_privileged) {
-                /* machined is not accessible to unpriv clients */
-                if (arg_register) {
-                        log_notice("Automatically implying --register=no, since machined is not accessible to unprivileged clients.");
-                        arg_register = false;
-                }
-
                 if (!arg_private_network) {
                         log_notice("Automatically implying --private-network, since mounting /sys/ in an unprivileged user namespaces requires network namespacing.");
                         arg_private_network = true;
@@ -5354,7 +5344,7 @@ static int run_container(
         }
 
         if (arg_register || !arg_keep_unit) {
-                if (arg_privileged)
+                if (arg_privileged || arg_register)
                         r = sd_bus_default_system(&bus);
                 else
                         r = sd_bus_default_user(&bus);

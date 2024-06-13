@@ -101,6 +101,7 @@ static int session_watch_pidfd(Session *s) {
         assert(s);
         assert(s->manager);
         assert(pidref_is_set(&s->leader));
+        assert(!s->leader_pidfd_event_source);
 
         if (s->leader.fd < 0)
                 return 0;
@@ -146,8 +147,10 @@ Session* session_free(Session *s) {
 
         sd_event_source_unref(s->stop_on_idle_event_source);
 
-        if (s->in_gc_queue)
+        if (s->in_gc_queue) {
+                assert(s->manager);
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
+        }
 
         sd_event_source_unref(s->timer_event_source);
 
