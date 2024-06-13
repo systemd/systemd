@@ -373,7 +373,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
 
                                 pager_open(arg_pager_flags);
-                                fputs_with_newline(description, stdout);
+                                fputs_with_newline(stdout, description);
                         } else if (list_methods) {
                                 for (const VarlinkSymbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
                                         if (symbol->symbol_type != VARLINK_METHOD)
