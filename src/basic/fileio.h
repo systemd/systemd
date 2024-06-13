@@ -42,6 +42,7 @@ typedef enum {
         READ_FULL_FILE_WARN_WORLD_READABLE = 1 << 3, /* if regular file, log at LOG_WARNING level if access mode above 0700 */
         READ_FULL_FILE_CONNECT_SOCKET      = 1 << 4, /* if socket inode, connect to it and read off it */
         READ_FULL_FILE_FAIL_WHEN_LARGER    = 1 << 5, /* fail loading if file is larger than specified size */
+        READ_FULL_FILE_VERIFY_REGULAR      = 1 << 6, /* before reading, verify this is a regular file */
 } ReadFullFileFlags;
 
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
@@ -65,6 +66,8 @@ static inline int write_string_file_at(int dir_fd, const char *fn, const char *l
 static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_ts(fn, line, flags, NULL);
 }
+
+int write_base64_file_at(int dir_fd, const char *fn, const struct iovec *data, WriteStringFileFlags flags);
 
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 

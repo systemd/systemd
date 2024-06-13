@@ -375,7 +375,7 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create stack directory '%s': %m", dirname);
 
-        dirfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        dirfd = open_mkdir(dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
 
