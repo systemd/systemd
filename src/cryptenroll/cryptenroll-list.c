@@ -7,7 +7,7 @@
 
 struct keyslot_metadata {
         int slot;
-        const char *type;
+        unsigned type;
 };
 
 int list_enrolled(struct crypt_device *cd) {
@@ -40,7 +40,6 @@ int list_enrolled(struct crypt_device *cd) {
          * token they are assigned to */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                const char *type;
                 JsonVariant *w, *z;
                 EnrollType et;
 
@@ -59,10 +58,9 @@ int list_enrolled(struct crypt_device *cd) {
                 }
 
                 et = luks2_token_type_from_string(json_variant_string(w));
+                /* other */
                 if (et < 0)
-                        type = "other";
-                else
-                        type = enroll_type_to_string(et);
+                        et = _ENROLL_TYPE_MAX;
 
                 w = json_variant_by_key(v, "keyslots");
                 if (!w || !json_variant_is_array(w)) {
@@ -88,10 +86,7 @@ int list_enrolled(struct crypt_device *cd) {
                                 if ((unsigned) keyslot_metadata[i].slot != u)
                                         continue;
 
-                                if (keyslot_metadata[i].type) /* Slot claimed multiple times? */
-                                        keyslot_metadata[i].type = POINTER_MAX;
-                                else
-                                        keyslot_metadata[i].type = type;
+                                keyslot_metadata[i].type |= 1<<et;
                         }
                 }
         }
@@ -105,11 +100,24 @@ int list_enrolled(struct crypt_device *cd) {
         (void) table_set_align_percent(t, cell, 100);
 
         for (size_t i = 0; i < n_keyslot_metadata; i++) {
+                _cleanup_free_ char *_str = NULL;
+                const char* str = NULL;
+
+                if (keyslot_metadata[i].type)
+                        for (EnrollType et = 0; et <= _ENROLL_TYPE_MAX; ++et) {
+                                if (keyslot_metadata[i].type & (1<<et)) {
+                                        const char *type = et < _ENROLL_TYPE_MAX ? enroll_type_to_string(et) : "other";
+                                        if (!strextend_with_separator(&_str, ",", type))
+                                                return log_oom();
+                                }
+                        }
+
+                str = _str ? _str : "password";
+
                 r = table_add_many(
                                 t,
                                 TABLE_INT, keyslot_metadata[i].slot,
-                                TABLE_STRING, keyslot_metadata[i].type == POINTER_MAX ? "conflict" :
-                                              keyslot_metadata[i].type ?: "password");
+                                TABLE_STRING, str);
                 if (r < 0)
                         return table_log_add_error(r);
         }
