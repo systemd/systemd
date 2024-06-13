@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -44,3 +45,5 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
         return FILE_SIZE_VALID(l);
 
 }
+
+int fputs_with_newline(const char *s, FILE *f);
