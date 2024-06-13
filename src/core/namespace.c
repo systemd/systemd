@@ -470,7 +470,7 @@ static int append_extensions(
                 const char *extension_dir,
                 char **hierarchies,
                 const MountImage *mount_images,
-                size_t n,
+                size_t n_mount_images,
                 char **extension_directories) {
 
         char ***overlays = NULL;
@@ -479,7 +479,7 @@ static int append_extensions(
 
         assert(ml);
 
-        if (n == 0 && strv_isempty(extension_directories))
+        if (n_mount_images == 0 && strv_isempty(extension_directories))
                 return 0;
 
         assert(extension_dir);
@@ -500,7 +500,7 @@ static int append_extensions(
 
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < n_mount_images; i++) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
@@ -556,7 +556,7 @@ static int append_extensions(
                 bool ignore_enoent = false;
 
                 /* Pick up the counter where the ExtensionImages left it. */
-                if (asprintf(&mount_point, "%s/%zu", extension_dir, n++) < 0)
+                if (asprintf(&mount_point, "%s/%zu", extension_dir, n_mount_images++) < 0)
                         return -ENOMEM;
 
                 /* Look for any prefixes */
