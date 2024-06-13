@@ -239,6 +239,31 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem>
+          <para>Suppress output of method call replies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful=</option></term>
+
+        <listitem>
+          <para>Takes a qualified Varlink error name (i.e. an interface named, suffixed by an error name,
+          separated by a dot; e.g. <literal>org.varlink.service.InvalidParameter</literal>). Ensures that if
+          a method call fails with the specified error this will be treated as success, i.e. will cause the
+          <command>varlinkctl</command> invocation exit with a zero exit status. This option may be used more
+          than once in order to treat multiple different errors as successes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />

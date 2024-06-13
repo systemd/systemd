@@ -272,8 +272,8 @@ testcase_bootctl_varlink() {
     if ! (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported; then
         return 0
     fi
-    (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
-    (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+    SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
+    SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
 }
 
 run_testcases
