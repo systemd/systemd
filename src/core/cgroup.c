@@ -4527,16 +4527,16 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
         if (!UNIT_CGROUP_BOOL(u, memory_accounting))
                 return -ENODATA;
 
+        /* The root cgroup doesn't expose this information. */
+        if (unit_has_host_root_cgroup(u))
+                return -ENODATA;
+
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
                 return -ENODATA;
         if (!crt->cgroup_path)
                 /* If the cgroup is already gone, we try to find the last cached value. */
                 goto finish;
-
-        /* The root cgroup doesn't expose this information. */
-        if (unit_has_host_root_cgroup(u))
-                return -ENODATA;
 
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_MEMORY))
                 return -ENODATA;
