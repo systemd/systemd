@@ -33,6 +33,7 @@
 #include "format-util.h"
 #include "id128-util.h"
 #include "install.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "label-util.h"
 #include "load-dropin.h"
@@ -4569,10 +4570,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (u->transient_file) {
                 /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
                  * write to the transient unit file. */
-                fputs(data, u->transient_file);
-
-                if (!endswith(data, "\n"))
-                        fputc('\n', u->transient_file);
+                fputs_with_newline(data, u->transient_file);
 
                 /* Remember which section we wrote this entry to */
                 u->last_section_private = !!(flags & UNIT_PRIVATE);
