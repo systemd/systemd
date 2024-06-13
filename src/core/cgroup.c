@@ -4646,11 +4646,11 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
                 return -ENODATA;
 
-        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
                 return -ENODATA;
 
         r = unit_get_cpu_usage_raw(u, &ns);
@@ -4694,7 +4694,7 @@ int unit_get_ip_accounting(
                 return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!crt)
                 return -ENODATA;
 
         fd = IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_INGRESS_PACKETS) ?
@@ -4869,7 +4869,7 @@ int unit_get_io_accounting(
                 return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!crt)
                 return -ENODATA;
 
         if (allow_cache && crt->io_accounting_last[metric] != UINT64_MAX)
