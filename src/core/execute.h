@@ -177,6 +177,14 @@ typedef enum ExecCleanMask {
         _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
+typedef enum PrivateTmp {
+        PRIVATE_TMP_DISABLED,
+        PRIVATE_TMP_CONNECTED, /* Bind mounted from the host's filesystem */
+        PRIVATE_TMP_DISCONNECTED, /* A completely private tmpfs, invisible from the host */
+        _PRIVATE_TMP_MAX,
+        _PRIVATE_TMPINVALID = -EINVAL,
+} PrivateTmp;
+
 /* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
  * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
  * change after being loaded. */
@@ -314,7 +322,7 @@ struct ExecContext {
         int private_mounts;
         int mount_apivfs;
         int memory_ksm;
-        bool private_tmp;
+        PrivateTmp private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
@@ -606,6 +614,9 @@ ExecDirectoryType exec_directory_type_mode_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
+
+const char* private_tmp_to_string(PrivateTmp i) _const_;
+PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);
