@@ -76,7 +76,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, Mutabl
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
@@ -443,11 +443,11 @@ typedef struct MethodUnmergeParameters {
         int no_reload;
 } MethodUnmergeParameters;
 
-static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_unmerge(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
-                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodUnmergeParameters, no_reload), 0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
+                { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodUnmergeParameters, no_reload), 0 },
                 {}
         };
         MethodUnmergeParameters p = {
@@ -1918,13 +1918,13 @@ typedef struct MethodMergeParameters {
         int noexec;
 } MethodMergeParameters;
 
-static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, MethodMergeParameters *p) {
+static int parse_merge_parameters(Varlink *link, sd_json_variant *parameters, MethodMergeParameters *p) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
-                { "force",    JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
-                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
-                { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
+                { "force",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
+                { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
+                { "noexec",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
                 {}
         };
 
@@ -1935,7 +1935,7 @@ static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, Method
         return varlink_dispatch(link, parameters, dispatch_table, p);
 }
 
-static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_merge(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
@@ -1968,7 +1968,7 @@ static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethod
         if (r < 0)
                 return r;
         if (r > 0)
-                return varlink_errorb(link, "io.systemd.sysext.AlreadyMerged", JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("hierarchy", which)));
+                return varlink_errorb(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("hierarchy", which)));
 
         r = merge(image_class,
                   hierarchies ?: arg_hierarchies,
@@ -2038,7 +2038,7 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
                        arg_noexec);
 }
 
-static int vl_method_refresh(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_refresh(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
         MethodMergeParameters p = {
                 .force = -1,
@@ -2084,7 +2084,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && hashmap_isempty(images)) {
                 log_info("No OS extensions found.");
                 return 0;
         }
@@ -2113,15 +2113,15 @@ typedef struct MethodListParameters {
         const char *class;
 } MethodListParameters;
 
-static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_list(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodListParameters, class),     0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(MethodListParameters, class), 0 },
                 {}
         };
         MethodListParameters p = {
         };
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         ImageClass image_class = arg_image_class;
         Image *img;
@@ -2153,7 +2153,7 @@ static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodF
                                 return r;
                 }
 
-                v = json_variant_unref(v);
+                v = sd_json_variant_unref(v);
 
                 r = image_to_json(img, &v);
                 if (r < 0)

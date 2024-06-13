@@ -808,7 +808,7 @@ int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (config.n_entries == 0 && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+        if (config.n_entries == 0 && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 log_info("No boot loader entries found.");
                 return 0;
         }
@@ -835,14 +835,14 @@ int verb_unlink(int argc, char *argv[], void *userdata) {
         return verb_list(argc, argv, userdata);
 }
 
-int vl_method_list_boot_entries(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
         assert(link);
 
-        if (json_variant_elements(parameters) > 0)
+        if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         r = acquire_esp(/* unprivileged_mode= */ false,
@@ -870,15 +870,15 @@ int vl_method_list_boot_entries(Varlink *link, JsonVariant *parameters, VarlinkM
         if (r < 0)
                 return r;
 
-        _cleanup_(json_variant_unrefp) JsonVariant *previous = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
         for (size_t i = 0; i < config.n_entries; i++) {
                 if (previous) {
-                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
-                                                            JSON_BUILD_PAIR_VARIANT("entry", previous)));
+                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(
+                                                            SD_JSON_BUILD_PAIR_VARIANT("entry", previous)));
                         if (r < 0)
                                 return r;
 
-                        previous = json_variant_unref(previous);
+                        previous = sd_json_variant_unref(previous);
                 }
 
                 r = boot_entry_to_json(&config, i, &previous);
@@ -886,6 +886,6 @@ int vl_method_list_boot_entries(Varlink *link, JsonVariant *parameters, VarlinkM
                         return r;
         }
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_CONDITION(previous, "entry", JSON_BUILD_VARIANT(previous))));
+        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
+                                              SD_JSON_BUILD_PAIR_CONDITION(!!previous, "entry", SD_JSON_BUILD_VARIANT(previous))));
 }

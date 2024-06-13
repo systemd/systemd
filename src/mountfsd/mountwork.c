@@ -11,6 +11,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "main-func.h"
 #include "missing_loop.h"
 #include "namespace-util.h"
@@ -37,22 +38,22 @@ static const ImagePolicy image_policy_untrusted = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
-static int json_dispatch_image_policy(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
         ImagePolicy **p = ASSERT_PTR(userdata);
         int r;
 
         assert(p);
 
-        if (json_variant_is_null(variant)) {
+        if (sd_json_variant_is_null(variant)) {
                 *p = image_policy_free(*p);
                 return 0;
         }
 
-        if (!json_variant_is_string(variant))
+        if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = image_policy_from_string(json_variant_string(variant), &q);
+        r = image_policy_from_string(sd_json_variant_string(variant), &q);
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
 
@@ -245,17 +246,17 @@ static int validate_userns(Varlink *link, int *userns_fd) {
 
 static int vl_method_mount_image(
                 Varlink *link,
-                JsonVariant *parameters,
+                sd_json_variant *parameters,
                 VarlinkMethodFlags flags,
                 void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "imageFileDescriptor",         JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(MountImageParameters, image_fd_idx),  JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(MountImageParameters, userns_fd_idx), 0 },
-                { "readOnly",                    JSON_VARIANT_BOOLEAN,  json_dispatch_tristate,     offsetof(MountImageParameters, read_only),     0 },
-                { "growFileSystems",             JSON_VARIANT_BOOLEAN,  json_dispatch_tristate,     offsetof(MountImageParameters, growfs),        0 },
-                { "password",                    JSON_VARIANT_STRING,   json_dispatch_string,       offsetof(MountImageParameters, password),      0 },
-                { "imagePolicy",                 JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),  SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx), 0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),     0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),        0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),      0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -269,7 +270,7 @@ static int vl_method_mount_image(
         };
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
         _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF;
         _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
@@ -281,7 +282,7 @@ static int vl_method_mount_image(
         assert(link);
         assert(parameters);
 
-        json_variant_sensitive(parameters); /* might contain passwords */
+        sd_json_variant_sensitive(parameters); /* might contain passwords */
 
         r = varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
@@ -486,7 +487,7 @@ static int vl_method_mount_image(
                 return r;
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *pj = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *pj = NULL;
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
 
@@ -508,35 +509,35 @@ static int vl_method_mount_image(
 
                 TAKE_FD(pp->fsmount_fd);
 
-                r = json_build(&pj,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("designator", JSON_BUILD_STRING(partition_designator_to_string(d))),
-                                               JSON_BUILD_PAIR("writable", JSON_BUILD_BOOLEAN(pp->rw)),
-                                               JSON_BUILD_PAIR("growFileSystem", JSON_BUILD_BOOLEAN(pp->growfs)),
-                                               JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", JSON_BUILD_INTEGER(pp->partno)),
-                                               JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
-                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", JSON_BUILD_UUID(pp->uuid)),
-                                               JSON_BUILD_PAIR("fileSystemType", JSON_BUILD_STRING(dissected_partition_fstype(pp))),
-                                               JSON_BUILD_PAIR_CONDITION(pp->label, "partitionLabel", JSON_BUILD_STRING(pp->label)),
-                                               JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(pp->size)),
-                                               JSON_BUILD_PAIR("offset", JSON_BUILD_INTEGER(pp->offset)),
-                                               JSON_BUILD_PAIR("mountFileDescriptor", JSON_BUILD_INTEGER(fd_idx))));
+                r = sd_json_build(&pj,
+                               SD_JSON_BUILD_OBJECT(
+                                               SD_JSON_BUILD_PAIR("designator", SD_JSON_BUILD_STRING(partition_designator_to_string(d))),
+                                               SD_JSON_BUILD_PAIR("writable", SD_JSON_BUILD_BOOLEAN(pp->rw)),
+                                               SD_JSON_BUILD_PAIR("growFileSystem", SD_JSON_BUILD_BOOLEAN(pp->growfs)),
+                                               SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
+                                               SD_JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
+                                               SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", SD_JSON_BUILD_UUID(pp->uuid)),
+                                               SD_JSON_BUILD_PAIR("fileSystemType", SD_JSON_BUILD_STRING(dissected_partition_fstype(pp))),
+                                               SD_JSON_BUILD_PAIR_CONDITION(!!pp->label, "partitionLabel", SD_JSON_BUILD_STRING(pp->label)),
+                                               SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_INTEGER(pp->size)),
+                                               SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_INTEGER(pp->offset)),
+                                               SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx))));
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(&aj, pj);
+                r = sd_json_variant_append_array(&aj, pj);
                 if (r < 0)
                         return r;
         }
 
         loop_device_relinquish(loop);
 
-        r = varlink_replyb(link, JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR("partitions", JSON_BUILD_VARIANT(aj)),
-                                           JSON_BUILD_PAIR("imagePolicy", JSON_BUILD_STRING(ps)),
-                                           JSON_BUILD_PAIR("imageSize", JSON_BUILD_INTEGER(di->image_size)),
-                                           JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(di->sector_size)),
-                                           JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", JSON_BUILD_UUID(di->image_uuid))));
+        r = varlink_replyb(link, SD_JSON_BUILD_OBJECT(
+                                           SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
+                                           SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
+                                           SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_INTEGER(di->image_size)),
+                                           SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(di->sector_size)),
+                                           SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid))));
         if (r < 0)
                 return r;
 
