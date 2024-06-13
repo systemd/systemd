@@ -306,19 +306,3 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
 
         return q - (const uint8_t*) p;
 }
-
-int fputs_with_newline(const char *s, FILE *f) {
-        assert(s);
-        assert(f);
-
-        /* This is like fputs() but outputs a trailing newline char, but only if the string doesn't end in a
-         * newline anyway. Just like fputs() returns EOF on error. Otherwise returns 0 in case we didn't
-         * append a newline, > 0 otherwise. */
-
-        if (fputs(s, f) == EOF)
-                return EOF;
-        if (endswith(s, "\n"))
-                return 0;
-
-        return fputc('\n', f) == EOF ? EOF : 1;
-}
