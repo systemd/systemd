@@ -3054,7 +3054,8 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *extension_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+                *extension_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL,
+                *private_tmp_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -3108,7 +3109,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3149,6 +3150,10 @@ static int apply_mount_namespace(
                 if (!extension_dir)
                         return -ENOMEM;
 
+                private_tmp_dir = strdup("/run/systemd/unit-private-tmp");
+                if (!private_tmp_dir)
+                        return -ENOMEM;
+
                 /* If running under a different root filesystem, propagate the host's os-release. We make a
                  * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
                 if (setup_os_release_symlink) {
@@ -3160,6 +3165,9 @@ static int apply_mount_namespace(
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
+                        return -ENOMEM;
+
+                if (asprintf(&private_tmp_dir, "/run/user/" UID_FMT "/systemd/unit-private-tmp", geteuid()) < 0)
                         return -ENOMEM;
 
                 if (setup_os_release_symlink) {
@@ -3205,6 +3213,10 @@ static int apply_mount_namespace(
                 .temporary_filesystems = context->temporary_filesystems,
                 .n_temporary_filesystems = context->n_temporary_filesystems,
 
+                /* When DynamicUser=yes enforce that /tmp/ and /var/tmp/ are disconnected from the host's
+                 * directories, as they are world writable and ephemeral uid/gid will be used. */
+                .private_tmp_as_tmpfs = context->private_tmp == PRIVATE_TMP_DISCONNECTED,
+
                 .mount_images = context->mount_images,
                 .n_mount_images = context->n_mount_images,
                 .mount_image_policy = context->mount_image_policy ?: &image_policy_service,
@@ -3226,6 +3238,7 @@ static int apply_mount_namespace(
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
                 .extension_dir = extension_dir,
+                .private_tmp_dir = private_tmp_dir,
                 .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
                 .host_os_release_stage = host_os_release_stage,
 
@@ -3857,7 +3870,7 @@ static bool exec_context_need_unprivileged_private_users(
                 return false;
 
         return context->private_users ||
-               context->private_tmp ||
+               context->private_tmp != PRIVATE_TMP_OFF ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
