@@ -76,7 +76,11 @@ struct sd_json_variant {
         /* The current 'depth' of the sd_json_variant, i.e. how many levels of member variants this has */
         uint16_t depth;
 
-        int type:8; /* actually sd_json_variant_type_t, but reduced to 8bit size */
+        signed int type:8; /* actually sd_json_variant_type_t, but reduced to 8bit size (we used "signed int"
+                            * rather than just "int", since apparently compilers are free to pick signedness
+                            * otherwise. We don't really care about the signendess, we care more about
+                            * whether the enum can be converted to this, but we never use the negative values
+                            * of sd_json_variant_type_t here.) */
 
         /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
          * is valid. If false, the 'n_ref' field above is valid instead. */
