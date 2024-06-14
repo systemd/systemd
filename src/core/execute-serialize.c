@@ -1840,7 +1840,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-private-tmp", c->private_tmp);
+        r = serialize_item(f, "exec-context-private-tmp", private_tmp_to_string(c->private_tmp));
         if (r < 0)
                 return r;
 
@@ -2720,10 +2720,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-private-tmp="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->private_tmp = r;
+                        c->private_tmp = private_tmp_from_string(val);
+                        if (c->private_tmp < 0)
+                                return c->private_tmp;
                 } else if ((val = startswith(l, "exec-context-private-devices="))) {
                         r = parse_boolean(val);
                         if (r < 0)
