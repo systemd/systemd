@@ -71,6 +71,35 @@ static void manager_serialize_gid_refs(Manager *m, FILE *f) {
         manager_serialize_uid_refs_internal(f, m->gid_refs, "destroy-ipc-gid");
 }
 
+static int manager_serialize_restrict_fs(Manager *m, FILE *f, FDSet *fds) {
+        int r, fd;
+
+        if (!m->restrict_fs)
+                return 0;
+
+        fd = bpf_restrict_fs_prog_fd(m->restrict_fs);
+        if (fd < 0)
+                return fd;
+
+        r = serialize_fd(f, fds, "restrict-fs-prog-fd", fd);
+        if (r < 0)
+                return r;
+
+        fd = bpf_restrict_fs_link_fd(m->restrict_fs);
+        if (fd < 0)
+                return fd;
+
+        r = serialize_fd(f, fds, "restrict-fs-link-fd", fd);
+        if (r < 0)
+                return r;
+
+        fd = bpf_restrict_fs_map_fd(m->restrict_fs);
+        if (fd < 0)
+                return fd;
+
+        return serialize_fd(f, fds, "restrict-fs-map-fd", fd);
+}
+
 int manager_serialize(
                 Manager *m,
                 FILE *f,
@@ -153,6 +182,10 @@ int manager_serialize(
                 if (r < 0)
                         return r;
         }
+
+        r = manager_serialize_restrict_fs(m, f, fds);
+        if (r < 0)
+                return r;
 
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
@@ -284,6 +317,30 @@ static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
+}
+
+static void manager_deserialize_restrict_fs(Manager *m, FDSet *fds, char *l) {
+        const char *val;
+        int fd;
+
+        if ((val = startswith(l, "restrict-fs-prog-fd="))) {
+
+                fd = deserialize_fd(fds, val);
+                if (fd >= 0)
+                        m->restrict_fs_prog_fd = fd;
+
+        } else if ((val = startswith(l, "restrict-fs-link-fd="))) {
+
+                fd = deserialize_fd(fds, val);
+                if (fd >= 0)
+                        m->restrict_fs_link_fd = fd;
+
+        } else if ((val = startswith(l, "restrict-fs-map-fd="))) {
+
+                fd = deserialize_fd(fds, val);
+                if (fd >= 0)
+                        m->restrict_fs_map_fd = fd;
+        }
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -449,6 +506,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = deserialize_environment(val, &m->client_environment);
                         if (r < 0)
                                 log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", val);
+
+                } else if (startswith(l, "restrict-fs-")) {
+                        manager_deserialize_restrict_fs(m, fds, l);
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
