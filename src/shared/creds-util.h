@@ -94,6 +94,8 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
 int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
 
+int get_global_boot_credentials_path(char **ret);
+
 typedef struct PickUpCredential {
         const char *credential_prefix;
         const char *target_dir;
