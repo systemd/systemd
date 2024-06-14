@@ -4954,6 +4954,20 @@ _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
+_public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        double *d = ASSERT_PTR(userdata);
+
+        /* Note, this will take care of parsing NaN, -Infinity, Infinity for us */
+        if (sd_json_variant_is_string(variant) && safe_atod(sd_json_variant_string(variant), d) >= 0)
+                return 0;
+
+        if (!sd_json_variant_is_real(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a floating point value, nor one formatted as string.", strna(name));
+
+        *d = sd_json_variant_real(variant);
+        return 0;
+}
+
 _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = ASSERT_PTR(userdata);
         int r;
