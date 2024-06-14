@@ -355,6 +355,21 @@ int write_string_filef(
         return write_string_file(fn, p, flags);
 }
 
+int write_base64_file_at(
+                int dir_fd,
+                const char *fn,
+                const struct iovec *data,
+                WriteStringFileFlags flags) {
+
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t n;
+        n = base64mem_full(data ? data->iov_base : NULL, data ? data->iov_len : 0, 79, &encoded);
+        if (n < 0)
+                return n;
+
+        return write_string_file_at(dir_fd, fn, encoded, flags);
+}
+
 int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
