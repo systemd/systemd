@@ -314,7 +314,7 @@ struct ExecContext {
         int private_mounts;
         int mount_apivfs;
         int memory_ksm;
-        bool private_tmp;
+        PrivateTmp private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
