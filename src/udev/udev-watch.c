@@ -192,7 +192,7 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
 
-        r = dirfd = open_mkdir_at(AT_FDCWD, "/run/udev/watch", O_CLOEXEC | O_RDONLY, 0755);
+        r = dirfd = open_mkdir("/run/udev/watch", O_CLOEXEC | O_RDONLY, 0755);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create and open '/run/udev/watch/': %m");
 
