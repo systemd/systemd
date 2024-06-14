@@ -36,6 +36,10 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 
+#ifndef LOOP_SET_BLOCK_SIZE
+#define LOOP_SET_BLOCK_SIZE 0x4C09
+#endif
+
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)
                 return;
