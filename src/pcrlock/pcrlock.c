@@ -147,7 +147,9 @@ typedef enum EventPayloadValid {
 
 struct EventLogRecord {
         EventLog *event_log;
-        uint32_t pcr;
+
+        uint32_t pcr;      /* Either 'pcr' or 'nv_index' are set, but not both. Other one is UINT32_MAX. */
+        uint32_t nv_index;
 
         const char *source;
         char *description;
@@ -176,6 +178,8 @@ struct EventLogRecord {
 
 #define EVENT_LOG_RECORD_IS_FIRMWARE(record) ((record)->firmware_event_type != UINT32_MAX)
 #define EVENT_LOG_RECORD_IS_USERSPACE(record) ((record)->userspace_event_type >= 0)
+#define EVENT_LOG_RECORD_IS_PCR(record) ((record)->pcr != UINT32_MAX)
+#define EVENT_LOG_RECORD_IS_NV_INDEX(record) ((record)->nv_index != UINT32_MAX)
 
 struct EventLogRegisterBank {
         TPM2B_DIGEST observed;
@@ -331,6 +335,8 @@ static EventLogRecord* event_log_record_new(EventLog *el) {
 
         *record = (EventLogRecord) {
                 .event_log = el,
+                .pcr = UINT32_MAX,
+                .nv_index = UINT32_MAX,
                 .firmware_event_type = UINT32_MAX,
                 .userspace_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
                 .event_payload_valid = _EVENT_PAYLOAD_VALID_INVALID,
@@ -998,9 +1004,6 @@ static int event_log_load_firmware(EventLog *el) {
 }
 
 static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *j) {
-        const char *rectype = NULL;
-        sd_json_variant *x, *k;
-        uint64_t u;
         int r;
 
         assert(record);
@@ -1009,23 +1012,44 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
         if (!sd_json_variant_is_object(j))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "record object is not an object.");
 
-        x = sd_json_variant_by_key(j, "pcr");
-        if (!x)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field missing from TPM measurement log file entry.");
-        if (!sd_json_variant_is_unsigned(x))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is not an integer.");
+        sd_json_variant *jp = sd_json_variant_by_key(j, "pcr");
+        sd_json_variant *jn = sd_json_variant_by_key(j, "nv_index");
+        if (jp) {
+                uint64_t u;
+                if (jn)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Both 'pcr' nor 'nv_index' field found in TPM measurement log file entry.");
+                if (!sd_json_variant_is_unsigned(jp))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is not an integer.");
 
-        u = sd_json_variant_unsigned(x);
-        if (u >= TPM2_PCRS_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
-        record->pcr = sd_json_variant_unsigned(x);
+                u = sd_json_variant_unsigned(jp);
+                if (u >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
 
-        x = sd_json_variant_by_key(j, "digests");
+                record->pcr = u;
+                record->nv_index = UINT32_MAX;
+        } else {
+                uint64_t u;
+
+                if (!jn)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Neither 'pcr' nor 'nv_index' field found in TPM measurement log file entry.");
+                if (!sd_json_variant_is_unsigned(jn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is not an integer.");
+
+                u = sd_json_variant_unsigned(jn);
+                if (u >= UINT32_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is out of range.");
+
+                record->nv_index = u;
+                record->pcr = UINT32_MAX;
+        }
+
+        sd_json_variant *x = sd_json_variant_by_key(j, "digests");
         if (!x)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field missing from TPM measurement log file entry.");
         if (!sd_json_variant_is_array(x))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field is not an array.");
 
+        sd_json_variant *k;
         JSON_VARIANT_ARRAY_FOREACH(k, x) {
                 _cleanup_free_ void *hash = NULL;
                 size_t hash_size;
@@ -1062,6 +1086,7 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
                         return log_error_errno(r, "Failed to add bank to event log record: %m");
         }
 
+        const char *rectype = NULL;
         x = sd_json_variant_by_key(j, "content_type");
         if (!x)
                 log_debug("'content_type' missing from TPM measurement log file entry, ignoring.");
@@ -1319,6 +1344,10 @@ static int event_log_calculate_pcrs(EventLog *el) {
                 }
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
+
+                if (!EVENT_LOG_RECORD_IS_PCR(*rr))
+                        continue;
+
                 EventLogRegister *reg = el->registers + (*rr)->pcr;
 
                 for (size_t i = 0; i < el->n_algorithms; i++) {
@@ -1622,6 +1651,9 @@ static int event_log_record_equal(const EventLogRecord *a, const EventLogRecord 
         if (a->pcr != b->pcr)
                 return false;
 
+        if (a->nv_index != b->nv_index)
+                return false;
+
         x = event_log_record_find_bank(a, a->event_log->primary_algorithm);
         y = event_log_record_find_bank(b, b->event_log->primary_algorithm);
         if (!x || !y)
@@ -1819,6 +1851,9 @@ static int event_log_validate_fully_recognized(EventLog *el) {
                 FOREACH_ARRAY(rr, el->records, el->n_records) {
                         EventLogRecord *rec = *rr;
 
+                        if (!EVENT_LOG_RECORD_IS_PCR(rec))
+                                continue;
+
                         if (rec->pcr != pcr)
                                 continue;
 
@@ -1887,8 +1922,13 @@ static uint32_t event_log_component_variant_pcrs(EventLogComponentVariant *i) {
 
         /* returns mask of PCRs touched by this variant */
 
-        FOREACH_ARRAY(rr, i->records, i->n_records)
+        FOREACH_ARRAY(rr, i->records, i->n_records) {
+
+                if (!EVENT_LOG_RECORD_IS_PCR(*rr))
+                        continue;
+
                 mask |= UINT32_C(1) << (*rr)->pcr;
+        }
 
         return mask;
 }
@@ -2088,11 +2128,19 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 EventLogRecord *record = *rr;
 
-                r = table_add_many(table,
-                                   TABLE_UINT32, record->pcr,
-                                   TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
-                                   TABLE_SET_COLOR, color_for_pcr(el, record->pcr),
-                                   TABLE_STRING, tpm2_pcr_index_to_string(record->pcr));
+                if (EVENT_LOG_RECORD_IS_PCR(record))
+                        r = table_add_many(table,
+                                           TABLE_UINT32, record->pcr,
+                                           TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
+                                           TABLE_SET_COLOR, color_for_pcr(el, record->pcr),
+                                           TABLE_STRING, tpm2_pcr_index_to_string(record->pcr));
+                else {
+                        assert(EVENT_LOG_RECORD_IS_NV_INDEX(record));
+                        r = table_add_many(table,
+                                           TABLE_UINT32_HEX_0x, record->nv_index,
+                                           TABLE_EMPTY,
+                                           TABLE_EMPTY);
+                }
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2498,12 +2546,13 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         }
 
         r = sd_json_build(ret,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
-                                       SD_JSON_BUILD_PAIR_VARIANT("digests", ja),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!ct, "content_type", SD_JSON_BUILD_STRING(ct)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!cd, "content", SD_JSON_BUILD_VARIANT(cd))));
+                          SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR_CONDITION(EVENT_LOG_RECORD_IS_PCR(record), "pcr", SD_JSON_BUILD_UNSIGNED(record->pcr)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(EVENT_LOG_RECORD_IS_NV_INDEX(record), "nv_index", SD_JSON_BUILD_UNSIGNED(record->nv_index)),
+                                          SD_JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
+                                          SD_JSON_BUILD_PAIR_VARIANT("digests", ja),
+                                          SD_JSON_BUILD_PAIR_CONDITION(!!ct, "content_type", SD_JSON_BUILD_STRING(ct)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(!!cd, "content", SD_JSON_BUILD_VARIANT(cd))));
         if (r < 0)
                 return log_error_errno(r, "Failed to make CEL record: %m");
 
@@ -3788,69 +3837,6 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, NULL);
 }
 
-static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
-        _cleanup_free_ char *dropped = NULL, *kept = NULL;
-
-        assert(el);
-        assert(pcrs);
-
-        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of three
-         * reasons:
-         *
-         * 1. The PCR value doesn't match the event log
-         * 2. The event log for the PCR contains measurements we don't know responsible components for
-         * 3. The event log for the PCR does not contain measurements for components we know
-         *
-         * This function checks for the three conditions and drops the PCR from the mask.
-         */
-
-        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-
-                if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
-                        continue;
-
-                if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
-                        log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                if (!el->registers[pcr].fully_recognized) {
-                        log_notice("PCR %" PRIu32 " (%s) event log contains unrecognized measurements. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                if (FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr)) {
-                        log_notice("PCR %" PRIu32 " (%s) is touched by component we can't find in event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-                        goto drop;
-                }
-
-                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
-
-                if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
-                        return log_oom();
-
-                continue;
-
-        drop:
-                *pcrs &= ~(UINT32_C(1) << pcr);
-
-                if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
-                        return log_oom();
-        }
-
-        if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
-        else
-                log_debug("No PCRs dropped from protection mask.");
-
-        if (kept)
-                log_notice("PCRs in protection mask: %s", kept);
-        else
-                log_notice("No PCRs kept in protection mask.");
-
-        return 0;
-}
-
 static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
@@ -3919,6 +3905,69 @@ static int verb_unlock_kernel_initrd(int argc, char *argv[], void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
 }
 
+static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
+        _cleanup_free_ char *dropped = NULL, *kept = NULL;
+
+        assert(el);
+        assert(pcrs);
+
+        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of three
+         * reasons:
+         *
+         * 1. The PCR value doesn't match the event log
+         * 2. The event log for the PCR contains measurements we don't know responsible components for
+         * 3. The event log for the PCR does not contain measurements for components we know
+         *
+         * This function checks for the three conditions and drops the PCR from the mask.
+         */
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+
+                if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                if (!el->registers[pcr].fully_recognized) {
+                        log_notice("PCR %" PRIu32 " (%s) event log contains unrecognized measurements. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                if (FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) is touched by component we can't find in event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
+                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+
+                if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
+                        return log_oom();
+
+                continue;
+
+        drop:
+                *pcrs &= ~(UINT32_C(1) << pcr);
+
+                if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
+                        return log_oom();
+        }
+
+        if (dropped)
+                log_notice("PCRs dropped from protection mask: %s", dropped);
+        else
+                log_debug("No PCRs dropped from protection mask.");
+
+        if (kept)
+                log_notice("PCRs in protection mask: %s", kept);
+        else
+                log_notice("No PCRs kept in protection mask.");
+
+        return 0;
+}
+
 static int pcr_prediction_add_result(
                 Tpm2PCRPrediction *context,
                 Tpm2PCRPredictionResult *result,
@@ -3975,6 +4024,9 @@ static int event_log_component_variant_calculate(
 
         FOREACH_ARRAY(rr, variant->records, variant->n_records) {
                 EventLogRecord *rec = *rr;
+
+                if (!EVENT_LOG_RECORD_IS_PCR(rec))
+                        continue;
 
                 if (rec->pcr != pcr)
                         continue;
@@ -4293,34 +4345,12 @@ static int determine_boot_policy_file(char **ret) {
 
         assert(ret);
 
-        r = find_xbootldr_and_warn(
-                        /* root= */ NULL,
-                        /* path= */ NULL,
-                        /* unprivileged_mode= */ false,
-                        &path,
-                        /* ret_uuid= */ NULL,
-                        /* ret_devid= */ NULL);
-        if (r < 0) {
-                if (r != -ENOKEY)
-                        return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
-
-                r = find_esp_and_warn(
-                                /* root= */ NULL,
-                                /* path= */ NULL,
-                                /* unprivileged_mode= */ false,
-                                &path,
-                                /* ret_part= */ NULL,
-                                /* ret_pstart= */ NULL,
-                                /* ret_psize= */ NULL,
-                                /* ret_uuid= */ NULL,
-                                /* ret_devid= */ NULL);
-                if (r < 0) {
-                        if (r != -ENOKEY)
-                                return log_error_errno(r, "Failed to find ESP partition: %m");
-
-                        *ret = NULL;
-                        return 0; /* not found! */
-                }
+        r = get_global_boot_credentials_path(&path);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = NULL;
+                return 0; /* not found! */
         }
 
         r = sd_id128_get_machine(&machine_id);
@@ -4329,7 +4359,7 @@ static int determine_boot_policy_file(char **ret) {
 
         r = boot_entry_token_ensure(
                         /* root= */ NULL,
-                        "/etc/kernel",
+                        /* conf_root= */ NULL,
                         machine_id,
                         /* machine_id_is_random = */ false,
                         &arg_entry_token_type,
@@ -4344,7 +4374,7 @@ static int determine_boot_policy_file(char **ret) {
         if (!filename_is_valid(fn))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fn);
 
-        joined = path_join(path, "loader/credentials", fn);
+        joined = path_join(path, fn);
         if (!joined)
                 return log_oom();
 
@@ -4391,15 +4421,10 @@ static int write_boot_policy_file(const char *json_text) {
         if (r < 0)
                 return log_error_errno(r, "Failed to encode policy as credential: %m");
 
-        _cleanup_free_ char *base64_buf = NULL;
-        ssize_t base64_size;
-        base64_size = base64mem_full(encoded.iov_base, encoded.iov_len, 79, &base64_buf);
-        if (base64_size < 0)
-                return base64_size;
-
-        r = write_string_file(
+        r = write_base64_file_at(
+                        AT_FDCWD,
                         boot_policy_file,
-                        base64_buf,
+                        &encoded,
                         WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot policy file to '%s': %m", boot_policy_file);
@@ -4869,7 +4894,7 @@ static int undefine_policy_nv_index(
         if (r < 0)
                 return r;
 
-        r = tpm2_undefine_policy_nv_index(
+        r = tpm2_undefine_nv_index(
                         tc,
                         encryption_session,
                         nv_index,

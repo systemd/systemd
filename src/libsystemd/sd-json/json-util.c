@@ -27,6 +27,24 @@ int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_
         return 0;
 }
 
+int json_dispatch_unhex_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_free_ void *buffer = NULL;
+        struct iovec *iov = ASSERT_PTR(userdata);
+        size_t sz;
+        int r;
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = sd_json_variant_unhex(variant, &buffer, &sz);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not valid hex data.", strna(name));
+
+        free_and_replace(iov->iov_base, buffer);
+        iov->iov_len = sz;
+        return 0;
+}
+
 int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_free_ uint8_t *buffer = NULL;
         struct iovec *iov = ASSERT_PTR(userdata);
