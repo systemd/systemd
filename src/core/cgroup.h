@@ -495,7 +495,7 @@ int unit_reset_accounting(Unit *u);
         })
 
 bool manager_owns_host_root_cgroup(Manager *m);
-bool unit_has_host_root_cgroup(Unit *u);
+bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
