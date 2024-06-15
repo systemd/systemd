@@ -1001,12 +1001,25 @@
       <varlistentry>
         <term><varname>EtherType=</varname></term>
         <listitem>
-          <para>Specifies the L3 protocol. Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>mpls-uc</literal>
-          or <literal>mpls-mc</literal>. This is mandatory.</para>
+          <para>Specifies the L3 protocol. ethertype can be given as plain Ethernet protocol number or using
+          the protocol name ("ipv4", "ipv6", "mpls_uc", etc.). Takes one of <literal>ipv4</literal>,
+          <literal>ipv6</literal>, <literal>mpls-uc</literal> or <literal>mpls-mc</literal>. This is mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MultiProtocolMode=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, activates support for protocols similar to the one specified by <literal>EtherType=</literal>.
+          When <literal>EtherType=</literal> is <literal>mpls_uc</literal>, allows the tunnel to also handle multicast MPLS. When ethertype
+          is <literal>ipv4</literal>, allows the tunnel to also handle IPv6. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
