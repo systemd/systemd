@@ -542,6 +542,14 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        if (link->network->router_mtu > 0) {
+                r = sd_radv_set_mtu(link->radv, link->network->router_mtu);
+                if (r < 0)
+                        return r;
+
+                link->have_radv_mtu = true;
+        }
+
         r = sd_radv_set_preference(link->radv, link->network->router_preference);
         if (r < 0)
                 return r;
