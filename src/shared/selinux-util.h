@@ -14,9 +14,8 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #else
-static inline char* freeconp(char **p) {
+static inline void freeconp(char **p) {
         assert(*p == NULL);
-        return NULL;
 }
 #endif
 
