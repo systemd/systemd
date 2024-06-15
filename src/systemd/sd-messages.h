@@ -209,6 +209,8 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_POWER_KEY_STR                      SD_ID128_MAKE_STR(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,71)
 #define SD_MESSAGE_POWER_KEY_LONG_PRESS               SD_ID128_MAKE(3e,01,17,10,1e,b2,43,c1,b9,a5,0d,b3,49,4a,b1,0b)
 #define SD_MESSAGE_POWER_KEY_LONG_PRESS_STR           SD_ID128_MAKE_STR(3e,01,17,10,1e,b2,43,c1,b9,a5,0d,b3,49,4a,b1,0b)
+#define SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS         SD_ID128_MAKE(b2,bc,ba,f5,ed,f9,48,e0,93,ce,50,bb,ea,0e,81,ec)
+#define SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR     SD_ID128_MAKE_STR(b2,bc,ba,f5,ed,f9,48,e0,93,ce,50,bb,ea,0e,81,ec)
 #define SD_MESSAGE_REBOOT_KEY                         SD_ID128_MAKE(9f,a9,d2,c0,12,13,4e,c3,85,45,1f,fe,31,6f,97,d0)
 #define SD_MESSAGE_REBOOT_KEY_STR                     SD_ID128_MAKE_STR(9f,a9,d2,c0,12,13,4e,c3,85,45,1f,fe,31,6f,97,d0)
 #define SD_MESSAGE_REBOOT_KEY_LONG_PRESS              SD_ID128_MAKE(f1,c5,9a,58,c9,d9,43,66,89,65,c3,37,ca,ec,59,75)
