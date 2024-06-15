@@ -1872,12 +1872,11 @@ int dns_packet_read_rr(
                                 if (r < 0)
                                         return r;
 
-                                i = malloc0(offsetof(DnsTxtItem, data) + sz + 1); /* extra NUL byte at the end */
-                                if (!i)
-                                        return -ENOMEM;
-
+                                r = dns_txt_item_new(&i, sz);
+                                if(r < 0)
+                                        return r;
                                 memcpy(i->data, data, sz);
-                                i->length = sz;
+
 
                                 LIST_INSERT_AFTER(items, rr->txt.items, last, i);
                                 last = i;

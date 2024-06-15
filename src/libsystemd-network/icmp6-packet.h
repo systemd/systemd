@@ -14,7 +14,7 @@ typedef struct ICMP6Pakcet {
         struct triple_timestamp timestamp;
 
         size_t raw_size;
-        uint8_t raw_packet[];
+        uint8_t raw_packet[] _counted_by_(raw_size);
 } ICMP6Packet;
 
 ICMP6Packet* icmp6_packet_ref(ICMP6Packet *p);
