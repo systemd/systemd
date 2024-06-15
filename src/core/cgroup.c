@@ -102,8 +102,9 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                c->startup_memory_low_set;
 }
 
-bool unit_has_host_root_cgroup(Unit *u) {
+bool unit_has_host_root_cgroup(const Unit *u) {
         assert(u);
+        assert(u->manager);
 
         /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
          * the manager manages the root cgroup. */
