@@ -517,9 +517,9 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
                 }                                                       \
         }
 
-/* Restriction/bug (see above) was fixed in GCC 15 and clang 19.*/
+/* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
-#define DECLARE_FLEX_ARRAY(type, name) type name[];
+#define DECLARE_FLEX_ARRAY(type, name) type name[]
 #else
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
