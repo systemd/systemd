@@ -4151,7 +4151,6 @@ static int help(void) {
                "     --tldr                 Show non-comment parts of configuration\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
-               "     --purge                Delete all files owned by the configuration files\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -4180,7 +4179,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
-                ARG_PURGE,
                 ARG_BOOT,
                 ARG_GRACEFUL,
                 ARG_PREFIX,
@@ -4202,7 +4200,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
-                { "purge",          no_argument,         NULL, ARG_PURGE          },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
                 { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
@@ -4257,10 +4254,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
-                        break;
-
-                case ARG_PURGE:
-                        arg_operation |= OPERATION_PURGE;
                         break;
 
                 case ARG_GRACEFUL:
@@ -4336,7 +4329,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "You need to specify at least one of --clean, --create, --remove, or --purge.");
+                                       "You need to specify at least one of --clean, --create, --remove.");
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
