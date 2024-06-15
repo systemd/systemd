@@ -683,9 +683,6 @@ CHANGES WITH 256:
         * 'systemd-analyze --json=…' is supported for 'architectures',
           'capability', 'exit-status'.
 
-        * 'systemd-tmpfiles --purge' will purge (remove) all files and
-          directories created via tmpfiles.d configuration.
-
         * systemd-id128 gained new options --no-pager, --no-legend, and
           -j/--json=.
 
