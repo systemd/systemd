@@ -321,22 +321,21 @@ oom:
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
+        int r;
 
         length = strlen(key);
 
         if (!isempty(value))
                 length += strlen(value) + 1; /* length of value plus '=' */
 
-        i = malloc0(offsetof(DnsTxtItem, data) + length + 1); /* for safety reasons we add an extra NUL byte */
-        if (!i)
-                return -ENOMEM;
-
+        r = dns_txt_item_new(&i, length);
+        if (r < 0)
+                return r;
         memcpy(i->data, key, strlen(key));
         if (!isempty(value)) {
                 memcpy(i->data + strlen(key), "=", 1);
                 memcpy(i->data + strlen(key) + 1, value, strlen(value));
         }
-        i->length = length;
 
         *ret_item = TAKE_PTR(i);
 
@@ -346,22 +345,21 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
 int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t size, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
+        int r;
 
         length = strlen(key);
 
         if (size > 0)
                 length += size + 1; /* size of date plus '=' */
 
-        i = malloc0(offsetof(DnsTxtItem, data) + length + 1); /* for safety reasons we add an extra NUL byte */
-        if (!i)
-                return -ENOMEM;
-
+        r = dns_txt_item_new(&i, length);
+        if (r < 0)
+                return r;
         memcpy(i->data, key, strlen(key));
         if (size > 0) {
                 memcpy(i->data + strlen(key), "=", 1);
                 memcpy(i->data + strlen(key) + 1, data, size);
         }
-        i->length = length;
 
         *ret_item = TAKE_PTR(i);
 
