@@ -7,12 +7,44 @@
 import argparse
 import json
 import os
+import platform
 import shlex
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
 
+
+uefi_arches = (
+    "x86_64",
+    "i386",
+    "i486",
+    "i586",
+    "i686",
+    "aarch64",
+    "aarch64_be",
+    "armv8l",
+    "armv8b",
+    "armv7ml",
+    "armv7mb",
+    "armv7l",
+    "armv7b",
+    "armv6l",
+    "armv6b",
+    "armv5tl",
+    "armv5tel",
+    "armv5tejl",
+    "armv5tejb",
+    "armv5teb",
+    "armv5tb",
+    "armv4tl",
+    "armv4tb",
+    "armv4l",
+    "armv4b",
+    "riscv64",
+    "riscv32",
+    "risc",
+)
 
 EMERGENCY_EXIT_DROPIN = """\
 [Unit]
@@ -61,6 +93,10 @@ def main():
     if args.vm and not os.path.exists("/dev/kvm"):
         print(f"/dev/kvm is not available, skipping {args.name}", file=sys.stderr)
         exit(77)
+
+    # Do not attempt to run on UEFI if not on an architecture that supports it
+    if args.firware == "uefi" and platform.machine() not in uefi_arches:
+        args.firmware = "linux"
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
