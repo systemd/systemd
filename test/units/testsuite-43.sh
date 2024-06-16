@@ -11,6 +11,8 @@ if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; the
     exit 77
 fi
 
+install_extension_images
+
 systemd-analyze log-level debug
 
 runas testuser systemd-run --wait --user --unit=test-private-users \
