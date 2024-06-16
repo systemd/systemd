@@ -489,8 +489,6 @@ static void service_done(Unit *u) {
                 s->bus_name = mfree(s->bus_name);
         }
 
-        s->bus_name_owner = mfree(s->bus_name_owner);
-
         s->usb_function_descriptors = mfree(s->usb_function_descriptors);
         s->usb_function_strings = mfree(s->usb_function_strings);
 
@@ -2967,7 +2965,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_bool(f, "main-pid-known", s->main_pid_known);
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
-        (void) serialize_bool(f, "bus-name-owner", s->bus_name_owner);
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
         (void) serialize_bool(f, "flush-n-restarts", s->flush_n_restarts);
@@ -3221,11 +3218,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse bus-name-good value: %s", value);
                 else
                         s->bus_name_good = b;
-        } else if (streq(key, "bus-name-owner")) {
-                r = free_and_strdup(&s->bus_name_owner, value);
-                if (r < 0)
-                        log_unit_error_errno(u, r, "Unable to deserialize current bus owner %s: %m", value);
-
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
 
@@ -4708,17 +4700,8 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
 
         s->bus_name_good = new_owner;
 
-        /* Track the current owner, so we can reconstruct changes after a daemon reload */
-        r = free_and_strdup(&s->bus_name_owner, new_owner);
-        if (r < 0) {
-                log_unit_error_errno(u, r, "Unable to set new bus name owner %s: %m", new_owner);
-                return;
-        }
-
         if (s->type == SERVICE_DBUS) {
-
-                /* service_enter_running() will figure out what to
-                 * do */
+                /* service_enter_running() will figure out what to do */
                 if (s->state == SERVICE_RUNNING)
                         service_enter_running(s, SERVICE_SUCCESS);
                 else if (s->state == SERVICE_START && new_owner)
