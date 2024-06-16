@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 '''Test wrapper command for driving integration tests.
-
-Note: This is deliberately rough and only intended to drive existing tests
-with the expectation that as part of formally defining the API it will be tidy.
-
 '''
 
 import argparse
