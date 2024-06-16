@@ -3203,21 +3203,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         (void) service_set_main_pidref(s, pidref, /* start_timestamp = */ NULL);
 
         } else if (streq(key, "main-pid-known")) {
-                int b;
-
-                b = parse_boolean(value);
-                if (b < 0)
-                        log_unit_debug(u, "Failed to parse main-pid-known value: %s", value);
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug(u, r, "Failed to parse main-pid-known value: %s", value);
                 else
-                        s->main_pid_known = b;
+                        s->main_pid_known = r;
         } else if (streq(key, "bus-name-good")) {
-                int b;
-
-                b = parse_boolean(value);
-                if (b < 0)
-                        log_unit_debug(u, "Failed to parse bus-name-good value: %s", value);
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug(u, r, "Failed to parse bus-name-good value: %s", value);
                 else
-                        s->bus_name_good = b;
+                        s->bus_name_good = r;
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
 
