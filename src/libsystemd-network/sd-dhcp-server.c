@@ -271,7 +271,7 @@ int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name
 int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filename) {
         assert_return(server, -EINVAL);
 
-        if (filename && (!string_is_safe(filename) || !ascii_is_valid(filename)))
+        if (filename && !string_is_safe_ascii(filename))
                 return -EINVAL;
 
         return free_and_strdup(&server->boot_filename, filename);
