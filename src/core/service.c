@@ -1043,6 +1043,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
 
+        if (s->status_errno > 0)
+                fprintf(f, "%sStatus Errno: %s\n",
+                        prefix, STRERROR(s->status_errno));
+
         if (s->n_fd_store_max > 0)
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
@@ -3034,6 +3038,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        (void) serialize_item_format(f, "status-errno", "%d", s->status_errno);
+
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
         (void) serialize_usec(f, "watchdog-original-usec", s->watchdog_original_usec);
@@ -3367,6 +3373,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug_errno(u, l, "Failed to unescape status text '%s': %m", value);
                 else
                         free_and_replace(s->status_text, t);
+
+        } else if (streq(key, "status-errno")) {
+                int i;
+
+                if (safe_atoi(value, &i) < 0)
+                        log_unit_debug(u, "Failed to parse status-errno value: %s", value);
+                else
+                        s->status_errno = i;
 
         } else if (streq(key, "watchdog-timestamp"))
                 deserialize_dual_timestamp(value, &s->watchdog_timestamp);
