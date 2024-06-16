@@ -61,6 +61,13 @@ def main():
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    # Skip if --vm is passed but /dev/kvm is not available, as the test run would be too slow, unless
+    # explicitly requested.
+    kvm = "auto" if int(os.getenv("SYSTEMD_INTEGRATION_TESTS_KVM", "-1")) != 0 else "no"
+    if kvm == "auto" and args.vm and not os.path.exists("/dev/kvm"):
+        print(f"/dev/kvm is not available, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
@@ -128,6 +135,7 @@ def main():
         *args.mkosi_args,
         '--append',
         '--qemu-firmware', args.firmware,
+        '--qemu-kvm', kvm,
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
