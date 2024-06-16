@@ -6,8 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-install_extension_images
-
 if systemd-detect-virt --vm --quiet && [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
     sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
     sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -16,6 +14,8 @@ if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; the
     echo "Cannot create unprivileged user namespaces" >/skipped
     exit 77
 fi
+
+install_extension_images
 
 systemd-analyze log-level debug
 
