@@ -2967,10 +2967,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
         (void) serialize_bool(f, "flush-n-restarts", s->flush_n_restarts);
-
-        r = serialize_item_escaped(f, "status-text", s->status_text);
-        if (r < 0)
-                return r;
+        (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         service_serialize_exec_command(u, f, s->control_command);
         service_serialize_exec_command(u, f, s->main_command);
@@ -3033,17 +3030,17 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->notify_access_override >= 0)
                 (void) serialize_item(f, "notify-access-override", notify_access_to_string(s->notify_access_override));
 
+        r = serialize_item_escaped(f, "status-text", s->status_text);
+        if (r < 0)
+                return r;
+
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
-        (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
+        (void) serialize_usec(f, "watchdog-original-usec", s->watchdog_original_usec);
         if (s->watchdog_override_enable)
-                (void) serialize_item_format(f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
+                (void) serialize_usec(f, "watchdog-override-usec", s->watchdog_override_usec);
 
-        if (s->watchdog_original_usec != USEC_INFINITY)
-                (void) serialize_item_format(f, "watchdog-original-usec", USEC_FMT, s->watchdog_original_usec);
-
-        if (s->reload_begin_usec != USEC_INFINITY)
-                (void) serialize_item_format(f, "reload-begin-usec", USEC_FMT, s->reload_begin_usec);
+        (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
 
         return 0;
 }
@@ -3222,15 +3219,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 r = free_and_strdup(&s->bus_name_owner, value);
                 if (r < 0)
                         log_unit_error_errno(u, r, "Unable to deserialize current bus owner %s: %m", value);
-        } else if (streq(key, "status-text")) {
-                char *t;
-                ssize_t l;
-
-                l = cunescape(value, 0, &t);
-                if (l < 0)
-                        log_unit_debug_errno(u, l, "Failed to unescape status text '%s': %m", value);
-                else
-                        free_and_replace(s->status_text, t);
 
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
@@ -3309,7 +3297,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "main-exec-status-handoff"))
                 deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
-        else if (streq(key, "notify-access-override")) {
+        else if (STR_IN_SET(key, "main-command", "control-command")) {
+                r = service_deserialize_exec_command(u, key, value);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse serialized command \"%s\": %m", value);
+        } else if (streq(key, "notify-access-override")) {
                 NotifyAccess notify_access;
 
                 notify_access = notify_access_from_string(value);
@@ -3317,16 +3309,23 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse notify-access-override value: %s", value);
                 else
                         s->notify_access_override = notify_access;
-        } else if (streq(key, "watchdog-timestamp"))
-                deserialize_dual_timestamp(value, &s->watchdog_timestamp);
-        else if (streq(key, "forbid-restart")) {
-                int b;
+        } else if (streq(key, "n-restarts")) {
+                r = safe_atou(value, &s->n_restarts);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
 
-                b = parse_boolean(value);
-                if (b < 0)
-                        log_unit_debug(u, "Failed to parse forbid-restart value: %s", value);
+        } else if (streq(key, "flush-n-restarts")) {
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse serialized flush restart counter setting '%s': %m", value);
                 else
-                        s->forbid_restart = b;
+                        s->flush_n_restarts = r;
+        } else if (streq(key, "forbid-restart")) {
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse forbid-restart value: %s", value);
+                else
+                        s->forbid_restart = r;
         } else if (streq(key, "stdin-fd")) {
 
                 asynchronous_close(s->stdin_fd);
@@ -3359,37 +3358,27 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                                 TAKE_FD(fd);
                 }
 
-        } else if (streq(key, "watchdog-override-usec")) {
-                if (deserialize_usec(value, &s->watchdog_override_usec) < 0)
-                        log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
+        } else if (streq(key, "status-text")) {
+                char *t;
+                ssize_t l;
+
+                l = cunescape(value, 0, &t);
+                if (l < 0)
+                        log_unit_debug_errno(u, l, "Failed to unescape status text '%s': %m", value);
                 else
+                        free_and_replace(s->status_text, t);
+
+        } else if (streq(key, "watchdog-timestamp"))
+                deserialize_dual_timestamp(value, &s->watchdog_timestamp);
+        else if (streq(key, "watchdog-original-usec"))
+                deserialize_usec(value, &s->watchdog_original_usec);
+        else if (streq(key, "watchdog-override-usec")) {
+                if (deserialize_usec(value, &s->watchdog_override_usec) >= 0)
                         s->watchdog_override_enable = true;
 
-        } else if (streq(key, "watchdog-original-usec")) {
-                if (deserialize_usec(value, &s->watchdog_original_usec) < 0)
-                        log_unit_debug(u, "Failed to parse watchdog_original_usec value: %s", value);
-
-        } else if (STR_IN_SET(key, "main-command", "control-command")) {
-                r = service_deserialize_exec_command(u, key, value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized command \"%s\": %m", value);
-
-        } else if (streq(key, "n-restarts")) {
-                r = safe_atou(value, &s->n_restarts);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
-
-        } else if (streq(key, "flush-n-restarts")) {
-                r = parse_boolean(value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized flush restart counter setting '%s': %m", value);
-                else
-                        s->flush_n_restarts = r;
-        } else if (streq(key, "reload-begin-usec")) {
-                r = deserialize_usec(value, &s->reload_begin_usec);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized reload begin timestamp '%s', ignoring: %m", value);
-        } else
+        } else if (streq(key, "reload-begin-usec"))
+                deserialize_usec(value, &s->reload_begin_usec);
+        else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
