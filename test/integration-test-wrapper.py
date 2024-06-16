@@ -61,6 +61,11 @@ def main():
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    # Skip if --vm is passed but /dev/kvm is not available, as the test run would be too slow
+    if args.vm and not os.path.exists("/dev/kvm"):
+        print(f"/dev/kvm is not available, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
