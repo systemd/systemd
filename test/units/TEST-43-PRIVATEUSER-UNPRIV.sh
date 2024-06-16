@@ -8,6 +8,10 @@ set -o pipefail
 
 install_extension_images
 
+if systemd-detect-virt --vm --quiet && [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
+    sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+    sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+fi
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
     echo "Cannot create unprivileged user namespaces" >/skipped
     exit 77
