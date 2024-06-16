@@ -2081,11 +2081,6 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(link->network);
 
-        /* Do not start DHCPv6 client if the router lifetime is zero, as the message sent as a signal of
-         * that the router is e.g. shutting down, revoked, etc,. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         switch (link->network->ndisc_start_dhcp6_client) {
         case IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO:
