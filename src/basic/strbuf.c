@@ -27,41 +27,40 @@
  */
 
 struct strbuf* strbuf_new(void) {
-        struct strbuf *str;
+        _cleanup_(strbuf_freep) struct strbuf *str = NULL;
 
         str = new(struct strbuf, 1);
         if (!str)
                 return NULL;
+
         *str = (struct strbuf) {
                 .buf = new0(char, 1),
                 .root = new0(struct strbuf_node, 1),
                 .len = 1,
                 .nodes_count = 1,
         };
-        if (!str->buf || !str->root) {
-                free(str->buf);
-                free(str->root);
-                return mfree(str);
-        }
+        if (!str->buf || !str->root)
+                return NULL;
 
-        return str;
+        return TAKE_PTR(str);
 }
 
 static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
-        size_t i;
+        assert(node);
 
-        for (i = 0; i < node->children_count; i++)
-                strbuf_node_cleanup(node->children[i].child);
+        FOREACH_ARRAY(child, node->children, node->children_count)
+                strbuf_node_cleanup(child->child);
+
         free(node->children);
         return mfree(node);
 }
 
 /* clean up trie data, leave only the string buffer */
 void strbuf_complete(struct strbuf *str) {
-        if (!str)
+        if (!str || !str->root)
                 return;
-        if (str->root)
-                str->root = strbuf_node_cleanup(str->root);
+
+        str->root = strbuf_node_cleanup(str->root);
 }
 
 /* clean up everything */
@@ -74,9 +73,11 @@ struct strbuf* strbuf_free(struct strbuf *str) {
         return mfree(str);
 }
 
-static int strbuf_children_cmp(const struct strbuf_child_entry *n1,
-                               const struct strbuf_child_entry *n2) {
-        return n1->c - n2->c;
+static int strbuf_children_cmp(const struct strbuf_child_entry *n1, const struct strbuf_child_entry *n2) {
+        assert(n1);
+        assert(n2);
+
+        return CMP(n1->c, n2->c);
 }
 
 static void bubbleinsert(struct strbuf_node *node,
