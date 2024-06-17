@@ -537,6 +537,29 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <para><command>systemd-run</command> recognizes the following environment variables, among others:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>SYSTEMD_TINT_BACKGROUND</varname></term>
+        <listitem><para>When set to 0, disables terminal background color tinting when a privileged command
+        is run with <option>--pty</option>.
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SYSTEMD_RUN_SET_TITLE</varname></term>
+        <listitem><para>When set to 0, disables setting the terminal title when <option>--pty</option> is
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
 
     <para>On success, 0 is returned. If <command>systemd-run</command> failed to start the service, a
