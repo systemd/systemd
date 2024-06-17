@@ -8,20 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM SRK Setup
-Documentation=man:systemd-tpm2-setup.service(8)
+Description=TPM PCR Product ID Measurement
+Documentation=man:systemd-pcrproduct.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=tpm2.target systemd-tpm2-setup-early.service systemd-remount-fs.service
+After=tpm2.target
 Before=sysinit.target shutdown.target
-RequiresMountsFor=/var/lib/systemd
-ConditionSecurity=measured-uki
+RequiresMountsFor=/var/lib/systemd/nvpcrs
 ConditionPathExists=!/etc/initrd-release
+ConditionSecurity=measured-uki
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --graceful
-
-# The tool returns 76 if the TPM cannot be accessed due to an authorization failure and we can't generate an SRK.
-SuccessExitStatus=76
+ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful --product-id --allocate
