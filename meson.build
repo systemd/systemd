@@ -856,6 +856,9 @@ if conf.get('SYSTEM_ALLOC_GID_MIN') >= conf.get('SYSTEM_GID_MAX')
         error('Invalid gid allocation range')
 endif
 
+copy_buffer_kilobytes = get_option('copy-buffer-kilobytes')
+conf.set('COPY_BUFFER_KILOBYTES', copy_buffer_kilobytes)
+
 dynamic_uid_min = get_option('dynamic-uid-min')
 dynamic_uid_max = get_option('dynamic-uid-max')
 conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
