@@ -5824,6 +5824,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('pref high', output)
         self.assertNotIn('pref low', output)
 
+    # radvd supports captive portal since v2.20.
+    # https://github.com/radvd-project/radvd/commit/791179a7f730decbddb2290ef0e34aa85d71b1bc
     @unittest.skipUnless(radvd_check_config('captive-portal.conf'), "Installed radvd doesn't support captive portals")
     def test_captive_portal(self):
         copy_network_unit('25-veth-client.netdev',
