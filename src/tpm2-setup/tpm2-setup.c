@@ -6,6 +6,7 @@
 #include "sd-messages.h"
 
 #include "build.h"
+#include "creds-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -14,6 +15,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
@@ -39,7 +41,7 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...]\n"
-               "\n%5$sSet up the TPM2 Storage Root Key (SRK).%6$s\n"
+               "\n%5$sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -250,21 +252,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int setup_srk(void) {
         int r;
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
-                log_notice("No complete TPM2 support detected, exiting gracefully.");
-                return EXIT_SUCCESS;
-        }
-
-        umask(0022);
 
         _cleanup_(public_key_data_done) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
 
@@ -392,6 +381,267 @@ static int run(int argc, char *argv[]) {
 
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;
+}
+
+typedef struct SetupNvPCRContext {
+        Tpm2Context *tpm2_context;
+        struct iovec anchor_secret;
+        size_t n_already, n_anchored;
+        Set *done;
+} SetupNvPCRContext;
+
+static void setup_nvpcr_context_done(SetupNvPCRContext *c) {
+        assert(c);
+
+        iovec_done_erase(&c->anchor_secret);
+        c->tpm2_context = tpm2_context_unref(c->tpm2_context);
+        c->done = set_free(c->done);
+}
+
+static int setup_nvpcr_one(
+                SetupNvPCRContext *c,
+                const char *name,
+                struct iovec *text) {
+        int r;
+
+        assert(c);
+        assert(name);
+        assert(text);
+
+        if (set_contains(c->done, name))
+                return 0;
+
+        /* Check that this can be used as valid C string, i.e. contains no NUL byte */
+        _cleanup_free_ char *s = NULL;
+        r = make_cstring(text->iov_base, text->iov_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &s);
+        if (r < 0)
+                return log_error_errno(r, "NvPCR JSON data contains NUL byte, refusing.");
+
+        if (!c->tpm2_context) {
+                r = tpm2_context_new_or_warn(arg_tpm2_device, &c->tpm2_context);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tpm2_nvpcr_initialize_raw(c->tpm2_context, /* session= */ NULL, s, &c->anchor_secret, /* sync_secondary= */ !arg_early);
+        if (r == -EUNATCH) {
+                assert(!iovec_is_set(&c->anchor_secret));
+
+                /* If we get EUNATCH this means we actually need to initialize this NvPCR
+                 * now, and haven't provided the anchor secret yet. Hence acquire it now. */
+
+                r = tpm2_nvpcr_acquire_anchor_secret(&c->anchor_secret, /* sync_secondary= */ !arg_early);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire anchor secret: %m");
+
+                r = tpm2_nvpcr_initialize_raw(c->tpm2_context, /* session= */ NULL, s, &c->anchor_secret, /* sync_secondary= */ !arg_early);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to extend NvPCR index with anchor secret: %m");
+
+        if (r > 0)
+                c->n_anchored++;
+        else
+                c->n_already++;
+
+        if (set_put_strdup(&c->done, name) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int setup_nvpcr_credentials(SetupNvPCRContext *c) {
+        int r, ret = 0;
+
+        assert(c);
+
+        /* Iterates through all NvPCR definitions we find in the system credentials and initializes them. */
+
+        const char *dp;
+        r = get_encrypted_system_credentials_dir(&dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
+
+        _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No encrypted system credentials passed.");
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to open system credentials directory.");
+        }
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate system credentials: %m");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                struct dirent *d = *i;
+
+                if ((*i)->d_type != DT_REG)
+                        continue;
+
+                const char *e = startswith_no_case(d->d_name, "nvpcr."); /* VFAT is case-insensitive, hence don't be too strict here */
+                if (!e)
+                        continue;
+
+                _cleanup_(iovec_done) struct iovec credential = {};
+                r = read_full_file_full(
+                                dfd,
+                                d->d_name,
+                                /* offset= */ UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &credential.iov_base,
+                                &credential.iov_len);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to read NvPCR credential file '%s/%s', skipping: %m", dp, d->d_name));
+                        continue;
+                }
+
+                _cleanup_(iovec_done) struct iovec plaintext = {};
+                r = decrypt_credential_and_warn(
+                                d->d_name,
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                /* uid= */ UID_INVALID,
+                                &credential,
+                                CREDENTIAL_ALLOW_NULL, /* These are not actually supposed to be encrypted */
+                                &plaintext);
+                if (r < 0) {
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to decode NvPCR credential file '%s/%s' passed in as system credential, skipping: %m", dp, d->d_name));
+                        continue;
+                }
+
+                r = setup_nvpcr_one(c, e, &plaintext);
+                if (r < 0)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to initialize NvPCR from credential file '%s/%s', skipping: %m", dp, d->d_name));
+        }
+
+        return ret;
+}
+
+static int setup_nvpcr_dir(SetupNvPCRContext *c, const char *path) {
+        int r, ret = 0;
+
+        assert(c);
+
+        /* Iterates through all NvPCR definitions we find in /var/lib/systemd/nvpcr/ or /run/systemd/nvpcr/
+         * and initializes them. */
+
+        _cleanup_close_ int dfd = open(path, O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No NvPCR definitions found in '%s'.", path);
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+        }
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &de);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read directory '%s': %m", path);
+
+        _cleanup_(iovec_done_erase) struct iovec anchor_secret = {};
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const char *e;
+
+                if ((*i)->d_type != DT_REG)
+                        continue;
+
+                e = endswith((*i)->d_name, ".nvpcr");
+                if (!e)
+                        continue;
+
+                _cleanup_(iovec_done) struct iovec data = {};
+                r = read_full_file_full(
+                                dfd,
+                                (*i)->d_name,
+                                /* offset= */ UINT64_MAX,
+                                SIZE_MAX,
+                                /* flags= */ 0,
+                                /* bind_name= */ NULL,
+                                (char**) &data.iov_base,
+                                &data.iov_len);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to read NvPCR file '%s/%s', skipping: %m", path, (*i)->d_name));
+                        continue;
+                }
+
+                _cleanup_free_ char *n = strndup((*i)->d_name, e - (*i)->d_name);
+                if (!n)
+                        return log_oom();
+
+                r = setup_nvpcr_one(c, n, &data);
+                if (r < 0)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to initialize NvPCR from NvPCR file '%s/%s', skipping: %m", path, (*i)->d_name));
+        }
+
+        return ret;
+}
+
+static int setup_nvpcr(void) {
+        _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
+        int r = 0;
+
+        /* First, acquire the anchor secret */
+        r = tpm2_nvpcr_acquire_anchor_secret(&c.anchor_secret, /* sync_secondary= */ arg_early);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire anchor secret: %m");
+
+        /* Second, set up NvPCRs rom /run/systemd/nvpcr data */
+        RET_GATHER(r, setup_nvpcr_dir(&c, "/run/systemd/nvpcr"));
+
+        /* Third, set up NvPCRs rom /var/lib/systemd/nvpcr data */
+        if (!arg_early)
+                RET_GATHER(r, setup_nvpcr_dir(&c, "/var/lib/systemd/nvpcr"));
+
+        /* Fourth, set up NvPCR from system credentials */
+        RET_GATHER(r, setup_nvpcr_credentials(&c));
+
+        if (c.n_anchored > 0) {
+                if (c.n_already == 0)
+                        log_info("%zu NvPCRs initialized.", c.n_anchored);
+                else
+                        log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
+        } else if (c.n_already > 0)
+                log_info("%zu NvPCRs already initialized.", c.n_already);
+        else
+                log_debug("No NvPCRs defined, nothing initialized.");
+
+        return r;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
+
+        umask(0022);
+
+        r = setup_srk();
+        RET_GATHER(r, setup_nvpcr());
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

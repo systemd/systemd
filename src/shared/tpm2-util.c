@@ -3,6 +3,8 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "bootspec.h"
+#include "boot-entry.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -35,6 +37,7 @@
 #include "string-table.h"
 #include "sync-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
 
@@ -61,6 +64,9 @@ static DLSYM_PROTOTYPE(Esys_Initialize) = NULL;
 static DLSYM_PROTOTYPE(Esys_Load) = NULL;
 static DLSYM_PROTOTYPE(Esys_LoadExternal) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_DefineSpace) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_Extend) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_Read) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_ReadPublic) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_UndefineSpace) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_Write) = NULL;
 static DLSYM_PROTOTYPE(Esys_PCR_Extend) = NULL;
@@ -135,6 +141,9 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_LoadExternal),
                         DLSYM_ARG(Esys_NV_DefineSpace),
+                        DLSYM_ARG(Esys_NV_Extend),
+                        DLSYM_ARG(Esys_NV_Read),
+                        DLSYM_ARG(Esys_NV_ReadPublic),
                         DLSYM_ARG(Esys_NV_UndefineSpace),
                         DLSYM_ARG(Esys_NV_Write),
                         DLSYM_ARG(Esys_PCR_Extend),
@@ -5943,7 +5952,7 @@ int tpm2_write_policy_nv_index(
         return 0;
 }
 
-int tpm2_undefine_policy_nv_index(
+int tpm2_undefine_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
@@ -5958,14 +5967,191 @@ int tpm2_undefine_policy_nv_index(
                         c->esys_context,
                         /* authHandle= */ ESYS_TR_RH_OWNER,
                         /* nvIndex= */ nv_handle->esys_handle,
-                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_NONE,
+                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
                         /* shandle2= */ ESYS_TR_NONE,
                         /* shandle3= */ ESYS_TR_NONE);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to undefine NV index: %s", sym_Tss2_RC_Decode(rc));
 
-        log_debug("Undefined NV index 0x%x", nv_index);
+        log_debug("Successfully undefined NV index 0x%x.", nv_index);
+        return 0;
+}
+
+int tpm2_define_nvpcr_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPMI_ALG_HASH algorithm,
+                TPM2_HANDLE *ret_nv_index,
+                Tpm2Handle **ret_nv_handle) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+
+        /* Allocates an nvindex to use as a "fake" PCR. We call these "NvPCR" in our codebase */
+
+        if (algorithm == 0)
+                algorithm = TPM2_ALG_SHA256;
+
+        int digest_size = tpm2_hash_alg_to_size(algorithm);
+        if (digest_size < 0)
+                return digest_size;
+
+        r = tpm2_handle_new(c, &new_handle);
+        if (r < 0)
+                return r;
+
+        new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
+
+        for (unsigned try = 0; try < 25U; try++) {
+                TPM2_HANDLE nv_index;
+
+                nv_index = generate_random_nv_index();
+
+                TPM2B_NV_PUBLIC public_info = {
+                        .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
+                        .nvPublic = {
+                                .nvIndex = nv_index,
+                                .nameAlg = algorithm,
+                                .attributes = TPMA_NV_CLEAR_STCLEAR | TPMA_NV_ORDERLY | TPMA_NV_OWNERWRITE | TPMA_NV_AUTHWRITE | TPMA_NV_OWNERREAD | TPMA_NV_AUTHREAD |
+                                              (TPM2_NT_EXTEND << TPMA_NV_TPM2_NT_SHIFT),
+                                .dataSize = digest_size,
+                        },
+                };
+
+                rc = sym_Esys_NV_DefineSpace(
+                                c->esys_context,
+                                /* authHandle= */ ESYS_TR_RH_OWNER,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                /* auth= */ NULL,
+                                &public_info,
+                                &new_handle->esys_handle);
+                if (rc == TSS2_RC_SUCCESS) {
+                        log_debug("NV Index 0x%" PRIx32 " successfully allocated.", nv_index);
+
+                        if (ret_nv_index)
+                                *ret_nv_index = nv_index;
+
+                        if (ret_nv_handle)
+                                *ret_nv_handle = TAKE_PTR(new_handle);
+
+                        return 0;
+                }
+                if (rc != TPM2_RC_NV_DEFINED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+
+                log_debug("NV index 0x%" PRIu32 " already taken, trying another one (%u tries left)", nv_index, try);
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                               "Too many attempts trying to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+}
+
+int tpm2_extend_nvpcr_nv_index(
+                Tpm2Context *c,
+                TPM2_HANDLE nv_index,
+                const Tpm2Handle *nv_handle,
+                const struct iovec *digest) {
+
+        TPM2_RC rc;
+
+        assert(c);
+        assert(nv_index);
+        assert(nv_handle);
+        assert(iovec_is_set(digest));
+
+        if (digest->iov_len > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
+                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Hash value to extend too long.");
+
+        TPM2B_MAX_NV_BUFFER buf = {
+                .size = digest->iov_len,
+        };
+        memcpy(buf.buffer, digest->iov_base, digest->iov_len);
+
+        rc = sym_Esys_NV_Extend(
+                        c->esys_context,
+                        /* authHandle= */ nv_handle->esys_handle,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ ESYS_TR_PASSWORD,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        &buf);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to extend NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *h = NULL;
+                h = hexmem(digest->iov_base, digest->iov_len);
+                log_debug("Written hash %s to NV index 0x%x", strnull(h), nv_index);
+        }
+
+        return 0;
+}
+
+int tpm2_read_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE nv_index,
+                const Tpm2Handle *nv_handle,
+                struct iovec *ret_value) {
+
+        TPM2_RC rc;
+
+        assert(c);
+        assert(nv_index);
+        assert(nv_handle);
+
+        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public = NULL;
+        rc = sym_Esys_NV_ReadPublic(
+                        c->esys_context,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ ESYS_TR_NONE,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        &nv_public,
+                        /* ret_nv_name= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed read public data of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+
+        log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, (size_t) nv_public->nvPublic.dataSize);
+
+        _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *value = NULL;
+        rc = sym_Esys_NV_Read(
+                        c->esys_context,
+                        /* authHandle= */ nv_handle->esys_handle,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        nv_public->nvPublic.dataSize,
+                        /* offset= */ 0,
+                        &value);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed read contents of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+
+        if (ret_value) {
+                assert(value);
+
+                struct iovec result = {
+                        .iov_base = memdup(value->buffer, value->size),
+                        .iov_len = value->size,
+                };
+
+                if (!result.iov_base)
+                        return log_oom_debug();
+
+                *ret_value = TAKE_STRUCT(result);
+        }
+
         return 0;
 }
 
@@ -6213,12 +6399,43 @@ int tpm2_find_device_auto(char **ret) {
 #endif
 }
 
+const uint16_t tpm2_hash_algorithms[] = {
+        TPM2_ALG_SHA1,
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        0,
+};
+
+assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
+
+static size_t tpm2_hash_algorithm_index(uint16_t algorithm) {
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
+                if (tpm2_hash_algorithms[i] == algorithm)
+                        return i;
+
+        return SIZE_MAX;
+}
+
+static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint16_t *algorithm = ASSERT_PTR(userdata);
+        int r;
+
+        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
+        if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
+
+        *algorithm = r;
+        return 0;
+}
+
 #if HAVE_TPM2
 static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
         [TPM2_EVENT_PHASE]      = "phase",
         [TPM2_EVENT_FILESYSTEM] = "filesystem",
         [TPM2_EVENT_VOLUME_KEY] = "volume-key",
         [TPM2_EVENT_MACHINE_ID] = "machine-id",
+        [TPM2_EVENT_PRODUCT_ID] = "product-id",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
@@ -6234,7 +6451,6 @@ const char *tpm2_firmware_log_path(void) {
 #if HAVE_OPENSSL
 static int tpm2_userspace_log_open(void) {
         _cleanup_close_ int fd = -EBADF;
-        struct stat st;
         const char *e;
         int r;
 
@@ -6251,29 +6467,61 @@ static int tpm2_userspace_log_open(void) {
         if (flock(fd, LOCK_EX) < 0)
                 return log_debug_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
 
-        if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to fstat TPM log file '%s', ignoring: %m", e);
-
-        r = stat_verify_regular(&st);
+        r = fd_verify_regular(fd);
         if (r < 0)
                 return log_debug_errno(r, "TPM log file '%s' is not regular, ignoring: %m", e);
+
+        return TAKE_FD(fd);
+}
+
+static int tpm2_userspace_log_dirty(int fd) {
+        struct stat st;
+
+        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
+                return 0;
 
         /* We set the sticky bit when we are about to append to the log file. We'll unset it afterwards
          * again. If we manage to take a lock on a file that has it set we know we didn't write it fully and
          * it is corrupted. Ideally we'd like to use user xattrs for this, but unfortunately tmpfs (which is
          * our assumed backend fs) doesn't know user xattrs. */
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to fstat TPM log file, ignoring: %m");
+
         if (st.st_mode & S_ISVTX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "TPM log file '%s' aborted, ignoring.", e);
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "TPM log file aborted, ignoring.");
 
         if (fchmod(fd, 0600 | S_ISVTX) < 0)
-                return log_debug_errno(errno, "Failed to chmod() TPM log file '%s', ignoring: %m", e);
+                return log_debug_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
 
-        return TAKE_FD(fd);
+        return 0;
+}
+
+static int tpm2_userspace_log_clean(int fd) {
+        int r;
+
+        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
+                return 0;
+
+        if (fsync(fd) < 0)
+                return log_debug_errno(errno, "Failed to sync JSON data: %m");
+
+        /* Unset S_ISVTX again */
+        if (fchmod(fd, 0600) < 0)
+                return log_debug_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
+
+        r = fsync_full(fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to sync JSON log: %m");
+
+        return 0;
 }
 
 static int tpm2_userspace_log(
                 int fd,
                 unsigned pcr_index,
+                uint32_t nv_index,
+                const char *nv_index_name,
                 const TPML_DIGEST_VALUES *values,
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
@@ -6336,14 +6584,16 @@ static int tpm2_userspace_log(
                 return log_debug_errno(r, "Failed to acquire boot ID: %m");
 
         r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
-                                       SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
-                                       SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
-                                       SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
-                                                                       SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
-                                                                       SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
-                                                                       SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+                                          SD_JSON_BUILD_PAIR_CONDITION(pcr_index != UINT_MAX, "pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
+                                          SD_JSON_BUILD_PAIR_CONDITION(nv_index != UINT32_MAX, "nv_index", SD_JSON_BUILD_UNSIGNED(nv_index)),
+                                          SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
+                                          SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
+                                          SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
+                                                                             SD_JSON_BUILD_PAIR_CONDITION(!!nv_index_name, "nvIndexName", SD_JSON_BUILD_STRING(nv_index_name)),
+                                                                             SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
+                                                                             SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
+                                                                             SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                                             SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
@@ -6358,29 +6608,20 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to write JSON data to log: %m");
 
-        if (fsync(fd) < 0)
-                return log_debug_errno(errno, "Failed to sync JSON data: %m");
-
-        /* Unset S_ISVTX again */
-        if (fchmod(fd, 0600) < 0)
-                return log_debug_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
-
-        r = fsync_full(fd);
+        r = tpm2_userspace_log_clean(fd);
         if (r < 0)
-                return log_debug_errno(r, "Failed to sync JSON log: %m");
+                return r;
 
         return 1;
 }
 #endif
 
-int tpm2_extend_bytes(
+int tpm2_pcr_extend_bytes(
                 Tpm2Context *c,
                 char **banks,
                 unsigned pcr_index,
-                const void *data,
-                size_t data_size,
-                const void *secret,
-                size_t secret_size,
+                const struct iovec *data,
+                const struct iovec *secret,
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
 
@@ -6390,16 +6631,14 @@ int tpm2_extend_bytes(
         TSS2_RC rc;
 
         assert(c);
-        assert(data || data_size == 0);
-        assert(secret || secret_size == 0);
-
-        if (data_size == SIZE_MAX)
-                data_size = strlen(data);
-        if (secret_size == SIZE_MAX)
-                secret_size = strlen(secret);
+        assert(iovec_is_valid(data));
+        assert(iovec_is_valid(secret));
 
         if (pcr_index >= TPM2_PCRS_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
+
+        if (!iovec_is_set(data))
+                data = &iovec_empty;
 
         if (strv_isempty(banks))
                 return 0;
@@ -6428,10 +6667,10 @@ int tpm2_extend_bytes(
                  * secret for other purposes, maybe because it needs a shorter secret derived from it for
                  * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
                  * private non-secret string instead. */
-                if (secret_size > 0) {
-                        if (!HMAC(implementation, secret, secret_size, data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL))
+                if (iovec_is_set(secret) > 0) {
+                        if (!HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-                } else if (EVP_Digest(data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                } else if (EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
@@ -6441,6 +6680,7 @@ int tpm2_extend_bytes(
          * and our measurement and change either */
         log_fd = tpm2_userspace_log_open();
 
+        (void) tpm2_userspace_log_dirty(log_fd);
         rc = sym_Esys_PCR_Extend(
                         c->esys_context,
                         ESYS_TR_PCR0 + pcr_index,
@@ -6456,7 +6696,14 @@ int tpm2_extend_bytes(
                                 sym_Tss2_RC_Decode(rc));
 
         /* Now, write what we just extended to the log, too. */
-        (void) tpm2_userspace_log(log_fd, pcr_index, &values, event_type, description);
+        (void) tpm2_userspace_log(
+                        log_fd,
+                        pcr_index,
+                        /* nv_index= */ UINT32_MAX,
+                        /* nv_index_name= */ NULL,
+                        &values,
+                        event_type,
+                        description);
 
         return 0;
 #else /* HAVE_OPENSSL */
@@ -6464,22 +6711,1230 @@ int tpm2_extend_bytes(
 #endif
 }
 
-const uint16_t tpm2_hash_algorithms[] = {
-        TPM2_ALG_SHA1,
-        TPM2_ALG_SHA256,
-        TPM2_ALG_SHA384,
-        TPM2_ALG_SHA512,
-        0,
-};
+bool tpm2_nvpcr_name_is_valid(const char *name) {
+        return filename_is_valid(name) && string_is_safe(name);
+}
 
-assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
+#if HAVE_OPENSSL
+typedef struct NvPCRData {
+        char *name;
+        uint16_t algorithm;
+        uint32_t nv_index;
+        struct iovec nv_handle;
+} NvPCRData;
 
-static size_t tpm2_hash_algorithm_index(uint16_t algorithm) {
-        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
-                if (tpm2_hash_algorithms[i] == algorithm)
-                        return i;
+static void nvpcr_data_done(NvPCRData *d) {
+        assert(d);
 
-        return SIZE_MAX;
+        free(d->name);
+        iovec_done(&d->nv_handle);
+}
+
+static int nvpcr_data_load_from_json(sd_json_variant *v, NvPCRData *ret) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(NvPCRData, name),      SD_JSON_MANDATORY },
+                { "algorithm", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_tpm2_algorithm, offsetof(NvPCRData, algorithm), SD_JSON_MANDATORY },
+                { "nvIndex",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(NvPCRData, nv_index),  SD_JSON_MANDATORY },
+                { "nvHandle",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(NvPCRData, nv_handle), SD_JSON_MANDATORY },
+                {},
+        };
+
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+static int nvpcr_data_load_from_file(int dir_fd, const char *path, NvPCRData *ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_file_at(
+                        /* f= */ NULL,
+                        dir_fd,
+                        path,
+                        /* flags= */ 0,
+                        &v,
+                        /* ret_line= */ NULL,
+                        /* ret_column= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load '%s': %m", path);
+
+        return nvpcr_data_load_from_json(v, ret);
+}
+
+static int nvpcr_data_load_from_text(const char *text, NvPCRData *ret) {
+        int r;
+
+        assert(text);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(
+                        text,
+                        /* flags= */ 0,
+                        &v,
+                        /* ret_line= */ NULL,
+                        /* ret_column= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load NvPCR data: %m");
+
+        return nvpcr_data_load_from_json(v, ret);
+}
+
+static int nvpcr_data_to_json(NvPCRData *d, sd_json_variant **ret) {
+        int r;
+
+        assert(d);
+        assert(ret);
+
+        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(
+                                          SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(d->name)),
+                                          SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(d->algorithm))),
+                                          SD_JSON_BUILD_PAIR("nvIndex", SD_JSON_BUILD_UNSIGNED(d->nv_index)),
+                                          SD_JSON_BUILD_PAIR("nvHandle", JSON_BUILD_IOVEC_BASE64(&d->nv_handle))));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build JSON from NvPCR data: %m");
+
+        return 0;
+}
+#endif
+
+int tpm2_nvpcr_extend_bytes(
+                Tpm2Context *c,
+                const char *name,
+                const struct iovec *data,
+                const struct iovec *secret,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
+
+#if HAVE_OPENSSL
+        _cleanup_close_ int log_fd = -EBADF;
+        int r;
+
+        assert(c);
+        assert(name);
+        assert(iovec_is_valid(data));
+        assert(iovec_is_valid(secret));
+
+        if (!tpm2_nvpcr_name_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Attemp to extend NvPCR with invalid name, refusing: %s", name);
+
+        /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
+         * and our measurement and change either */
+        log_fd = tpm2_userspace_log_open();
+
+        _cleanup_close_ int run_dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0777);
+        if (run_dfd < 0)
+                return log_debug_errno(run_dfd, "Failed to open /run/systemd/nvpcr/ directory: %m");
+
+        const char *fname = strjoina(name, ".nvpcr");
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = nvpcr_data_load_from_file(run_dfd, fname, &p);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(p.name, name))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "NvPCR doesn't match filename, refusing.");
+
+        const char *anchor_fname = strjoina(name, ".anchor");
+        if (faccessat(run_dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to check if '/run/systemd/nvpcr/%s.anchor' exists: %m", name);
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ENETDOWN), "NvPCR '%s' not anchored yet, refusing.", name);
+        }
+
+        const char *an = tpm2_hash_alg_to_string(p.algorithm);
+        if (!an)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported algorithm for NvPCR, refusing.");
+
+        const EVP_MD *implementation;
+        assert_se(implementation = EVP_get_digestbyname(an));
+
+        _cleanup_(iovec_done) struct iovec digest = {
+                .iov_len = EVP_MD_size(implementation),
+        };
+        digest.iov_base = malloc(digest.iov_len);
+        if (!digest.iov_base)
+                return log_oom_debug();
+
+        if (!iovec_is_set(data))
+                data = &iovec_empty;
+
+        if (iovec_is_set(secret)) {
+                if (!HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, NULL))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
+        } else if (EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_deserialize(
+                        c,
+                        p.nv_handle.iov_base,
+                        p.nv_handle.iov_len,
+                        &nv_handle);
+        if (r < 0)
+                return r;
+
+        (void) tpm2_userspace_log_dirty(log_fd);
+
+        r = tpm2_extend_nvpcr_nv_index(
+                        c,
+                        p.nv_index,
+                        nv_handle,
+                        &digest);
+        if (r < 0)
+                return r;
+
+        TPML_DIGEST_VALUES digest_values = {
+                .count = 1,
+                .digests[0].hashAlg = p.algorithm,
+        };
+        memcpy(&digest_values.digests[0].digest, digest.iov_base, digest.iov_len);
+
+        /* Now, write what we just extended to the log, too. */
+        (void) tpm2_userspace_log(
+                        log_fd,
+                        /* pcr_index= */ UINT_MAX,
+                        p.nv_index,
+                        name,
+                        &digest_values,
+                        event_type,
+                        description);
+
+        return 0;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+#if HAVE_OPENSSL
+static int tpm2_nvpcr_write_file_at(
+                int dfd,
+                const char *dir, /* the path dfd refers to */
+                const char *name,
+                const char *text) {
+
+        int r;
+
+        assert(dfd >= 0);
+        assert(dir);
+        assert(name);
+        assert(text);
+
+        const char *fname = strjoina(name, ".nvpcr");
+
+        _cleanup_free_ char *joined = path_join(dir, fname);
+        if (!joined)
+                return log_oom_debug();
+
+        _cleanup_free_ char *existing = NULL;
+        r = read_full_file_at(dfd, fname, &existing, /* ret_size= */ NULL);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_debug_errno(r, "Failed to open '%s': %m", joined);
+
+                log_debug_errno(r, "File '%s' doesn't exist yet, creating.", joined);
+        } else if (streq(existing, text)) {
+                log_debug("Existing file '%s' already matches expectations, not updating.", joined);
+                return 0;
+        } else
+                log_notice("File '%s' does not match our expectations, updating.", joined);
+
+        r = write_string_file_at(dfd, fname, text, WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write '%s': %m", joined);
+
+        log_debug("Successfully written '%s'.", joined);
+        return 0;
+}
+
+static int tpm2_nvpcr_write_var(
+                const char *name,
+                const char *text) {
+
+        assert(name);
+        assert(text);
+
+        const char *dir = "/var/lib/systemd/nvpcr";
+
+        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to create '%s': %m", dir);
+
+        return tpm2_nvpcr_write_file_at(dfd, dir, name, text);
+}
+
+static int tpm2_nvpcr_delete_var(const char *name) {
+        assert(name);
+
+        const char *path = strjoina("/var/lib/systemd/nvpcr/", name, ".nvpcr");
+        if (unlink(path) < 0) {
+                if (errno == ENOENT) {
+                        log_debug("File '%s' doesn't exist, not removing.", path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to remove '%s': %m", path);
+        }
+
+        log_debug("File '%s' successfully removed.", path);
+        return 1;
+}
+
+static int tpm2_nvpcr_write_boot(
+                const char *name,
+                const char *text) {
+
+        int r;
+
+        assert(name);
+        assert(text);
+
+        _cleanup_free_ char *dir = NULL;
+        r = get_global_boot_credentials_path(&dir);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No XBOOTLDR/ESP partition found, not writing NvPCR file for '%s' there.", name);
+                return 0;
+        }
+
+        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to create '%s': %m", dir);
+
+        const char *credname = strjoina("nvpcr.", name);
+        const char *fname = strjoina(credname, ".cred");
+
+        _cleanup_(iovec_done) struct iovec existing = {};
+        r = read_full_file_full(
+                        dfd,
+                        fname,
+                        /* offset= */ UINT64_MAX,
+                        /* size= */ CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        (char**) &existing.iov_base,
+                        &existing.iov_len);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_debug_errno(r, "Failed to open '%s/%s': %m", dir, fname);
+
+                log_debug_errno(r, "File '%s/%s' does not exist yet, creating.", dir, fname);
+        } else {
+                /* The credential exists already, let's see if it matches our expectations if we decode it. */
+
+                _cleanup_(iovec_done) struct iovec decoded = {};
+                r = decrypt_credential_and_warn(
+                                credname,
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                /* uid= */ UID_INVALID,
+                                &existing,
+                                /* flags= */ CREDENTIAL_ALLOW_NULL, /* Credentials of this type are not actually encrypted */
+                                &decoded);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to decode '%s/%s', updating: %m", dir, fname);
+                else if (iovec_memcmp(&decoded, &IOVEC_MAKE_STRING(text)) == 0) {
+                        log_debug("File '%s/%s' already matches our expectations, not updating.", dir, fname);
+                        return 0;
+                } else
+                        log_debug("File '%s/%s' does not match our expectations, updating.", dir, fname);
+        }
+
+        /* Let's wrap this in an (unencrypted) credential envelope, since we want to pass it via the
+         * credential logic to the booted kernel. */
+        _cleanup_(iovec_done) struct iovec encoded = {};
+        r = encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_NULL,
+                        credname,
+                        now(CLOCK_REALTIME),
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcrs= */ UINT32_MAX,
+                        /* uid= */ UID_INVALID,
+                        &IOVEC_MAKE_STRING(text),
+                        CREDENTIAL_ALLOW_NULL,
+                        &encoded);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to encode credential: %m");
+
+        r = write_base64_file_at(
+                        dfd,
+                        fname,
+                        &encoded,
+                        WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_debug_errno(r, "Faile to write '%s/%s': %m", dir, fname);
+
+        log_debug("Successfully written '%s/%s'.", dir, fname);
+        return 1;
+}
+
+static int tpm2_nvpcr_delete_boot(const char *name) {
+        int r;
+
+        assert(name);
+
+        _cleanup_free_ char *dir = NULL;
+        r = get_global_boot_credentials_path(&dir);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No XBOOTLDR/ESP partition found, not deleting NvPCR file for '%s' from there.", name);
+                return 0;
+        }
+
+        const char *fname = strjoina("nvpcr.", name, ".cred");
+
+        _cleanup_free_ char *path = path_join(dir, fname);
+        if (!path)
+                return log_oom_debug();
+
+        if (unlink(path) < 0) {
+                if (errno == ENOENT) {
+                        log_debug("File '%s' doesn't exist, not removing.", path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to remove '%s': %m", path);
+        }
+
+        log_debug("File '%s' successfully removed.", path);
+        return 1;
+}
+#endif
+
+int tpm2_nvpcr_allocate(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                bool sync_secondary) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(c);
+        assert(name);
+
+        if (!tpm2_nvpcr_name_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Attempt to create NvPCR with invalid name, refusing: %s", name);
+
+        const char *fname = strjoina(name, ".nvpcr");
+
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0777);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to open /run/systemd/nvpcr/ directory: %m");
+
+        if (faccessat(dfd, fname, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                return 0; /* Exists already */
+        if (errno != ENOENT)
+                return log_debug_errno(errno, "Failed to check if '/run/systemd/nvpcr/%s' already exists: %m", fname);
+
+        /* Derive the algorithm to use from PCR 4, i.e. where most of the boot code is placed */
+        TPMI_ALG_HASH alg;
+        r = tpm2_get_best_pcr_bank(
+                        c,
+                        UINT32_C(1) << TPM2_PCR_BOOT_LOADER_CODE,
+                        &alg);
+        if (r < 0)
+                return r;
+
+        int digest_size = tpm2_hash_alg_to_size(alg);
+        if (digest_size < 0)
+                return digest_size;
+
+        if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
+                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Digest too large for extension.");
+
+        _cleanup_(nvpcr_data_done) NvPCRData data = {
+                .algorithm = alg,
+        };
+
+        data.name = strdup(name);
+        if (!data.name)
+                return log_oom_debug();
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_define_nvpcr_nv_index(
+                        c,
+                        session,
+                        alg,
+                        &data.nv_index,
+                        &nv_handle);
+        if (r < 0)
+                return r;
+
+        /* We allocate a bunch of variables here ahead of time, so that they are definitely initialized,
+         * regardless if the goto branches below are taken or not. Do not move down! */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        bool run_installed = false, var_installed = false;
+        _cleanup_free_ char *text = NULL;
+
+        r = tpm2_serialize(c, nv_handle, &data.nv_handle.iov_base, &data.nv_handle.iov_len);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to serialize NV index TR: %m");
+                goto fail;
+        }
+
+        r = nvpcr_data_to_json(&data, &v);
+        if (r < 0)
+                goto fail;
+
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &text);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to format JSON of NvPCR data: %m");
+                goto fail;
+        }
+
+        r = write_string_file_at(dfd, fname, text, WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to write NvPCR JSON file to '/run/systemd/nvpcr/%s': %m", fname);
+                goto fail;
+        }
+
+        run_installed = true;
+
+        if (sync_secondary) {
+                r = tpm2_nvpcr_write_var(data.name, text);
+                if (r < 0)
+                        return r;
+
+                var_installed = true;
+
+                r = tpm2_nvpcr_write_boot(data.name, text);
+                if (r < 0)
+                        return r;
+        }
+
+        log_debug("Successfully allocated NvPCR '%s'.", name);
+        return 1;
+
+fail:
+        (void) tpm2_undefine_nv_index(c, session, data.nv_index, nv_handle);
+
+        if (run_installed)
+                (void) unlinkat(dfd, fname, 0);
+
+        if (var_installed)
+                (void) tpm2_nvpcr_delete_var(name);
+
+        return r;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+#if HAVE_OPENSSL
+static int tpm2_nvpcr_write_anchor_secret(
+                const char *dir,
+                const char *fname,
+                const struct iovec *credential) {
+
+        int r;
+
+        assert(dir);
+        assert(fname);
+        assert(iovec_is_set(credential));
+
+        /* Writes the encrypted credential of the anchor secret to directory 'dir' and file 'fname' */
+
+        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to create '%s' directory: %m", dir);
+
+        _cleanup_free_ char *joined = path_join(dir, fname);
+        if (!joined)
+                return log_oom();
+
+        _cleanup_(iovec_done) struct iovec existing = {};
+        r = read_full_file_full(
+                        dfd,
+                        fname,
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        (char**) &existing.iov_base,
+                        &existing.iov_len);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to read '%s' file: %m", joined);
+        } else if (iovec_memcmp(&existing, credential) == 0) {
+                log_debug("Anchor secret file '%s' already matches expectations, not updating.", joined);
+                return 0;
+        } else
+                log_notice("Anchor secret file '%s' different from current anchor secret, updating.", joined);
+
+        r = write_base64_file_at(
+                        dfd,
+                        fname,
+                        credential,
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write anchor secret file to '%s': %m", joined);
+
+        log_info("Successfully written anchor secret to '%s'.", joined);
+        return 1;
+}
+
+static int tpm2_nvpcr_write_anchor_secret_to_var(const struct iovec *credential) {
+        return tpm2_nvpcr_write_anchor_secret("/var/lib/systemd/nvpcr", "nvpcr-anchor.cred", credential);
+}
+
+static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential) {
+        int r;
+
+        assert(iovec_is_set(credential));
+
+        _cleanup_free_ char *dir = NULL;
+        r = get_global_boot_credentials_path(&dir);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No XBOOTLDR/ESP partition found, not writing boot anchor secret file.");
+                return 0;
+        }
+
+        sd_id128_t machine_id;
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID: %m");
+
+        BootEntryTokenType entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+        _cleanup_free_ char *entry_token = NULL;
+        r = boot_entry_token_ensure(
+                        /* root= */ NULL,
+                        /* conf_root= */ NULL,
+                        machine_id,
+                        /* machine_id_is_random = */ false,
+                        &entry_token_type,
+                        &entry_token);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *fname = strjoin("nvpcr-anchor.", entry_token, ".cred");
+        if (!fname)
+                return log_oom();
+
+        if (!filename_is_valid(fname))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fname);
+
+        return tpm2_nvpcr_write_anchor_secret(dir, fname, credential);
+}
+
+static int tpm2_nvpcr_acquire_anchor_secret_from_var(struct iovec *ret_credential) {
+        int r;
+
+        assert(ret_credential);
+
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        "/var/lib/systemd/nvpcr/nvpcr-anchor.cred",
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_VERIFY_REGULAR,
+                        /* bind_name= */ NULL,
+                        (char**) &ret_credential->iov_base,
+                        &ret_credential->iov_len);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "No '/var/lib/systemd/nvpcr/nvpcr-anchor.cred' file.");
+                *ret_credential = (struct iovec) {};
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '/var/lib/systemd/nvpcr/nvpcr-anchor.cred': %m");
+
+        return 1;
+}
+
+static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_credential, struct iovec *ret_secret) {
+        int r;
+
+        assert(ret_credential);
+        assert(ret_secret);
+
+        /* We need the anchor secret before the first measurement into an NvPCR. That means very early. Hence
+         * we'll try to pass it into the system via the system credentials logic. Because we must expect a
+         * multi-boot scenario it's hard to know which secret to use for which system. Hence we'll just try
+         * to unlock all of the available ones, until we can decrypt one of them, and then we'll use that. */
+
+        const char *dp;
+        r = get_encrypted_system_credentials_dir(&dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
+
+        /* Define early, so that it is definitely initialized, even if we take "goto not_found" branch below. */
+        _cleanup_free_ DirectoryEntries *de = NULL;
+
+        _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No encrypted system credentials passed.");
+                        goto not_found;
+                }
+
+                return log_error_errno(errno, "Failed to open system credentials directory.");
+        }
+
+        r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate system credentials: %m");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                _cleanup_(iovec_done) struct iovec credential = {};
+                struct dirent *d = *i;
+
+                if (!startswith_no_case(d->d_name, "nvpcr-anchor.")) /* VFAT is case-insensitive, hence don't be too strict here */
+                        continue;
+
+                r = read_full_file_full(
+                                dfd,
+                                d->d_name,
+                                /* offset= */ UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &credential.iov_base,
+                                &credential.iov_len);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read anchor secret file '%s/%s', skipping: %m", dp, d->d_name);
+                        continue;
+                }
+
+                r = decrypt_credential_and_warn(
+                                "nvpcr-anchor.cred",
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                /* uid= */ UID_INVALID,
+                                &credential,
+                                /* flags= */ 0,
+                                ret_secret);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to decrypt anchor secret file '%s' passed in as system credential, skipping: %m", d->d_name);
+                else {
+                        *ret_credential = TAKE_STRUCT(credential);
+                        return 1;
+                }
+        }
+
+        log_debug("No suitable anchor secret passed as system credential.");
+
+not_found:
+        *ret_credential = (struct iovec) {};
+        *ret_secret = (struct iovec) {};
+        return 0;
+}
+#endif
+
+#define ANCHOR_SECRET_SIZE 4096U
+
+int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
+#if HAVE_OPENSSL
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(ret);
+
+        /* Acquires the anchor secret. We store it in a credential. The primary location (and primary truth)
+         * for it is /run/systemd/nvpcr/ (i.e. volatile) [this file also doubles as lock file for the whole
+         * logic]. But something has to place it there once. We do keep two copies of it: one in
+         * /var/lib/systemd/nvpcr/, which is the persistent place for it, but which is only available at late
+         * boot, potentially. And one in the ESP/XBOOTLDR which will make it available in the initrd
+         * already via system credentials. */
+
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
+
+        /* Use restrictive access mode of 0600. Not because the data inside needs to be kept inaccessible
+         * (it's encrypted, hence that'd be fine), but because we need to lock it, and unprivileged clients
+         * shouldn't per permitted to lock it. */
+        fd = openat(dfd, "nvpcr-anchor.cred", O_RDWR|O_CLOEXEC|O_CREAT|O_NOCTTY, 0600);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open anchor secret: %m");
+
+        r = lock_generic(fd, LOCK_BSD, LOCK_SH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock anchor secret file: %m");
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() anchor secret: %m");
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return log_error_errno(r, "Anchor secret file is not a regular file: %m");
+
+        if (st.st_size == 0) {
+                /* If this is not initialized yet, then let's update the lock to an exclusive lock */
+                r = lock_generic(fd, LOCK_BSD, LOCK_EX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to upgrade lock on anchor secret file: %m");
+
+                /* Refresh size info, in case someone else has initialized it by now */
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() anchor secret: %m");
+        }
+
+        bool copy_to_var = true, copy_to_boot = true;
+
+        _cleanup_(iovec_done) struct iovec credential = {};
+        _cleanup_(iovec_done_erase) struct iovec secret = {};
+        if (st.st_size == 0) { /* No initialized yet? */
+
+                /* Check if we have a secret in /var/lib/systemd/nvpcr/. If so, import the secret from there */
+                if (!sync_secondary) {
+                        r = tpm2_nvpcr_acquire_anchor_secret_from_var(&credential);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                copy_to_var = false; /* We read the secret from /var/, hence we don't have to copy it there. */
+                }
+
+                /* Did the copy_source logic work? If not, let's search for the secret among passed system credentials. */
+                if (!iovec_is_set(&credential)) {
+                        r = tpm2_nvpcr_acquire_anchor_secret_from_credential(&credential, &secret);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                copy_to_boot = false; /* We read the secret from the boot partition, hence we don't have to copy it there. */
+                }
+
+                /* Did the copy_source or system credential logic work? If not, let's generate a new random one */
+                if (!iovec_is_set(&credential)) {
+                        r = crypto_random_bytes_allocate_iovec(ANCHOR_SECRET_SIZE, &secret);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire entropy for anchor secret: %m");
+
+                        r = encrypt_credential_and_warn(
+                                        _CRED_AUTO_TPM2,
+                                        "nvpcr-anchor.cred",
+                                        now(CLOCK_REALTIME),
+                                        /* not_after= */ USEC_INFINITY,
+                                        /* tpm2_device= */ NULL,
+                                        /* tpm2_hash_pcr_mask= */ 0,
+                                        /* tpm2_pubkey_path= */ NULL,
+                                        /* tpm2_pubkey_pcrs= */ UINT32_MAX,
+                                        /* uid= */ UID_INVALID,
+                                        &secret,
+                                        /* flags= */ 0,
+                                        &credential);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_free_ char *encoded = NULL;
+                ssize_t n = base64mem_full(credential.iov_base, credential.iov_len, 79, &encoded);
+                if (n < 0)
+                        return log_error_errno(n, "Failed to base64 encode credential: %m");
+
+                r = loop_write(fd, encoded, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write anchor secret to disk: %m");
+        } else {
+                /* The file was already initialized? Then just read it. */
+                r = read_full_file_full(
+                                fd,
+                                /* fname= */ NULL,
+                                /* offset= */ UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &credential.iov_base,
+                                &credential.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read anchor secret file: %m");
+        }
+
+        /* if we don't have the plaintext secret yet, then decrypt it now. */
+        if (!iovec_is_set(&secret)) {
+                assert(iovec_is_set(&credential));
+
+                r = decrypt_credential_and_warn(
+                                "nvpcr-anchor.cred",
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                /* uid= */ UID_INVALID,
+                                &credential,
+                                /* flags= */ 0,
+                                &secret);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!sync_secondary) {
+                if (copy_to_var) {
+                        r = tpm2_nvpcr_write_anchor_secret_to_var(&credential);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (copy_to_boot) {
+                        r = tpm2_nvpcr_write_anchor_secret_to_boot(&credential);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_STRUCT(secret);
+        return 0;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+#if HAVE_OPENSSL
+static int tpm2_nvpcr_initialize_now(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                NvPCRData *data,
+                const struct iovec *anchor_secret,
+                bool sync_secondary) {
+
+        bool anchored = false;
+        TPM2_RC rc;
+        int r;
+
+        assert(c);
+        assert(data);
+
+        if (!tpm2_nvpcr_name_is_valid(data->name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid NvPCR name, refusing: %s", data->name);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = nvpcr_data_to_json(data, &v);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *text = NULL;
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &text);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to format JSON of NvPCR data: %m");
+
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0777);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to open /run/systemd/nvpcr/ directory: %m");
+
+        /* Open + lock the log file *before* we check for the *.anchor flag file. */
+        _cleanup_close_ int log_fd = tpm2_userspace_log_open();
+
+        /* Some early declarations with _cleanup_ that we need to initialize so that the "goto" below works correctly. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free_ void* hmac_buffer = NULL;
+        _cleanup_free_ char *h = NULL;
+        TPM2B_MAX_NV_BUFFER buf = {};
+        CLEANUP_ERASE(buf);
+
+        const char *anchor_fname = strjoina(data->name, ".anchor");
+        if (faccessat(dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to check if /run/systemd/nvpcr/%s exists: %m", anchor_fname);
+        } else {
+                log_debug("NvPCR '%s' is already anchored.", data->name);
+                goto already_anchored;
+        }
+
+        if (!iovec_is_set(anchor_secret))
+                return log_debug_errno(SYNTHETIC_ERRNO(EUNATCH), "Need anchor secret.");
+
+        const char *an = tpm2_hash_alg_to_string(data->algorithm);
+        if (!an)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported algorithm for NvPCR, refusing.");
+
+        const EVP_MD *implementation;
+        assert_se(implementation = EVP_get_digestbyname(an));
+
+        int digest_size = EVP_MD_get_size(implementation);
+        assert_se(digest_size > 0);
+
+        if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
+                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Hash function result too large for TPM, refusing.");
+
+        /* Before we do anything, make sure the main .nvpcr file is in place */
+        r = tpm2_nvpcr_write_file_at(dfd, "/run/systemd/nvpcr", data->name, text);
+        if (r < 0)
+                return r;
+
+        /* Put together a buffer consisting if the nvindex number and the NvPCR name, that we can calculate an HMAC() off, see below */
+        size_t hmac_buffer_size = sizeof(le32_t) + strlen(data->name);
+        hmac_buffer = malloc(hmac_buffer_size);
+        if (!hmac_buffer)
+                return log_oom_debug();
+
+        *(le32_t*) hmac_buffer = htole32(data->nv_index);
+        memcpy((uint8_t*) hmac_buffer + sizeof(le32_t), data->name, strlen(data->name));
+
+        buf = (TPM2B_MAX_NV_BUFFER) {
+                .size = digest_size,
+        };
+
+        /* We measure HMAC(anchor_secret, name) into the NvPCR to anchor it on our secret. */
+        if (!HMAC(implementation, anchor_secret->iov_base, anchor_secret->iov_len, hmac_buffer, hmac_buffer_size, buf.buffer, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
+
+        /* Now pre-calculate the initial measurement of an "anchor" secret. This makes sure that others
+         * cannot delete and reproduce the same fake PCR, unless they also know the "anchor" secret. Note
+         * that we don't actually extend the NvPCR with this anchor secret here, we leave that to the
+         * caller. We do this in a separate step, since at boot we want to issue the anchor extension without
+         * re-allocating. */
+        TPM2B_DIGEST start = { /* initialize to zero */
+                .size = digest_size,
+        };
+        r = tpm2_digest_buffer(
+                        data->algorithm,
+                        &start,
+                        buf.buffer,
+                        buf.size,
+                        /* extend= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to calculate initial value: %m");
+
+        r = tpm2_deserialize(
+                        c,
+                        data->nv_handle.iov_base,
+                        data->nv_handle.iov_len,
+                        &nv_handle);
+        if (r < 0)
+                return r;
+
+        tpm2_userspace_log_dirty(log_fd);
+        rc = sym_Esys_NV_Extend(
+                        c->esys_context,
+                        /* authHandle= */ nv_handle->esys_handle,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ ESYS_TR_PASSWORD,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        &buf);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to extend NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully extended NvPCR '%s' with anchor secret.", data->name);
+        anchored = true;
+
+        /* Now create the anchor flag file */
+        h = hexmem(start.buffer, start.size);
+        if (!h)
+                return log_oom_debug();
+
+        r = write_string_file_at(dfd, anchor_fname, h, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write anchor file: %m");
+
+already_anchored:
+        if (sync_secondary) {
+                /* If we are in late boot, also synchronize the data into /var/ and ESP/XBOOTLDR */
+
+                r = tpm2_nvpcr_write_var(data->name, text);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_nvpcr_write_boot(data->name, text);
+                if (r < 0)
+                        return r;
+        }
+
+        tpm2_userspace_log_clean(log_fd);
+        return anchored;
+}
+#endif
+
+int tpm2_nvpcr_initialize_raw(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *text,
+                const struct iovec *anchor_secret,
+                bool sync_secondary) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(c);
+        assert(text);
+
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = nvpcr_data_load_from_text(text, &p);
+        if (r < 0)
+                return r;
+
+        return tpm2_nvpcr_initialize_now(c, session, &p, anchor_secret, sync_secondary);
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+int tpm2_nvpcr_initialize(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                const struct iovec *anchor_secret,
+                bool sync_secondary) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(c);
+        assert(name);
+
+        if (!tpm2_nvpcr_name_is_valid(name))
+                return -EINVAL;
+
+        const char *path = strjoina("/run/systemd/nvpcr/", name, ".nvpcr");
+
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = nvpcr_data_load_from_file(AT_FDCWD, path, &p);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(p.name, name))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "NvPCR doesn't match filename, refusing.");
+
+        return tpm2_nvpcr_initialize_now(c, session, &p, anchor_secret, sync_secondary);
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+int tpm2_nvpcr_delete(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                bool sync_secondary) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(c);
+        assert(name);
+
+        if (!tpm2_nvpcr_name_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Asked to delete NvPCR with invalid name: %s", name);
+
+        _cleanup_close_ int dfd = open("/run/systemd/nvpcr", O_DIRECTORY|O_CLOEXEC);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "No NvPCRs defined, not removing '%s'.", name);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to open /run/systemd/nvpcr/ directory: %m");
+        }
+
+        const char *fname = strjoina(name, ".nvpcr");
+
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = nvpcr_data_load_from_file(dfd, fname, &p);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "No NvPCR '%s' defined, not removing.", name);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        int ret = 1;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_deserialize(
+                        c,
+                        p.nv_handle.iov_base,
+                        p.nv_handle.iov_len,
+                        &nv_handle);
+        if (r < 0)
+                RET_GATHER(ret, r);
+        else
+                RET_GATHER(ret, tpm2_undefine_nv_index(c, session, p.nv_index, nv_handle));
+
+        if (unlinkat(dfd, fname, 0) < 0)
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to unlink NvPCR file of '%s': %m", name));
+
+        const char *anchor_file = strjoina(name, ".anchor");
+        if (unlinkat(dfd, anchor_file, 0) < 0 && errno != ENOENT)
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to unlink NvPCR anchor flag file of '%s': %m", name));
+
+        if (!sync_secondary) {
+                RET_GATHER(ret, tpm2_nvpcr_delete_var(name));
+                RET_GATHER(ret, tpm2_nvpcr_delete_boot(name));
+        }
+
+        return ret;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+int tpm2_nvpcr_read(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                struct iovec *ret_value,
+                uint32_t *ret_nv_index) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(c);
+        assert(name);
+
+        if (!tpm2_nvpcr_name_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Attempt to read from NvPCR with invalid name, refusing: %s", name);
+
+        _cleanup_close_ int dfd = open("/run/systemd/nvpcr", O_DIRECTORY|O_CLOEXEC);
+        if (dfd < 0)
+                return log_debug_errno(errno, "Failed to open /run/systemd/nvpcr/ directory: %m");
+
+        const char *fname = strjoina(name, ".nvpcr");
+
+        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        r = nvpcr_data_load_from_file(dfd, fname, &p);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_deserialize(
+                        c,
+                        p.nv_handle.iov_base,
+                        p.nv_handle.iov_len,
+                        &nv_handle);
+        if (r < 0)
+                return r;
+
+        r = tpm2_read_nv_index(
+                        c,
+                        /* session= */ NULL,
+                        p.nv_index,
+                        nv_handle,
+                        ret_value);
+        if (r < 0)
+                return r;
+
+        if (ret_nv_index)
+                *ret_nv_index = p.nv_index;
+
+        return 0;
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 TPM2B_DIGEST *tpm2_pcr_prediction_result_get_hash(Tpm2PCRPredictionResult *result, uint16_t alg) {
@@ -6950,18 +8405,6 @@ void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         iovec_done(&data->pin_private);
 }
 
-static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint16_t *algorithm = ASSERT_PTR(userdata);
-        int r;
-
-        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
-        if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
-
-        *algorithm = r;
-        return 0;
-}
-
 int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path) {
         static const char search[] =
                 "/run/systemd\0"
@@ -7108,9 +8551,12 @@ int tpm2_pcrlock_policy_from_credentials(
          * multi-boot), hence we use the SRK and NV data from the LUKS2 header as search key, and parse all
          * such JSON policies until we find a matching one. */
 
-        const char *cp = secure_getenv("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY") ?: ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+        const char *dp;
+        r = get_encrypted_system_credentials_dir(&dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
-        dfd = open(cp, O_CLOEXEC|O_DIRECTORY);
+        dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
                         log_debug("No encrypted system credentials passed.");
@@ -7143,7 +8589,7 @@ int tpm2_pcrlock_policy_from_credentials(
                 if (r == -ENOENT)
                         continue;
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to read credentials file %s/%s, skipping: %m", ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                        log_warning_errno(r, "Failed to read credentials file %s/%s, skipping: %m", dp, d->d_name);
                         continue;
                 }
 
