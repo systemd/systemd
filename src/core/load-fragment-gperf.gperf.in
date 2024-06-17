@@ -119,7 +119,7 @@
 {{type}}.BindPaths,                        config_parse_bind_paths,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.BindReadOnlyPaths,                config_parse_bind_paths,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.TemporaryFileSystem,              config_parse_temporary_filesystems,          0,                                  offsetof({{type}}, exec_context)
-{{type}}.PrivateTmp,                       config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.private_tmp)
+{{type}}.PrivateTmp,                       config_parse_private_tmp,                    0,                                  offsetof({{type}}, exec_context)
 {{type}}.PrivateDevices,                   config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.private_devices)
 {{type}}.ProtectKernelTunables,            config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.protect_kernel_tunables)
 {{type}}.ProtectKernelModules,             config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.protect_kernel_modules)

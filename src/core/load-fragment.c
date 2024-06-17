@@ -5199,6 +5199,34 @@ int config_parse_temporary_filesystems(
         }
 }
 
+int config_parse_private_tmp(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(rvalue);
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value: %s ignoring", rvalue);
+                return 0;
+        }
+
+        c->private_tmp = r ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_OFF;
+        return 0;
+}
+
 int config_parse_bind_paths(
                 const char *unit,
                 const char *filename,
