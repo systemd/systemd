@@ -89,6 +89,10 @@ def main():
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    if args.vm and bool(int(os.getenv("TEST_NO_QEMU", "0"))):
+        print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
     # Skip if --vm is passed but /dev/kvm is not available, as the test run would be too slow, unless
     # explicitly requested.
     kvm = "auto" if int(os.getenv("SYSTEMD_INTEGRATION_TESTS_KVM", "-1")) != 0 else "no"
