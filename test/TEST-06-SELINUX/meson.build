@@ -5,7 +5,8 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'cmdline' : integration_test_template['cmdline'] + ['selinux=1', 'lsm=selinux'],
                 # FIXME; Figure out why reboot sometimes hangs with 'linux' firmware.
-                'firmware' : 'uefi',
+                # Use 'auto' to automatically fallback on non-uefi architectures.
+                'firmware' : 'auto',
                 'vm' : true,
         },
 ]
