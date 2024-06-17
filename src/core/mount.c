@@ -1832,7 +1832,7 @@ static int mount_setup_unit(
         assert(fstype);
 
         /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
-         * Also check the comment for mount_point_is_credentials. */
+         * Also check the comment for mount_point_is_credentials(). */
         if (mount_point_is_api(where) || mount_point_ignore(where) || mount_point_is_credentials(m, where))
                 return 0;
 
