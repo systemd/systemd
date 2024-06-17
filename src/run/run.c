@@ -1849,7 +1849,7 @@ static int start_transient_service(sd_bus *bus) {
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
 
                         r = getenv_bool("SYSTEMD_RUN_SET_TITLE");
-                        if (r != 0)
+                        if (r > 0 || r == -ENXIO)
                                 set_window_title(c.forward);
                 }
 
