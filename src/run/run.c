@@ -1848,7 +1848,9 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
 
-                        set_window_title(c.forward);
+                        r = getenv_bool("SYSTEMD_RUN_SET_TITLE");
+                        if (r != 0)
+                                set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);
