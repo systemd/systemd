@@ -1363,7 +1363,7 @@ static int service_coldplug(Unit *u) {
                 service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
-                Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
+                Socket *socket = SOCKET(UNIT_DEREF(s->accept_socket));
 
                 if (socket->max_connections_per_source > 0) {
                         SocketPeer *peer;
@@ -3217,8 +3217,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
 
-                if (u->type != UNIT_SOCKET) {
-                        log_unit_debug(u, "Failed to deserialize accept-socket: unit is not a socket");
+                if (unit_name_to_type(value) != UNIT_SOCKET) {
+                        log_unit_debug(u, "Deserialized accept-socket is not a socket unit, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3227,7 +3227,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug_errno(u, r, "Failed to load accept-socket unit '%s': %m", value);
                 else {
                         unit_ref_set(&s->accept_socket, u, socket);
-                        SOCKET(socket)->n_connections++;
+                        ASSERT_PTR(SOCKET(socket))->n_connections++;
                 }
 
         } else if (streq(key, "socket-fd")) {
