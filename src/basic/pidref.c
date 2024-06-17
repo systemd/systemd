@@ -6,6 +6,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "missing_wait.h"
 #include "parse-util.h"
@@ -14,8 +15,54 @@
 #include "signal-util.h"
 #include "stat-util.h"
 
-bool pidref_equal(const PidRef *a, const PidRef *b) {
+static int pidfd_inode_ids_supported(void) {
+        static int cached = -1;
+
+        if (cached >= 0)
+                return cached;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (cached = false);
+
+                return -errno;
+        }
+
+        return (cached = fd_is_fs_type(fd, PID_FS_MAGIC));
+}
+
+int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;
+
+        assert(pidref);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        if (pidref->fd_id > 0)
+                return 0;
+
+        r = pidfd_inode_ids_supported();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        struct stat st;
+
+        if (fstat(pidref->fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to get inode number of pidfd for pid " PID_FMT ": %m",
+                                       pidref->pid);
+
+        pidref->fd_id = (uint64_t) st.st_ino;
+        return 0;
+}
+
+bool pidref_equal(PidRef *a, PidRef *b) {
 
         if (pidref_is_set(a)) {
                 if (!pidref_is_set(b))
@@ -24,17 +71,13 @@ bool pidref_equal(const PidRef *a, const PidRef *b) {
                 if (a->pid != b->pid)
                         return false;
 
-                if (a->fd < 0 || b->fd < 0)
+                /* Try to compare pidfds using their inode numbers. This way we can ensure that we don't
+                 * spuriously consider two PidRefs equal if the pid has been reused once. Note that we
+                 * ignore all errors here, not only EOPNOTSUPP, as fstat() might fail due to many reasons. */
+                if (pidref_acquire_pidfd_id(a) < 0 || pidref_acquire_pidfd_id(b) < 0)
                         return true;
 
-                /* pidfds live in their own pidfs and each process comes with a unique inode number since
-                 * kernel 6.8. We can safely do this on older kernels too though, as previously anonymous
-                 * inode was used and inode number was the same for all pidfds. */
-                r = fd_inode_same(a->fd, b->fd);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to check whether pidfds for pid " PID_FMT " are equal, assuming yes: %m",
-                                        a->pid);
-                return r != 0;
+                return a->fd_id == b->fd_id;
         }
 
         return !pidref_is_set(b);
