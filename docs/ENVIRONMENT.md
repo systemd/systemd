@@ -714,6 +714,9 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   no effect if the background color is explicitly selected via the relevant
   `--background=` switch of the tool.
 
+* `$SYSTEMD_SET_TERM_TITLE` – Takes a boolean. When false the terminal title
+  will not be updated for interactive invocation of `systemd-run` or `run0`.
+
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:
 
