@@ -17,6 +17,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -365,6 +366,21 @@ static int insert_background_fix(PTYForward *f, size_t offset) {
                 return -ENOMEM;
 
         return insert_string(f, offset, s);
+}
+
+bool shall_set_terminal_title(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = getenv_bool("SYSTEMD_ADJUST_TERMINAL_TITLE");
+        if (cache == -ENXIO)
+                return (cache = true);
+        if (cache < 0)
+                log_debug_errno(cache, "Failed to parse $SYSTEMD_ADJUST_TERMINAL_TITLE, leaving terminal title setting enabled: %m");
+
+        return cache != 0;
 }
 
 static int insert_window_title_fix(PTYForward *f, size_t offset) {
