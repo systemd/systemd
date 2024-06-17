@@ -97,7 +97,7 @@ void sd_json_variant_unref_many(sd_json_variant **array, size_t n);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_json_variant, sd_json_variant_unref);
 
-const char *sd_json_variant_string(sd_json_variant *v);
+const char* sd_json_variant_string(sd_json_variant *v);
 int64_t sd_json_variant_integer(sd_json_variant *v);
 uint64_t sd_json_variant_unsigned(sd_json_variant *v);
 double sd_json_variant_real(sd_json_variant *v);
@@ -329,7 +329,7 @@ int sd_json_variant_strv(sd_json_variant *v, char ***ret);
 int sd_json_variant_unbase64(sd_json_variant *v, void **ret, size_t *ret_size);
 int sd_json_variant_unhex(sd_json_variant *v, void **ret, size_t *ret_size);
 
-const char *sd_json_variant_type_to_string(sd_json_variant_type_t t);
+const char* sd_json_variant_type_to_string(sd_json_variant_type_t t);
 sd_json_variant_type_t sd_json_variant_type_from_string(const char *s);
 
 _SD_END_DECLARATIONS;
