@@ -941,11 +941,11 @@ int replace_env_argv(
         }
 
         if (ret_unset_variables) {
-                strv_uniq(strv_sort(unset_variables));
+                strv_sort_uniq(unset_variables);
                 *ret_unset_variables = TAKE_PTR(unset_variables);
         }
         if (ret_bad_variables) {
-                strv_uniq(strv_sort(bad_variables));
+                strv_sort_uniq(bad_variables);
                 *ret_bad_variables = TAKE_PTR(bad_variables);
         }
 

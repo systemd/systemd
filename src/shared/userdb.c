@@ -1436,8 +1436,7 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
                         return r;
         }
 
-        strv_sort(members);
-        strv_uniq(members);
+        strv_sort_uniq(members);
 
         *ret = TAKE_PTR(members);
         return 0;

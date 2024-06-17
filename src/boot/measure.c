@@ -329,8 +329,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        strv_sort(arg_banks);
-        strv_uniq(arg_banks);
+        strv_sort_uniq(arg_banks);
 
         if (arg_current)
                 for (UnifiedSection us = 0; us < _UNIFIED_SECTION_MAX; us++)
@@ -347,10 +346,8 @@ static int parse_argv(int argc, char *argv[]) {
                                      "enter-initrd:leave-initrd:sysinit",
                                      "enter-initrd:leave-initrd:sysinit:ready") < 0)
                         return log_oom();
-        } else {
-                strv_sort(arg_phase);
-                strv_uniq(arg_phase);
-        }
+        } else
+                strv_sort_uniq(arg_phase);
 
         _cleanup_free_ char *j = NULL;
         j = strv_join(arg_phase, ", ");

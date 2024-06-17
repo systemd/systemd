@@ -3836,8 +3836,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_oom();
 
-                                strv_sort(list);
-                                strv_uniq(list);
+                                strv_sort_uniq(list);
 
                                 mo = sd_json_variant_unref(mo);
                                 r = sd_json_variant_new_array_strv(&mo, list);
