@@ -272,12 +272,10 @@ static int socket_add_default_dependencies(Socket *s) {
 }
 
 static bool socket_has_exec(Socket *s) {
-        unsigned i;
-
         assert(s);
 
-        for (i = 0; i < _SOCKET_EXEC_COMMAND_MAX; i++)
-                if (s->exec_command[i])
+        FOREACH_ARRAY(i, s->exec_command, _SOCKET_EXEC_COMMAND_MAX)
+                if (*i)
                         return true;
 
         return false;
