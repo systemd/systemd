@@ -765,6 +765,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_NICE,
                 ARG_SETENV,
                 ARG_BACKGROUND,
+                ARG_NO_SET_TITLE,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -786,6 +787,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "chdir",              required_argument, NULL, 'D'                    },
                 { "setenv",             required_argument, NULL, ARG_SETENV             },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "no-set-title",       no_argument,       NULL, ARG_NO_SET_TITLE       },
                 {},
         };
 
@@ -875,6 +877,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_NO_SET_TITLE:
+                        arg_set_title = false;
                         break;
 
                 case '?':
