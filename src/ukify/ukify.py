@@ -693,7 +693,7 @@ def pe_add_sections(uki: UKI, output: str):
 
     pe.write(output)
 
-def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
+def merge_sbat(input_pe: list[pathlib.Path], input_text: list[str]) -> str:
     sbat = []
 
     for f in input_pe:
@@ -1062,7 +1062,7 @@ def generate_key_cert_pair(
         common_name: str,
         valid_days: int,
         keylength: int = 2048,
-) -> tuple[bytes]:
+) -> tuple[bytes, bytes]:
 
     from cryptography import x509
     from cryptography.hazmat.primitives import serialization, hashes
@@ -1111,7 +1111,7 @@ def generate_key_cert_pair(
     return key_pem, cert_pem
 
 
-def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
+def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes, bytes]:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 
