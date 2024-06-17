@@ -1018,7 +1018,7 @@ def sign_uki(opts):
     pe.OPTIONAL_HEADER.SizeOfImage = round_up(
         pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
         pe.OPTIONAL_HEADER.SectionAlignment,
-        )
+    )
 
     popped = tempfile.NamedTemporaryFile(prefix="popped_uki")
     pe.write(popped.name)
