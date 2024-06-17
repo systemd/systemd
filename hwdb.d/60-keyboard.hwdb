@@ -290,10 +290,22 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC
 # All four of these buttons generate a multi-scancode sequence
 # consisting of Left_Meta, Right_Ctrl and another scancode.
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
- KEYBOARD_KEY_18=f13                              # LC (next to the left shoulder button)
- KEYBOARD_KEY_20=f14                              # RC (next to the right shoulder button)
- KEYBOARD_KEY_30=f15                              # Start (upper-right corner of screen)
- KEYBOARD_KEY_28=f16                              # Ayaneo (lower-right corner of screen)
+ KEYBOARD_KEY_18=f15                              # LC (next to the left shoulder button)
+ KEYBOARD_KEY_20=f16                              # RC (next to the right shoulder button)
+ KEYBOARD_KEY_28=f17                              # Ayaneo (lower-right corner of screen)
+ KEYBOARD_KEY_30=f18                              # Touchpad Mode (top-right corner of screen)
+
+# Most AYANEO devices expose an AT Translated Set 2 Keyboard
+# for either three or four additional buttons not available
+# on the Xbox360 controller. These buttons all generate a
+# multi-scancode sequence. The specific preceding codes
+# depend on the model, but the final scancode is always the
+# same.
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYANEO:*
+ KEYBOARD_KEY_66=f15                            # LC (All models)
+ KEYBOARD_KEY_67=f16                            # RC (All models)
+ KEYBOARD_KEY_68=f17                            # Ayaneo (All models)
+ KEYBOARD_KEY_69=f18                            # Touchpad Mode (Kun only)
 
 ###########################################################
 # BenQ
