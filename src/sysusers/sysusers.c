@@ -362,8 +362,7 @@ static int putgrent_with_members(
                 if (added) {
                         struct group t;
 
-                        strv_uniq(l);
-                        strv_sort(l);
+                        strv_sort_uniq(l);
 
                         t = *gr;
                         t.gr_mem = l;
@@ -411,8 +410,7 @@ static int putsgent_with_members(
                 if (added) {
                         struct sgrp t;
 
-                        strv_uniq(l);
-                        strv_sort(l);
+                        strv_sort_uniq(l);
 
                         t = *sg;
                         t.sg_mem = l;

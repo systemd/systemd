@@ -527,6 +527,81 @@ TEST(strv_sort) {
         ASSERT_STREQ(input_table[4], "durian");
 }
 
+TEST(strv_sort_uniq) {
+        static const char* input_table[] = {
+                "durian",
+                "apple",
+                "citrus",
+                 "CAPITAL LETTERS FIRST",
+                "banana",
+                "durian",
+                "apple",
+                "citrus",
+                 "CAPITAL LETTERS FIRST",
+                "banana",
+                "durian",
+                "apple",
+                "citrus",
+                 "CAPITAL LETTERS FIRST",
+                "banana",
+                NULL
+        };
+
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+
+        ASSERT_NULL(strv_sort_uniq(a));
+
+        ASSERT_NOT_NULL(a = strv_new(NULL));
+        assert_se(strv_sort_uniq(a) == a);
+        ASSERT_NULL(a[0]);
+        a = strv_free(a);
+
+        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "a"));
+        assert_se(strv_sort_uniq(a) == a);
+        ASSERT_STREQ(a[0], "a");
+        ASSERT_NULL(a[1]);
+        a = strv_free(a);
+
+        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "b"));
+        assert_se(strv_sort_uniq(a) == a);
+        ASSERT_STREQ(a[0], "a");
+        ASSERT_STREQ(a[1], "b");
+        ASSERT_NULL(a[2]);
+        a = strv_free(a);
+
+        ASSERT_NOT_NULL(a = strv_new("b", "a", "a", "a", "a"));
+        assert_se(strv_sort_uniq(a) == a);
+        ASSERT_STREQ(a[0], "a");
+        ASSERT_STREQ(a[1], "b");
+        ASSERT_NULL(a[2]);
+        a = strv_free(a);
+
+        ASSERT_NOT_NULL(a = strv_new("a", "a", "b", "a", "b"));
+        assert_se(strv_sort_uniq(a) == a);
+        ASSERT_STREQ(a[0], "a");
+        ASSERT_STREQ(a[1], "b");
+        ASSERT_NULL(a[2]);
+        a = strv_free(a);
+
+        ASSERT_NOT_NULL(a = strv_copy((char**) input_table));
+        ASSERT_NOT_NULL(b = strv_copy((char**) input_table));
+        ASSERT_NOT_NULL(c = strv_copy((char**) input_table));
+
+        assert_se(strv_sort_uniq(a) == a);
+        assert_se(strv_sort(strv_uniq(b)) == b);
+        assert_se(strv_uniq(strv_sort(c)) == c);
+
+        assert_se(strv_equal(a, b));
+        assert_se(strv_equal(a, c));
+
+        ASSERT_STREQ(a[0], "CAPITAL LETTERS FIRST");
+        ASSERT_STREQ(a[1], "apple");
+        ASSERT_STREQ(a[2], "banana");
+        ASSERT_STREQ(a[3], "citrus");
+        ASSERT_STREQ(a[4], "durian");
+        ASSERT_NULL(a[5]);
+}
+
 TEST(strv_extend_strv_biconcat) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 

@@ -1519,8 +1519,7 @@ int get_timezones(char ***ret) {
         if (r < 0)
                 return r;
 
-        strv_sort(zones);
-        strv_uniq(zones);
+        strv_sort_uniq(zones);
 
         *ret = TAKE_PTR(zones);
         return 0;
