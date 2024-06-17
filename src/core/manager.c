@@ -2967,15 +2967,16 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
-        /* If the user presses C-A-D more than
-         * 7 times within 2s, we reboot/shutdown immediately,
-         * unless it was disabled in system.conf */
+        assert(m);
+
+        /* If the user presses C-A-D more than 7 times within 2s, we reboot/shutdown immediately,
+         * unless it was disabled in system.conf. */
 
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_special(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(m, m->cad_burst_action, EMERGENCY_ACTION_WARN, NULL, -1,
-                                "Ctrl-Alt-Del was pressed more than 7 times within 2s");
+                                 "Ctrl-Alt-Del was pressed more than 7 times within 2s");
 }
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
