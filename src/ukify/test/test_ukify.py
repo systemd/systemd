@@ -563,7 +563,7 @@ def test_sign_uki(kernel_initrd, tmp_path, signing_crt_key):
     # let's check that objdump likes the resulting file
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text cmdline test sbat'.split():
+    for sect in ['text', 'cmdline', 'test', 'sbat']:
         assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     pe_original = pefile.PE(first_uki_output, fast_load=True)
