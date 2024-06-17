@@ -57,6 +57,10 @@ def main():
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    if args.vm and bool(int(os.getenv("TEST_NO_QEMU", "0"))):
+        print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
