@@ -1658,6 +1658,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:*
  KEYBOARD_KEY_f3=volumeup
 
 ###########################################################
+# OrangePi
+###########################################################
+
+# NEO
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnOrangePi:pnNEO-01:*
+ KEYBOARD_KEY_66=f15                                    # Gamepad (front, bottom right)
+ KEYBOARD_KEY_67=f16                                    # Home (front, bottom left)
+
+###########################################################
 # Ortek
 ###########################################################
 
