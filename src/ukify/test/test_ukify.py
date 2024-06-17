@@ -571,11 +571,10 @@ def test_sign_uki(kernel_initrd, tmp_path, signing_crt_key):
 
     # Check that no section has gone missing
     for original_section in pe_original.sections:
-        found = False
-        for section in pe.sections:
-            if section.Name.rstrip(b"\x00") == original_section.Name.rstrip(b"\x00"):
-                found = True
-        assert found is True
+        assert any(
+            section.Name.rstrip(b"\x00") == original_section.Name.rstrip(b"\x00") 
+            for section in pe.sections
+        )
 
     if shutil.which('sbverify'):
         # let's check that sbverify likes the resulting file
