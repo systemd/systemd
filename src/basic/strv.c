@@ -706,6 +706,21 @@ char** strv_sort(char **l) {
         return l;
 }
 
+char** strv_sort_uniq(char **l) {
+        if (strv_isempty(l))
+                return l;
+
+        char **tail = strv_sort(l), *prev = NULL;
+        STRV_FOREACH(i, l)
+                if (streq_ptr(*i, prev))
+                        free(*i);
+                else
+                        *(tail++) = prev = *i;
+
+        *tail = NULL;
+        return l;
+}
+
 int strv_compare(char * const *a, char * const *b) {
         int r;
 
