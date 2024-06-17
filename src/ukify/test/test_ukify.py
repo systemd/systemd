@@ -469,7 +469,7 @@ def test_sections(kernel_initrd, tmp_path):
     # let's check that objdump likes the resulting file
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text osrel cmdline linux initrd uname test'.split():
+    for sect in ['text', 'osrel', 'cmdline', 'linux', 'initrd', 'uname', 'test']:
         assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     shutil.rmtree(tmp_path)
@@ -506,7 +506,7 @@ baz,3
     # let's check that objdump likes the resulting file
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text cmdline test sbat'.split():
+    for sect in ['text', 'cmdline', 'test', 'sbat']:
         assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     pe = pefile.PE(output, fast_load=True)
@@ -791,7 +791,7 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         # let's check that objdump likes the resulting file
         dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-        for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
+        for sect in ['text', 'osrel', 'cmdline', 'linux', 'initrd', 'uname', 'pcrsig']:
             assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
         # objcopy fails when called without an output argument (EPERM).
@@ -867,7 +867,7 @@ def test_pcr_signing2(kernel_initrd, tmp_path):
     # let's check that objdump likes the resulting file
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
+    for sect in ['text', 'osrel', 'cmdline', 'linux', 'initrd', 'uname', 'pcrsig']:
         assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     subprocess.check_call([
