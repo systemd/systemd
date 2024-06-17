@@ -522,6 +522,14 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--no-set-title</option></term>
+
+        <listitem><para>By default, when a command is run through a pty, the terminal title will be set to
+        the command line plus a privilege level indicator. If this switch is specified, the original title
+        is retained.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
