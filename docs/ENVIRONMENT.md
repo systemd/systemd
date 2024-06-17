@@ -713,3 +713,7 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   and `run0` invocations is turned off. Note that this environment variable has
   no effect if the background color is explicitly selected via the relevant
   `--background=` switch of the tool.
+
+* `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
+  window title will not be updated for interactive invocation of the mentioned
+  tools.
