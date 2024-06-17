@@ -3286,11 +3286,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->main_exec_status.status = i;
         } else if (streq(key, "main-exec-status-start"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "main-exec-status-handoff"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
         else if (STR_IN_SET(key, "main-command", "control-command")) {
                 r = service_deserialize_exec_command(u, key, value);
                 if (r < 0)
@@ -3371,15 +3371,15 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->status_errno = i;
 
         } else if (streq(key, "watchdog-timestamp"))
-                deserialize_dual_timestamp(value, &s->watchdog_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->watchdog_timestamp);
         else if (streq(key, "watchdog-original-usec"))
-                deserialize_usec(value, &s->watchdog_original_usec);
+                (void) deserialize_usec(value, &s->watchdog_original_usec);
         else if (streq(key, "watchdog-override-usec")) {
                 if (deserialize_usec(value, &s->watchdog_override_usec) >= 0)
                         s->watchdog_override_enable = true;
 
         } else if (streq(key, "reload-begin-usec"))
-                deserialize_usec(value, &s->reload_begin_usec);
+                (void) deserialize_usec(value, &s->reload_begin_usec);
         else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
