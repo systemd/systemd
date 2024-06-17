@@ -336,7 +336,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (strv_isempty(auto_interfaces))
                         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Service doesn't report any implemented interfaces.");
 
-                interfaces = strv_sort(strv_uniq(auto_interfaces));
+                interfaces = strv_sort_uniq(auto_interfaces);
         }
 
         /* Automatically switch on JSON_SEQ if we output multiple JSON objects */
@@ -405,7 +405,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         if (list_methods) {
                 pager_open(arg_pager_flags);
 
-                strv_sort(strv_uniq(methods));
+                strv_sort_uniq(methods);
 
                 if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                         strv_print(methods);
