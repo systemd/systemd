@@ -82,6 +82,7 @@ static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
+static bool arg_set_title = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -262,6 +263,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHELL,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
+                ARG_NO_SET_TITLE,
         };
 
         static const struct option options[] = {
@@ -310,6 +312,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "no-set-title",       no_argument,       NULL, ARG_NO_SET_TITLE       },
                 {},
         };
 
@@ -617,12 +620,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_NO_SET_TITLE:
+                        arg_set_title = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        r = getenv_bool("SYSTEMD_RUN_SET_TITLE");
+        if (r >= 0)
+                arg_set_title = r;
 
         /* If we are talking to the per-user instance PolicyKit isn't going to help */
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
@@ -758,6 +769,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_NICE,
                 ARG_SETENV,
                 ARG_BACKGROUND,
+                ARG_NO_SET_TITLE,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -779,6 +791,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "chdir",              required_argument, NULL, 'D'                    },
                 { "setenv",             required_argument, NULL, ARG_SETENV             },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "no-set-title",       no_argument,       NULL, ARG_NO_SET_TITLE       },
                 {},
         };
 
@@ -868,6 +881,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_NO_SET_TITLE:
+                        arg_set_title = false;
                         break;
 
                 case '?':
@@ -1848,7 +1865,8 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
 
-                        set_window_title(c.forward);
+                        if (arg_set_title)
+                                set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);
