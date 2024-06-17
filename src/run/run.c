@@ -631,6 +631,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        r = getenv_bool("SYSTEMD_RUN_SET_TITLE");
+        if (r >= 0)
+                arg_set_title = r;
+
         /* If we are talking to the per-user instance PolicyKit isn't going to help */
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_ask_password = false;
