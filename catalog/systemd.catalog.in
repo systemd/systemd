@@ -778,7 +778,7 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:systemd-tpm2-setup.service(8)
 
-An authorization failure occured while attempting to enroll a Storage Root Key (SRK) on the Trusted Platform
+An authorization failure occurred while attempting to enroll a Storage Root Key (SRK) on the Trusted Platform
 Module (TPM). Most likely this means that a PIN/Password (authValue) has been set on the Owner hierarchy of
 the TPM.
 
