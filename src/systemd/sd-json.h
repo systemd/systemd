@@ -189,6 +189,7 @@ int sd_json_parse_file_at(FILE *f, int dir_fd, const char *path, sd_json_parse_f
 int sd_json_parse_file(FILE *f, const char *path, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
 
 enum {
+        /* Do not use these directly, use the SD_JSON_BUILD_*() macros below */
         _SD_JSON_BUILD_STRING,
         _SD_JSON_BUILD_INTEGER,
         _SD_JSON_BUILD_UNSIGNED,
