@@ -482,17 +482,16 @@ static int property_get_bind_paths(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_bind_mounts; i++) {
-
-                if (ro != c->bind_mounts[i].read_only)
+        FOREACH_ARRAY(i, c->bind_mounts, c->n_bind_mounts) {
+                if (ro != i->read_only)
                         continue;
 
                 r = sd_bus_message_append(
                                 reply, "(ssbt)",
-                                c->bind_mounts[i].source,
-                                c->bind_mounts[i].destination,
-                                c->bind_mounts[i].ignore_enoent,
-                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : UINT64_C(0));
+                                i->source,
+                                i->destination,
+                                i->ignore_enoent,
+                                i->recursive ? (uint64_t) MS_REC : UINT64_C(0));
                 if (r < 0)
                         return r;
         }
@@ -520,9 +519,7 @@ static int property_get_temporary_filesystems(
         if (r < 0)
                 return r;
 
-        for (unsigned i = 0; i < c->n_temporary_filesystems; i++) {
-                TemporaryFileSystem *t = c->temporary_filesystems + i;
-
+        FOREACH_ARRAY(t, c->temporary_filesystems, c->n_temporary_filesystems) {
                 r = sd_bus_message_append(
                                 reply, "(ss)",
                                 t->path,
@@ -554,8 +551,8 @@ static int property_get_log_extra_fields(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_log_extra_fields; i++) {
-                r = sd_bus_message_append_array(reply, 'y', c->log_extra_fields[i].iov_base, c->log_extra_fields[i].iov_len);
+        FOREACH_ARRAY(i, c->log_extra_fields, c->n_log_extra_fields) {
+                r = sd_bus_message_append_array(reply, 'y', i->iov_base, i->iov_len);
                 if (r < 0)
                         return r;
         }
@@ -777,30 +774,35 @@ static int property_get_mount_images(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_mount_images; i++) {
+        FOREACH_ARRAY(i, c->mount_images, c->n_mount_images) {
                 r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "ssba(ss)");
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_append(
                                 reply, "ssb",
-                                c->mount_images[i].source,
-                                c->mount_images[i].destination,
-                                c->mount_images[i].ignore_enoent);
+                                i->source,
+                                i->destination,
+                                i->ignore_enoent);
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_open_container(reply, 'a', "(ss)");
                 if (r < 0)
                         return r;
-                LIST_FOREACH(mount_options, m, c->mount_images[i].mount_options) {
+
+                LIST_FOREACH(mount_options, m, i->mount_options) {
                         r = sd_bus_message_append(reply, "(ss)",
                                                   partition_designator_to_string(m->partition_designator),
                                                   m->options);
                         if (r < 0)
                                 return r;
                 }
+
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
@@ -829,29 +831,34 @@ static int property_get_extension_images(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_extension_images; i++) {
+        FOREACH_ARRAY(i, c->extension_images, c->n_extension_images) {
                 r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sba(ss)");
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_append(
                                 reply, "sb",
-                                c->extension_images[i].source,
-                                c->extension_images[i].ignore_enoent);
+                                i->source,
+                                i->ignore_enoent);
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_open_container(reply, 'a', "(ss)");
                 if (r < 0)
                         return r;
-                LIST_FOREACH(mount_options, m, c->extension_images[i].mount_options) {
+
+                LIST_FOREACH(mount_options, m, i->mount_options) {
                         r = sd_bus_message_append(reply, "(ss)",
                                                   partition_designator_to_string(m->partition_designator),
                                                   m->options);
                         if (r < 0)
                                 return r;
                 }
+
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
+
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
@@ -860,7 +867,7 @@ static int property_get_extension_images(
         return sd_bus_message_close_container(reply);
 }
 
-static int bus_property_get_exec_dir(
+static int property_get_exec_dir(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -880,8 +887,8 @@ static int bus_property_get_exec_dir(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < d->n_items; i++) {
-                r = sd_bus_message_append_basic(reply, 's', d->items[i].path);
+        FOREACH_ARRAY(i, d->items, d->n_items) {
+                r = sd_bus_message_append_basic(reply, 's', i->path);
                 if (r < 0)
                         return r;
         }
@@ -889,7 +896,7 @@ static int bus_property_get_exec_dir(
         return sd_bus_message_close_container(reply);
 }
 
-static int bus_property_get_exec_dir_symlink(
+static int property_get_exec_dir_symlink(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -909,9 +916,9 @@ static int bus_property_get_exec_dir_symlink(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < d->n_items; i++)
-                STRV_FOREACH(dst, d->items[i].symlinks) {
-                        r = sd_bus_message_append(reply, "(sst)", d->items[i].path, *dst, UINT64_C(0) /* flags, unused for now */);
+        FOREACH_ARRAY(i, d->items, d->n_items)
+                STRV_FOREACH(dst, i->symlinks) {
+                        r = sd_bus_message_append(reply, "(sst)", i->path, *dst, UINT64_C(0) /* flags, unused for now */);
                         if (r < 0)
                                 return r;
                 }
@@ -1083,10 +1090,10 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, offsetof(ExecContext, personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RuntimeDirectorySymlink", "a(sst)", bus_property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", bus_property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RuntimeDirectory", "as", bus_property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectorySymlink", "a(sst)", bus_property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectory", "as", bus_property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
