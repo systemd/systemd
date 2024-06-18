@@ -66,6 +66,36 @@ char* strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
+char* strv_find_closest(char * const *l, const char *name) {
+        ssize_t best_distance = SSIZE_MAX;
+        char *best = NULL;
+
+        assert(l);
+
+        if (!name)
+                return NULL;
+
+        for (size_t i = 0; l[i]; i++) {
+                ssize_t distance;
+
+                distance = strlevenshtein(l[i], name);
+                if (distance < 0) {
+                        log_debug_errno(distance, "Failed to determine Levenshtein distance between %s and %s: %m", l[i], name);
+                        return NULL;
+                }
+
+                if (distance > 5) /* If the distance is just too far off, don't make a bad suggestion */
+                        continue;
+
+                if (distance < best_distance) {
+                        best_distance = distance;
+                        best = l[i];
+                }
+        }
+
+        return best;
+}
+
 char* strv_find_first_field(char * const *needles, char * const *haystack) {
         STRV_FOREACH(k, needles) {
                 char *value = strv_env_pairs_get((char **)haystack, *k);

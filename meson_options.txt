@@ -332,6 +332,8 @@ option('nspawn-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used by systemd-nspawn when executing commands in a container')
 option('default-keymap', type : 'string', value : 'us',
        description : 'default keymap used when populating /etc/vconsole.conf')
+option('default-timezone', type : 'string', value : 'UTC',
+       description : 'default timezone used when populating /etc/localtime')
 option('localegen-path', type : 'string', value : '',
        description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
 option('service-watchdog', type : 'string', value : '3min',
