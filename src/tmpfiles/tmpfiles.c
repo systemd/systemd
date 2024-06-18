@@ -396,20 +396,20 @@ static int user_config_paths(char*** ret) {
 
 static bool needs_purge(ItemType t) {
         return IN_SET(t,
-                      COPY_FILES,
-                      TRUNCATE_FILE,
                       CREATE_FILE,
-                      WRITE_FILE,
-                      EMPTY_DIRECTORY,
+                      TRUNCATE_FILE,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
                       CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_FIFO,
+                      CREATE_SYMLINK,
                       CREATE_CHAR_DEVICE,
                       CREATE_BLOCK_DEVICE,
-                      CREATE_SYMLINK,
-                      CREATE_FIFO,
-                      CREATE_DIRECTORY,
-                      TRUNCATE_DIRECTORY);
+                      COPY_FILES,
+                      WRITE_FILE,
+                      EMPTY_DIRECTORY);
 }
 
 static bool needs_glob(ItemType t) {
