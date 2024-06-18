@@ -5200,7 +5200,7 @@ int config_parse_temporary_filesystems(
 }
 
 int config_parse_private_tmp(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5211,19 +5211,18 @@ int config_parse_private_tmp(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = ASSERT_PTR(data);
-        int r;
+        PrivateTmp *private_tmp = ASSERT_PTR(data), t;
 
         assert(filename);
         assert(rvalue);
 
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value: %s ignoring", rvalue);
+        t = private_tmp_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, t, "Failed to parse PrivateTmp= value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        c->private_tmp = r ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_OFF;
+        *private_tmp = t;
         return 0;
 }
 
