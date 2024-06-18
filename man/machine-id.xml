@@ -124,7 +124,7 @@
     are as follows:</para>
 
     <orderedlist>
-      <listitem><para>The kernel command argument <varname>systemd.condition-first-boot=</varname> may be
+      <listitem><para>The kernel command argument <varname>systemd.condition_first_boot=</varname> may be
       used to override the autodetection logic, see
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
       </para></listitem>
