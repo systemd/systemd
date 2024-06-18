@@ -4154,7 +4154,7 @@ static int help(void) {
                "\n%3$sOptions:%4$s\n"
                "     --user                 Execute user configuration\n"
                "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration\n"
+               "     --tldr                 Show non-comment parts of configuration files\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
