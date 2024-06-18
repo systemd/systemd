@@ -4360,6 +4360,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing --purge without specification of a configuration file.");
+
         return 1;
 }
 
