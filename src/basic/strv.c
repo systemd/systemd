@@ -1053,20 +1053,20 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                         }
                 }
 
-                if (start) { /* Process rest of the line */
-                        if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
-                                r = strv_extend(&broken, "");
-                        else if (whitespace_begin && !whitespace_end) { /* Ends in whitespace? Chop it off! */
-                                _cleanup_free_ char *truncated = strndup(start, whitespace_begin - start);
-                                if (!truncated)
-                                        return -ENOMEM;
+                /* Process rest of the line */
+                assert(start);
+                if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
+                        r = strv_extend(&broken, "");
+                else if (whitespace_begin && !whitespace_end) { /* Ends in whitespace? Chop it off! */
+                        _cleanup_free_ char *truncated = strndup(start, whitespace_begin - start);
+                        if (!truncated)
+                                return -ENOMEM;
 
-                                r = strv_consume(&broken, TAKE_PTR(truncated));
-                        } else /* Otherwise use line as is */
-                                r = strv_extend(&broken, start);
-                        if (r < 0)
-                                return r;
-                }
+                        r = strv_consume(&broken, TAKE_PTR(truncated));
+                } else /* Otherwise use line as is */
+                        r = strv_extend(&broken, start);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_PTR(broken);
