@@ -479,6 +479,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultMemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultDeviceMemoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultTasksAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultLimitCPU = ...;
@@ -716,6 +718,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultIPAccounting is not documented!-->
 
     <!--property DefaultMemoryAccounting is not documented!-->
+
+    <!--property DefaultDeviceMemoryAccounting is not documented!-->
 
     <!--property DefaultTasksAccounting is not documented!-->
 
@@ -1162,6 +1166,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIPAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultDeviceMemoryAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTasksAccounting"/>
 
@@ -2965,6 +2971,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -3631,6 +3643,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
 
     <!--property StartupMemoryLow is not documented!-->
 
@@ -4315,6 +4333,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -5212,6 +5236,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -5899,6 +5929,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
+
     <!--property StartupMemoryLow is not documented!-->
 
     <!--property MemoryHigh is not documented!-->
@@ -6562,6 +6598,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -7283,6 +7325,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -7892,6 +7940,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
+
     <!--property StartupMemoryLow is not documented!-->
 
     <!--property MemoryHigh is not documented!-->
@@ -8463,6 +8517,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -9317,6 +9377,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -9908,6 +9974,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
+
     <!--property StartupMemoryLow is not documented!-->
 
     <!--property MemoryHigh is not documented!-->
@@ -10461,6 +10533,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -11168,6 +11246,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -11346,6 +11430,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
 
     <!--property StartupMemoryLow is not documented!-->
 
@@ -11536,6 +11626,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -11752,6 +11848,12 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMin = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryLow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(st) DeviceMemoryMax = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
@@ -11944,6 +12046,12 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMin is not documented!-->
+
+    <!--property DeviceMemoryLow is not documented!-->
+
+    <!--property DeviceMemoryMax is not documented!-->
 
     <!--property StartupMemoryLow is not documented!-->
 
@@ -12158,6 +12266,12 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMin"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryLow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeviceMemoryMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
 
@@ -12432,6 +12546,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DefaultRestrictSUIDSGID</varname>,
       <function>RemoveSubgroupFromUnit()</function>, and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
+      <para><varname>DefaultDeviceMemoryAccounting</varname> was added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12516,8 +12631,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12583,8 +12701,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12645,8 +12766,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12705,8 +12829,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12737,8 +12864,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>NCurrentlyActive</varname>,
       <function>RemoveSubgroup()</function>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12767,8 +12897,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
       <para><function>RemoveSubgroup()</function> and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>DeviceMemoryMin</varname>,
+      <varname>DeviceMemoryLow</varname>, and
+      <varname>DeviceMemoryMax</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
