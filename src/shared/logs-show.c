@@ -450,6 +450,9 @@ static void parse_display_realtime(
         assert(j);
         assert(ret);
 
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        source_monotonic = NULL;
+
         /* First, try _SOURCE_REALTIME_TIMESTAMP. */
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t)) {
                 *ret = t;
@@ -487,6 +490,9 @@ static void parse_display_timestamp(
         assert(j);
         assert(ret_display_ts);
         assert(ret_boot_id);
+
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        source_monotonic = NULL;
 
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;

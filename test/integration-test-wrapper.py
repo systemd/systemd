@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 '''Test wrapper command for driving integration tests.
-
-Note: This is deliberately rough and only intended to drive existing tests
-with the expectation that as part of formally defining the API it will be tidy.
-
 '''
 
 import argparse
@@ -59,6 +55,10 @@ def main():
 
     if args.slow and not bool(int(os.getenv("SYSTEMD_SLOW_TESTS", "0"))):
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
+    if args.vm and bool(int(os.getenv("TEST_NO_QEMU", "0"))):
+        print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
         exit(77)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
@@ -128,6 +128,7 @@ def main():
         *args.mkosi_args,
         '--append',
         '--qemu-firmware', args.firmware,
+        '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',

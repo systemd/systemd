@@ -81,6 +81,11 @@ CHANGES WITH 256:
         * systemd.crash_reboot and related settings are deprecated in favor of
           systemd.crash_action=.
 
+        * Stable releases for version v256 and newer will now be pushed in the
+          main repository. The systemd-stable repository will be used for existing
+          stable branches (v255-stable and lower), and when they reach EOL it will
+          be archived.
+
         General Changes and New Features:
 
         * Various programs will now attempt to load the main configuration file
@@ -190,7 +195,7 @@ CHANGES WITH 256:
           additional per-user service managers, whose users are transient and
           are only defined as long as the service manager is running. (This is
           implemented via DynamicUser=1), allowing a user manager to be used to
-          manager a group of processes without needing to create an actual user
+          manage a group of processes without needing to create an actual user
           account. These service managers run with home directories of
           /var/lib/capsules/<capsule-name> and can contain regular services and
           other units. A capsule is started via a simple "systemctl start
