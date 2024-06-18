@@ -3611,11 +3611,13 @@ static int parse_line(
 
         const Specifier specifier_table[] = {
                 { 'a', specifier_architecture,    NULL },
+                { 'A', specifier_os_image_version,NULL },
                 { 'b', specifier_boot_id,         NULL },
                 { 'B', specifier_os_build_id,     NULL },
                 { 'H', specifier_hostname,        NULL },
                 { 'l', specifier_short_hostname,  NULL },
                 { 'm', specifier_machine_id,      NULL },
+                { 'M', specifier_os_image_id,     NULL },
                 { 'o', specifier_os_id,           NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 { 'w', specifier_os_version_id,   NULL },
