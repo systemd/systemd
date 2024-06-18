@@ -1260,6 +1260,10 @@ static bool use_token_plugins(void) {
                 return false;
 #endif
 
+        /* Disable tokens if we're in FIDO2 mode with manual parameters. */
+        if (arg_fido2_cid)
+                return false;
+
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         int r;
 
