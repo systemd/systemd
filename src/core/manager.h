@@ -137,6 +137,7 @@ typedef struct UnitDefaults {
         bool io_accounting;
         bool tasks_accounting;
         bool ip_accounting;
+        bool device_memory_accounting;
 
         CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;

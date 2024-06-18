@@ -164,6 +164,50 @@ static int property_get_io_device_limits(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_device_memory_limits(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(st)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(dev_limits, l, c->dev_mem_limits)
+                if (streq(property, "DeviceMemoryMin")) {
+                        if (!l->min_valid)
+                                continue;
+                        r = sd_bus_message_append(reply, "(st)", l->region, l->min);
+                        if (r < 0)
+                                return r;
+                } else if (streq(property, "DeviceMemoryLow")) {
+                        if (!l->low_valid)
+                                continue;
+                        r = sd_bus_message_append(reply, "(st)", l->region, l->low);
+                        if (r < 0)
+                                return r;
+                } else if (streq(property, "DeviceMemoryMax")) {
+                        if (!l->max_valid)
+                                continue;
+                        r = sd_bus_message_append(reply, "(st)", l->region, l->max);
+                        if (r < 0)
+                                return r;
+                } else
+                        assert_not_reached();
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_io_device_latency(
                 sd_bus *bus,
                 const char *path,
@@ -400,6 +444,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DefaultMemoryMin", "t", NULL, offsetof(CGroupContext, default_memory_min), 0),
         SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
+        SD_BUS_PROPERTY("DeviceMemoryMin", "a(st)", property_get_device_memory_limits, 0, 0),
+        SD_BUS_PROPERTY("DeviceMemoryLow", "a(st)", property_get_device_memory_limits, 0, 0),
+        SD_BUS_PROPERTY("DeviceMemoryMax", "a(st)", property_get_device_memory_limits, 0, 0),
         SD_BUS_PROPERTY("StartupMemoryLow", "t", NULL, offsetof(CGroupContext, startup_memory_low), 0),
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
         SD_BUS_PROPERTY("StartupMemoryHigh", "t", NULL, offsetof(CGroupContext, startup_memory_high), 0),
@@ -1051,6 +1098,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemoryAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
+
+        if (streq(name, "DeviceMemoryAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->device_memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
 
         if (streq(name, "MemoryMin")) {
                 r = bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, error);
@@ -2015,6 +2065,75 @@ int bus_cgroup_set_property(
                         unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
+                return 1;
+        }
+
+        if (STR_IN_SET(name, "DeviceMemoryMax", "DeviceMemoryMin", "DeviceMemoryLow")) {
+                char *region;
+                uint64_t size;
+
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(st)", &region, &size)) > 0) {
+                        CGroupDeviceMemoryLimit *l, *found = NULL;
+
+                        if (size < 1)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "Value specified in %s is out of range",
+                                                name);
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        LIST_FOREACH(dev_limits, cur, c->dev_mem_limits)
+                                if (streq(cur->region, region)) {
+                                        found = cur;
+                                        break;
+                                }
+
+                        if (found)
+                                l = found;
+                        else {
+                                _cleanup_free_ CGroupDeviceMemoryLimit *new_limit = new0(CGroupDeviceMemoryLimit, 1);
+                                if (!new_limit)
+                                        return log_oom();
+
+                                *new_limit = (CGroupDeviceMemoryLimit) {
+                                        .region = strdup(region),
+                                };
+                                if (!new_limit->region)
+                                        return log_oom();
+
+                                l = TAKE_PTR(new_limit);
+                        }
+                        if (streq(name, "DeviceMemoryMax")) {
+                                l->max = size;
+                                l->max_valid = true;
+                        } else if (streq(name, "DeviceMemoryLow")) {
+                                l->low = size;
+                                l->low_valid = true;
+                        } else if (streq(name, "DeviceMemoryMin")) {
+                                l->min = size;
+                                l->min_valid = true;
+                        } else
+                                assert_not_reached();
+
+                        if (!found)
+                                LIST_PREPEND(dev_limits, c->dev_mem_limits, l);
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_DMEM);
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
                 return 1;
         }
 
