@@ -204,7 +204,6 @@ static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
-
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
