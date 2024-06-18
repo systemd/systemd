@@ -1811,7 +1811,8 @@ static int install_info_discover(
                 r = install_info_traverse(ctx, lp, info, flags, ret);
 
         if (r < 0)
-                install_changes_add(changes, n_changes, r, name_or_path, NULL);
+                return install_changes_add(changes, n_changes, r, name_or_path, NULL);
+
         return r;
 }
 
@@ -1872,7 +1873,10 @@ int unit_file_verify_alias(
                 if (!p)
                         p = endswith(dir, ".requires");
                 if (!p) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        if (r != -EXDEV)
+                                return r;
+
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV), "Invalid path \"%s\" in alias.", dir);
                 }
 
@@ -1880,7 +1884,9 @@ int unit_file_verify_alias(
 
                 UnitNameFlags type = unit_name_classify(dir);
                 if (type < 0) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        if (r != -EXDEV)
+                                return r;
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
                                                "Invalid unit name component \"%s\" in alias.", dir);
                 }
@@ -1892,7 +1898,10 @@ int unit_file_verify_alias(
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify alias validity: %m");
                 if (r == 0) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, info->name);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, info->name);
+                        if (r != -EXDEV)
+                                return r;
+
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
                                                "Invalid unit \"%s\" symlink \"%s\".",
                                                info->name, dst);
@@ -1906,7 +1915,9 @@ int unit_file_verify_alias(
 
                         UnitNameFlags type = unit_name_to_instance(info->name, &inst);
                         if (type < 0) {
-                                install_changes_add(changes, n_changes, -EUCLEAN, info->name, NULL);
+                                r = install_changes_add(changes, n_changes, -EUCLEAN, info->name, NULL);
+                                if (r != -EUCLEAN)
+                                        return r;
                                 return log_debug_errno(type, "Failed to extract instance name from \"%s\": %m", info->name);
                         }
 
@@ -2289,10 +2300,14 @@ static int install_context_mark_for_removal(
                         }
                 } else if (r < 0) {
                         log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
-                        install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                        int k = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                        if (k != r)
+                                return k;
                 } else if (i->install_mode == INSTALL_MODE_MASKED) {
                         log_debug("Unit file %s is masked, ignoring.", i->name);
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path ?: i->name, NULL);
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path ?: i->name, NULL);
+                        if (r < 0)
+                                return r;
                         continue;
                 } else if (i->install_mode != INSTALL_MODE_REGULAR) {
                         log_debug("Unit %s has install mode %s, ignoring.",
