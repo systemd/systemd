@@ -25,17 +25,18 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
         assert(uid_is_valid(uid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
-                                       SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                       SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
-                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                                                           SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
+                                                           SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                                           SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                                           SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                                           SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -196,14 +197,15 @@ static int build_group_json(const char *group_name, gid_t gid, const char *descr
         assert(gid_is_valid(gid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
-                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
-    }
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
+                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
+                                                           SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
+}
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
         assert(p);
