@@ -412,6 +412,21 @@ TEST(build) {
         assert_se(sd_json_variant_equal(ssv, ssv2));
 }
 
+TEST(json_buildo) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+
+        assert_se(sd_json_buildo(&a,
+                                 SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)),
+                                 SD_JSON_BUILD_PAIR("bar", SD_JSON_BUILD_STRING("xxxx"))) >= 0);
+
+        assert_se(sd_json_build(&b,
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR("bar", SD_JSON_BUILD_STRING("xxxx")),
+                                                SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)))) >= 0);
+
+        assert_se(sd_json_variant_equal(a, b));
+}
+
 TEST(json_parse_file_empty) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
