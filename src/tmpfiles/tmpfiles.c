@@ -4344,6 +4344,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "You need to specify at least one of --clean, --create, --remove, or --purge.");
 
+        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing --purge without specification of a configuration file.");
+
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --replace= is not supported with --cat-config/--tldr.");
