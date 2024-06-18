@@ -195,7 +195,7 @@ CHANGES WITH 256:
           additional per-user service managers, whose users are transient and
           are only defined as long as the service manager is running. (This is
           implemented via DynamicUser=1), allowing a user manager to be used to
-          manager a group of processes without needing to create an actual user
+          manage a group of processes without needing to create an actual user
           account. These service managers run with home directories of
           /var/lib/capsules/<capsule-name> and can contain regular services and
           other units. A capsule is started via a simple "systemctl start
