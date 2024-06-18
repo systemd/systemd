@@ -547,14 +547,13 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
                 return dir;
 
         if (!IN_SET(errno, ENOENT, ELOOP))
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
-
-        if (errno != EPERM)
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (!ERRNO_IS_PRIVILEGE(errno))
                 return NULL;
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW);
         if (!dir)
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with or without O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
