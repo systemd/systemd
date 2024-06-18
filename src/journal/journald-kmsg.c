@@ -253,9 +253,17 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 }
         }
 
-        char source_time[STRLEN("_SOURCE_MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
-        xsprintf(source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec);
-        iovec[n++] = IOVEC_MAKE_STRING(source_time);
+        char source_boot_time[STRLEN("_SOURCE_BOOTTIME_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
+        xsprintf(source_boot_time, "_SOURCE_BOOTTIME_TIMESTAMP=%llu", usec);
+        iovec[n++] = IOVEC_MAKE_STRING(source_boot_time);
+
+        /* Historically, we stored the timestamp 'usec' as _SOURCE_MONOTONIC_TIMESTAMP, so we cannot remove
+         * the field as it is already used in other projects. So, let's store the correct timestamp here by
+         * mapping the boottime to monotonic. Then, the existence of _SOURCE_BOOTTIME_TIMESTAMP indicates
+         * the reliability of _SOURCE_MONOTONIC_TIMESTAMP field. */
+        char source_monotonic_time[STRLEN("_SOURCE_MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
+        xsprintf(source_monotonic_time, "_SOURCE_MONOTONIC_TIMESTAMP="USEC_FMT, map_clock_usec(usec, CLOCK_BOOTTIME, CLOCK_MONOTONIC));
+        iovec[n++] = IOVEC_MAKE_STRING(source_monotonic_time);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=kernel");
 

@@ -453,8 +453,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         (void) parse_credentials();
 
-        strv_sort(arg_listen_extra);
-        strv_uniq(arg_listen_extra);
+        strv_sort_uniq(arg_listen_extra);
 
         if (!arg_auto && strv_isempty(arg_listen_extra)) {
                 log_debug("Disabling SSH generator logic, because as it has been turned off explicitly.");

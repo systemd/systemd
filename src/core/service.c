@@ -1363,7 +1363,7 @@ static int service_coldplug(Unit *u) {
                 service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
-                Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
+                Socket *socket = SOCKET(UNIT_DEREF(s->accept_socket));
 
                 if (socket->max_connections_per_source > 0) {
                         SocketPeer *peer;
@@ -3217,8 +3217,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
 
-                if (u->type != UNIT_SOCKET) {
-                        log_unit_debug(u, "Failed to deserialize accept-socket: unit is not a socket");
+                if (unit_name_to_type(value) != UNIT_SOCKET) {
+                        log_unit_debug(u, "Deserialized accept-socket is not a socket unit, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3227,7 +3227,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug_errno(u, r, "Failed to load accept-socket unit '%s': %m", value);
                 else {
                         unit_ref_set(&s->accept_socket, u, socket);
-                        SOCKET(socket)->n_connections++;
+                        ASSERT_PTR(SOCKET(socket))->n_connections++;
                 }
 
         } else if (streq(key, "socket-fd")) {
@@ -3286,11 +3286,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->main_exec_status.status = i;
         } else if (streq(key, "main-exec-status-start"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "main-exec-status-handoff"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
         else if (STR_IN_SET(key, "main-command", "control-command")) {
                 r = service_deserialize_exec_command(u, key, value);
                 if (r < 0)
@@ -3371,15 +3371,15 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->status_errno = i;
 
         } else if (streq(key, "watchdog-timestamp"))
-                deserialize_dual_timestamp(value, &s->watchdog_timestamp);
+                (void) deserialize_dual_timestamp(value, &s->watchdog_timestamp);
         else if (streq(key, "watchdog-original-usec"))
-                deserialize_usec(value, &s->watchdog_original_usec);
+                (void) deserialize_usec(value, &s->watchdog_original_usec);
         else if (streq(key, "watchdog-override-usec")) {
                 if (deserialize_usec(value, &s->watchdog_override_usec) >= 0)
                         s->watchdog_override_enable = true;
 
         } else if (streq(key, "reload-begin-usec"))
-                deserialize_usec(value, &s->reload_begin_usec);
+                (void) deserialize_usec(value, &s->reload_begin_usec);
         else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
