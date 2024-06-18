@@ -245,7 +245,7 @@ static int varlink_idl_format_all_fields(
                 } else
                         fputs(",\n", f);
 
-                /* We found a field we want to output. In this case, output all immediately preceeding
+                /* We found a field we want to output. In this case, output all immediately preceding
                  * comments first. First, find the first comment in the series before. */
                 const VarlinkField *start_comment = NULL;
                 for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
@@ -379,7 +379,7 @@ static int varlink_idl_format_all_symbols(
 
                 fputs("\n", f);
 
-                /* Symbol comments we'll only output if we are outputing the symbol they belong to. Scan
+                /* Symbol comments we'll only output if we are outputting the symbol they belong to. Scan
                  * backwards for symbol comments. */
                 const VarlinkSymbol *const*start_comment = NULL;
                 for (const VarlinkSymbol *const*c1 = symbol; c1 > interface->symbols; c1--) {
