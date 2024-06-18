@@ -3157,4 +3157,4 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);

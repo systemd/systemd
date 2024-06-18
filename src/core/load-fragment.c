@@ -133,6 +133,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc, "Failed to parse /proc/ protection mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset, "Failed to parse /proc/ subset mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp, "Failed to parse private tmp value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
@@ -5197,34 +5198,6 @@ int config_parse_temporary_filesystems(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_private_tmp(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(rvalue);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value: %s ignoring", rvalue);
-                return 0;
-        }
-
-        c->private_tmp = r ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_OFF;
-        return 0;
 }
 
 int config_parse_bind_paths(
