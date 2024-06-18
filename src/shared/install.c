@@ -2452,10 +2452,8 @@ int unit_file_unmask(
                         return -ENOMEM;
 
                 if (!dry_run && unlink(path) < 0) {
-                        if (errno != ENOENT) {
-                                RET_GATHER(r, -errno);
-                                install_changes_add(changes, n_changes, -errno, path, NULL);
-                        }
+                        if (errno != ENOENT)
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -errno, path, NULL));
 
                         continue;
                 }
