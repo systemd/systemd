@@ -4144,7 +4144,7 @@ static int help(void) {
         printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
                "\n%2$sCreate, delete, and clean up files and directories.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --create               Create files and directories\n"
+               "     --create               Create and adjust files and directories\n"
                "     --clean                Clean up files and directories\n"
                "     --remove               Remove files and directories marked for removal\n"
                "     --purge                Delete files and directories marked for creation in\n"
