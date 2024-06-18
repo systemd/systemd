@@ -5217,9 +5217,15 @@ int config_parse_private_tmp(
         assert(filename);
         assert(rvalue);
 
+        PrivateTmp t = private_tmp_from_string(rvalue);
+        if (t >= 0) {
+                c->private_tmp = t;
+                return 0;
+        }
+
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse PrivateTmp= value, ignoring: %s", rvalue);
                 return 0;
         }
 
