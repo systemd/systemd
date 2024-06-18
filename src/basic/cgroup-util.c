@@ -2076,6 +2076,7 @@ static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_MEMORY]                          = "memory",
         [CGROUP_CONTROLLER_DEVICES]                         = "devices",
         [CGROUP_CONTROLLER_PIDS]                            = "pids",
+        [CGROUP_CONTROLLER_DMEM]                            = "dmem",
         [CGROUP_CONTROLLER_BPF_FIREWALL]                    = "bpf-firewall",
         [CGROUP_CONTROLLER_BPF_DEVICES]                     = "bpf-devices",
         [CGROUP_CONTROLLER_BPF_FOREIGN]                     = "bpf-foreign",
