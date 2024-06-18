@@ -1211,40 +1211,40 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate RR wire format: %m");
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &janswer,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
-                                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
-                                                SD_JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(rri->ifindex))));
+                                SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
+                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                SD_JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(rri->ifindex)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
         }
 
         SET_FOREACH(connection, m->varlink_subscription) {
-                r = varlink_notifyb(connection,
-                                    SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
-                                                                                "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
-                                                                                "rcode", SD_JSON_BUILD_INTEGER(q->answer_rcode)),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_ERRNO,
-                                                                                "errno", SD_JSON_BUILD_INTEGER(q->answer_errno)),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
-                                                                                       DNS_TRANSACTION_DNSSEC_FAILED,
-                                                                                       DNS_TRANSACTION_RCODE_FAILURE) &&
-                                                                                q->answer_ede_rcode >= 0,
-                                                                                "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
-                                                                                       DNS_TRANSACTION_DNSSEC_FAILED,
-                                                                                       DNS_TRANSACTION_RCODE_FAILURE) &&
-                                                                                q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
-                                                                                "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
-                                                      SD_JSON_BUILD_PAIR("question", SD_JSON_BUILD_VARIANT(jquestion)),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
-                                                                                "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
-                                                      SD_JSON_BUILD_PAIR_CONDITION(!!janswer,
-                                                                                "answer", SD_JSON_BUILD_VARIANT(janswer))));
+                r = varlink_notifybo(
+                                connection,
+                                SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
+                                SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
+                                                             "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
+                                SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
+                                                             "rcode", SD_JSON_BUILD_INTEGER(q->answer_rcode)),
+                                SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_ERRNO,
+                                                             "errno", SD_JSON_BUILD_INTEGER(q->answer_errno)),
+                                SD_JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
+                                                                    DNS_TRANSACTION_DNSSEC_FAILED,
+                                                                    DNS_TRANSACTION_RCODE_FAILURE) &&
+                                                             q->answer_ede_rcode >= 0,
+                                                             "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                SD_JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
+                                                                    DNS_TRANSACTION_DNSSEC_FAILED,
+                                                                    DNS_TRANSACTION_RCODE_FAILURE) &&
+                                                             q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                             "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
+                                SD_JSON_BUILD_PAIR("question", SD_JSON_BUILD_VARIANT(jquestion)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
+                                                             "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!!janswer,
+                                                             "answer", SD_JSON_BUILD_VARIANT(janswer)));
                 if (r < 0)
                         log_debug_errno(r, "Failed to send monitor event, ignoring: %m");
         }
@@ -1891,27 +1891,26 @@ int dns_manager_dump_statistics_json(Manager *m, sd_json_variant **ret) {
                 miss += s->cache.n_miss;
         }
 
-        return sd_json_build(ret,
-                          SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("transactions", SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("currentTransactions", hashmap_size(m->dns_transactions)),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("totalTransactions", m->n_transactions_total),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("totalTimeouts", m->n_timeouts_total),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("totalTimeoutsServedStale", m->n_timeouts_served_stale_total),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("totalFailedResponses", m->n_failure_responses_total),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("totalFailedResponsesServedStale", m->n_failure_responses_served_stale_total)
-                                        )),
-                                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("size", size),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("hits", hit),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("misses", miss)
-                                        )),
-                                        SD_JSON_BUILD_PAIR("dnssec", SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("secure", m->n_dnssec_verdict[DNSSEC_SECURE]),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("insecure", m->n_dnssec_verdict[DNSSEC_INSECURE]),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("bogus", m->n_dnssec_verdict[DNSSEC_BOGUS]),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("indeterminate", m->n_dnssec_verdict[DNSSEC_INDETERMINATE])
-                                        ))));
+        return sd_json_buildo(ret,
+                              SD_JSON_BUILD_PAIR("transactions", SD_JSON_BUILD_OBJECT(
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("currentTransactions", hashmap_size(m->dns_transactions)),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("totalTransactions", m->n_transactions_total),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("totalTimeouts", m->n_timeouts_total),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("totalTimeoutsServedStale", m->n_timeouts_served_stale_total),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("totalFailedResponses", m->n_failure_responses_total),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("totalFailedResponsesServedStale", m->n_failure_responses_served_stale_total)
+                                                 )),
+                              SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("size", size),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("hits", hit),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("misses", miss)
+                                                 )),
+                              SD_JSON_BUILD_PAIR("dnssec", SD_JSON_BUILD_OBJECT(
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("secure", m->n_dnssec_verdict[DNSSEC_SECURE]),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("insecure", m->n_dnssec_verdict[DNSSEC_INSECURE]),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("bogus", m->n_dnssec_verdict[DNSSEC_BOGUS]),
+                                                                 SD_JSON_BUILD_PAIR_UNSIGNED("indeterminate", m->n_dnssec_verdict[DNSSEC_INDETERMINATE])
+                                                 )));
 }
 
 void dns_manager_reset_statistics(Manager *m) {

@@ -782,9 +782,10 @@ static int show_membership(const char *user, const char *group, Table *table) {
         case OUTPUT_JSON: {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
-                                               SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group))));
+                r = sd_json_buildo(
+                                &v,
+                                SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
+                                SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 

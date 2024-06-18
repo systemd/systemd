@@ -6321,10 +6321,10 @@ static int tpm2_userspace_log(
                 assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
                 assert_se(implementation = EVP_get_digestbyname(a));
 
-                r = sd_json_variant_append_arrayb(
-                                &array, SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation))));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append digest object to JSON array: %m");
         }
@@ -6335,15 +6335,16 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire boot ID: %m");
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
-                                       SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
-                                       SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
-                                       SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
-                                                                       SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
-                                                                       SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
-                                                                       SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
+                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
+                        SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
+                        SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
+                                                           SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
+                                                           SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
@@ -6622,11 +6623,10 @@ int tpm2_pcr_prediction_to_json(
                 if (!vj)
                         continue;
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &aj,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_INTEGER("pcr", pcr),
-                                                SD_JSON_BUILD_PAIR_VARIANT("values", vj)));
+                                SD_JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                                SD_JSON_BUILD_PAIR_VARIANT("values", vj));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append PCR variants to JSON array: %m");
         }
@@ -7384,22 +7384,22 @@ int tpm2_make_luks2_json(
          * other programming languages. Let's not make things worse though, i.e. future additions to the JSON
          * object should use "_" rather than "-" in field names. */
 
-        r = sd_json_build(&v,
-                          SD_JSON_BUILD_OBJECT(
-                                          SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
-                                          SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                                          SD_JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
-                                          SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(pcr_bank != 0 && tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
-                                          SD_JSON_BUILD_PAIR_CONDITION(primary_alg != 0 && tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
-                                          SD_JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
-                                          SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
+                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                        SD_JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
+                        SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pcr_bank != 0 && tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
+                        SD_JSON_BUILD_PAIR_CONDITION(primary_alg != 0 && tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
+                        SD_JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)));
         if (r < 0)
                 return r;
 

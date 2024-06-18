@@ -71,5 +71,5 @@ int vl_method_get_reboot_to_firmware(Varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BOOLEAN("state", r)));
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("state", r));
 }

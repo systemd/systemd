@@ -873,8 +873,7 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
         for (size_t i = 0; i < config.n_entries; i++) {
                 if (previous) {
-                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(
-                                                            SD_JSON_BUILD_PAIR_VARIANT("entry", previous)));
+                        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
                         if (r < 0)
                                 return r;
 
@@ -886,6 +885,5 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
                         return r;
         }
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
-                                              SD_JSON_BUILD_PAIR_CONDITION(!!previous, "entry", SD_JSON_BUILD_VARIANT(previous))));
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!previous, "entry", SD_JSON_BUILD_VARIANT(previous)));
 }

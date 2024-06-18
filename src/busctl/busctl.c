@@ -1214,7 +1214,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (ts == 0)
                 ts = now(CLOCK_REALTIME);
 
-        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(
+        r = sd_json_buildo(&w,
                 SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
                 SD_JSON_BUILD_PAIR("endian", SD_JSON_BUILD_STRING(e)),
                 SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(m->header->flags)),
@@ -1231,7 +1231,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
                 SD_JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", SD_JSON_BUILD_INTEGER(m->realtime)),
                 SD_JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", SD_JSON_BUILD_INTEGER(m->seqnum)),
                 SD_JSON_BUILD_PAIR_CONDITION(!!m->error.name, "error_name", SD_JSON_BUILD_STRING(m->error.name)),
-                SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v))));
+                SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1735,8 +1735,9 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, sd_js
         if (r < 0)
                 return r;
 
-        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
-                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value))));
+        r = sd_json_buildo(ret,
+                          SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
+                          SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value)));
         if (r < 0)
                 return log_oom();
 
@@ -2008,8 +2009,9 @@ static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
-                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v))));
+        r = sd_json_buildo(ret,
+                          SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
+                          SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
                 return log_oom();
 
