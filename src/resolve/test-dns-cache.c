@@ -373,6 +373,101 @@ TEST(dns_cache_lookup_success) {
         ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
 }
 
+TEST(dns_cache_lookup_returns_most_recent_response) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        args1.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(args1.key);
+        args1.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&args1, args1.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &args1);
+
+        args2.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(args2.key);
+        args2.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&args2, args2.key, 0x7f01a8c0, 2400, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &args2);
+
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+
+        ASSERT_EQ(cache.n_hit, 1u);
+        ASSERT_EQ(cache.n_miss, 0u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, SD_RESOLVED_CONFIDENTIAL);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0x7f01a8c0);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        ASSERT_FALSE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+}
+
+TEST(dns_cache_lookup_retains_multiple_answers_from_one_response) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        answer_add_a(&put_args, put_args.key, 0x7f01a8cc, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+
+        ASSERT_EQ(cache.n_hit, 1u);
+        ASSERT_EQ(cache.n_miss, 0u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, SD_RESOLVED_CONFIDENTIAL);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 2u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0x7f01a8cc);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+}
+
 TEST(dns_cache_lookup_nxdomain) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
