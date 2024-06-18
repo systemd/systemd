@@ -25,26 +25,37 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int acquire_runtime_dir_properties(uint64_t *size, uint64_t *inodes) {
+static int acquire_runtime_dir_properties(uint64_t *ret_size, uint64_t *ret_inodes) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        uint64_t size, inodes;
         int r;
+
+        assert(ret_size);
+        assert(ret_inodes);
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectorySize", &error, 't', size);
+        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectorySize", &error, 't', &size);
         if (r < 0) {
                 log_warning_errno(r, "Failed to acquire runtime directory size, ignoring: %s", bus_error_message(&error, r));
-                *size = physical_memory_scale(10U, 100U); /* 10% */
+                sd_bus_error_free(&error);
+
+                size = physical_memory_scale(10U, 100U); /* 10% */
         }
 
-        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectoryInodesMax", &error, 't', inodes);
+        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectoryInodesMax", &error, 't', &inodes);
         if (r < 0) {
                 log_warning_errno(r, "Failed to acquire number of inodes for runtime directory, ignoring: %s", bus_error_message(&error, r));
-                *inodes = DIV_ROUND_UP(*size, 4096);
+                sd_bus_error_free(&error);
+
+                inodes = DIV_ROUND_UP(size, 4096);
         }
+
+        *ret_size = size;
+        *ret_inodes = inodes;
 
         return 0;
 }
