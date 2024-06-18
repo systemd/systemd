@@ -70,7 +70,7 @@ static int user_mkdir_runtime_path(
         if (path_is_mount_point(runtime_path) > 0)
                 log_debug("%s is already a mount point", runtime_path);
         else {
-                char options[sizeof("mode=0700,uid=,gid=,size=,nr_inodes=,smackfsroot=*")
+                char options[STRLEN("mode=0700,uid=,gid=,size=,nr_inodes=,smackfsroot=*")
                              + DECIMAL_STR_MAX(uid_t)
                              + DECIMAL_STR_MAX(gid_t)
                              + DECIMAL_STR_MAX(uint64_t)
@@ -140,7 +140,7 @@ static int user_remove_runtime_path(const char *runtime_path) {
 }
 
 static int do_mount(const char *user) {
-        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+        char runtime_path[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
         uint64_t runtime_dir_size, runtime_dir_inodes;
         uid_t uid;
         gid_t gid;
@@ -165,7 +165,7 @@ static int do_mount(const char *user) {
 }
 
 static int do_umount(const char *user) {
-        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+        char runtime_path[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
         uid_t uid;
         int r;
 
