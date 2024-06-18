@@ -5219,7 +5219,7 @@ int config_parse_private_tmp(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value: %s ignoring", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean value, ignoring: %s", rvalue);
                 return 0;
         }
 
