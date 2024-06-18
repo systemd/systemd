@@ -53,9 +53,10 @@ the NV index handle space.
 
 The NV index range to use for this is configurable at build time, so that
 downstreams have some flexibility to change this if they want. This uses the
-0x01d10200 NV index as base by default. To abstract the actual nvindex number
-away there's a naming concept, so that nvindexes are referenced by name string
-rather than number.
+0x01d10200 NV index as base by default (see [TPM NV Index Assignments by
+systemd](/TPM2_NVINDEX_ASSIGNMENTS) for the NV index ranges systemd uses).  To
+abstract the actual nvindex number away there's a naming concept, so that
+nvindexes are referenced by name string rather than number.
 
 NvPCRs are defined in little JSON snippets in `/usr/lib/nvpcr/*.nvpcr`, that
 match up index number and name, as well as pick a hash algorithm. The recognized
