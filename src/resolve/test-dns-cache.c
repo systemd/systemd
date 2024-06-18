@@ -684,6 +684,134 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
 }
 
 /* ================================================================
+ * dns_cache_export_shared_to_packet()
+ * ================================================================ */
+
+TEST(dns_cache_export_shared_to_packet) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        args1.protocol = DNS_PROTOCOL_MDNS;
+        args1.rcode = DNS_RCODE_SUCCESS;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "shared.example.com");
+        answer_add_a(&args1, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "unshared.example.com");
+        answer_add_a(&args1, key, 0xa87f01c0, 2400, DNS_ANSWER_CACHEABLE);
+        dns_resource_key_unref(key);
+
+        cache_put(&cache, &args1);
+
+        args2.protocol = DNS_PROTOCOL_DNS;
+        args2.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "dns.example.com");
+        args2.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&args2, args2.key, 0xa9fe0100, 2400, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &args2);
+
+        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX);
+        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, 0, 50));
+
+        const uint8_t data[] = {
+                        0x00, 0x00,     0x00, 0x00,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x06, 's', 'h', 'a', 'r', 'e', 'd',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+TEST(dns_cache_export_shared_to_packet_multi) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        put_args.protocol = DNS_PROTOCOL_MDNS;
+        put_args.rcode = DNS_RCODE_SUCCESS;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "shared1.example.com");
+        answer_add_a(&put_args, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "unshared.example.com");
+        answer_add_a(&put_args, key, 0xa87f01c0, 2400, DNS_ANSWER_CACHEABLE);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "shared2.example.com");
+        answer_add_a(&put_args, key, 0x7f01a8cc, 1800, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        cache_put(&cache, &put_args);
+
+        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX);
+        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, 0, 1));
+
+        const uint8_t data1[] = {
+                        0x00, 0x00,     0x00, 0x00,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 's', 'h', 'a', 'r', 'e', 'd', '1',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x0e, 0x10,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0xc0, 0xa8, 0x01, 0x7f
+        };
+
+        const uint8_t data2[] = {
+                        0x00, 0x00,     0x00, 0x00,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 's', 'h', 'a', 'r', 'e', 'd', '2',
+                        0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x03, 'c', 'o', 'm',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x07, 0x08,
+        /* rdata */     0x00, 0x04,
+        /* ip */        0x7f, 0x01, 0xa8, 0xcc
+        };
+
+        size_t size1 = sizeof(data1), size2 = sizeof(data2);
+
+        /* cache key order is not deterministic; the packets could come out in either order */
+
+        if (memcmp(DNS_PACKET_DATA(packet), data1, size1) == 0) {
+                ASSERT_EQ(packet->size, size1);
+                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data1, size1), 0);
+
+                ASSERT_EQ(packet->more->size, size2);
+                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet->more), data2, size2), 0);
+        } else {
+                ASSERT_EQ(packet->size, size2);
+                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data2, size2), 0);
+
+                ASSERT_EQ(packet->more->size, size1);
+                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet->more), data1, size1), 0);
+        }
+
+        ASSERT_NULL(packet->more->more);
+}
+
+/* ================================================================
  * dns_cache_dump()
  * ================================================================ */
 
