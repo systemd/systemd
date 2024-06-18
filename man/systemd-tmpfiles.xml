@@ -151,19 +151,33 @@
 
       <varlistentry>
         <term><option>--purge</option></term>
-        <listitem><para>If this option is passed, all files and directories created by a
-        <filename>tmpfiles.d/</filename> entry will be deleted. Keep in mind that by default,
-        <filename>/home</filename> is created by <command>systemd-tmpfiles</command>
-        (see <filename>/usr/lib/tmpfiles.d/home.conf</filename>). Therefore it is recommended
-        to first run <command>systemd-tmpfiles --dry-run --purge</command> to be certain which files
-        and directories will be deleted.</para>
+
+        <listitem><para>If this option is passed, all files and directories marked for
+        <emphasis>creation</emphasis> by the <filename>tmpfiles.d/</filename> files specified on the command
+        line will be <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories
+        marked with <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
+        <varname>v</varname>, <varname>q</varname>, <varname>Q</varname>, <varname>p</varname>,
+        <varname>L</varname>, <varname>c</varname>, <varname>b</varname>, <varname>C</varname>,
+        <varname>w</varname>, <varname>e</varname>. If this switch is used at least one
+        <filename>tmpfiles.d/</filename> file (or <filename>-</filename> for standard input) must be
+        specified on the command line or the invocation will be refused, for safety reasons (as otherwise
+        much of the installed system files might be removed).</para>
+
+        <para>The primary usecase for this option is to automatically remove files and directories that
+        originally have been created on behalf of an installed packaged at package removal time.</para>
+
+        <para>It is recommended to first run this command in combinatin with <option>--dry-run</option> (see
+        below) to verify which files and directories will be deleted.</para>
+
+        <para><emphasis>Warning!</emphasis> This is is usually not the command you want! In most cases
+        <option>--remove</option> is what you are looking for.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--user</option></term>
-        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
+        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d/</filename>
         files in user configuration directories.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
