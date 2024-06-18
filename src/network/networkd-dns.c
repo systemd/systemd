@@ -94,6 +94,37 @@ bool link_get_use_dns(Link *link, NetworkConfigSource proto) {
         return true;
 }
 
+bool link_get_use_dnr(Link *link, NetworkConfigSource proto) {
+        int n;
+
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        switch (proto) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                n = link->network->dhcp_use_dnr;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                n = link->network->dhcp6_use_dnr;
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                n = link->network->ndisc_use_dnr;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* If set explicitly, use that */
+        if (n >= 0)
+                return n;
+
+        /* Otherwise, default to the same as the UseDNS setting. After all,
+         * this is just another way for the server to tell us about DNS configuration. */
+        return link_get_use_dns(link, proto);
+}
+
 int config_parse_domains(
                 const char *unit,
                 const char *filename,
