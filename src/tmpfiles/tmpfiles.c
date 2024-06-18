@@ -204,7 +204,6 @@ static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
-
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
@@ -396,20 +395,20 @@ static int user_config_paths(char*** ret) {
 
 static bool needs_purge(ItemType t) {
         return IN_SET(t,
-                      COPY_FILES,
-                      TRUNCATE_FILE,
                       CREATE_FILE,
-                      WRITE_FILE,
-                      EMPTY_DIRECTORY,
+                      TRUNCATE_FILE,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
                       CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_FIFO,
+                      CREATE_SYMLINK,
                       CREATE_CHAR_DEVICE,
                       CREATE_BLOCK_DEVICE,
-                      CREATE_SYMLINK,
-                      CREATE_FIFO,
-                      CREATE_DIRECTORY,
-                      TRUNCATE_DIRECTORY);
+                      COPY_FILES,
+                      WRITE_FILE,
+                      EMPTY_DIRECTORY);
 }
 
 static bool needs_glob(ItemType t) {
@@ -548,14 +547,13 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
                 return dir;
 
         if (!IN_SET(errno, ENOENT, ELOOP))
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
-
-        if (errno != EPERM)
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (!ERRNO_IS_PRIVILEGE(errno))
                 return NULL;
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW);
         if (!dir)
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with or without O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
@@ -3024,10 +3022,16 @@ static int remove_recursive(
                 return r;
 
         if (remove_instance) {
-                log_debug("Removing directory \"%s\".", instance);
-                r = RET_NERRNO(rmdir(instance));
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENOTEMPTY))
-                        return log_error_errno(r, "Failed to remove %s: %m", instance);
+                log_action("Would remove", "Removing", "%s directory \"%s\".", instance);
+                if (!arg_dry_run) {
+                        r = RET_NERRNO(rmdir(instance));
+                        if (r < 0) {
+                                bool fatal = !IN_SET(r, -ENOENT, -ENOTEMPTY);
+                                log_full_errno(fatal ? LOG_ERR : LOG_DEBUG, r, "Failed to remove %s: %m", instance);
+                                if (fatal)
+                                        return r;
+                        }
+                }
         }
         return 0;
 }
@@ -4140,18 +4144,19 @@ static int help(void) {
         printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
                "\n%2$sCreate, delete, and clean up files and directories.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --create               Create files and directories\n"
+               "     --create               Create and adjust files and directories\n"
                "     --clean                Clean up files and directories\n"
-               "     --remove               Remove files and directories\n"
+               "     --remove               Remove files and directories marked for removal\n"
+               "     --purge                Delete files and directories marked for creation in\n"
+               "                            specified configuration files (careful!)\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --user                 Execute user configuration\n"
                "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration\n"
+               "     --tldr                 Show non-comment parts of configuration files\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
-               "     --purge                Delete all files owned by the configuration files\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -4337,6 +4342,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "You need to specify at least one of --clean, --create, --remove, or --purge.");
+
+        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing --purge without specification of a configuration file.");
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4636,12 +4645,10 @@ static int run(int argc, char *argv[]) {
         if (!c.items || !c.globs)
                 return log_oom();
 
-        /* If command line arguments are specified along with --replace, read all
-         * configuration files and insert the positional arguments at the specified
-         * place. Otherwise, if command line arguments are specified, execute just
-         * them, and finally, without --replace= or any positional arguments, just
-         * read configuration and execute it.
-         */
+        /* If command line arguments are specified along with --replace=, read all configuration files and
+         * insert the positional arguments at the specified place. Otherwise, if command line arguments are
+         * specified, execute just them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it. */
         if (arg_replace || optind >= argc)
                 r = read_config_files(&c, config_dirs, argv + optind, &invalid_config);
         else
