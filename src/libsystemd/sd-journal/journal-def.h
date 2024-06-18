@@ -44,9 +44,9 @@ typedef enum ObjectType {
 
 /* Object flags (note that src/basic/compress.h uses the same values for the compression types) */
 enum {
-        OBJECT_COMPRESSED_XZ   = 1 << 0,
-        OBJECT_COMPRESSED_LZ4  = 1 << 1,
-        OBJECT_COMPRESSED_ZSTD = 1 << 2,
+        OBJECT_COMPRESSED_XZ    = 1 << 0,
+        OBJECT_COMPRESSED_LZ4   = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD  = 1 << 2,
         _OBJECT_COMPRESSED_MASK = OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD,
 };
 
