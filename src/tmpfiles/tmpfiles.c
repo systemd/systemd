@@ -3024,10 +3024,16 @@ static int remove_recursive(
                 return r;
 
         if (remove_instance) {
-                log_debug("Removing directory \"%s\".", instance);
-                r = RET_NERRNO(rmdir(instance));
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENOTEMPTY))
-                        return log_error_errno(r, "Failed to remove %s: %m", instance);
+                log_action("Would remove", "Removing", "%s directory \"%s\".", instance);
+                if (!arg_dry_run) {
+                        r = RET_NERRNO(rmdir(instance));
+                        if (r < 0) {
+                                bool fatal = !IN_SET(r, -ENOENT, -ENOTEMPTY);
+                                log_full_errno(fatal ? LOG_ERR : LOG_DEBUG, r, "Failed to remove %s: %m", instance);
+                                if (fatal)
+                                        return r;
+                        }
+                }
         }
         return 0;
 }
