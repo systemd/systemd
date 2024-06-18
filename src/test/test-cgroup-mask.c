@@ -130,7 +130,7 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
 
 TEST(cg_mask_to_string) {
         test_cg_mask_to_string_one(0, NULL);
-        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices bpf-foreign bpf-socket-bind bpf-restrict-network-interfaces");
+        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids dmem bpf-firewall bpf-devices bpf-foreign bpf-socket-bind bpf-restrict-network-interfaces");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT, "cpuacct");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUSET, "cpuset");
@@ -139,6 +139,7 @@ TEST(cg_mask_to_string) {
         test_cg_mask_to_string_one(CGROUP_MASK_MEMORY, "memory");
         test_cg_mask_to_string_one(CGROUP_MASK_DEVICES, "devices");
         test_cg_mask_to_string_one(CGROUP_MASK_PIDS, "pids");
+        test_cg_mask_to_string_one(CGROUP_MASK_DMEM, "dmem");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT, "cpu cpuacct");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU|CGROUP_MASK_PIDS, "cpu pids");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT|CGROUP_MASK_PIDS, "cpuacct pids");
