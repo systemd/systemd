@@ -324,6 +324,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
         _cleanup_free_ char *p = NULL;
         int r, ret = 0;
 
+        assert(esp_path);
+        assert(source_path);
+
         r = chase_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
@@ -333,6 +336,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *v = NULL;
+
+                if (de->d_type != DT_REG)
+                        continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
