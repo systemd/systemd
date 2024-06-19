@@ -2720,7 +2720,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-private-tmp="))) {
-                        c->private_tmp = private_tmp_from_string(val);
+                        /* Before v257, the field was serialized with serialize_bool_elide(). Hence, "yes"
+                         * needs to be handled for backward compatibility. */
+                        c->private_tmp = streq(val, "yes") ? PRIVATE_TMP_CONNECTED : private_tmp_from_string(val);
                         if (c->private_tmp < 0)
                                 return c->private_tmp;
                 } else if ((val = startswith(l, "exec-context-private-devices="))) {
