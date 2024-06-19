@@ -684,6 +684,42 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
 }
 
 /* ================================================================
+ * dns_cache_prune(), dns_cache_expiry_in_one_second()
+ * ================================================================ */
+
+TEST(dns_cache_prune) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        DnsResourceKey *key = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        answer_add_a(&put_args, key, 0xc0a8017f, 1, DNS_ANSWER_CACHEABLE);
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns2.example.com");
+        answer_add_a(&put_args, key, 0x7f01a8cc, 3, DNS_ANSWER_CACHEABLE);
+        dns_resource_key_unref(key);
+
+        cache_put(&cache, &put_args);
+
+        dns_cache_prune(&cache);
+        ASSERT_EQ(dns_cache_size(&cache), 2u);
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+
+        sleep(2);
+
+        dns_cache_prune(&cache);
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+
+        sleep(2);
+
+        dns_cache_prune(&cache);
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+}
+
+/* ================================================================
  * dns_cache_check_conflicts()
  * ================================================================ */
 
