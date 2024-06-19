@@ -191,14 +191,14 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r == -ESRCH)
                 return log_notice_errno(r, "Source file \"%s\" does not carry version information!", from);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get version information of source file \"%s\": %m", from);
 
         r = get_file_version(fd_to, &b);
         if (r == -ESRCH)
                 return log_notice_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).",
                                         to);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get version information of \"%s\": %m", to);
         if (compare_product(a, b) != 0)
                 return log_notice_errno(SYNTHETIC_ERRNO(ESRCH),
                                         "Skipping \"%s\", it's owned by another boot loader.", to);
@@ -319,10 +319,14 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
         return 0;
 }
 
-static int update_efi_boot_binaries(const char *esp_path, const char *source_path) {
+static int update_efi_boot_binaries(const char *esp_path, const char *source_path, const char *exclude_path) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *p = NULL;
         int r, ret = 0;
+
+        assert(esp_path);
+        assert(source_path);
+        assert(exclude_path);
 
         r = chase_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
@@ -334,7 +338,14 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *v = NULL;
 
+                if (de->d_type != DT_REG)
+                        continue;
+
                 if (!endswith_no_case(de->d_name, ".efi"))
+                        continue;
+
+                /* Skip the file that is already updated. */
+                if (path_equal_filename(de->d_name, exclude_path))
                         continue;
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
@@ -417,7 +428,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 /* If we were installed under any other name in /EFI/BOOT, make sure we update those binaries
                  * as well. */
                 if (!force)
-                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path));
+                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path, default_dest_path));
         }
 
         return ret;
