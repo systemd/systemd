@@ -1634,7 +1634,11 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
 
 static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+
         assert(f);
+
+        if (!shall_set_terminal_title())
+                return;
 
         if (!arg_host)
                 (void) gethostname_strict(&hn);
@@ -1848,8 +1852,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
 
-                        if (shall_set_terminal_title())
-                                set_window_title(c.forward);
+                        set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);
