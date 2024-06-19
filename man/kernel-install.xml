@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>kernel-install</refname>
-    <refpurpose>Add and remove kernel and initrd images to and from /boot</refpurpose>
+    <refpurpose>Add and remove kernel and initrd images to and from the boot partition</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -64,9 +64,9 @@
       <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for an
       explanation.</para>
     </footnote>
-    to and from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be
-    one of <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see
-    below.</para>
+    to and from the boot partition, referred to as <varname>$BOOT</varname> here. It will usually be one of
+    <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see below.
+    </para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
     directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
