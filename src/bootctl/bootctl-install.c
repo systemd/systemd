@@ -340,6 +340,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
         _cleanup_free_ char *p = NULL;
         int r, ret = 0;
 
+        assert(esp_path);
+        assert(source_path);
+
         r = chase_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
@@ -348,7 +351,6 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -EBADF;
-                _cleanup_free_ char *v = NULL;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
@@ -365,19 +367,14 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 if (r == 0)
                         continue;
 
-                r = get_file_version(fd, &v);
-                if (r == -ESRCH)
-                        continue;  /* No version information */
-                if (r < 0)
-                        return r;
-                if (!startswith(v, "systemd-boot "))
-                        continue;
-
                 _cleanup_free_ char *dest_path = path_join(p, de->d_name);
                 if (!dest_path)
                         return log_oom();
 
-                RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false));
+                r = copy_file_with_version_check(source_path, dest_path, /* force = */ false);
+                if (IN_SET(r, -ESTALE, -ESRCH))
+                        continue;
+                RET_GATHER(ret, r);
         }
 
         return ret;
