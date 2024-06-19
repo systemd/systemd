@@ -74,19 +74,75 @@ static int varlink_idl_format_comment(
         return 0;
 }
 
+static int varlink_idl_format_comment_fields(
+                FILE *f,
+                const VarlinkField *start,
+                size_t n,
+                const char *indent,
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
+
+        int r;
+
+        if (n == 0)
+                return 0;
+
+        assert(start);
+
+        for (const VarlinkField *c = start; n > 0; c++, n--) {
+                r = varlink_idl_format_comment(f, ASSERT_PTR(c->name), indent, colors, cols);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static const VarlinkField *varlink_idl_symbol_find_start_comment(
+                const VarlinkSymbol *symbol,
+                const VarlinkField *field) {
+
+        assert(symbol);
+        assert(field);
+        assert(field >= symbol->fields);
+
+        const VarlinkField *start = NULL;
+
+        for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
+                const VarlinkField *c0 = c1 - 1;
+
+                if (c0->field_type != _VARLINK_FIELD_COMMENT)
+                        break;
+
+                start = c0;
+        }
+
+        return start;
+}
+
 static int varlink_idl_format_enum_values(
                 FILE *f,
                 const VarlinkSymbol *symbol,
                 const char *indent,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
 
+        _cleanup_free_ char *indent2 = NULL;
         bool first = true;
+        int r;
 
         assert(f);
         assert(symbol);
         assert(symbol->symbol_type == VARLINK_ENUM_TYPE);
 
+        indent2 = strjoin(strempty(indent), "\t");
+        if (!indent2)
+                return -ENOMEM;
+
         for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+
+                if (field->field_type == _VARLINK_FIELD_COMMENT) /* skip comments at first */
+                        continue;
 
                 if (first) {
                         first = false;
@@ -94,8 +150,17 @@ static int varlink_idl_format_enum_values(
                 } else
                         fputs(",\n", f);
 
-                fputs(strempty(indent), f);
-                fputs("\t", f);
+                /* We found an enum value we want to output. In this case, output all immediately preceding
+                 * comments first. First, find the first comment in the series before. */
+                const VarlinkField *start_comment = varlink_idl_symbol_find_start_comment(symbol, field);
+
+                if (start_comment) {
+                        r = varlink_idl_format_comment_fields(f, start_comment, field - start_comment, indent2, colors, cols);
+                        if (r < 0)
+                                return r;
+                }
+
+                fputs(indent2, f);
                 fputs(colors[COLOR_IDENTIFIER], f);
                 fputs(field->name, f);
                 fputs(colors[COLOR_RESET], f);
@@ -202,7 +267,7 @@ static int varlink_idl_format_field(
                 return varlink_idl_format_all_fields(f, ASSERT_PTR(field->symbol), VARLINK_REGULAR, indent, colors, cols);
 
         case VARLINK_ENUM:
-                return varlink_idl_format_enum_values(f, ASSERT_PTR(field->symbol), indent, colors);
+                return varlink_idl_format_enum_values(f, ASSERT_PTR(field->symbol), indent, colors, cols);
 
         default:
                 assert_not_reached();
@@ -247,22 +312,12 @@ static int varlink_idl_format_all_fields(
 
                 /* We found a field we want to output. In this case, output all immediately preceding
                  * comments first. First, find the first comment in the series before. */
-                const VarlinkField *start_comment = NULL;
-                for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
-                        const VarlinkField *c0 = c1 - 1;
-
-                        if (c0->field_type != _VARLINK_FIELD_COMMENT)
-                                break;
-
-                        start_comment = c0;
-                }
+                const VarlinkField *start_comment = varlink_idl_symbol_find_start_comment(symbol, field);
 
                 if (start_comment) {
-                        for (const VarlinkField *c = start_comment; c < field; c++) {
-                                r = varlink_idl_format_comment(f, ASSERT_PTR(c->name), indent2, colors, cols);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = varlink_idl_format_comment_fields(f, start_comment, field - start_comment, indent2, colors, cols);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = varlink_idl_format_field(f, field, indent2, colors, cols);
@@ -300,7 +355,7 @@ static int varlink_idl_format_symbol(
                 fputs(symbol->name, f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_enum_values(f, symbol, /* indent= */ NULL, colors);
+                r = varlink_idl_format_enum_values(f, symbol, /* indent= */ NULL, colors, cols);
                 break;
 
         case VARLINK_STRUCT_TYPE:
