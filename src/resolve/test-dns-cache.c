@@ -113,6 +113,16 @@ static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *ali
         dns_answer_add(args->answer, rr, 1, flags, NULL);
 }
 
+static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswerFlags flags) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        ASSERT_NOT_NULL(rr);
+        rr->opt.data_size = 0;
+        rr->ttl = ttl;
+        dns_answer_add(args->answer, rr, 1, flags, NULL);
+}
+
 #define BY_IDX(json, idx) sd_json_variant_by_index(json, idx)
 #define BY_KEY(json, key) sd_json_variant_by_key(json, key)
 #define INTVAL(json) sd_json_variant_integer(json)
@@ -290,6 +300,45 @@ TEST(dns_a_success_empty_answer_is_not_cached) {
         ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 
+TEST(dns_a_success_any_class_is_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_success_any_type_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_opt(&put_args, put_args.key, 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_success_opt_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_opt(&put_args, put_args.key, 3600, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
 TEST(dns_a_nxdomain_is_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
@@ -301,6 +350,45 @@ TEST(dns_a_nxdomain_is_cached) {
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_FALSE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_nxdomain_any_class_is_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_NXDOMAIN;
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_nxdomain_any_type_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_NXDOMAIN;
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_a_nxdomain_opt_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_NXDOMAIN;
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 
 TEST(dns_a_servfail_is_cached) {
