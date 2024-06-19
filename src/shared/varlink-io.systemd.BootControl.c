@@ -48,6 +48,9 @@ static VARLINK_DEFINE_METHOD(
 static VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);
 
+static VARLINK_DEFINE_ERROR(
+                NoSuchBootEntry);
+
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_BootControl,
                 "io.systemd.BootControl",
@@ -56,4 +59,5 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_method_ListBootEntries,
                 &vl_method_SetRebootToFirmware,
                 &vl_method_GetRebootToFirmware,
-                &vl_error_RebootToFirmwareNotSupported);
+                &vl_error_RebootToFirmwareNotSupported,
+                &vl_error_NoSuchBootEntry);
