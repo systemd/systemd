@@ -319,13 +319,14 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
         return 0;
 }
 
-static int update_efi_boot_binaries(const char *esp_path, const char *source_path) {
+static int update_efi_boot_binaries(const char *esp_path, const char *source_path, const char *exclude_path) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *p = NULL;
         int r, ret = 0;
 
         assert(esp_path);
         assert(source_path);
+        assert(exclude_path);
 
         r = chase_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
@@ -341,6 +342,10 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                         continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
+                        continue;
+
+                /* Skip the file that is already updated. */
+                if (path_equal_filename(de->d_name, exclude_path))
                         continue;
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
@@ -423,7 +428,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 /* If we were installed under any other name in /EFI/BOOT, make sure we update those binaries
                  * as well. */
                 if (!force)
-                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path));
+                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path, default_dest_path));
         }
 
         return ret;
