@@ -47,26 +47,25 @@ static int address_append_json(Address *address, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("Family", address->family),
-                                JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Peer", &address->in_addr_peer, address->family),
-                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Broadcast", &address->broadcast),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", address->prefixlen),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Scope", address->scope),
-                                SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
-                                SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Label", address->label),
-                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", address->lifetime_preferred_usec),
-                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
-                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
-                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", address->family),
+                        JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Peer", &address->in_addr_peer, address->family),
+                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Broadcast", &address->broadcast),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", address->prefixlen),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Scope", address->scope),
+                        SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
+                        SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Label", address->label),
+                        JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", address->lifetime_preferred_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
+                        JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family));
 }
 
 static int addresses_append_json(Set *addresses, sd_json_variant **v) {
@@ -96,14 +95,13 @@ static int neighbor_append_json(Neighbor *n, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("Family", n->family),
-                                JSON_BUILD_PAIR_IN_ADDR("Destination", &n->in_addr, n->family),
-                                JSON_BUILD_PAIR_HW_ADDR("LinkLayerAddress", &n->ll_addr),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", n->family),
+                        JSON_BUILD_PAIR_IN_ADDR("Destination", &n->in_addr, n->family),
+                        JSON_BUILD_PAIR_HW_ADDR("LinkLayerAddress", &n->ll_addr),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
 }
 
 static int neighbors_append_json(Set *neighbors, sd_json_variant **v) {
@@ -131,11 +129,10 @@ static int nexthop_group_build_json(NextHop *nexthop, sd_json_variant **ret) {
         assert(ret);
 
         HASHMAP_FOREACH(g, nexthop->group) {
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("ID", g->id),
-                                                SD_JSON_BUILD_PAIR_UNSIGNED("Weight", g->weight+1)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("ID", g->id),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Weight", g->weight+1));
                 if (r < 0)
                         return r;
         }
@@ -168,19 +165,18 @@ static int nexthop_append_json(NextHop *n, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_UNSIGNED("ID", n->id),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw, n->family),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", n->flags),
-                                SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", n->protocol),
-                                SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
-                                SD_JSON_BUILD_PAIR_BOOLEAN("Blackhole", n->blackhole),
-                                JSON_BUILD_PAIR_VARIANT_NON_NULL("Group", group),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ID", n->id),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw, n->family),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", n->flags),
+                        SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", n->protocol),
+                        SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Blackhole", n->blackhole),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Group", group),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
 }
 
 static int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
@@ -230,34 +226,33 @@ static int route_append_json(Route *route, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("Family", route->family),
-                                JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &route->nexthop.gw, route->nexthop.family),
-                                SD_JSON_BUILD_PAIR_CONDITION(route->src_prefixlen > 0,
-                                                          "Source", JSON_BUILD_IN_ADDR(&route->src, route->family)),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("SourcePrefixLength", route->src_prefixlen),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("PreferredSource", &route->prefsrc, route->family),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Scope", route->scope),
-                                SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", route->protocol),
-                                SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Type", route->type),
-                                SD_JSON_BUILD_PAIR_STRING("TypeString", route_type_to_string(route->type)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Priority", route->priority),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Table", route->table),
-                                SD_JSON_BUILD_PAIR_STRING("TableString", table),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route_metric_get(&route->metric, RTAX_MTU)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
-                                SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
-                                JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", route->family),
+                        JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &route->nexthop.gw, route->nexthop.family),
+                        SD_JSON_BUILD_PAIR_CONDITION(route->src_prefixlen > 0,
+                                                     "Source", JSON_BUILD_IN_ADDR(&route->src, route->family)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("SourcePrefixLength", route->src_prefixlen),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("PreferredSource", &route->prefsrc, route->family),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Scope", route->scope),
+                        SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", route->protocol),
+                        SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Type", route->type),
+                        SD_JSON_BUILD_PAIR_STRING("TypeString", route_type_to_string(route->type)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Priority", route->priority),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Table", route->table),
+                        SD_JSON_BUILD_PAIR_STRING("TableString", table),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route_metric_get(&route->metric, RTAX_MTU)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
+                        SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
+                        JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family));
 }
 
 static int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
@@ -300,43 +295,42 @@ static int routing_policy_rule_append_json(RoutingPolicyRule *rule, sd_json_vari
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("Family", rule->family),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("FromPrefix", &rule->from, rule->family),
-                                SD_JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->from),
-                                                          "FromPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->from_prefixlen)),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ToPrefix", &rule->to, rule->family),
-                                SD_JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->to),
-                                                          "ToPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->to_prefixlen)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", rule->protocol),
-                                SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("TOS", rule->tos),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Type", rule->type),
-                                SD_JSON_BUILD_PAIR_STRING("TypeString", fr_act_type_full_to_string(rule->type)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("IPProtocol", rule->ipproto),
-                                SD_JSON_BUILD_PAIR_STRING("IPProtocolString", ip_protocol_to_name(rule->ipproto)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Priority", rule->priority),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("FirewallMark", rule->fwmark),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("FirewallMask", rule->fwmask),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Table", rule->table),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("TableString", table),
-                                SD_JSON_BUILD_PAIR_BOOLEAN("Invert", rule->invert_rule),
-                                SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_prefixlen >= 0,
-                                                          "SuppressPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->suppress_prefixlen)),
-                                SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_ifgroup >= 0,
-                                                          "SuppressInterfaceGroup", SD_JSON_BUILD_UNSIGNED(rule->suppress_ifgroup)),
-                                SD_JSON_BUILD_PAIR_CONDITION(rule->sport.start != 0 || rule->sport.end != 0, "SourcePort",
-                                                          SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->sport.start), SD_JSON_BUILD_UNSIGNED(rule->sport.end))),
-                                SD_JSON_BUILD_PAIR_CONDITION(rule->dport.start != 0 || rule->dport.end != 0, "DestinationPort",
-                                                          SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->dport.start), SD_JSON_BUILD_UNSIGNED(rule->dport.end))),
-                                SD_JSON_BUILD_PAIR_CONDITION(rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID, "User",
-                                                          SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->uid_range.start), SD_JSON_BUILD_UNSIGNED(rule->uid_range.end))),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("IncomingInterface", rule->iif),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("OutgoingInterface", rule->oif),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(rule->source)),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", rule->family),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("FromPrefix", &rule->from, rule->family),
+                        SD_JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->from),
+                                                     "FromPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->from_prefixlen)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ToPrefix", &rule->to, rule->family),
+                        SD_JSON_BUILD_PAIR_CONDITION(in_addr_is_set(rule->family, &rule->to),
+                                                     "ToPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->to_prefixlen)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", rule->protocol),
+                        SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("TOS", rule->tos),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Type", rule->type),
+                        SD_JSON_BUILD_PAIR_STRING("TypeString", fr_act_type_full_to_string(rule->type)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("IPProtocol", rule->ipproto),
+                        SD_JSON_BUILD_PAIR_STRING("IPProtocolString", ip_protocol_to_name(rule->ipproto)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Priority", rule->priority),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("FirewallMark", rule->fwmark),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("FirewallMask", rule->fwmask),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Table", rule->table),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("TableString", table),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Invert", rule->invert_rule),
+                        SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_prefixlen >= 0,
+                                                     "SuppressPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->suppress_prefixlen)),
+                        SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_ifgroup >= 0,
+                                                     "SuppressInterfaceGroup", SD_JSON_BUILD_UNSIGNED(rule->suppress_ifgroup)),
+                        SD_JSON_BUILD_PAIR_CONDITION(rule->sport.start != 0 || rule->sport.end != 0, "SourcePort",
+                                                     SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->sport.start), SD_JSON_BUILD_UNSIGNED(rule->sport.end))),
+                        SD_JSON_BUILD_PAIR_CONDITION(rule->dport.start != 0 || rule->dport.end != 0, "DestinationPort",
+                                                     SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->dport.start), SD_JSON_BUILD_UNSIGNED(rule->dport.end))),
+                        SD_JSON_BUILD_PAIR_CONDITION(rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID, "User",
+                                                     SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(rule->uid_range.start), SD_JSON_BUILD_UNSIGNED(rule->uid_range.end))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("IncomingInterface", rule->iif),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("OutgoingInterface", rule->oif),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(rule->source)),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
 }
 
 static int routing_policy_rules_append_json(Set *rules, sd_json_variant **v) {
@@ -361,18 +355,18 @@ static int network_append_json(Network *network, sd_json_variant **v) {
         if (!network)
                 return 0;
 
-        return sd_json_variant_merge_objectb(
-                        v, SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
-                                SD_JSON_BUILD_PAIR_STRV("NetworkFileDropins", network->dropins),
-                                SD_JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
-                                SD_JSON_BUILD_PAIR("RequiredOperationalStateForOnline",
-                                                SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.min)),
-                                                                 SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.max)))),
-                                SD_JSON_BUILD_PAIR_STRING("RequiredFamilyForOnline",
-                                                       link_required_address_family_to_string(network->required_family_for_online)),
-                                SD_JSON_BUILD_PAIR_STRING("ActivationPolicy",
-                                                       activation_policy_to_string(network->activation_policy))));
+        return sd_json_variant_merge_objectbo(
+                        v,
+                        SD_JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
+                        SD_JSON_BUILD_PAIR_STRV("NetworkFileDropins", network->dropins),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
+                        SD_JSON_BUILD_PAIR("RequiredOperationalStateForOnline",
+                                           SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.min)),
+                                                               SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.max)))),
+                        SD_JSON_BUILD_PAIR_STRING("RequiredFamilyForOnline",
+                                                  link_required_address_family_to_string(network->required_family_for_online)),
+                        SD_JSON_BUILD_PAIR_STRING("ActivationPolicy",
+                                                  activation_policy_to_string(network->activation_policy)));
 }
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
@@ -398,14 +392,13 @@ static int device_append_json(sd_device *device, sd_json_variant **v) {
         (void) device_get_vendor_string(device, &vendor);
         (void) device_get_model_string(device, &model);
 
-        return sd_json_variant_merge_objectb(
+        return sd_json_variant_merge_objectbo(
                         v,
-                        SD_JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("LinkFile", link),
-                                JSON_BUILD_PAIR_STRV_NON_EMPTY("LinkFileDropins", link_dropins),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", path),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Vendor", vendor),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model)));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("LinkFile", link),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("LinkFileDropins", link_dropins),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Vendor", vendor),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model));
 }
 
 static int dns_append_json_one(Link *link, const struct in_addr_full *a, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
@@ -416,16 +409,15 @@ static int dns_append_json_one(Link *link, const struct in_addr_full *a, Network
         if (a->ifindex != 0 && a->ifindex != link->ifindex)
                 return 0;
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_INTEGER("Family", a->family),
-                                        JSON_BUILD_PAIR_IN_ADDR("Address", &a->address, a->family),
-                                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", a->port),
-                                        SD_JSON_BUILD_PAIR_CONDITION(a->ifindex != 0, "InterfaceIndex", SD_JSON_BUILD_INTEGER(a->ifindex)),
-                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", a->server_name),
-                                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, a->family)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", a->family),
+                        JSON_BUILD_PAIR_IN_ADDR("Address", &a->address, a->family),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", a->port),
+                        SD_JSON_BUILD_PAIR_CONDITION(a->ifindex != 0, "InterfaceIndex", SD_JSON_BUILD_INTEGER(a->ifindex)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", a->server_name),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, a->family));
 }
 
 static int dns_append_json(Link *link, sd_json_variant **v) {
@@ -516,13 +508,12 @@ static int server_append_json_one_addr(int family, const union in_addr_union *a,
         assert(a);
         assert(array);
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("Family", family),
-                                JSON_BUILD_PAIR_IN_ADDR("Address", a, family),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", family),
+                        JSON_BUILD_PAIR_IN_ADDR("Address", a, family),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family));
 }
 
 static int server_append_json_one_fqdn(int family, const char *fqdn, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
@@ -530,12 +521,11 @@ static int server_append_json_one_fqdn(int family, const char *fqdn, NetworkConf
         assert(fqdn);
         assert(array);
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_STRING("Server", fqdn),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+                        SD_JSON_BUILD_PAIR_STRING("Server", fqdn),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family));
 }
 
 static int server_append_json_one_string(const char *str, NetworkConfigSource s, sd_json_variant **array) {
@@ -663,12 +653,11 @@ static int domain_append_json(int family, const char *domain, NetworkConfigSourc
         assert(domain);
         assert(array);
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_STRING("Domain", domain),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family)));
+                        SD_JSON_BUILD_PAIR_STRING("Domain", domain),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family));
 }
 
 static int domains_append_json(Link *link, bool is_route, sd_json_variant **v) {
@@ -753,11 +742,10 @@ static int nta_append_json(const char *nta, NetworkConfigSource s, sd_json_varia
         assert(nta);
         assert(array);
 
-        return sd_json_variant_append_arrayb(
+        return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_STRING("DNSSECNegativeTrustAnchor", nta),
-                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s))));
+                        SD_JSON_BUILD_PAIR_STRING("DNSSECNegativeTrustAnchor", nta),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)));
 }
 
 static int ntas_append_json(Link *link, sd_json_variant **v) {
@@ -799,11 +787,10 @@ static int dns_misc_append_json(Link *link, sd_json_variant **v) {
         if (resolve_support >= 0) {
                 source = link->llmnr >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("LLMNR", resolve_support_to_string(resolve_support)),
-                                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                                SD_JSON_BUILD_PAIR_STRING("LLMNR", resolve_support_to_string(resolve_support)),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
                 if (r < 0)
                         return r;
         }
@@ -812,11 +799,10 @@ static int dns_misc_append_json(Link *link, sd_json_variant **v) {
         if (resolve_support >= 0) {
                 source = link->mdns >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("MDNS", resolve_support_to_string(resolve_support)),
-                                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                                SD_JSON_BUILD_PAIR_STRING("MDNS", resolve_support_to_string(resolve_support)),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
                 if (r < 0)
                         return r;
         }
@@ -825,11 +811,10 @@ static int dns_misc_append_json(Link *link, sd_json_variant **v) {
         if (t >= 0) {
                 source = link->dns_default_route >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_BOOLEAN("DNSDefaultRoute", t),
-                                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DNSDefaultRoute", t),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
                 if (r < 0)
                         return r;
         }
@@ -838,11 +823,10 @@ static int dns_misc_append_json(Link *link, sd_json_variant **v) {
         if (mode >= 0) {
                 source = link->dns_over_tls_mode >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("DNSOverTLS", dns_over_tls_mode_to_string(mode)),
-                                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source))));
+                                SD_JSON_BUILD_PAIR_STRING("DNSOverTLS", dns_over_tls_mode_to_string(mode)),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
                 if (r < 0)
                         return r;
         }
@@ -861,7 +845,7 @@ static int captive_portal_append_json(Link *link, sd_json_variant **v) {
         if (r <= 0)
                 return r;
 
-        return sd_json_variant_merge_objectb(v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal));
 }
 
 static int pref64_append_json(Link *link, sd_json_variant **v) {
@@ -876,12 +860,12 @@ static int pref64_append_json(Link *link, sd_json_variant **v) {
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {
-                r = sd_json_variant_append_arrayb(&array,
-                                               SD_JSON_BUILD_OBJECT(
-                                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
-                                                               SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
-                                                               JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
-                                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router)));
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
+                                JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
+                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router));
                 if (r < 0)
                         return r;
         }
@@ -903,10 +887,10 @@ static int dhcp_server_append_json(Link *link, sd_json_variant **v) {
         if (!link->dhcp_server)
                 return 0;
 
-        r = sd_json_build(&w,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("PoolOffset", link->dhcp_server->pool_offset),
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("PoolSize", link->dhcp_server->pool_size)));
+        r = sd_json_buildo(
+                        &w,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("PoolOffset", link->dhcp_server->pool_offset),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("PoolSize", link->dhcp_server->pool_size));
         if (r < 0)
                 return r;
 
@@ -935,11 +919,11 @@ static int dhcp6_client_vendor_options_append_json(Link *link, sd_json_variant *
         n_vendor_options = sd_dhcp6_lease_get_vendor_options(link->dhcp6_lease, &options);
 
         FOREACH_ARRAY(option, options, n_vendor_options) {
-                r = sd_json_variant_append_arrayb(&array,
-                                            SD_JSON_BUILD_OBJECT(
-                                                            SD_JSON_BUILD_PAIR_UNSIGNED("EnterpriseId", (*option)->enterprise_identifier),
-                                                            SD_JSON_BUILD_PAIR_UNSIGNED("SubOptionCode", (*option)->option),
-                                                            SD_JSON_BUILD_PAIR_HEX("SubOptionData", (*option)->data, (*option)->length)));
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("EnterpriseId", (*option)->enterprise_identifier),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("SubOptionCode", (*option)->option),
+                                SD_JSON_BUILD_PAIR_HEX("SubOptionData", (*option)->data, (*option)->length));
                 if (r < 0)
                         return r;
         }
@@ -970,10 +954,11 @@ static int dhcp6_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
-                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", ts)));
+        r = sd_json_buildo(
+                        &w,
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
+                        JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", ts));
         if (r < 0)
                 return r;
 
@@ -1006,11 +991,12 @@ static int dhcp6_client_pd_append_json(Link *link, sd_json_variant **v) {
                 if (r < 0)
                         return r;
 
-                r = sd_json_variant_append_arrayb(&array, SD_JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_IN6_ADDR("Prefix", &prefix),
-                                               SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", prefix_len),
-                                               JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", lifetime_preferred_usec),
-                                               JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", lifetime_valid_usec)));
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                JSON_BUILD_PAIR_IN6_ADDR("Prefix", &prefix),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", prefix_len),
+                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", lifetime_preferred_usec),
+                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", lifetime_valid_usec));
                 if (r < 0)
                         return r;
         }
@@ -1038,7 +1024,7 @@ static int dhcp6_client_duid_append_json(Link *link, sd_json_variant **v) {
         if (r < 0)
                 return 0;
 
-        return sd_json_variant_merge_objectb(v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BYTE_ARRAY("DUID", data, data_size)));
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("DUID", data, data_size));
 }
 
 static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
@@ -1093,10 +1079,10 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2)));
+        r = sd_json_buildo(&w,
+                           JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
+                           JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                           JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2));
         if (r < 0)
                 return r;
 
@@ -1128,11 +1114,12 @@ static int dhcp_client_pd_append_json(Link *link, sd_json_variant **v) {
                         return r;
         }
 
-        r = sd_json_build(&array, SD_JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR_IN6_ADDR("Prefix", &sixrd_prefix),
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", sixrd_prefixlen),
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("IPv4MaskLength", ipv4masklen),
-                                       JSON_BUILD_PAIR_VARIANT_NON_NULL("BorderRouters", addresses)));
+        r = sd_json_buildo(
+                        &array,
+                        JSON_BUILD_PAIR_IN6_ADDR("Prefix", &sixrd_prefix),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", sixrd_prefixlen),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("IPv4MaskLength", ipv4masklen),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("BorderRouters", addresses));
         if (r < 0)
                 return r;
 
@@ -1151,11 +1138,10 @@ static int dhcp_client_private_options_append_json(Link *link, sd_json_variant *
 
         LIST_FOREACH(options, option, link->dhcp_lease->private_options) {
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
-                                               SD_JSON_BUILD_PAIR_HEX("PrivateOptionData", option->data, option->length)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
+                                SD_JSON_BUILD_PAIR_HEX("PrivateOptionData", option->data, option->length));
                 if (r < 0)
                         return 0;
         }
@@ -1182,7 +1168,7 @@ static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
         if (r < 0)
                 return 0;
 
-        return sd_json_variant_merge_objectb(v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l)));
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l));
 }
 
 static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
@@ -1230,42 +1216,43 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                /* basic information */
-                                SD_JSON_BUILD_PAIR_INTEGER("Index", link->ifindex),
-                                SD_JSON_BUILD_PAIR_STRING("Name", link->ifname),
-                                JSON_BUILD_PAIR_STRV_NON_EMPTY("AlternativeNames", link->alternative_names),
-                                SD_JSON_BUILD_PAIR_CONDITION(link->master_ifindex > 0,
-                                                          "MasterInterfaceIndex", SD_JSON_BUILD_INTEGER(link->master_ifindex)),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Kind", link->kind),
-                                SD_JSON_BUILD_PAIR_STRING("Type", type),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Driver", link->driver),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", link->flags),
-                                SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("KernelOperationalState", link->kernel_operstate),
-                                SD_JSON_BUILD_PAIR_STRING("KernelOperationalStateString", kernel_operstate_to_string(link->kernel_operstate)),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("MTU", link->mtu),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("MinimumMTU", link->min_mtu),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("MaximumMTU", link->max_mtu),
-                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("HardwareAddress", &link->hw_addr),
-                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("PermanentHardwareAddress", &link->permanent_hw_addr),
-                                JSON_BUILD_PAIR_HW_ADDR_NON_NULL("BroadcastAddress", &link->bcast_addr),
-                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("IPv6LinkLocalAddress", &link->ipv6ll_address),
-                                /* wlan information */
-                                SD_JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceType",
-                                                          SD_JSON_BUILD_UNSIGNED(link->wlan_iftype)),
-                                SD_JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceTypeString",
-                                                          SD_JSON_BUILD_STRING(nl80211_iftype_to_string(link->wlan_iftype))),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SSID", link->ssid),
-                                JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL("BSSID", &link->bssid),
-                                /* link state */
-                                SD_JSON_BUILD_PAIR_STRING("AdministrativeState", link_state_to_string(link->state)),
-                                SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
-                                SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
-                                SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(link->address_state)),
-                                SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(link->ipv4_address_state)),
-                                SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
-                                SD_JSON_BUILD_PAIR_STRING("OnlineState", link_online_state_to_string(link->online_state))));
+        r = sd_json_buildo(
+                        &v,
+                        /* basic information */
+                        SD_JSON_BUILD_PAIR_INTEGER("Index", link->ifindex),
+                        SD_JSON_BUILD_PAIR_STRING("Name", link->ifname),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("AlternativeNames", link->alternative_names),
+                        SD_JSON_BUILD_PAIR_CONDITION(link->master_ifindex > 0,
+                                                     "MasterInterfaceIndex", SD_JSON_BUILD_INTEGER(link->master_ifindex)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Kind", link->kind),
+                        SD_JSON_BUILD_PAIR_STRING("Type", type),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Driver", link->driver),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", link->flags),
+                        SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("KernelOperationalState", link->kernel_operstate),
+                        SD_JSON_BUILD_PAIR_STRING("KernelOperationalStateString", kernel_operstate_to_string(link->kernel_operstate)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("MTU", link->mtu),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("MinimumMTU", link->min_mtu),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("MaximumMTU", link->max_mtu),
+                        JSON_BUILD_PAIR_HW_ADDR_NON_NULL("HardwareAddress", &link->hw_addr),
+                        JSON_BUILD_PAIR_HW_ADDR_NON_NULL("PermanentHardwareAddress", &link->permanent_hw_addr),
+                        JSON_BUILD_PAIR_HW_ADDR_NON_NULL("BroadcastAddress", &link->bcast_addr),
+                        JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("IPv6LinkLocalAddress", &link->ipv6ll_address),
+                        /* wlan information */
+                        SD_JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceType",
+                                                     SD_JSON_BUILD_UNSIGNED(link->wlan_iftype)),
+                        SD_JSON_BUILD_PAIR_CONDITION(link->wlan_iftype > 0, "WirelessLanInterfaceTypeString",
+                                                     SD_JSON_BUILD_STRING(nl80211_iftype_to_string(link->wlan_iftype))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SSID", link->ssid),
+                        JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL("BSSID", &link->bssid),
+                        /* link state */
+                        SD_JSON_BUILD_PAIR_STRING("AdministrativeState", link_state_to_string(link->state)),
+                        SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
+                        SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
+                        SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(link->address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(link->ipv4_address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("OnlineState", link_online_state_to_string(link->online_state)));
         if (r < 0)
                 return r;
 

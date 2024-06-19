@@ -2427,9 +2427,10 @@ static int verb_show_log(int argc, char *argv[], void *userdata) {
         if (want_json) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
 
-                r = sd_json_build(&object, SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR_VARIANT("log", log_table),
-                                               SD_JSON_BUILD_PAIR_VARIANT("pcrs", pcr_table)));
+                r = sd_json_buildo(
+                                &object,
+                                SD_JSON_BUILD_PAIR_VARIANT("log", log_table),
+                                SD_JSON_BUILD_PAIR_VARIANT("pcrs", pcr_table));
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate combined object: %m");
 
@@ -2452,10 +2453,10 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         assert(ret);
 
         LIST_FOREACH(banks, bank, record->banks) {
-                r = sd_json_variant_append_arrayb(
-                                &ja, SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
-                                                SD_JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
+                r = sd_json_variant_append_arraybo(
+                                &ja,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
+                                SD_JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append CEL digest entry: %m");
         }
@@ -2484,9 +2485,10 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
                 } else if (asprintf(&et, "%" PRIu32, record->firmware_event_type) < 0)
                         return log_oom();
 
-                r = sd_json_build(&fj, SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR_STRING("event_type", et),
-                                               SD_JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size)));
+                r = sd_json_buildo(
+                                &fj,
+                                SD_JSON_BUILD_PAIR_STRING("event_type", et),
+                                SD_JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build firmware event data: %m");
 
@@ -2497,13 +2499,13 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
                 ct = "systemd";
         }
 
-        r = sd_json_build(ret,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
-                                       SD_JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
-                                       SD_JSON_BUILD_PAIR_VARIANT("digests", ja),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!ct, "content_type", SD_JSON_BUILD_STRING(ct)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!cd, "content", SD_JSON_BUILD_VARIANT(cd))));
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
+                        SD_JSON_BUILD_PAIR_VARIANT("digests", ja),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!ct, "content_type", SD_JSON_BUILD_STRING(ct)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!cd, "content", SD_JSON_BUILD_VARIANT(cd)));
         if (r < 0)
                 return log_error_errno(r, "Failed to make CEL record: %m");
 
@@ -2691,19 +2693,17 @@ static int make_pcrlock_record(
                 if (EVP_Digest(data, data_size, hash, &hash_usize, md, NULL) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data with algorithm '%s'.", a);
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &digests,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
-                                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize))));
+                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
         }
 
-        r = sd_json_build(ret_record,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr)),
-                                       SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests))));
+        r = sd_json_buildo(ret_record,
+                           SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr)),
+                           SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build record object: %m");
 
@@ -2775,11 +2775,10 @@ static int make_pcrlock_record_from_stream(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to finalize hash context for algorithn '%s'.", a);
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &digests,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
-                                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize))));
+                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
         }
@@ -2790,10 +2789,10 @@ static int make_pcrlock_record_from_stream(
                 if (!FLAGS_SET(pcr_mask, UINT32_C(1) << i))
                         continue;
 
-                r = sd_json_build(&record,
-                               SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
-                                               SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests))));
+                r = sd_json_buildo(
+                                &record,
+                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
+                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record object: %m");
 
@@ -2823,8 +2822,9 @@ static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_pat
                 array = a;
         }
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("records", SD_JSON_BUILD_VARIANT(array))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("records", SD_JSON_BUILD_VARIANT(array)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -3146,20 +3146,18 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
                 log_debug("Locking down authority '%s'.", strna(rec->description));
 
                 LIST_FOREACH(banks, bank, rec->banks) {
-                        r = sd_json_variant_append_arrayb(
+                        r = sd_json_variant_append_arraybo(
                                         &digests,
-                                        SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
-                                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size))));
+                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
+                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
                 }
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
-                                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests))));
+                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
+                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record array: %m");
         }
@@ -3439,20 +3437,18 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
                 }
 
                 LIST_FOREACH(banks, bank, rec->banks) {
-                        r = sd_json_variant_append_arrayb(
+                        r = sd_json_variant_append_arraybo(
                                         &digests,
-                                        SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
-                                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size))));
+                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
+                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
                 }
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 FLAGS_SET(separator_seen_mask, bit) ? &array_late : &array_early,
-                                SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
-                                               SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests))));
+                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
+                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record array: %m");
         }
@@ -3660,19 +3656,18 @@ static int verb_lock_pe(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to hash PE binary: %m");
 
-                        r = sd_json_variant_append_arrayb(&digests,
-                                                       SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
-                                                                       SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_size))));
+                        r = sd_json_variant_append_arraybo(
+                                        &digests,
+                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON digest object: %m");
                 }
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
-                                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests))));
+                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
+                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append record object: %m");
         }
@@ -3717,11 +3712,10 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash PE binary: %m");
 
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &pe_digests,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
-                                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(peh, hash_sizes[i]))));
+                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(peh, hash_sizes[i])));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
 
@@ -3730,11 +3724,10 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to UKI hash PE binary: %m");
         }
 
-        r = sd_json_variant_append_arrayb(
+        r = sd_json_variant_append_arraybo(
                         &array,
-                        SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_BOOT_LOADER_CODE)),
-                                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(pe_digests))));
+                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_BOOT_LOADER_CODE)),
+                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(pe_digests)));
         if (r < 0)
                 return log_error_errno(r, "Failed to append record object: %m");
 
@@ -3754,11 +3747,10 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
                         assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
 
-                        r = sd_json_variant_append_arrayb(
+                        r = sd_json_variant_append_arraybo(
                                         &section_digests,
-                                        SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
-                                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_sizes[i]))));
+                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_sizes[i])));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON digest object: %m");
                 }
@@ -3776,11 +3768,10 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to append JSON record array: %m");
 
                 /* And then append a record for the section contents digests as well */
-                r = sd_json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_OBJECT(
-                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_KERNEL_BOOT /* =11 */)),
-                                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(section_digests))));
+                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_KERNEL_BOOT /* =11 */)),
+                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(section_digests)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append record object: %m");
         }
@@ -4759,16 +4750,16 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_configuration_json = NULL;
-        r = sd_json_build(&new_configuration_json,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR_STRING("pcrBank", tpm2_hash_alg_to_string(el->primary_algorithm)),
-                                       SD_JSON_BUILD_PAIR_VARIANT("pcrValues", new_prediction_json),
-                                       SD_JSON_BUILD_PAIR_INTEGER("nvIndex", nv_index),
-                                       JSON_BUILD_PAIR_IOVEC_BASE64("nvHandle", &nv_blob),
-                                       JSON_BUILD_PAIR_IOVEC_BASE64("nvPublic", &nv_public_blob),
-                                       JSON_BUILD_PAIR_IOVEC_BASE64("srkHandle", &srk_blob),
-                                       JSON_BUILD_PAIR_IOVEC_BASE64("pinPublic", &pin_public),
-                                       JSON_BUILD_PAIR_IOVEC_BASE64("pinPrivate", &pin_private)));
+        r = sd_json_buildo(
+                        &new_configuration_json,
+                        SD_JSON_BUILD_PAIR_STRING("pcrBank", tpm2_hash_alg_to_string(el->primary_algorithm)),
+                        SD_JSON_BUILD_PAIR_VARIANT("pcrValues", new_prediction_json),
+                        SD_JSON_BUILD_PAIR_INTEGER("nvIndex", nv_index),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("nvHandle", &nv_blob),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("nvPublic", &nv_public_blob),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("srkHandle", &srk_blob),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("pinPublic", &pin_public),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("pinPrivate", &pin_private));
         if (r < 0)
                 return log_error_errno(r, "Failed to generate JSON: %m");
 
@@ -5245,8 +5236,7 @@ static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
 
                 if (rec_cel) {
-                        r = varlink_notifyb(link,
-                                            SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel)));
+                        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
                         if (r < 0)
                                 return r;
 
@@ -5258,8 +5248,7 @@ static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, 
                         return r;
         }
 
-        return varlink_replyb(link,
-                              SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel))));
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
 }
 
 typedef struct MethodMakePolicyParameters {

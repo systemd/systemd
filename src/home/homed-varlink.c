@@ -52,9 +52,9 @@ static int build_user_json(Home *h, bool trusted, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(augmented->json)),
-                                          SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(augmented->incomplete))));
+        return sd_json_buildo(ret,
+                              SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(augmented->json)),
+                              SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(augmented->incomplete)));
 }
 
 static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
@@ -167,9 +167,7 @@ static int build_group_json(Home *h, sd_json_variant **ret) {
         assert(!FLAGS_SET(g->mask, USER_RECORD_SECRET));
         assert(!FLAGS_SET(g->mask, USER_RECORD_PRIVILEGED));
 
-        return sd_json_build(ret,
-                          SD_JSON_BUILD_OBJECT(
-                                          SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(g->json))));
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(g->json)));
 }
 
 static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
@@ -288,14 +286,18 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                         if (!strv_contains(h->record->member_of, p.group_name))
                                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
-                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
+                        return varlink_replybo(
+                                        link,
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
                 }
 
                 STRV_FOREACH(i, h->record->member_of) {
                         if (last) {
-                                r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
-                                                                            SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last))));
+                                r = varlink_notifybo(
+                                                link,
+                                                SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                                SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last)));
                                 if (r < 0)
                                         return r;
                         }
@@ -304,8 +306,10 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                 }
 
                 if (last)
-                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
-                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last))));
+                        return varlink_replybo(
+                                        link,
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last)));
 
         } else if (p.group_name) {
                 const char *last = NULL;
@@ -316,8 +320,10 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                                 continue;
 
                         if (last) {
-                                r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
-                                                                            SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
+                                r = varlink_notifybo(
+                                                link,
+                                                SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
+                                                SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
                                 if (r < 0)
                                         return r;
                         }
@@ -326,8 +332,10 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                 }
 
                 if (last)
-                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
-                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name))));
+                        return varlink_replybo(
+                                        link,
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
         } else {
                 const char *last_user_name = NULL, *last_group_name = NULL;
 
@@ -337,8 +345,10 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                                 if (last_user_name) {
                                         assert(last_group_name);
 
-                                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                                                                                    SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
+                                        r = varlink_notifybo(
+                                                        link,
+                                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
 
                                         if (r < 0)
                                                 return r;
@@ -350,8 +360,10 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
 
                 if (last_user_name) {
                         assert(last_group_name);
-                        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                                                                      SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name))));
+                        return varlink_replybo(
+                                        link,
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
                 }
         }
 

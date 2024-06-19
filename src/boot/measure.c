@@ -735,12 +735,11 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 
                                 array = sd_json_variant_ref(sd_json_variant_by_key(w, pcr_states[i].bank));
 
-                                r = sd_json_variant_append_arrayb(
+                                r = sd_json_variant_append_arraybo(
                                                 &array,
-                                                SD_JSON_BUILD_OBJECT(
-                                                                SD_JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", SD_JSON_BUILD_STRING(*phase)),
-                                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
-                                                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))));
+                                                SD_JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", SD_JSON_BUILD_STRING(*phase)),
+                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
+                                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size)));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to append JSON object to array: %m");
 
@@ -944,11 +943,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to build JSON PCR mask array: %m");
 
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL;
-                        r = sd_json_build(&bv, SD_JSON_BUILD_OBJECT(
-                                                       SD_JSON_BUILD_PAIR("pcrs", SD_JSON_BUILD_VARIANT(a)),                                             /* PCR mask */
-                                                       SD_JSON_BUILD_PAIR("pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)),                         /* SHA256 fingerprint of public key (DER) used for the signature */
-                                                       SD_JSON_BUILD_PAIR("pol", SD_JSON_BUILD_HEX(pcr_policy_digest.buffer, pcr_policy_digest.size)),   /* TPM2 policy hash that is signed */
-                                                       SD_JSON_BUILD_PAIR("sig", SD_JSON_BUILD_BASE64(sig, ss))));                                       /* signature data */
+                        r = sd_json_buildo(&bv,
+                                           SD_JSON_BUILD_PAIR("pcrs", SD_JSON_BUILD_VARIANT(a)),                                             /* PCR mask */
+                                           SD_JSON_BUILD_PAIR("pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)),                         /* SHA256 fingerprint of public key (DER) used for the signature */
+                                           SD_JSON_BUILD_PAIR("pol", SD_JSON_BUILD_HEX(pcr_policy_digest.buffer, pcr_policy_digest.size)),   /* TPM2 policy hash that is signed */
+                                           SD_JSON_BUILD_PAIR("sig", SD_JSON_BUILD_BASE64(sig, ss)));                                        /* signature data */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1112,12 +1111,10 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         } else {
                                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
 
-                                r = sd_json_build(&bv,
-                                               SD_JSON_BUILD_OBJECT(
-                                                               SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(relevant_pcrs[i])),
-                                                               SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(h, l))
-                                               )
-                                );
+                                r = sd_json_buildo(
+                                                &bv,
+                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(relevant_pcrs[i])),
+                                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(h, l)));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to build JSON object: %m");
 

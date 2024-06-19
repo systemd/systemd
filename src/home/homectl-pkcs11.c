@@ -119,10 +119,10 @@ static int add_pkcs11_encrypted_key(
         if (r < 0)
                 return log_error_errno(errno_or_else(EINVAL), "Failed to UNIX hash secret key: %m");
 
-        r = sd_json_build(&e, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("uri", SD_JSON_BUILD_STRING(uri)),
-                                       SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(encrypted_key, encrypted_key_size)),
-                                       SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed))));
+        r = sd_json_buildo(&e,
+                           SD_JSON_BUILD_PAIR("uri", SD_JSON_BUILD_STRING(uri)),
+                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(encrypted_key, encrypted_key_size)),
+                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build encrypted JSON key object: %m");
 

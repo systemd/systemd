@@ -779,13 +779,14 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
 
         valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
-                                SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", n->id.chassis_id, n->id.chassis_id_size),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
-                                SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", n->id.port_id, n->id.port_id_size),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
-                                SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc))));
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", n->id.chassis_id, n->id.chassis_id_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", n->id.port_id, n->id.port_id_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)));
 }

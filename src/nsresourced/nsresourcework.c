@@ -82,16 +82,17 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json
         if (r < 0)
                 return -ENOMEM;
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                          SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
-                                          SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                          SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
-                                          SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                          SD_JSON_BUILD_PAIR("shell", SD_JSON_BUILD_STRING(NOLOGIN)),
-                                          SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
-                                          SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                                          SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
+                        SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                        SD_JSON_BUILD_PAIR("shell", SD_JSON_BUILD_STRING(NOLOGIN)),
+                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
+                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
 }
 
 static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -185,7 +186,7 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v))));
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
 
 not_found:
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -212,12 +213,13 @@ static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, sd_jso
         if (r < 0)
                 return -ENOMEM;
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                          SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
-                                          SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
-                                          SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                                          SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition)))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
+                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
 }
 
 static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -311,7 +313,7 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v))));
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
 
 not_found:
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -1612,8 +1614,10 @@ static int vl_method_add_netif_to_user_namespace(Varlink *link, sd_json_variant 
         log_debug("Adding veth tunnel %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ", interface %s).",
                   ifname_host, userns_st.st_ino, userns_info->name, userns_info->start, ifname_namespace);
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
-                                                      SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace))));
+        return varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
+                        SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace)));
 }
 
 static int process_connection(VarlinkServer *server, int _fd) {

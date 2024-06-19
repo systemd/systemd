@@ -2654,22 +2654,20 @@ int home_augment_status(
         if (disk_ceiling == UINT64_MAX || disk_ceiling > USER_DISK_SIZE_MAX)
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
-        r = sd_json_build(&status,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
-                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
-                                       SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
-                                       SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
-                                       SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       SD_JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", SD_JSON_BUILD_UNSIGNED(disk_size)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", SD_JSON_BUILD_UNSIGNED(disk_usage)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", SD_JSON_BUILD_UNSIGNED(disk_free)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", SD_JSON_BUILD_UNSIGNED(disk_ceiling)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", SD_JSON_BUILD_UNSIGNED(disk_floor)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", SD_JSON_BUILD_BOOLEAN(h->signed_locally)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!fstype, "fileSystemType", SD_JSON_BUILD_STRING(fstype)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", SD_JSON_BUILD_UNSIGNED(access_mode))
-                       ));
+        r = sd_json_buildo(&status,
+                           SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                           SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
+                           SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
+                           SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
+                           SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
+                           SD_JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", SD_JSON_BUILD_UNSIGNED(disk_size)),
+                           SD_JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", SD_JSON_BUILD_UNSIGNED(disk_usage)),
+                           SD_JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", SD_JSON_BUILD_UNSIGNED(disk_free)),
+                           SD_JSON_BUILD_PAIR_CONDITION(disk_ceiling != UINT64_MAX, "diskCeiling", SD_JSON_BUILD_UNSIGNED(disk_ceiling)),
+                           SD_JSON_BUILD_PAIR_CONDITION(disk_floor != UINT64_MAX, "diskFloor", SD_JSON_BUILD_UNSIGNED(disk_floor)),
+                           SD_JSON_BUILD_PAIR_CONDITION(h->signed_locally >= 0, "signedLocally", SD_JSON_BUILD_BOOLEAN(h->signed_locally)),
+                           SD_JSON_BUILD_PAIR_CONDITION(!!fstype, "fileSystemType", SD_JSON_BUILD_STRING(fstype)),
+                           SD_JSON_BUILD_PAIR_CONDITION(access_mode != MODE_INVALID, "accessMode", SD_JSON_BUILD_UNSIGNED(access_mode)));
         if (r < 0)
                 return r;
 

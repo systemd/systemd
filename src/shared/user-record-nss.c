@@ -137,23 +137,23 @@ int nss_passwd_to_user_record(
                 spwd->sp_inact * USEC_PER_DAY, UINT64_MAX);
 
         hr->json = sd_json_variant_unref(hr->json);
-        r = sd_json_build(&hr->json, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(hr->user_name)),
-                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(hr->uid)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(hr->gid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!hr->real_name, "realName", SD_JSON_BUILD_STRING(hr->real_name)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!hr->home_directory, "homeDirectory", SD_JSON_BUILD_STRING(hr->home_directory)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!hr->shell, "shell", SD_JSON_BUILD_STRING(hr->shell)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(hr->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(hr->hashed_password)))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->locked >= 0, "locked", SD_JSON_BUILD_BOOLEAN(hr->locked)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->not_after_usec != UINT64_MAX, "notAfterUSec", SD_JSON_BUILD_UNSIGNED(hr->not_after_usec)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_now >= 0, "passwordChangeNow", SD_JSON_BUILD_BOOLEAN(hr->password_change_now)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->last_password_change_usec != UINT64_MAX, "lastPasswordChangeUSec", SD_JSON_BUILD_UNSIGNED(hr->last_password_change_usec)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_min_usec != UINT64_MAX, "passwordChangeMinUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_min_usec)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_max_usec != UINT64_MAX, "passwordChangeMaxUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_max_usec)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_warn_usec != UINT64_MAX, "passwordChangeWarnUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_warn_usec)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_inactive_usec != UINT64_MAX, "passwordChangeInactiveUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_inactive_usec))));
-
+        r = sd_json_buildo(
+                        &hr->json,
+                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(hr->user_name)),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(hr->uid)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(hr->gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!hr->real_name, "realName", SD_JSON_BUILD_STRING(hr->real_name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!hr->home_directory, "homeDirectory", SD_JSON_BUILD_STRING(hr->home_directory)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!hr->shell, "shell", SD_JSON_BUILD_STRING(hr->shell)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(hr->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(hr->hashed_password)))),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->locked >= 0, "locked", SD_JSON_BUILD_BOOLEAN(hr->locked)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->not_after_usec != UINT64_MAX, "notAfterUSec", SD_JSON_BUILD_UNSIGNED(hr->not_after_usec)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_now >= 0, "passwordChangeNow", SD_JSON_BUILD_BOOLEAN(hr->password_change_now)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->last_password_change_usec != UINT64_MAX, "lastPasswordChangeUSec", SD_JSON_BUILD_UNSIGNED(hr->last_password_change_usec)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_min_usec != UINT64_MAX, "passwordChangeMinUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_min_usec)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_max_usec != UINT64_MAX, "passwordChangeMaxUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_max_usec)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_warn_usec != UINT64_MAX, "passwordChangeWarnUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_warn_usec)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_inactive_usec != UINT64_MAX, "passwordChangeInactiveUSec", SD_JSON_BUILD_UNSIGNED(hr->password_change_inactive_usec)));
         if (r < 0)
                 return r;
 
@@ -319,12 +319,13 @@ int nss_group_to_group_record(
                         return r;
         }
 
-        r = sd_json_build(&g->json, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(g->gid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->members), "members", SD_JSON_BUILD_STRV(g->members)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(g->hashed_password)))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->administrators), "administrators", SD_JSON_BUILD_STRV(g->administrators))));
+        r = sd_json_buildo(
+                        &g->json,
+                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(g->gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->members), "members", SD_JSON_BUILD_STRV(g->members)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(g->hashed_password)))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->administrators), "administrators", SD_JSON_BUILD_STRV(g->administrators)));
         if (r < 0)
                 return r;
 
