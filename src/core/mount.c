@@ -764,10 +764,8 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED)) {
+        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
                 (void) unit_setup_exec_runtime(u);
-                (void) unit_setup_cgroup_runtime(u);
-        }
 
         mount_set_state(m, m->deserialized_state);
         return 0;

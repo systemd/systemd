@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 
+#include "cgroup.h"
 #include "unit.h"
 
 enum {
@@ -22,4 +23,4 @@ int bpf_firewall_reset_accounting(int map_fd);
 
 void emit_bpf_firewall_warning(Unit *u);
 
-void bpf_firewall_close(Unit *u);
+void bpf_firewall_close(CGroupRuntime *crt);

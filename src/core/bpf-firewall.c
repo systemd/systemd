@@ -970,12 +970,8 @@ void emit_bpf_firewall_warning(Unit *u) {
         warned = true;
 }
 
-void bpf_firewall_close(Unit *u) {
-        assert(u);
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
+void bpf_firewall_close(CGroupRuntime *crt) {
+        assert(crt);
 
         crt->ip_accounting_ingress_map_fd = safe_close(crt->ip_accounting_ingress_map_fd);
         crt->ip_accounting_egress_map_fd = safe_close(crt->ip_accounting_egress_map_fd);
