@@ -1257,6 +1257,9 @@ static void set_window_title(PTYForward *f) {
 
         assert(f);
 
+        if (!shall_set_terminal_title())
+                return;
+
         (void) gethostname_strict(&hn);
 
         if (emoji_enabled())
@@ -2141,8 +2144,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else if (!isempty(arg_background))
                         (void) pty_forward_set_background_color(forward, arg_background);
 
-                if (shall_set_terminal_title())
-                        set_window_title(forward);
+                set_window_title(forward);
         }
 
         r = sd_event_loop(event);
