@@ -2155,15 +2155,15 @@ static int install_info_apply(
         r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->required_by, ".requires/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->upheld_by, ".upholds/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         return r;
