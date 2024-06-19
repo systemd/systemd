@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
+  open the inode via O_PATH first, then validate its type, and then convert to
+  proper fd via fd_reopen()
+
 * sd-json: before release figure out what to do about
   SD_JSON_DEBUG+SD_JSON_WARNING. They are probably useless and should be hidden
   in the public API since we don't expose log_json()
