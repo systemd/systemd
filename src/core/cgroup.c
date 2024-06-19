@@ -5266,20 +5266,7 @@ CGroupRuntime *cgroup_runtime_free(CGroupRuntime *crt) {
 #endif
         fdset_free(crt->initial_restrict_ifaces_link_fds);
 
-        safe_close(crt->ipv4_allow_map_fd);
-        safe_close(crt->ipv6_allow_map_fd);
-        safe_close(crt->ipv4_deny_map_fd);
-        safe_close(crt->ipv6_deny_map_fd);
-
-        bpf_program_free(crt->ip_bpf_ingress);
-        bpf_program_free(crt->ip_bpf_ingress_installed);
-        bpf_program_free(crt->ip_bpf_egress);
-        bpf_program_free(crt->ip_bpf_egress_installed);
-
-        set_free(crt->ip_bpf_custom_ingress);
-        set_free(crt->ip_bpf_custom_ingress_installed);
-        set_free(crt->ip_bpf_custom_egress);
-        set_free(crt->ip_bpf_custom_egress_installed);
+        bpf_firewall_close(crt);
 
         free(crt->cgroup_path);
 

@@ -844,8 +844,6 @@ Unit* unit_free(Unit *u) {
         if (u->in_release_resources_queue)
                 LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
 
-        bpf_firewall_close(u);
-
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
 
