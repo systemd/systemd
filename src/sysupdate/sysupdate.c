@@ -231,10 +231,14 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         assert(IN_SET(flags, UPDATE_AVAILABLE, UPDATE_INSTALLED));
 
         for (;;) {
-                bool incomplete = false, exists = false;
+                bool skip = false;
                 UpdateSetFlags extra_flags = 0;
                 _cleanup_free_ char *cursor = NULL;
                 UpdateSet *us = NULL;
+
+                cursor_instances = new0(Instance*, c->n_transfers);
+                if (!cursor_instances)
+                        return log_oom();
 
                 for (size_t k = 0; k < c->n_transfers; k++) {
                         Transfer *t = c->transfers[k];
@@ -251,43 +255,61 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         }
 
                         for (size_t j = 0; j < rr->n_instances; j++) {
-                                Instance *i = rr->instances[j];
+                                Instance *i = rr->instances[j]; /* sorted newest-to-oldest */
 
                                 assert(i);
 
-                                /* Is the instance we are looking at equal or newer than the boundary? If so, we
-                                 * already checked this version, and it wasn't complete, let's ignore it. */
+                                /* Ignore everything newer or equal to the boundary. In other words, ignore
+                                 * everything we've dealt with in a previous iteration of the outer loop */
                                 if (boundary && strverscmp_improved(i->metadata.version, boundary) >= 0)
                                         continue;
 
-                                if (cursor) {
-                                        if (strverscmp_improved(i->metadata.version, cursor) != 0)
-                                                continue;
-                                } else {
+                                if (!cursor) {
+                                        /* Think of the cursor as the "next newest" version we can find
+                                         * that's older than the boundary. It's actually an approximation,
+                                         * but it's close enough */
                                         cursor = strdup(i->metadata.version);
                                         if (!cursor)
                                                 return log_oom();
+                                } else {
+                                        if (strverscmp_improved(i->metadata.version, cursor) != 0)
+                                                continue;
                                 }
 
                                 cursor_found = true;
-
-                                if (!cursor_instances) {
-                                        cursor_instances = new(Instance*, c->n_transfers);
-                                        if (!cursor_instances)
-                                                return -ENOMEM;
-                                }
                                 cursor_instances[k] = i;
                                 break;
                         }
 
-                        if (!cursor) /* No suitable instance beyond the boundary found? Then we are done! */
-                                break;
+                        if (flags == UPDATE_AVAILABLE) {
+                                /* When we're looking for updates to download, we don't offer incomplete
+                                 * versions at all. The server wants to send us an update with parts of the
+                                 * OS missing. For robustness sake, let's not do that. */
 
-                        if (!cursor_found) {
-                                /* Hmm, we didn't find the version indicated by 'cursor' among the instances
-                                 * of this transfer, let's skip it. */
-                                incomplete = true;
-                                break;
+                                if (!cursor)
+                                        break; /* This transfer didn't have a version older than the boundary,
+                                                * so any older version that might exist in a different
+                                                * transfer must always be incomplete. So we're done. */
+
+                                if (!cursor_found) {
+                                        /* There's a cursor, so potentially there might versions older than
+                                         * cursor that are complete. So let's just skip this version */
+                                        skip = true;
+                                        break;
+                                }
+                        } else {
+                                assert(flags == UPDATE_INSTALLED);
+
+                                /* When we're looking for installed versions, let's be robust and treat
+                                 * an incomplete installation as an installation. Otherwise, there are
+                                 * situations that can lead to sysupdate wiping the currently booted OS.
+                                 * See https://github.com/systemd/systemd/issues/33339 */
+
+                                if (!cursor || !cursor_found)
+                                        extra_flags |= UPDATE_INCOMPLETE;
+
+                                if (!cursor)
+                                        continue; /* Maybe another transfer might find a cursor? */
                         }
 
                         if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
@@ -297,14 +319,14 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 extra_flags |= UPDATE_PROTECTED;
                 }
 
-                if (!cursor) /* EOL */
+                if (!cursor) /* We didn't find anything older than the boundary, so we're done. */
                         break;
 
                 r = free_and_strdup_warn(&boundary, cursor);
                 if (r < 0)
                         return r;
 
-                if (incomplete) /* One transfer was missing this version, ignore the whole thing */
+                if (skip)
                         continue;
 
                 /* See if we already have this update set in our table */
@@ -314,12 +336,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         /* We only store the instances we found first, but we remember we also found it again */
                         c->update_sets[i]->flags |= flags | extra_flags;
-                        exists = true;
+                        skip = true;
                         newest_found = true;
                         break;
                 }
 
-                if (exists)
+                if (skip)
                         continue;
 
                 /* Doesn't exist yet, let's add it */
@@ -490,6 +512,11 @@ static int context_show_version(Context *c, const char *version) {
         for (size_t n = 0; n < us->n_instances; n++) {
                 Instance *i = us->instances[n];
 
+                if (!i) {
+                        assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+                        continue;
+                }
+
                 r = table_add_many(t,
                                    TABLE_STRING, resource_type_to_string(i->resource->type),
                                    TABLE_PATH, i->path);
@@ -632,13 +659,14 @@ static int context_show_version(Context *c, const char *version) {
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
-                       "Installed: %s%s\n"
+                       "Installed: %s%s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
                        " Obsolete: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
+                       FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
@@ -667,6 +695,7 @@ static int context_show_version(Context *c, const char *version) {
                                            SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
                                            SD_JSON_BUILD_PAIR_STRV("changelog-url", changelog_urls),
                                            SD_JSON_BUILD_PAIR_VARIANT("contents", t_json)));
                 if (r < 0)
