@@ -747,6 +747,61 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
 }
 
 /* ================================================================
+ * dns_cache_check_conflicts()
+ * ================================================================ */
+
+TEST(dns_cache_check_conflicts_same_key_and_owner) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        union in_addr_union owner_addr = { .in.s_addr = htobe32(0x01020304) };
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_FALSE(dns_cache_check_conflicts(&cache, rr, AF_INET, &owner_addr));
+}
+
+TEST(dns_cache_check_conflicts_same_key_different_owner) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        union in_addr_union owner_addr = { .in.s_addr = htobe32(0x01020305) };
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_TRUE(dns_cache_check_conflicts(&cache, rr, AF_INET, &owner_addr));
+}
+
+TEST(dns_cache_check_conflicts_different_key) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns2.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        cache_put(&cache, &put_args);
+
+        union in_addr_union owner_addr = { .in.s_addr = htobe32(0x01020305) };
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(rr);
+        ASSERT_FALSE(dns_cache_check_conflicts(&cache, rr, AF_INET, &owner_addr));
+}
+
+/* ================================================================
  * dns_cache_export_shared_to_packet()
  * ================================================================ */
 
