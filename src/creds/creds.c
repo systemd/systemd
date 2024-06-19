@@ -1257,7 +1257,7 @@ static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, Varlink
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = sd_json_build(&reply, SD_JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output));
         if (r < 0)
                 return r;
 
@@ -1377,7 +1377,7 @@ static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, Varlink
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = sd_json_build(&reply, SD_JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("data", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("data", &output));
         if (r < 0)
                 return r;
 

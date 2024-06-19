@@ -251,9 +251,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_json_build(&cparams, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                                       SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags()))));
+        r = sd_json_buildo(
+                        &cparams,
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
         if (r < 0)
                 goto fail;
 
@@ -418,9 +419,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_json_build(&cparams, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                                                   SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
-                                                   SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags()))));
+        r = sd_json_buildo(
+                        &cparams,
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
+                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
         if (r < 0)
                 goto fail;
 
@@ -636,9 +639,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_json_build(&cparams, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(addr, len)),
-                                                   SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
-                                                   SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags()))));
+        r = sd_json_buildo(
+                        &cparams,
+                        SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(addr, len)),
+                        SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
+                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
         if (r < 0)
                 goto fail;
 

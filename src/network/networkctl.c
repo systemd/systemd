@@ -1371,8 +1371,11 @@ static int dump_lldp_neighbors(Varlink *vl, Table *table, int ifindex) {
         assert(table);
         assert(ifindex > 0);
 
-        r = varlink_callb_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", &reply,
-                                  SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex)));
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.GetLLDPNeighbors",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
         if (r < 0)
                 return r;
 
@@ -2576,10 +2579,10 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
                         return log_error_errno(r, "Failed to append json variant to array: %m");
         }
 
-        r = sd_json_build(&v,
-                SD_JSON_BUILD_OBJECT(
+        r = sd_json_buildo(
+                        &v,
                         SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
-                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array))));
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build json varinat: %m");
 
@@ -2955,8 +2958,11 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
                 TAKE_FD(fd);
         }
 
-        return varlink_callb_and_log(vl, "io.systemd.Network.SetPersistentStorage", /* reply = */ NULL,
-                                     SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BOOLEAN("Ready", ready)));
+        return varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.SetPersistentStorage",
+                        /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Ready", ready));
 }
 
 static int help(void) {

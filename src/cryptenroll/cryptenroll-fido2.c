@@ -130,16 +130,15 @@ int enroll_fido2(
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return log_oom();
 
-        r = sd_json_build(&v,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
-                                       SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                                       SD_JSON_BUILD_PAIR("fido2-credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
-                                       SD_JSON_BUILD_PAIR("fido2-salt", SD_JSON_BUILD_BASE64(salt, salt_size)),
-                                       SD_JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
-                                       SD_JSON_BUILD_PAIR("fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
-                                       SD_JSON_BUILD_PAIR("fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
-                                       SD_JSON_BUILD_PAIR("fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))));
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
+                           SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                           SD_JSON_BUILD_PAIR("fido2-credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
+                           SD_JSON_BUILD_PAIR("fido2-salt", SD_JSON_BUILD_BASE64(salt, salt_size)),
+                           SD_JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
+                           SD_JSON_BUILD_PAIR("fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
+                           SD_JSON_BUILD_PAIR("fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
+                           SD_JSON_BUILD_PAIR("fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m");
 

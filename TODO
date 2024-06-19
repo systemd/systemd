@@ -164,10 +164,6 @@ Features:
   probably should measure the dm-verity root hash from the kernel side, but
   DDI meta info from userspace.
 
-* consider reworking json_build() to imply a top-level JSON_BUILD_OBJECT(),
-  since that's what we want in 99% of cases. Then provide json_build_any() or
-  so that can build other variant types top-level too.
-
 * rework tpm2_parse_pcr_argument_to_mask() to refuse literal hash value
   specifications. They are currently parsed but ignored. We should refuse them
   however, to not confuse people.
