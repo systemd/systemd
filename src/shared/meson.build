@@ -300,7 +300,7 @@ shared_sources += shared_generated_gperf_headers
 fname = 'ethtool-link-mode.h'
 ethtool_link_mode_h = custom_target(
         fname,
-        input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
         capture : true)
@@ -309,7 +309,7 @@ shared_sources += ethtool_link_mode_h
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(
         fname,
-        input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
         capture : true)
