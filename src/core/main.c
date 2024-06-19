@@ -148,6 +148,7 @@ static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
 static sd_id128_t arg_machine_id;
+static bool arg_machine_id_from_firmware = false;
 static EmergencyAction arg_cad_burst_action;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
@@ -381,10 +382,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = id128_from_string_nonzero(value, &arg_machine_id);
-                if (r < 0)
-                        log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
-
+                if (streq(value, "firmware"))
+                        arg_machine_id_from_firmware = true;
+                else {
+                        r = id128_from_string_nonzero(value, &arg_machine_id);
+                        if (r < 0)
+                                log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
+                        else
+                                arg_machine_id_from_firmware = false;
+                }
         } else if (proc_cmdline_key_streq(key, "systemd.default_timeout_start_sec")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -2366,8 +2372,9 @@ static int initialize_runtime(
 
                         (void) os_release_status();
                         (void) hostname_setup(true);
-                        /* Force transient machine-id on first boot. */
-                        machine_id_setup(/* root= */ NULL, /* force_transient= */ first_boot, arg_machine_id, /* ret_machine_id */ NULL);
+
+                        machine_id_setup(/* root= */ NULL, arg_machine_id, (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
+                                        (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0), /* ret_machine_id */ NULL);
                         (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
