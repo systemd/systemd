@@ -95,7 +95,7 @@ bool can_memlock(void);
         }
 
 /* Provide a convenient way to check if we're running in CI. */
-const char *ci_environment(void);
+const char* ci_environment(void);
 
 typedef struct TestFunc {
         union f {

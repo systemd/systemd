@@ -3410,7 +3410,7 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char *socket_fdname(Socket *s) {
+char* socket_fdname(Socket *s) {
         assert(s);
 
         /* Returns the name to use for $LISTEN_NAMES. If the user

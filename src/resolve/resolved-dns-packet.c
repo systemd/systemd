@@ -2905,7 +2905,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
 
-const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
+const char* format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         const char *p = dns_rcode_to_string(i);
         if (p)
                 return p;
@@ -2947,7 +2947,7 @@ static const char* const dns_ede_rcode_table[_DNS_EDE_RCODE_MAX_DEFINED] = {
 };
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_ede_rcode, int);
 
-const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
+const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         const char *p = dns_ede_rcode_to_string(i);
         if (p)
                 return p;
@@ -2968,7 +2968,7 @@ static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED]
 };
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
 
-const char *format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
+const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
         const char *p = dns_svc_param_key_to_string(i);
         if (p)
                 return p;

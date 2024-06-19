@@ -8,7 +8,7 @@
 
 extern const BusObjectImplementation session_object;
 
-char *session_bus_path(Session *s);
+char* session_bus_path(Session *s);
 
 int session_send_signal(Session *s, bool new_session);
 int session_send_changed(Session *s, const char *properties, ...) _sentinel_;

@@ -800,7 +800,7 @@ static int link_object_find(sd_bus *bus, const char *path, const char *interface
         return 1;
 }
 
-char *link_bus_path(const Link *link) {
+char* link_bus_path(const Link *link) {
         char *p, ifindex[DECIMAL_STR_MAX(link->ifindex)];
         int r;
 
