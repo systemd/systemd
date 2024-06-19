@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>kernel-install</refname>
-    <refpurpose>Add and remove kernel and initrd images to and from /boot</refpurpose>
+    <refpurpose>Add and remove kernel and initrd images to and from the boot loader partition</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
