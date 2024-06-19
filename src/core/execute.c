@@ -87,7 +87,7 @@ static bool is_terminal_output(ExecOutput o) {
                       EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
 }
 
-const char *exec_context_tty_path(const ExecContext *context) {
+const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
         if (context->stdio_as_fds)

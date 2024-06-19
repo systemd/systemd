@@ -267,7 +267,7 @@ int group_record_build(GroupRecord **ret, ...) {
         return 0;
 }
 
-const char *group_record_group_name_and_realm(GroupRecord *h) {
+const char* group_record_group_name_and_realm(GroupRecord *h) {
         assert(h);
 
         /* Return the pre-initialized joined string if it is defined */

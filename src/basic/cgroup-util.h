@@ -298,7 +298,7 @@ int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
 bool cg_needs_escape(const char *p);
 int cg_escape(const char *p, char **ret);
-char *cg_unescape(const char *p) _pure_;
+char* cg_unescape(const char *p) _pure_;
 
 bool cg_controller_is_valid(const char *p);
 

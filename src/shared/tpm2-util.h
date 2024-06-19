@@ -110,14 +110,14 @@ bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value);
 bool tpm2_pcr_values_has_any_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 bool tpm2_pcr_values_has_all_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
-char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
+char* tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
 
 bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask);
 int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
-char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+char* tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count);
 int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPML_PCR_SELECTION *ret_selection, TPM2B_DIGEST **ret_values, size_t *ret_n_values);
 
@@ -144,8 +144,8 @@ int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **r
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
-const char *tpm2_userspace_log_path(void);
-const char *tpm2_firmware_log_path(void);
+const char* tpm2_userspace_log_path(void);
+const char* tpm2_firmware_log_path(void);
 
 typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_PHASE,
@@ -169,7 +169,7 @@ void tpm2_tpms_pcr_selection_sub_mask(TPMS_PCR_SELECTION *s, uint32_t mask);
 void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
 void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
 void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b);
-char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s);
+char* tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s);
 size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s);
 #define tpm2_tpms_pcr_selection_is_empty(s) (tpm2_tpms_pcr_selection_weight(s) == 0)
 
@@ -182,7 +182,7 @@ void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const
 void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s);
 void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b);
 void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b);
-char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
+char* tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l);
 #define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
 
@@ -426,19 +426,19 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 
-const char *tpm2_hash_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_hash_alg_to_string(uint16_t alg) _const_;
 int tpm2_hash_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_asym_alg_to_string(uint16_t alg) _const_;
 int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_sym_alg_to_string(uint16_t alg) _const_;
+const char* tpm2_sym_alg_to_string(uint16_t alg) _const_;
 int tpm2_sym_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_sym_mode_to_string(uint16_t mode) _const_;
+const char* tpm2_sym_mode_to_string(uint16_t mode) _const_;
 int tpm2_sym_mode_from_string(const char *mode) _pure_;
 
-char *tpm2_pcr_mask_to_string(uint32_t mask);
+char* tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];
 
@@ -483,7 +483,7 @@ enum {
 };
 
 int tpm2_pcr_index_from_string(const char *s) _pure_;
-const char *tpm2_pcr_index_to_string(int pcr) _const_;
+const char* tpm2_pcr_index_to_string(int pcr) _const_;
 
 /* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
  * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */

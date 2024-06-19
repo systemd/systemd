@@ -37,7 +37,7 @@ int sigset_add_many_internal(sigset_t *ss, ...);
 int sigprocmask_many_internal(int how, sigset_t *old, ...);
 #define sigprocmask_many(...) sigprocmask_many_internal(__VA_ARGS__, -1)
 
-const char *signal_to_string(int i) _const_;
+const char* signal_to_string(int i) _const_;
 int signal_from_string(const char *s) _pure_;
 
 void nop_signal_handler(int sig);

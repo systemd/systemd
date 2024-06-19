@@ -119,7 +119,7 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
 
 int image_to_json(const struct Image *i, sd_json_variant **ret);
 
-const char *image_root_to_string(ImageClass c) _const_;
+const char* image_root_to_string(ImageClass c) _const_;
 
 extern const struct hash_ops image_hash_ops;
 

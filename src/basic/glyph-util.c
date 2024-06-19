@@ -23,7 +23,7 @@ bool emoji_enabled(void) {
         return cached_emoji_enabled;
 }
 
-const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
+const char* special_glyph_full(SpecialGlyph code, bool force_utf) {
 
         /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably wise to be
          * conservative here, and primarily stick to the glyphs defined in the eurlatgr font, so that display still

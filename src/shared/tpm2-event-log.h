@@ -55,7 +55,7 @@
 #define LOAD_OPTIONS_EVENT_TAG_ID UINT32_C(0x8F3B22ED)
 #endif
 
-const char *tpm2_log_event_type_to_string(uint32_t type) _const_;
+const char* tpm2_log_event_type_to_string(uint32_t type) _const_;
 
 #if HAVE_TPM2
 
