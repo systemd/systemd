@@ -2012,7 +2012,7 @@ static int install_info_symlink_wants(
 
         UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
         const char *n;
-        int r = 0, q;
+        int r, q;
 
         assert(info);
         assert(lp);
