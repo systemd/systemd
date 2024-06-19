@@ -189,6 +189,7 @@ int sd_json_parse_file_at(FILE *f, int dir_fd, const char *path, sd_json_parse_f
 int sd_json_parse_file(FILE *f, const char *path, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
 
 enum {
+        /* Do not use these directly, use the SD_JSON_BUILD_*() macros below */
         _SD_JSON_BUILD_STRING,
         _SD_JSON_BUILD_INTEGER,
         _SD_JSON_BUILD_UNSIGNED,
@@ -269,23 +270,20 @@ typedef int (*sd_json_build_callback_t)(sd_json_variant **ret, const char *name,
 int sd_json_build(sd_json_variant **ret, ...);
 int sd_json_buildv(sd_json_variant **ret, va_list ap);
 
-/* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated from the bit
- * mask originally passed into json_dispatch(), the individual bitmask associated with the static sd_json_dispatch callout
- * entry, as well the bitmask specified for json_log() calls */
+/* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated
+ * from the bit mask originally passed into sd_json_dispatch() and the individual bitmask associated with the
+ * static sd_json_dispatch_field callout entry */
 typedef enum sd_json_dispatch_flags_t {
-        /* The following three may be set in sd_json_dispatch's .flags field or the json_dispatch() flags parameter  */
         SD_JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
         SD_JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
-        SD_JSON_LOG              = 1 << 2, /* Should the parser log about errors? */
-        SD_JSON_STRICT           = 1 << 3, /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string()) */
-        SD_JSON_RELAX            = 1 << 4, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
-        SD_JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
-        SD_JSON_NULLABLE         = 1 << 6, /* Allow both specified type and null for this field */
-        SD_JSON_REFUSE_NULL      = 1 << 7, /* Never allow null, even if type is otherwise not specified */
-
-        /* The following two may be passed into log_json() in addition to those above */
-        SD_JSON_DEBUG            = 1 << 8, /* Indicates that this log message is a debug message */
-        SD_JSON_WARNING          = 1 << 9  /* Indicates that this log message is a warning message */
+        SD_JSON_LOG              = 1 << 2, /* Should the dispatcher log about errors? */
+        SD_JSON_DEBUG            = 1 << 3, /* When logging about errors use LOG_DEBUG log level at most */
+        SD_JSON_WARNING          = 1 << 4, /* When logging about errors use LOG_WARNING log level at most */
+        SD_JSON_STRICT           = 1 << 5, /* Use slightly stricter validation than usually (means different things for different dispatchers, for example: don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string()) */
+        SD_JSON_RELAX            = 1 << 6, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
+        SD_JSON_ALLOW_EXTENSIONS = 1 << 7, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
+        SD_JSON_NULLABLE         = 1 << 8, /* Allow both specified type and null for this field */
+        SD_JSON_REFUSE_NULL      = 1 << 9  /* Never allow null, even if type is otherwise not specified */
 } sd_json_dispatch_flags_t;
 
 typedef int (*sd_json_dispatch_callback_t)(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
