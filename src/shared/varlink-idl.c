@@ -48,7 +48,7 @@ static int varlink_idl_format_comment(
         }
 
         _cleanup_strv_free_ char **l = NULL;
-        r = strv_split_full(&l, text, NEWLINE, 0);
+        r = strv_split_full(&l, text, NEWLINE, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to split comment string: %m");
 
