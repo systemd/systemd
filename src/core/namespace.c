@@ -752,6 +752,11 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         if (d != 0)
                 return d;
 
+        /* MOUNT_PRIVATE_TMPFS needs to be set up earlier, especially than MOUNT_BIND. */
+        d = -CMP(a->mode == MOUNT_PRIVATE_TMPFS, b->mode == MOUNT_PRIVATE_TMPFS);
+        if (d != 0)
+                return d;
+
         /* If the paths are not equal, then order prefixes first */
         d = path_compare(mount_entry_path(a), mount_entry_path(b));
         if (d != 0)
@@ -2309,9 +2314,6 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
                 };
-
-                /* Ensure that the tmpfs is mounted first, and bind mounts are added later. */
-                assert_cc(MOUNT_BIND < MOUNT_PRIVATE_TMPFS);
         } else {
                 if (p->tmp_dir) {
                         bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
