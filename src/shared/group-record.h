@@ -43,5 +43,5 @@ int group_record_load(GroupRecord *h, sd_json_variant *v, UserRecordLoadFlags fl
 int group_record_build(GroupRecord **ret, ...);
 int group_record_clone(GroupRecord *g, UserRecordLoadFlags flags, GroupRecord **ret);
 
-const char *group_record_group_name_and_realm(GroupRecord *h);
+const char* group_record_group_name_and_realm(GroupRecord *h);
 UserDisposition group_record_disposition(GroupRecord *h);

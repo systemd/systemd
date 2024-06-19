@@ -38,7 +38,7 @@ extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
 
-static inline const char *arg_dollar_boot_path(void) {
+static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
         return arg_xbootldr_path ?: arg_esp_path;
 }

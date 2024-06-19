@@ -903,7 +903,7 @@ _public_ void sd_json_variant_unref_many(sd_json_variant **array, size_t n) {
         free(array);
 }
 
-_public_ const char *sd_json_variant_string(sd_json_variant *v) {
+_public_ const char* sd_json_variant_string(sd_json_variant *v) {
         if (!v)
                 return NULL;
         if (v == JSON_VARIANT_MAGIC_EMPTY_STRING)

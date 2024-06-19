@@ -66,7 +66,7 @@ struct VxLan {
 DEFINE_NETDEV_CAST(VXLAN, VxLan);
 extern const NetDevVTable vxlan_vtable;
 
-const char *df_to_string(VxLanDF d) _const_;
+const char* df_to_string(VxLanDF d) _const_;
 VxLanDF df_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_vxlan_address);

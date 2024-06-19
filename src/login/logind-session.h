@@ -2,7 +2,7 @@
 #pragma once
 
 typedef struct Session Session;
-typedef enum KillWho KillWho;
+typedef enum KillWhom KillWhom;
 
 #include "list.h"
 #include "login-util.h"
@@ -77,11 +77,11 @@ typedef enum SessionType {
 
 #define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
 
-enum KillWho {
+enum KillWhom {
         KILL_LEADER,
         KILL_ALL,
-        _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -EINVAL,
+        _KILL_WHOM_MAX,
+        _KILL_WHOM_INVALID = -EINVAL,
 };
 
 typedef enum TTYValidity {
@@ -191,7 +191,7 @@ int session_finalize(Session *s);
 int session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
-int session_kill(Session *s, KillWho who, int signo);
+int session_kill(Session *s, KillWhom whom, int signo);
 
 SessionState session_get_state(Session *u);
 
@@ -204,8 +204,8 @@ SessionType session_type_from_string(const char *s) _pure_;
 const char* session_class_to_string(SessionClass t) _const_;
 SessionClass session_class_from_string(const char *s) _pure_;
 
-const char *kill_who_to_string(KillWho k) _const_;
-KillWho kill_who_from_string(const char *s) _pure_;
+const char* kill_whom_to_string(KillWhom k) _const_;
+KillWhom kill_whom_from_string(const char *s) _pure_;
 
 const char* tty_validity_to_string(TTYValidity t) _const_;
 TTYValidity tty_validity_from_string(const char *s) _pure_;
