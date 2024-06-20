@@ -62,12 +62,10 @@ extern const sd_bus_error_map __stop_SYSTEMD_BUS_ERROR_MAP[];
 static const sd_bus_error_map **additional_error_maps = NULL;
 
 static int bus_error_name_to_errno(const char *name) {
-        const sd_bus_error_map **map, *m;
         const char *p;
         int r;
 
-        if (!name)
-                return EINVAL;
+        assert_return(name, EINVAL);
 
         p = startswith(name, "System.Error.");
         if (p) {
@@ -79,8 +77,8 @@ static int bus_error_name_to_errno(const char *name) {
         }
 
         if (additional_error_maps)
-                for (map = additional_error_maps; *map; map++)
-                        for (m = *map;; m++) {
+                for (const sd_bus_error_map **map = additional_error_maps; *map; map++)
+                        for (const sd_bus_error_map *m = *map;; m++) {
                                 /* For additional error maps the end marker is actually the end marker */
                                 if (m->code == BUS_ERROR_MAP_END_MARKER)
                                         break;
@@ -91,25 +89,22 @@ static int bus_error_name_to_errno(const char *name) {
                                 }
                         }
 
-        m = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
-        while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
-                /* For magic ELF error maps, the end marker might
-                 * appear in the middle of things, since multiple maps
-                 * might appear in the same section. Hence, let's skip
-                 * over it, but realign the pointer to the next 8 byte
-                 * boundary, which is the selected alignment for the
-                 * arrays. */
-                if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_PTR(m + 1);
+        const sd_bus_error_map *elf_map = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
+        while (elf_map < __stop_SYSTEMD_BUS_ERROR_MAP) {
+                /* For magic ELF error maps, the end marker might appear in the middle of things, since
+                 * multiple maps might appear in the same section. Hence, let's skip over it, but realign
+                 * the pointer to the next 8 byte boundary, which is the selected alignment for the arrays. */
+                if (elf_map->code == BUS_ERROR_MAP_END_MARKER) {
+                        elf_map = ALIGN_PTR(elf_map + 1);
                         continue;
                 }
 
-                if (streq(m->name, name)) {
-                        assert(m->code > 0);
-                        return m->code;
+                if (streq(elf_map->name, name)) {
+                        assert(elf_map->code > 0);
+                        return elf_map->code;
                 }
 
-                m++;
+                elf_map++;
         }
 
         return EIO;
@@ -389,7 +384,7 @@ _public_ int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) {
         return !!p;
 }
 
-_public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
+_public_ int sd_bus_error_get_errno(const sd_bus_error *e) {
         if (!e || !e->name)
                 return 0;
 
