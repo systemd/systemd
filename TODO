@@ -478,10 +478,6 @@ Features:
   - kernel-install
   - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
-* in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
-  identifiers, and store them along with the exit status of a server and report
-  via "systemctl status".
-
 * enumerate virtiofs devices during boot-up in a generator, and synthesize
   mounts for rootfs, /usr/, /home/, /srv/ and some others from it, depending on
   the "tag". (waits for: https://gitlab.com/virtio-fs/virtiofsd/-/issues/128)
