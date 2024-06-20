@@ -171,7 +171,7 @@ static int next_assignment(
 
 /* Parse a single logical line */
 static int parse_line(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *sections,
@@ -868,7 +868,7 @@ DEFINE_PARSER(mode, mode_t, parse_mode);
 DEFINE_PARSER(pid, pid_t, parse_pid);
 
 int config_parse_iec_size(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -900,7 +900,7 @@ int config_parse_iec_size(
 }
 
 int config_parse_si_uint64(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -926,7 +926,7 @@ int config_parse_si_uint64(
 }
 
 int config_parse_iec_uint64(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -946,13 +946,13 @@ int config_parse_iec_uint64(
 
         r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
 
         return 0;
 }
 
 int config_parse_iec_uint64_infinity(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -976,7 +976,7 @@ int config_parse_iec_uint64_infinity(
 }
 
 int config_parse_bool(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1036,7 +1036,7 @@ int config_parse_id128(
 }
 
 int config_parse_tristate(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1636,7 +1636,7 @@ int config_parse_rlimit(
 }
 
 int config_parse_permille(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1667,7 +1667,7 @@ int config_parse_permille(
 }
 
 int config_parse_vlanprotocol(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
