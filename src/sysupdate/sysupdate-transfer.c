@@ -1027,8 +1027,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         assert(t);
         assert(i);
-        assert(i->resource);
-        assert(t == container_of(i->resource, Transfer, source));
+        assert(i->resource == &t->source);
         assert(cb);
 
         /* Does this instance already exist in the target? Then we don't need to acquire anything */

@@ -334,11 +334,36 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                 /* See if we already have this update set in our table */
                 FOREACH_ARRAY(update_set, c->update_sets, c->n_update_sets) {
                         UpdateSet *u = *update_set;
+
                         if (strverscmp_improved(u->version, cursor) != 0)
                                 continue;
 
-                        /* We only store the instances we found first, but we remember we also found it again */
+                        /* Merge in what we've learned and continue onto the next version */
+
+                        if (FLAGS_SET(u->flags, UPDATE_INCOMPLETE)) {
+                                assert(u->n_instances == c->n_transfers);
+
+                                /* Incomplete updates will have picked NULL instances for the transfers that
+                                 * are missing. Now we have more information, so let's try to fill them in. */
+
+                                for (size_t j = 0; j < u->n_instances; j++) {
+                                        if (!u->instances[j])
+                                                u->instances[j] = cursor_instances[j];
+
+                                        /* Make sure that the list is full if the update is AVAILABLE */
+                                        assert(flags != UPDATE_AVAILABLE || u->instances[j]);
+                                }
+                        }
+
                         u->flags |= flags | extra_flags;
+
+                        /* If this is the newest installed version, that is incomplete and just became marked
+                         * as available, and if there is no other candidate available, we promote this to be
+                         * the candidate. */
+                        if (FLAGS_SET(u->flags, UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
+                            !c->candidate && !FLAGS_SET(u->flags, UPDATE_OBSOLETE))
+                                c->candidate = u;
+
                         skip = true;
                         newest_found = true;
                         break;
@@ -376,7 +401,8 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         }
 
         /* Newest installed is newer than or equal to candidate? Then suppress the candidate */
-        if (c->newest_installed && c->candidate && strverscmp_improved(c->newest_installed->version, c->candidate->version) >= 0)
+        if (c->newest_installed && !FLAGS_SET(c->newest_installed->flags, UPDATE_INCOMPLETE) &&
+            c->candidate && strverscmp_improved(c->newest_installed->version, c->candidate->version) >= 0)
                 c->candidate = NULL;
 
         return 0;
@@ -731,6 +757,12 @@ static int context_vacuum(
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
+
+                /* Don't bother clearing out space if we're not going to be downloading anything */
+                if (extra_protected_version &&
+                    resource_find_instance(&t->target, extra_protected_version))
+                        continue;
+
                 r = transfer_vacuum(t, space, extra_protected_version);
                 if (r < 0)
                         return r;
@@ -861,7 +893,9 @@ static int context_apply(
                 us = c->candidate;
         }
 
-        if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
+        if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
+                log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
+        else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
                 if (ret_applied)
@@ -869,12 +903,11 @@ static int context_apply(
 
                 return 0;
         }
+
         if (!FLAGS_SET(us->flags, UPDATE_AVAILABLE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not available, refusing.", us->version);
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
-
-        assert((us->flags & (UPDATE_AVAILABLE|UPDATE_INSTALLED|UPDATE_OBSOLETE)) == UPDATE_AVAILABLE);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -908,8 +941,17 @@ static int context_apply(
         assert(us->n_instances == c->n_transfers);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_acquire_instance(c->transfers[i], us->instances[i],
-                                              context_on_acquire_progress, c);
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                assert(inst); /* ditto */
+
+                if (inst->resource == &t->target) { /* a present transfer in an incomplete installation */
+                        assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+                        continue;
+                }
+
+                r = transfer_acquire_instance(t, inst, context_on_acquire_progress, c);
                 if (r < 0)
                         return r;
         }
@@ -921,7 +963,13 @@ static int context_apply(
                           "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_install_instance(c->transfers[i], us->instances[i], arg_root);
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                if (inst->resource == &t->target)
+                        continue;
+
+                r = transfer_install_instance(t, inst, arg_root);
                 if (r < 0)
                         return r;
         }
@@ -1139,6 +1187,12 @@ static int verb_update(int argc, char **argv, void *userdata) {
 
                 if (strverscmp_improved(applied->version, booted_version) > 0) {
                         log_notice("Newly installed version is newer than booted version, rebooting.");
+                        return reboot_now();
+                }
+
+                if (strverscmp_improved(applied->version, booted_version) == 0 &&
+                    FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
+                        log_notice("Currently booted version was incomplete and has been repaired, rebooting.");
                         return reboot_now();
                 }
 
