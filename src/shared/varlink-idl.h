@@ -170,6 +170,8 @@ bool varlink_idl_field_name_is_valid(const char *name);
 bool varlink_idl_symbol_name_is_valid(const char *name);
 bool varlink_idl_interface_name_is_valid(const char *name);
 
+int varlink_idl_qualified_symbol_name_is_valid(const char *name);
+
 int varlink_idl_consistent(const VarlinkInterface *interface, int level);
 
 const VarlinkSymbol* varlink_idl_find_symbol(const VarlinkInterface *interface, VarlinkSymbolType type, const char *name);
