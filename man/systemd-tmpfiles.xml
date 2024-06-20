@@ -164,7 +164,7 @@
         much of the installed system files might be removed).</para>
 
         <para>The primary usecase for this option is to automatically remove files and directories that
-        originally have been created on behalf of an installed packaged at package removal time.</para>
+        originally have been created on behalf of an installed package at package removal time.</para>
 
         <para>It is recommended to first run this command in combination with <option>--dry-run</option>
         (see below) to verify which files and directories will be deleted.</para>
