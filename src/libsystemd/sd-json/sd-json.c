@@ -3500,7 +3500,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                 switch (command) {
 
-                case _SD_JSON_BUILD_STRING: {
+                case _SD_JSON_BUILD_STRING:
+                case _JSON_BUILD_STRING_UNDERSCORIFY: {
                         const char *p;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3511,6 +3512,18 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         p = va_arg(ap, const char *);
 
                         if (current->n_suppress == 0) {
+                                _cleanup_free_ char *c = NULL;
+
+                                if (command == _JSON_BUILD_STRING_UNDERSCORIFY) {
+                                        c = strreplace(p, "-", "_");
+                                        if (!c) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        p = c;
+                                }
+
                                 r = sd_json_variant_new_string(&add, p);
                                 if (r < 0)
                                         goto finish;
