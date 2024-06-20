@@ -1747,6 +1747,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-ffile-prefix-map=',
                 '-fdebug-prefix-map=',
                 '-fmacro-prefix-map=',
+                '--sysroot=',
         ]
 
         foreach opt : c_args
