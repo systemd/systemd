@@ -227,7 +227,8 @@ node /org/freedesktop/sysupdate1/target/host {
           <term><literal>incomplete</literal></term>
           <listitem><para>A boolean indicating whether this version is incomplete, which means that it is
           missing some file. Note that only installed incomplete versions will be offered by the service;
-          versions that are incomplete on the server-side are completely ignored.</para></listitem>
+          versions that are incomplete on the server-side are completely ignored. Incomplete versions can
+          be repaired in-place by calling <function>Update()</function> on that version.</para></listitem>
         </varlistentry>
 
         <varlistentry>
