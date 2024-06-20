@@ -8,6 +8,7 @@ sources = files(
         'netdev/dummy.c',
         'netdev/fou-tunnel.c',
         'netdev/geneve.c',
+        'netdev/hsr.c',
         'netdev/ifb.c',
         'netdev/ipoib.c',
         'netdev/ipvlan.c',
