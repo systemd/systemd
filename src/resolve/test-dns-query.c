@@ -199,6 +199,31 @@ TEST(dns_query_process_cname_one_success_exact_match) {
         ASSERT_EQ(query->n_cname_redirects, 0u);
 }
 
+TEST(dns_query_process_cname_one_success_no_match) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "tmp.example.com");
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_NOMATCH);
+
+        ASSERT_EQ(query->n_cname_redirects, 0u);
+}
+
 TEST(dns_query_process_cname_one_success_match_cname) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
@@ -274,6 +299,130 @@ TEST(dns_query_process_cname_one_success_flags) {
         ASSERT_TRUE(dns_query_fully_authenticated(query));
         ASSERT_TRUE(dns_query_fully_confidential(query));
         ASSERT_TRUE(dns_query_fully_authoritative(query));
+}
+
+TEST(dns_query_process_cname_one_success_match_dname) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        rr->ttl = 3600;
+        rr->dname.name = strdup("v2.example.com");
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
+
+        ASSERT_EQ(query->n_cname_redirects, 1u);
+
+        ASSERT_EQ(dns_question_size(query->collected_questions), 1u);
+        ASSERT_NULL(query->question_utf8);
+        ASSERT_EQ(dns_question_size(query->question_idna), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.example.com");
+        ASSERT_TRUE(dns_question_contains_key(query->question_idna, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.xn--tl8h.com", false));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", true));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "xn--tl8h.com");
+        rr->ttl = 3600;
+        rr->dname.name = strdup("v2.xn--tl8h.com");
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
+
+        ASSERT_EQ(query->n_cname_redirects, 1u);
+
+        ASSERT_EQ(dns_question_size(query->collected_questions), 1u);
+        ASSERT_EQ(dns_question_size(query->question_utf8), 1u);
+        ASSERT_EQ(dns_question_size(query->question_idna), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.xn--tl8h.com");
+        ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.xn--tl8h.com");
+        ASSERT_TRUE(dns_question_contains_key(query->question_utf8, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.xn--tl8h.com");
+        ASSERT_TRUE(dns_question_contains_key(query->question_idna, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", true));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "xn--tl8h.com");
+        rr->ttl = 3600;
+        rr->dname.name = strdup("v2.xn--tl8h.com");
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
+
+        ASSERT_EQ(query->n_cname_redirects, 1u);
+
+        ASSERT_EQ(dns_question_size(query->collected_questions), 2u);
+        ASSERT_NULL(query->question_utf8);
+        ASSERT_EQ(dns_question_size(query->question_idna), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\xF0\x9F\x98\xB1.com");
+        ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.xn--tl8h.com");
+        ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.xn--tl8h.com");
+        ASSERT_TRUE(dns_question_contains_key(query->question_idna, key));
+        dns_resource_key_unref(key);
 }
 
 /* ================================================================
