@@ -264,7 +264,7 @@ EOF
 }
 
 testcase_bootctl_varlink() {
-    varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}'
+    varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}' ||:
 
     # We may have UEFI in the test environment.
     # If we don't have UEFI then we can test whether bootctl's varlink API fails cleanly.

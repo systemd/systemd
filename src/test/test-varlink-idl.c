@@ -27,12 +27,16 @@
 
 static VARLINK_DEFINE_ENUM_TYPE(
                 EnumTest,
+                VARLINK_FIELD_COMMENT("piff paff"),
                 VARLINK_DEFINE_ENUM_VALUE(foo),
+                VARLINK_FIELD_COMMENT("waldo"),
                 VARLINK_DEFINE_ENUM_VALUE(bar),
+                VARLINK_FIELD_COMMENT("crux"),
                 VARLINK_DEFINE_ENUM_VALUE(baz));
 
 static VARLINK_DEFINE_STRUCT_TYPE(
                 NestedStructTest,
+                VARLINK_FIELD_COMMENT("miepf"),
                 VARLINK_DEFINE_FIELD(x, VARLINK_INT, 0));
 
 static VARLINK_DEFINE_STRUCT_TYPE(
@@ -44,6 +48,8 @@ static VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(bbbna, VARLINK_BOOL, VARLINK_NULLABLE|VARLINK_ARRAY),
                 VARLINK_DEFINE_FIELD(bbbm, VARLINK_BOOL, VARLINK_MAP),
                 VARLINK_DEFINE_FIELD(bbbnm, VARLINK_BOOL, VARLINK_NULLABLE|VARLINK_MAP),
+
+                VARLINK_FIELD_COMMENT("more from here"),
 
                 VARLINK_DEFINE_FIELD(iii, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(iiin, VARLINK_INT, VARLINK_NULLABLE),
