@@ -32,6 +32,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_lease sd_dhcp_lease;
 typedef struct sd_dhcp_route sd_dhcp_route;
+typedef struct sd_dns_resolver sd_dns_resolver;
 
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
@@ -75,6 +76,7 @@ int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);
 int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
 int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
 int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **captive_portal);
+int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers);
 int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
