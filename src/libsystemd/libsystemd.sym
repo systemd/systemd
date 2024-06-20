@@ -948,4 +948,6 @@ global:
         sd_json_variant_unref;
         sd_json_variant_unref_many;
         sd_json_variant_unsigned;
+        sd_device_monitor_get_fd;
+        sd_device_monitor_receive_device;
 } LIBSYSTEMD_256;

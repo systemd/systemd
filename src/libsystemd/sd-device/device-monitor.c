@@ -24,7 +24,6 @@
 #include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -45,7 +44,6 @@ struct sd_device_monitor {
         int sock;
         union sockaddr_union snl;
         union sockaddr_union snl_trusted_sender;
-        bool bound;
 
         UIDRange *mapped_userns_uid_range;
 
@@ -101,12 +99,19 @@ static int monitor_set_nl_address(sd_device_monitor *m) {
         return 0;
 }
 
+int device_monitor_get_address(sd_device_monitor *m, union sockaddr_union *ret) {
+        assert(m);
+        assert(ret);
+
+        *ret = m->snl;
+        return 0;
+}
+
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender) {
         assert(m);
         assert(sender);
 
-        m->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
-        return 0;
+        return device_monitor_get_address(sender, &m->snl_trusted_sender);
 }
 
 _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size) {
@@ -115,14 +120,7 @@ _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, siz
         return fd_set_rcvbuf(m->sock, size, false);
 }
 
-int device_monitor_disconnect(sd_device_monitor *m) {
-        assert(m);
-
-        m->sock = safe_close(m->sock);
-        return 0;
-}
-
-int device_monitor_get_fd(sd_device_monitor *m) {
+_public_ int sd_device_monitor_get_fd(sd_device_monitor *m) {
         assert(m);
 
         return m->sock;
@@ -170,17 +168,24 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         *m = (sd_device_monitor) {
                 .n_ref = 1,
                 .sock = fd >= 0 ? fd : TAKE_FD(sock),
-                .bound = fd >= 0,
                 .snl.nl.nl_family = AF_NETLINK,
                 .snl.nl.nl_groups = group,
         };
 
-        if (fd >= 0) {
-                r = monitor_set_nl_address(m);
-                if (r < 0) {
-                        log_monitor_errno(m, r, "Failed to set netlink address: %m");
-                        goto fail;
-                }
+        if (fd < 0) {
+                /* enable receiving of sender credentials */
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
+
+                if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
+                        return log_monitor_errno(m, errno, "Failed to bind monitoring socket: %m");
+        }
+
+        r = monitor_set_nl_address(m);
+        if (r < 0) {
+                log_monitor_errno(m, r, "Failed to set netlink address: %m");
+                goto fail;
         }
 
         if (DEBUG_LOGGING) {
@@ -243,10 +248,7 @@ _public_ int sd_device_monitor_new(sd_device_monitor **ret) {
 _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 
-        m->event_source = sd_event_source_unref(m->event_source);
-        (void) device_monitor_disconnect(m);
-
-        return 0;
+        return sd_event_source_set_enabled(m->event_source, SD_EVENT_OFF);
 }
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -254,7 +256,7 @@ static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t rev
         _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
         sd_device_monitor *m = ASSERT_PTR(userdata);
 
-        if (device_monitor_receive_device(m, &device) <= 0)
+        if (sd_device_monitor_receive_device(m, &device) <= 0)
                 return 0;
 
         if (log_context_enabled())
@@ -270,6 +272,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         int r;
 
         assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
 
         if (!m->event) {
                 r = sd_device_monitor_attach_event(m, NULL);
@@ -277,18 +280,24 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
                         return r;
         }
 
-        r = device_monitor_enable_receiving(m);
+        r = sd_device_monitor_filter_update(m);
         if (r < 0)
-                return r;
+                return log_monitor_errno(m, r, "Failed to update filter: %m");
 
         m->callback = callback;
         m->userdata = userdata;
 
-        r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
-        if (r < 0)
-                return r;
+        if (!m->event_source) {
+                r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
+                if (r < 0)
+                        return r;
 
-        (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+                (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
+        } else {
+                r = sd_event_source_set_enabled(m->event_source, SD_EVENT_ON);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -296,7 +305,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
 _public_ int sd_device_monitor_detach_event(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 
-        (void) sd_device_monitor_stop(m);
+        m->event_source = sd_event_source_unref(m->event_source);
         m->event = sd_event_unref(m->event);
 
         return 0;
@@ -354,38 +363,11 @@ _public_ int sd_device_monitor_get_description(sd_device_monitor *m, const char 
         return 0;
 }
 
-int device_monitor_enable_receiving(sd_device_monitor *m) {
-        int r;
-
-        assert(m);
-
-        r = sd_device_monitor_filter_update(m);
-        if (r < 0)
-                return log_monitor_errno(m, r, "Failed to update filter: %m");
-
-        if (!m->bound) {
-                /* enable receiving of sender credentials */
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
-                if (r < 0)
-                        return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
-
-                if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
-                        return log_monitor_errno(m, errno, "Failed to bind monitoring socket: %m");
-
-                m->bound = true;
-
-                r = monitor_set_nl_address(m);
-                if (r < 0)
-                        return log_monitor_errno(m, r, "Failed to set address: %m");
-        }
-
-        return 0;
-}
-
 static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);
+        m->sock = safe_close(m->sock);
 
         uid_range_free(m->mapped_userns_uid_range);
         free(m->description);
@@ -486,7 +468,7 @@ static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
         return false;
 }
 
-int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
+_public_ int sd_device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ uint8_t *buf_alloc = NULL;
         union {
@@ -636,7 +618,7 @@ static uint64_t string_bloom64(const char *str) {
 
 int device_monitor_send_device(
                 sd_device_monitor *m,
-                sd_device_monitor *destination,
+                const union sockaddr_union *destination,
                 sd_device *device) {
 
         monitor_netlink_header nlh = {
@@ -652,7 +634,7 @@ int device_monitor_send_device(
                 .msg_iovlen = 2,
         };
         /* default destination for sending */
-        union sockaddr_union default_destination = {
+        static const union sockaddr_union default_destination = {
                 .nl.nl_family = AF_NETLINK,
                 .nl.nl_groups = MONITOR_GROUP_UDEV,
         };
@@ -702,7 +684,7 @@ int device_monitor_send_device(
          * If we send to a multicast group, we will get
          * ECONNREFUSED, which is expected.
          */
-        smsg.msg_name = destination ? &destination->snl : &default_destination;
+        smsg.msg_name = (struct sockaddr_nl*) &(destination ?: &default_destination)->nl;
         smsg.msg_namelen = sizeof(struct sockaddr_nl);
         count = sendmsg(m->sock, &smsg, 0);
         if (count < 0) {
