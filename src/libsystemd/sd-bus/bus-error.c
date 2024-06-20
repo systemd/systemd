@@ -62,12 +62,10 @@ extern const sd_bus_error_map __stop_SYSTEMD_BUS_ERROR_MAP[];
 static const sd_bus_error_map **additional_error_maps = NULL;
 
 static int bus_error_name_to_errno(const char *name) {
-        const sd_bus_error_map **map, *m;
         const char *p;
         int r;
 
-        if (!name)
-                return EINVAL;
+        assert_return(name, EINVAL);
 
         p = startswith(name, "System.Error.");
         if (p) {
@@ -78,8 +76,10 @@ static int bus_error_name_to_errno(const char *name) {
                 return r;
         }
 
+        const sd_bus_error_map *m;
+
         if (additional_error_maps)
-                for (map = additional_error_maps; *map; map++)
+                for (const sd_bus_error_map **map = additional_error_maps; *map; map++)
                         for (m = *map;; m++) {
                                 /* For additional error maps the end marker is actually the end marker */
                                 if (m->code == BUS_ERROR_MAP_END_MARKER)
@@ -389,7 +389,7 @@ _public_ int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) {
         return !!p;
 }
 
-_public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
+_public_ int sd_bus_error_get_errno(const sd_bus_error *e) {
         if (!e || !e->name)
                 return 0;
 

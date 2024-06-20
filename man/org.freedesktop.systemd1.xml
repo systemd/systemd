@@ -2745,6 +2745,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s FileDescriptorStorePreserve = '...';
       readonly s StatusText = '...';
       readonly i StatusErrno = ...;
+      readonly s StatusBusError = '...';
+      readonly s StatusVarlinkError = '...';
       readonly s Result = '...';
       readonly s ReloadResult = '...';
       readonly s CleanResult = '...';
@@ -3404,8 +3406,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property FileDescriptorStorePreserve is not documented!-->
 
-    <!--property StatusErrno is not documented!-->
-
     <!--property ReloadResult is not documented!-->
 
     <!--property CleanResult is not documented!-->
@@ -4025,6 +4025,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="StatusText"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StatusErrno"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StatusBusError"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StatusVarlinkError"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
 
@@ -4732,11 +4736,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       process is currently running while the latter possible contains information collected from the last run
       even if the process is no longer around.</para>
 
-      <para><varname>StatusText</varname> contains the status text passed to the service manager via a call
-      to
-      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-      This may be used by services to inform the service manager about its internal state with a nice
-      explanatory string.</para>
+      <para><varname>StatusText</varname>, <varname>StatusErrno</varname>, <varname>StatusBusError</varname>,
+      and <varname>StatusVarlinkError</varname> contain the status text, the error number,
+      and the D-Bus/Varlink error name passed to the service manager via
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      respectively. They may be used by services to inform the service manager about its internal state.</para>
 
       <para><varname>Result</varname> encodes the execution result of the last run of the service. It is
       useful to determine the reason a service failed if it is in the <literal>failed</literal> state (see
@@ -12221,6 +12225,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <varname>StatusBusError</varname> and <varname>StatusVarlinkError</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
