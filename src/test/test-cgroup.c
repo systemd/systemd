@@ -159,6 +159,8 @@ TEST(id) {
 
         if (ERRNO_IS_NEG_PRIVILEGE(fd2))
                 log_notice("Skipping open-by-cgroup-id test because lacking privs.");
+        else if (fd2 == -ENOSYS)
+                log_notice("Skipping open-by-cgroup-id test because syscall is missing or blocked.");
         else {
                 assert_se(fd2 >= 0);
 
