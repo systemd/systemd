@@ -468,6 +468,8 @@ static void service_done(Unit *u) {
 
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
+        s->status_bus_error = mfree(s->status_bus_error);
+        s->status_varlink_error = mfree(s->status_varlink_error);
 
         s->exec_runtime = exec_runtime_free(s->exec_runtime);
 
@@ -1044,6 +1046,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->status_errno > 0)
                 fprintf(f, "%sStatus Errno: %s\n",
                         prefix, STRERROR(s->status_errno));
+
+        if (s->status_bus_error)
+                fprintf(f, "%sStatus Bus Error: %s\n",
+                        prefix, s->status_bus_error);
+
+        if (s->status_varlink_error)
+                fprintf(f, "%sStatus Varlink Error: %s\n",
+                        prefix, s->status_varlink_error);
 
         if (s->n_fd_store_max > 0)
                 fprintf(f,
@@ -2765,6 +2775,8 @@ static int service_start(Unit *u) {
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
+        s->status_bus_error = mfree(s->status_bus_error);
+        s->status_varlink_error = mfree(s->status_varlink_error);
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
         s->notify_state = NOTIFY_UNKNOWN;
@@ -3036,6 +3048,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 return r;
 
         (void) serialize_item_format(f, "status-errno", "%d", s->status_errno);
+        (void) serialize_item(f, "status-bus-error", s->status_bus_error);
+        (void) serialize_item(f, "status-varlink-error", s->status_varlink_error);
 
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
@@ -3369,6 +3383,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse status-errno value: %s", value);
                 else
                         s->status_errno = i;
+
+        } else if (streq(key, "status-bus-error")) {
+                if (free_and_strdup(&s->status_bus_error, value) < 0)
+                        log_oom_debug();
+
+        } else if (streq(key, "status-varlink-error")) {
+                if (free_and_strdup(&s->status_varlink_error, value) < 0)
+                        log_oom_debug();
 
         } else if (streq(key, "watchdog-timestamp"))
                 (void) deserialize_dual_timestamp(value, &s->watchdog_timestamp);
@@ -4353,7 +4375,7 @@ static void service_notify_message(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, empty_to_na(cc));
+                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", ucred->pid, empty_to_na(cc));
         }
 
         usec_t monotonic_usec = USEC_INFINITY;
@@ -4479,7 +4501,7 @@ static void service_notify_message(
                         else {
                                 t = strdup(e);
                                 if (!t)
-                                        log_oom();
+                                        log_oom_warning();
                         }
                 }
 
@@ -4523,10 +4545,35 @@ static void service_notify_message(
                 }
         }
 
+        static const struct {
+                const char *tag;
+                size_t status_offset;
+        } status_errors[] = {
+                { "BUSERROR=",     offsetof(Service, status_bus_error)     },
+                { "VARLINKERROR=", offsetof(Service, status_varlink_error) },
+        };
+
+        FOREACH_ELEMENT(i, status_errors) {
+                e = strv_find_startswith(tags, i->tag);
+                if (!e)
+                        continue;
+
+                char **status_error = (char**) ((uint8_t*) s + i->status_offset);
+
+                e = empty_to_null(e);
+
+                if (e && !string_is_safe_ascii(e)) {
+                        _cleanup_free_ char *escaped = cescape(e);
+                        log_unit_warning(u, "Got invalid %s string, ignoring: %s", i->tag, strna(escaped));
+                } else if (free_and_strdup_warn(status_error, e) > 0)
+                        notify_dbus = true;
+        }
+
         /* Interpret EXTEND_TIMEOUT= */
         e = strv_find_startswith(tags, "EXTEND_TIMEOUT_USEC=");
         if (e) {
                 usec_t extend_timeout_usec;
+
                 if (safe_atou64(e, &extend_timeout_usec) < 0)
                         log_unit_warning(u, "Failed to parse EXTEND_TIMEOUT_USEC=%s", e);
                 else
