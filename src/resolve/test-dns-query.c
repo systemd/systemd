@@ -166,4 +166,39 @@ TEST(dns_query_new_too_many_questions) {
                 dns_query_free(queries[i]);
 }
 
+/* ================================================================
+ * dns_query_make_auxiliary()
+ * ================================================================ */
+
+TEST(dns_query_make_auxiliary) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *qn1 = NULL, *qn2 = NULL, *qn3 = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q1 = NULL, *q2 = NULL, *q3 = NULL;
+
+        ASSERT_OK(dns_question_new_address(&qn1, AF_INET, "www.example.com", false));
+        ASSERT_NOT_NULL(qn1);
+        ASSERT_OK(dns_query_new(&manager, &q1, qn1, NULL, NULL, 1, 0));
+        ASSERT_NOT_NULL(q1);
+
+        ASSERT_OK(dns_question_new_address(&qn2, AF_INET, "www.example.net", false));
+        ASSERT_NOT_NULL(qn2);
+        ASSERT_OK(dns_query_new(&manager, &q2, qn2, NULL, NULL, 1, 0));
+        ASSERT_NOT_NULL(q2);
+
+        ASSERT_OK(dns_question_new_address(&qn3, AF_INET, "www.example.org", false));
+        ASSERT_NOT_NULL(qn3);
+        ASSERT_OK(dns_query_new(&manager, &q3, qn3, NULL, NULL, 1, 0));
+        ASSERT_NOT_NULL(q3);
+
+        ASSERT_OK(dns_query_make_auxiliary(q2, q1));
+        ASSERT_OK(dns_query_make_auxiliary(q3, q1));
+
+        ASSERT_EQ(q1->n_auxiliary_queries, 2u);
+        ASSERT_TRUE(q1->auxiliary_queries == q3);
+        ASSERT_TRUE(q1->auxiliary_queries->auxiliary_queries_next == q2);
+
+        ASSERT_TRUE(q2->auxiliary_for == q1);
+        ASSERT_TRUE(q3->auxiliary_for == q1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
