@@ -20,6 +20,8 @@ sync_out() {
 
 export SYSTEMD_LOG_LEVEL=debug
 
+# Test NotifyAccess= override through sd_notify()
+
 systemctl --no-block start notify.service
 
 sync_in a
@@ -38,6 +40,22 @@ sync_out d
 sync_in e
 
 systemctl --quiet is-active notify.service
+[[ "$(systemctl show notify.service -P StatusText)" != BOGUS* ]]
+
+assert_eq "$(systemctl show notify.service -P StatusErrno)" "1"
+assert_eq "$(systemctl show notify.service -P StatusBusError)" "org.freedesktop.DBus.Error.InvalidArgs"
+assert_eq "$(systemctl show notify.service -P StatusVarlinkError)" "org.varlink.service.InvalidParameter"
+
+sync_out f
+sync_in g
+
+assert_eq "$(systemctl show notify.service -P StatusErrno)" "1"
+assert_eq "$(systemctl show notify.service -P StatusBusError)" "org.freedesktop.DBus.Error.InvalidArgs"
+assert_eq "$(systemctl show notify.service -P StatusVarlinkError)" "org.varlink.service.InvalidParameter"
+
+sync_out h
+sync_in i
+
 assert_eq "$(systemctl show notify.service -p StatusText --value)" "OK"
 assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "none"
 
@@ -45,6 +63,12 @@ systemctl stop notify.service
 assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "all"
 
 rm /tmp/syncfifo1 /tmp/syncfifo2
+
+# Explicitly test busctl's BUSERROR= reporting and systemctl status should show it
+
+(! systemd-run --wait --unit="TEST-80-BUSERROR.service" -p NotifyAccess=main busctl introspect org.freedesktop.systemd1 /bogus/001)
+assert_eq "$(systemctl show TEST-80-BUSERROR.service -P StatusBusError)" "org.freedesktop.DBus.Error.UnknownObject"
+assert_in "D-Bus: org.freedesktop.DBus.Error.UnknownObject" "$(systemctl status TEST-80-BUSERROR.service)"
 
 # Now test basic fdstore behaviour
 
