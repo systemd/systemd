@@ -137,6 +137,12 @@ static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message 
                         return r;
         }
 
+        if (b->fdb_max_learned_set) {
+                r = sd_netlink_message_append_u32(req, IFLA_BR_FDB_MAX_LEARNED, b->fdb_max_learned);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return r;
@@ -228,6 +234,40 @@ int config_parse_bridge_port_priority(
                         unit, filename, line, section, section_line, lvalue, rvalue,
                         0, LINK_BRIDGE_PORT_PRIORITY_MAX, true,
                         prio);
+}
+
+int config_parse_bridge_fdb_max_learned(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Bridge *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                b->fdb_max_learned_set = false;
+                return 0;
+        }
+
+        r = config_parse_uint32_bounded(unit, filename, line, section, section_line, lvalue, rvalue,
+                                        0, UINT32_MAX, true, &b->fdb_max_learned);
+        if (r <= 0)
+                return r;
+
+        b->fdb_max_learned_set = true;
+        return 1;
 }
 
 static void bridge_init(NetDev *netdev) {
