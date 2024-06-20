@@ -60,8 +60,16 @@ struct json_variant_foreach_state {
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(n)); \
                                                                         \
                 type cc = func(sd_json_variant_string(variant));        \
-                if (cc < 0)                                             \
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized.", strna(n)); \
+                if (cc < 0) {                                           \
+                        /* Maybe this enum is recognizable if we replace "_" (i.e. Varlink syntax) with "-" (how we usually prefer it). */ \
+                        _cleanup_free_ char *z = strreplace(sd_json_variant_string(variant), "_", "-"); \
+                        if (!z)                                         \
+                                return json_log_oom(variant, flags);    \
+                                                                        \
+                        cc = func(z);                                   \
+                        if (cc < 0)                                     \
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized: %s", strna(n), sd_json_variant_string(variant)); \
+                }                                                       \
                                                                         \
                 *c = cc;                                                \
                 return 0;                                               \
