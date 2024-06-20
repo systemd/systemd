@@ -943,7 +943,6 @@ static int target_method_describe_finish(
                 const Job *j,
                 sd_json_variant *json,
                 sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -1136,8 +1135,13 @@ static int target_method_vacuum_finish(
                 sd_json_variant *json,
                 sd_bus_error *error) {
 
+        uint64_t instances;
+
         assert(json);
-        return sd_bus_reply_method_return(msg, "u", sd_json_variant_unsigned(json));
+
+        instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "removed"));
+
+        return sd_bus_reply_method_return(msg, "u", instances);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {

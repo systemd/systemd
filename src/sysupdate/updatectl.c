@@ -610,7 +610,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
         _cleanup_(userdata_freep) Userdata *data = ASSERT_PTR(userdata);
         Table *table = ASSERT_PTR(data->userdata);
         _cleanup_(version_clear) Version v = {};
-        _cleanup_free_ char *version = NULL, *update = NULL;
+        _cleanup_free_ char *update = NULL;
         const sd_bus_error *e;
 
         const char *lnk = NULL;
