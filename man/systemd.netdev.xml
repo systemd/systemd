@@ -440,6 +440,16 @@
           <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>FDBMaxLearned=</varname></term>
+        <listitem>
+          <para>Specifies the maximum number of learned Ethernet addresses for the bridge. When the limit is
+          reached, no more addresses are learned. When unset, the kernel's default will be used. 0 disables the limit.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
