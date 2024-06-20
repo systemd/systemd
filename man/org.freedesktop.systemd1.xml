@@ -12019,7 +12019,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
       <para><function>StartAuxiliaryScope()</function>,
       <varname>ShutdownStartTimestamp</varname>,
-      <varname>ShutdownStartTimestampMonotonic</varname> and
+      <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
@@ -12074,6 +12074,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname>,
       <varname>ExecMainHandoffTimestampMonotonic</varname>, and
       <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
+      <para><varname>StatusBusError</varname> and
+      <varname>StatusVarlinkError</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12225,8 +12227,6 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>StatusBusError</varname>
-      and <varname>StatusVarlinkError</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
