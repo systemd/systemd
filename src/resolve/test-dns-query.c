@@ -201,4 +201,141 @@ TEST(dns_query_make_auxiliary) {
         ASSERT_TRUE(q3->auxiliary_for == q1);
 }
 
+/* ================================================================
+ * dns_query_process_cname_one()
+ * ================================================================ */
+
+TEST(dns_query_process_cname_one_null) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_NOT_NULL(question);
+
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_NOT_NULL(query);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_MATCH);
+}
+
+TEST(dns_query_process_cname_one_success_exact_match) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_NOT_NULL(question);
+
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_NOT_NULL(query);
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(query->answer);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_MATCH);
+
+        ASSERT_EQ(query->n_cname_redirects, 0u);
+}
+
+TEST(dns_query_process_cname_one_success_match_cname) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_NOT_NULL(question);
+
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_NOT_NULL(query);
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer_query_flags = SD_RESOLVED_FROM_NETWORK;
+        query->answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(query->answer);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->cname.name = strdup("example.com");
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
+
+        ASSERT_FALSE(dns_query_fully_authenticated(query));
+        ASSERT_FALSE(dns_query_fully_confidential(query));
+        ASSERT_FALSE(dns_query_fully_authoritative(query));
+
+        ASSERT_GT(query->flags & SD_RESOLVED_NO_SEARCH, 0u);
+
+        ASSERT_EQ(query->n_cname_redirects, 1u);
+
+        ASSERT_NULL(query->question_utf8);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_EQ(dns_question_size(query->collected_questions), 1u);
+        ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_EQ(dns_question_size(query->question_idna), 1u);
+        ASSERT_TRUE(dns_question_contains_key(query->question_idna, key));
+        dns_resource_key_unref(key);
+}
+
+TEST(dns_query_process_cname_one_success_flags) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_NOT_NULL(question);
+
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_NOT_NULL(query);
+
+        query->state = DNS_TRANSACTION_SUCCESS;
+        query->answer_protocol = DNS_PROTOCOL_DNS;
+        query->answer_family = AF_INET;
+        query->answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(query->answer);
+
+        query->answer_query_flags = SD_RESOLVED_FROM_NETWORK |
+                                SD_RESOLVED_AUTHENTICATED |
+                                SD_RESOLVED_CONFIDENTIAL |
+                                SD_RESOLVED_SYNTHETIC;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 3600;
+        rr->cname.name = strdup("example.com");
+        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
+
+        ASSERT_TRUE(dns_query_fully_authenticated(query));
+        ASSERT_TRUE(dns_query_fully_confidential(query));
+        ASSERT_TRUE(dns_query_fully_authoritative(query));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
