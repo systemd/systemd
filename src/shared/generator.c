@@ -372,7 +372,7 @@ int generator_write_timeouts(
                 const char *what,
                 const char *where,
                 const char *opts,
-                char **filtered) {
+                char **ret_filtered) {
 
         /* Configure how long we wait for a device that backs a mount point or a
          * swap partition to show up. This is useful to support endless device timeouts
@@ -384,7 +384,7 @@ int generator_write_timeouts(
 
         r = fstab_filter_options(opts, "comment=systemd.device-timeout\0"
                                        "x-systemd.device-timeout\0",
-                                 NULL, &timeout, NULL, filtered);
+                                 NULL, &timeout, NULL, ret_filtered);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse fstab options, ignoring: %m");
                 return 0;
