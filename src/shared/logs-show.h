@@ -14,11 +14,19 @@
 #include "set.h"
 #include "time-util.h"
 
-typedef struct BootId {
+typedef struct JournalId{
         sd_id128_t id;
         usec_t first_usec;
         usec_t last_usec;
-} BootId;
+} JournalId;
+
+typedef enum JournalIdType {
+        JOURNAL_BOOT_ID,
+        JOURNAL_SYSTEM_UNIT_INVOCATION_ID,
+        JOURNAL_USER_UNIT_INVOCATION_ID,
+        _JOURNAL_ID_TYPE_MAX,
+        _JOURNAL_ID_TYPE_INVALID = -EINVAL,
+} JournalIdType;
 
 int show_journal_entry(
                 FILE *f,
@@ -44,13 +52,16 @@ int show_journal(
 int add_match_boot_id(sd_journal *j, sd_id128_t id);
 int add_match_this_boot(sd_journal *j, const char *machine);
 
-int add_matches_for_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id);
 
-int add_matches_for_user_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_unit_full(j, true, unit);
+}
+int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_user_unit_full(j, true, unit);
+}
 
 int show_journal_by_unit(
                 FILE *f,
@@ -71,10 +82,20 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
-int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
-int journal_get_boots(
+int journal_find_id(
                 sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret);
+int journal_get_ids(
+                sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
                 bool advance_older,
                 size_t max_ids,
-                BootId **ret_boots,
-                size_t *ret_n_boots);
+                JournalId **ret_ids,
+                size_t *ret_n_ids);
