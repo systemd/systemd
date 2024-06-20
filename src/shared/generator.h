@@ -30,7 +30,7 @@ int generator_write_timeouts(
         const char *what,
         const char *where,
         const char *opts,
-        char **filtered);
+        char **ret_filtered);
 
 int generator_write_blockdev_dependency(
                 FILE *f,
