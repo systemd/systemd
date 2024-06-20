@@ -288,9 +288,8 @@ static int add_swap(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
-        /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, options, NULL);
-        if (r < 0)
+        r = generator_write_timeouts(arg_dest, what, options, NULL);
+        if (r == -ENOMEM)
                 return r;
 
         if (flags & MOUNT_MAKEFS) {
@@ -581,9 +580,8 @@ static int add_mount(
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
         /* Write timeout dropin and get filtered options */
-
-        r = generator_write_timeouts(dest, what, where, opts, &filtered);
-        if (r < 0)
+        r = generator_write_timeouts(dest, what, opts, &filtered);
+        if (r == -ENOMEM)
                 return r;
 
         /* Write main fragment */
