@@ -19,6 +19,7 @@ typedef struct Bridge {
         uint16_t group_fwd_mask;
         uint16_t default_pvid;
         uint8_t igmp_version;
+        uint32_t fdb_max_learned;
 
         usec_t forward_delay;
         usec_t hello_time;

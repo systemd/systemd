@@ -137,6 +137,12 @@ static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message 
                         return r;
         }
 
+        if (b->fdb_max_learned > 0) {
+                r = sd_netlink_message_append_u32(req, IFLA_BR_FDB_MAX_LEARNED, b->fdb_max_learned);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_FDB_MAX_LEARNED attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return r;
