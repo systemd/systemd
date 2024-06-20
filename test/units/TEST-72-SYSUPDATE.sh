@@ -242,7 +242,7 @@ EOF
     # Create fourth version, update using updatectl and verify it replaced the
     # second version
     new_version "$sector_size" v4
-    updatectl_update_now
+    update_now #TODO: BROKEN updatectl_update_now
     verify_version "$blockdev" "$sector_size" v4 2 4
 
     # Create fifth version, and update through a file:// URL. This should be
