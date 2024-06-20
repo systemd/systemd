@@ -1968,7 +1968,7 @@ static int vl_method_merge(Varlink *link, sd_json_variant *parameters, VarlinkMe
         if (r < 0)
                 return r;
         if (r > 0)
-                return varlink_errorb(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("hierarchy", which)));
+                return varlink_errorbo(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_PAIR_STRING("hierarchy", which));
 
         r = merge(image_class,
                   hierarchies ?: arg_hierarchies,

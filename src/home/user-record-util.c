@@ -84,18 +84,18 @@ int user_record_synthesize(
         if (!hd)
                 return -ENOMEM;
 
-        r = sd_json_build(&h->json,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(realm)),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
-                                       SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                                       SD_JSON_BUILD_PAIR("imagePath", SD_JSON_BUILD_STRING(image_path)),
-                                                                                                       SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(hd)),
-                                                                                                       SD_JSON_BUILD_PAIR("storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))),
-                                                                                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                                                                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid))))))));
+        r = sd_json_buildo(
+                        &h->json,
+                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(realm)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
+                        SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("imagePath", SD_JSON_BUILD_STRING(image_path)),
+                                                                                              SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(hd)),
+                                                                                              SD_JSON_BUILD_PAIR("storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))),
+                                                                                              SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)))))));
         if (r < 0)
                 return r;
 
@@ -144,18 +144,18 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
         if (!description)
                 return -ENOMEM;
 
-        r = sd_json_build(&g->json,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(un)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(rr)),
-                                       SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
-                                       SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
-                                       SD_JSON_BUILD_PAIR("status", SD_JSON_BUILD_OBJECT(
-                                                                       SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home"))))))));
+        r = sd_json_buildo(
+                        &g->json,
+                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(un)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(rr)),
+                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
+                        SD_JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
+                        SD_JSON_BUILD_PAIR("status", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")))))));
         if (r < 0)
                 return r;
 
@@ -338,21 +338,21 @@ int user_record_add_binding(
                         return -ENOMEM;
         }
 
-        r = sd_json_build(&new_binding_entry,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("blobDirectory", SD_JSON_BUILD_STRING(blob)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", SD_JSON_BUILD_STRING(image_path)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", SD_JSON_BUILD_STRING(luks_cipher)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", SD_JSON_BUILD_STRING(luks_cipher_mode)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", SD_JSON_BUILD_UNSIGNED(luks_volume_key_size)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!file_system_type, "fileSystemType", SD_JSON_BUILD_STRING(file_system_type)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!home_directory, "homeDirectory", SD_JSON_BUILD_STRING(home_directory)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(gid), "gid", SD_JSON_BUILD_UNSIGNED(gid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(storage >= 0, "storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage)))));
+        r = sd_json_buildo(
+                        &new_binding_entry,
+                        SD_JSON_BUILD_PAIR("blobDirectory", SD_JSON_BUILD_STRING(blob)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", SD_JSON_BUILD_STRING(image_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", SD_JSON_BUILD_STRING(luks_cipher)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", SD_JSON_BUILD_STRING(luks_cipher_mode)),
+                        SD_JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", SD_JSON_BUILD_UNSIGNED(luks_volume_key_size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!file_system_type, "fileSystemType", SD_JSON_BUILD_STRING(file_system_type)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!home_directory, "homeDirectory", SD_JSON_BUILD_STRING(home_directory)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(gid), "gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(storage >= 0, "storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))));
         if (r < 0)
                 return r;
 

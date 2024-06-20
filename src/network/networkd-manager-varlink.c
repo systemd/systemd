@@ -20,14 +20,14 @@ static int vl_method_get_states(Varlink *link, sd_json_variant *parameters, Varl
         if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
-        return varlink_replyb(link,
-                              SD_JSON_BUILD_OBJECT(
-                                              SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(m->address_state)),
-                                              SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
-                                              SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
-                                              SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(m->carrier_state)),
-                                              SD_JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", SD_JSON_BUILD_STRING(link_online_state_to_string(m->online_state))),
-                                              SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(m->operational_state))));
+        return varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(m->address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
+                        SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(m->carrier_state)),
+                        SD_JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", SD_JSON_BUILD_STRING(link_online_state_to_string(m->online_state))),
+                        SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(m->operational_state)));
 }
 
 static int vl_method_get_namespace_id(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -55,11 +55,10 @@ static int vl_method_get_namespace_id(Varlink *link, sd_json_variant *parameters
         if (r < 0)
                 log_full_errno(r == -ENODATA ? LOG_DEBUG : LOG_WARNING, r, "Failed to query network nsid, ignoring: %m");
 
-        return varlink_replyb(link,
-                              SD_JSON_BUILD_OBJECT(
-                                              SD_JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
-                                              SD_JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_NULL),
-                                              SD_JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_UNSIGNED(nsid))));
+        return varlink_replybo(link,
+                               SD_JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
+                               SD_JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_NULL),
+                               SD_JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_UNSIGNED(nsid)));
 }
 
 typedef struct InterfaceInfo {
@@ -111,13 +110,13 @@ static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_va
         assert(link);
         assert(array);
 
-        return sd_json_variant_append_arrayb(array,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
-                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
-                                JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
-                                SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
-                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v))));
+        return sd_json_variant_append_arraybo(
+                        array,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                              SD_JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v)));
 }
 
 static int vl_method_get_lldp_neighbors(Varlink *vlink, sd_json_variant *parameters, VarlinkMethodFlags flags, Manager *manager) {
@@ -163,10 +162,10 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, sd_json_variant *paramet
                                 return r;
                 }
 
-        return varlink_replyb(vlink,
-                        SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
-                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array))));
+        return varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
 }
 
 static int vl_method_set_persistent_storage(Varlink *vlink, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {

@@ -347,11 +347,11 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;
-                r = varlink_callb_and_log(
+                r = varlink_callbo_and_log(
                                 vl,
                                 "org.varlink.service.GetInterfaceDescription",
                                 &reply,
-                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("interface", *i)));
+                                SD_JSON_BUILD_PAIR_STRING("interface", *i));
                 if (r < 0)
                         return r;
 
