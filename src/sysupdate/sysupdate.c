@@ -436,7 +436,6 @@ static int context_show_version(Context *c, const char *version) {
                 have_read_only = false, have_growfs = false, have_sha256 = false;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_free_ char *changelog_url = NULL, *changelog_link = NULL;
         _cleanup_strv_free_ char **changelog_urls = NULL;
         UpdateSet *us;
         int r;
@@ -645,6 +644,7 @@ static int context_show_version(Context *c, const char *version) {
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
 
                 STRV_FOREACH(url, changelog_urls) {
+                        _cleanup_free_ char *changelog_link = NULL;
                         r = terminal_urlify(*url, NULL, &changelog_link);
                         if (r < 0)
                                 return log_oom();
