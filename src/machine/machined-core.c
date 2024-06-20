@@ -104,3 +104,55 @@ int manager_find_machine_for_gid(Manager *m, gid_t gid, Machine **ret_machine, g
 
         return false;
 }
+
+void manager_gc(Manager *m, bool drop_not_started) {
+        Machine *machine;
+
+        assert(m);
+
+        while ((machine = LIST_POP(gc_queue, m->machine_gc_queue))) {
+                machine->in_gc_queue = false;
+
+                /* First, if we are not closing yet, initiate stopping */
+                if (machine_may_gc(machine, drop_not_started) &&
+                    machine_get_state(machine) != MACHINE_CLOSING)
+                        machine_stop(machine);
+
+                /* Now, the stop probably made this referenced
+                 * again, but if it didn't, then it's time to let it
+                 * go entirely. */
+                if (machine_may_gc(machine, drop_not_started)) {
+                        machine_finalize(machine);
+                        machine_free(machine);
+                }
+        }
+}
+
+static int on_deferred_gc(sd_event_source *s, void *userdata) {
+        manager_gc(userdata, /* drop_not_started= */ true);
+        return 0;
+}
+
+void manager_enqueue_gc(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->deferred_gc_event_source) {
+                r = sd_event_source_set_enabled(m->deferred_gc_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable GC event source, ignoring: %m");
+
+                return;
+        }
+
+        r = sd_event_add_defer(m->event, &m->deferred_gc_event_source, on_deferred_gc, m);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to allocate GC event source, ignoring: %m");
+
+        r = sd_event_source_set_priority(m->deferred_gc_event_source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
+}
