@@ -49,6 +49,7 @@ struct Machine {
         char *scope_job;
 
         PidRef leader;
+        sd_event_source *leader_pidfd_event_source;
 
         dual_timestamp timestamp;
 
@@ -56,6 +57,7 @@ struct Machine {
         bool started:1;
         bool stopping:1;
         bool referenced:1;
+        bool allocate_unit;
 
         sd_bus_message *create_message;
 
