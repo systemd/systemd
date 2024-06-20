@@ -5,6 +5,7 @@
 set -eux
 set -o pipefail
 
+UPDATECTL=/bin/updatectl
 SYSUPDATE=/lib/systemd/systemd-sysupdate
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
@@ -70,6 +71,17 @@ update_now() {
 
     "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
     "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no update
+    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+}
+
+updatectl_update_now() {
+    # Update to the newest version using updatectl.
+
+    # Ensure sysupdated is running
+    systemctl start systemd-sysupdated
+
+    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
+    "$UPDATECTL" update
     (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
 }
 
@@ -227,13 +239,19 @@ EOF
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
     test ! -d "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
-    # Create fourth version, and update through a file:// URL. This should be
+    # Create fourth version, update using updatectl and verify it replaced the
+    # second version
+    new_version "$sector_size" v4
+    updatectl_update_now
+    verify_version "$blockdev" "$sector_size" v4 2 4
+
+    # Create fifth version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
     # (and not curl) this test should be quite good even if not comprehensive. This
     # will test the SHA256SUMS logic at least (we turn off GPG validation though,
     # see above)
-    new_version "$sector_size" v4
+    new_version "$sector_size" v5
 
     cat >"$WORKDIR/defs/02-second.conf" <<EOF
 [Source]
@@ -263,7 +281,7 @@ InstancesMax=3
 EOF
 
     update_now
-    verify_version "$blockdev" "$sector_size" v4 2 4
+    verify_version "$blockdev" "$sector_size" v5 1 3
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
