@@ -2314,7 +2314,10 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
                 };
-        } else {
+
+        } else if (p->tmp_dir || p->var_tmp_dir) {
+                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+
                 if (p->tmp_dir) {
                         bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
 
