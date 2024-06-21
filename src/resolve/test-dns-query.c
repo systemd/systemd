@@ -643,13 +643,15 @@ typedef struct GoConfig {
         bool has_scope;
         bool use_link;
         bool use_bypass;
+        bool use_search_domain;
 } GoConfig;
 
 static GoConfig mk_go_config(void) {
         return (GoConfig) {
                 .has_scope = true,
                 .use_link = false,
-                .use_bypass = false
+                .use_bypass = false,
+                .use_search_domain = false
         };
 }
 
@@ -658,6 +660,7 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
         Link *link = NULL;
         _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
         _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd = NULL;
 
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
@@ -697,7 +700,19 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
                 ASSERT_NOT_NULL(scope);
         }
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        if (cfg->use_search_domain) {
+                if (link == NULL)
+                        dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+                else
+                        dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local");
+
+                /* search domains trigger on single-label domains */
+                ASSERT_OK(dns_question_new_address(&question, AF_INET, "berlin", false));
+                flags &= ~SD_RESOLVED_NO_SEARCH;
+        } else {
+                ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        }
+
         ASSERT_NOT_NULL(question);
 
         if (cfg->use_bypass) {
@@ -747,6 +762,10 @@ TEST(dns_query_go) {
         cfg = mk_go_config();
         cfg.has_scope = false;
         exercise_dns_query_go(&cfg, check_query_no_servers);
+
+        cfg = mk_go_config();
+        cfg.use_search_domain = true;
+        exercise_dns_query_go(&cfg, NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
