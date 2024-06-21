@@ -7,6 +7,7 @@
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
 #include "socket-util.h"
@@ -219,7 +220,7 @@ int link_set_ipv6ll_stable_secret(Link *link) {
         }
 
         return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret",
-                                        IN6_ADDR_TO_STRING(&a), NULL);
+                                        IN6_ADDR_TO_STRING(&a), &link->sysctl_shadow);
 }
 
 int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {
@@ -229,7 +230,7 @@ int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {
         if (mode == link->ipv6ll_address_gen_mode)
                 return 0;
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode, NULL);
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode, &link->sysctl_shadow);
 }
 
 static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
