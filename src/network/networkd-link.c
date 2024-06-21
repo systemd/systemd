@@ -278,6 +278,9 @@ static Link *link_free(Link *link) {
         sd_device_unref(link->dev);
         netdev_unref(link->netdev);
 
+        FOREACH_ELEMENT(sysctl_event_source, link->sysctl_event_sources)
+                sd_event_source_disable_unref(*sysctl_event_source);
+
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
         hashmap_free(link->sysctl_shadow);
