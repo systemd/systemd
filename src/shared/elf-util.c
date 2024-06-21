@@ -791,7 +791,8 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                            NULL);
         if (r < 0) {
                 if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
-                        int e, k;
+                        ssize_t k;
+                        int e;
 
                         k = read(error_pipe[0], &e, sizeof(e));
                         if (k < 0 && errno != EAGAIN) /* Pipe is non-blocking, EAGAIN means there's nothing */
