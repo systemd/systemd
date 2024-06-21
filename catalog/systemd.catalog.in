@@ -119,6 +119,16 @@ Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: The Secure Attention Key (SAK) was pressed on @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-logind.service(8)
+
+The Secure Attention Key (SAK), Ctrl+Alt+Shift+Esc, was pressed on @SEAT_ID@.
+
+Pressing the SAK indicates an explicit request by the user for the system to display a secure login dialog or greeter.
+
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
 Defined-By: systemd
