@@ -554,14 +554,15 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "link-volume-key="))) {
 #ifdef HAVE_CRYPT_SET_KEYRING_TO_LINK
-                const char *sep, *c;
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
+                const char *sep;
 
                 /* Stick with cryptsetup --link-vk-to-keyring format
                  * <keyring_description>::%<key_type>:<key_description>,
                  * where %<key_type> is optional and defaults to 'user'.
                  */
-                if (!(sep = strstr(val, "::")))
+                sep = strstr(val, "::");
+                if (!sep)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                 /* cryptsetup (cli) supports <keyring_description> passed in various formats:
@@ -582,7 +583,8 @@ static int parse_one_option(const char *option) {
                 /* %<key_type> is optional (and defaults to 'user') */
                 if (*sep == '%') {
                         /* must be separated by colon */
-                        if (!(c = strchr(sep, ':')))
+                        const char *c = strchr(sep, ':');
+                        if (!c)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                         key_type = strndup(sep + 1, c - sep - 1);
