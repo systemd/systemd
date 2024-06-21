@@ -641,18 +641,20 @@ static void dns_scope_freep(DnsScope **s) {
 }
 
 typedef struct GoConfig {
+        bool has_scope;
         bool use_link;
         bool use_bypass;
 } GoConfig;
 
 static GoConfig mk_go_config(void) {
         return (GoConfig) {
+                .has_scope = true,
                 .use_link = false,
                 .use_bypass = false
         };
 }
 
-static void exercise_dns_query_go(GoConfig *cfg) {
+static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *query)) {
         Manager manager = {};
         Link *link = NULL;
         _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
@@ -686,13 +688,15 @@ static void exercise_dns_query_go(GoConfig *cfg) {
         ASSERT_OK(sd_event_new(&manager.event));
         ASSERT_NOT_NULL(manager.event);
 
-        ASSERT_OK(dns_server_new(&manager, &server, type, link, family, &server_addr,
-                        port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+        if (cfg->has_scope) {
+                ASSERT_OK(dns_server_new(&manager, &server, type, link, family, &server_addr,
+                                port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_DBUS));
 
-        ASSERT_NOT_NULL(server);
+                ASSERT_NOT_NULL(server);
 
-        ASSERT_OK(dns_scope_new(&manager, &scope, link, protocol, family));
-        ASSERT_NOT_NULL(scope);
+                ASSERT_OK(dns_scope_new(&manager, &scope, link, protocol, family));
+                ASSERT_NOT_NULL(scope);
+        }
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -713,25 +717,37 @@ static void exercise_dns_query_go(GoConfig *cfg) {
         }
 
         ASSERT_NOT_NULL(query);
-        ASSERT_OK(dns_query_go(query));
+        ASSERT_TRUE(dns_query_go(query));
+
+        if (check_query != NULL)
+                check_query(query);
 
         dns_server_unref(server);
         sd_event_unref(manager.event);
+}
+
+static void check_query_no_servers(DnsQuery *query) {
+        ASSERT_EQ(dns_answer_size(query->answer), 0u);
+        ASSERT_EQ(query->answer_rcode, DNS_RCODE_SUCCESS);
 }
 
 TEST(dns_query_go) {
         GoConfig cfg;
 
         cfg = mk_go_config();
-        exercise_dns_query_go(&cfg);
+        exercise_dns_query_go(&cfg, NULL);
 
         cfg = mk_go_config();
         cfg.use_link = true;
-        exercise_dns_query_go(&cfg);
+        exercise_dns_query_go(&cfg, NULL);
 
         cfg = mk_go_config();
         cfg.use_bypass = true;
-        exercise_dns_query_go(&cfg);
+        exercise_dns_query_go(&cfg, NULL);
+
+        cfg = mk_go_config();
+        cfg.has_scope = false;
+        exercise_dns_query_go(&cfg, check_query_no_servers);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
