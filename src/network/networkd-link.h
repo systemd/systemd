@@ -211,6 +211,7 @@ typedef struct Link {
         /* Similar, but NTP server configuration */
         char **ntp;
         Hashmap *sysctl_shadow;
+        sd_event_source *sysctl_event_sources[2];
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);

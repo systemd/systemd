@@ -118,6 +118,7 @@ struct Manager {
         /* sysctl */
         int ip_forwarding[2];
         Hashmap *sysctl_shadow;
+        sd_event_source *sysctl_event_sources[4];
 };
 
 int manager_new(Manager **ret, bool test_mode);
