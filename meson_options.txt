@@ -337,6 +337,9 @@ option('localegen-path', type : 'string', value : '',
 option('service-watchdog', type : 'string', value : '3min',
        description : 'default watchdog setting for systemd services')
 
+option('firstboot-timezone', type : 'string', value : 'UTC',
+       description : 'default timezone used when populating /etc/localtime with sd-firstboot')
+
 option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',
        choices : ['yes', 'allow-downgrade', 'no'],
