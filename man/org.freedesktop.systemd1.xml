@@ -3207,6 +3207,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -3815,6 +3817,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -4503,6 +4507,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -5326,6 +5332,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -5948,6 +5956,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -6612,6 +6622,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -7299,6 +7311,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -7847,6 +7861,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -8423,6 +8439,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -9233,6 +9251,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -9767,6 +9787,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -10329,6 +10351,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -12019,7 +12043,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
       <para><function>StartAuxiliaryScope()</function>,
       <varname>ShutdownStartTimestamp</varname>,
-      <varname>ShutdownStartTimestampMonotonic</varname> and
+      <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
@@ -12074,6 +12098,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname>,
       <varname>ExecMainHandoffTimestampMonotonic</varname>, and
       <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
+      <para><varname>StatusBusError</varname>,
+      <varname>StatusVarlinkError</varname>, and
+      <varname>PrivateTmpEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12110,6 +12137,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>, and
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12143,6 +12171,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12176,6 +12205,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12225,8 +12255,6 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>StatusBusError</varname>
-      and <varname>StatusVarlinkError</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
