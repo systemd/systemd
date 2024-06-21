@@ -130,6 +130,37 @@ Deprecations and removals:
 
 Features:
 
+* signed bpf loading: to address need for signature verification for bpf
+  programs when they are loaded, and given the bpf folks don't think this is
+  realistic in kernel space, maybe add small daemon that facilitates this
+  loading on request of clients, validates signatures and then loads the
+  programs. This daemon should be the only daemon with privs to do load BPF on
+  the system. It might be a good idea to run this daemon already in the initrd,
+  and leave it around during the initrd transition, to continue serve requests.
+  Should then live in its own fs namespace that inherits from the initrd's
+  fs tree, not from the host, to isolate it properly. Should set
+  PR_SET_DUMPABLE so that it cannot be ptraced from the host. Should have
+  CAP_SYS_BPF as only service around.
+
+* add a mechanism we can drop capabilities from pid1 *before* transitioning
+  from initrd to host. i.e. before we transition into the slightly lower trust
+  domain that is the host systems we might want to get rid of some caps.
+  Example: CAP_SYS_BPF in the signed bpf loading logic above. (We already have
+  CapabilityBoundingSet= in system.conf, but that is enforced when pid 1
+  initializes, rather then when it transitions to the next.)
+
+* maybe add a new standard slice where process that are started in the initrd
+  and stick around for the whole system runtime (i.e. root fs storage daemons,
+  the bpf loader daemon discussed above, and such) are placed. maybe
+  protected.slice or so? Then write docs that suggest that services like this
+  set Slice=protected.sice, RefuseManualStart=yes, RefuseManualStop=yes and a
+  couple of other things.
+
+* improve inode_same_at() to use AT_HANDLE_FID flag in name_to_handle_at() to
+  compare inode identity, rather than .st_ino – where available. Kernel FS
+  folks gave up on idea that inode numbers are fs-wide unique, and suggest
+  using the file handle/AT_HANDLE_FID instead.
+
 * add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
   open the inode via O_PATH first, then validate its type, and then convert to
   proper fd via fd_reopen()
