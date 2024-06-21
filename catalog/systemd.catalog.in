@@ -119,6 +119,16 @@ Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: The Secure Attention Key (SAK) pressed on @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+The Secure Attention Key (Ctrl+Alt+Shift+Esc) was pressed on @SEAT_ID@.
+
+This emits the dbus signal SecureAttentionKey() on org.freedesktop.login1.Manager on the system bus.
+
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
 Defined-By: systemd
