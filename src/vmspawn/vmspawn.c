@@ -107,6 +107,7 @@ static char *arg_forward_journal = NULL;
 static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
 static bool arg_register = false;
+static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
 static char **arg_extra_drives = NULL;
@@ -170,6 +171,7 @@ static int help(void) {
                "     --uuid=UUID           Set a specific machine UUID for the VM\n"
                "\n%3$sProperties:%4$s\n"
                "     --register=BOOLEAN    Register VM with systemd-machined\n"
+               "     --keep-unit           Don't let systemd-machined allocate scope unit for us\n"
                "\n%3$sUser Namespacing:%4$s\n"
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                           Configure the UID/GID range to map into the\n"
@@ -235,6 +237,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_USER_MODE,
                 ARG_UUID,
                 ARG_REGISTER,
+                ARG_KEEP_UNIT,
                 ARG_BIND,
                 ARG_BIND_RO,
                 ARG_EXTRA_DRIVE,
@@ -277,6 +280,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
                 { "uuid",              required_argument, NULL, ARG_UUID              },
                 { "register",          required_argument, NULL, ARG_REGISTER          },
+                { "keep-unit",         no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "bind",              required_argument, NULL, ARG_BIND              },
                 { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
                 { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
@@ -443,6 +447,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--register=", optarg, &arg_register);
                         if (r < 0)
                                 return r;
+
+                        break;
+
+                case ARG_KEEP_UNIT:
+                        arg_keep_unit = true;
                         break;
 
                 case ARG_BIND:
@@ -2055,7 +2064,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 arg_directory,
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                                ssh_private_key_path);
+                                ssh_private_key_path,
+                                arg_keep_unit);
                 if (r < 0)
                         return r;
         }
@@ -2229,8 +2239,10 @@ static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
-        if (arg_register && !arg_privileged)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--register= requires root privileges, refusing.");
+        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
+                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
+                 * The latter is not technically a user session, but we don't need to labour the point. */
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--keep-unit --register=yes may not be used when invoked from a user session.");
 
         return 0;
 }

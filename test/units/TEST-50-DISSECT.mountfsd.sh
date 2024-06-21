@@ -84,7 +84,7 @@ if ! systemd-detect-virt -c; then
                 -p DelegateSubgroup=supervisor \
                 -p Environment=SYSTEMD_LOG_LEVEL=debug \
                 --wait -- \
-                systemd-nspawn --keep-unit -i /var/tmp/unpriv.raw --read-only --pipe echo thisisatest >/tmp/unpriv.out2
+                systemd-nspawn --keep-unit --register=no -i /var/tmp/unpriv.raw --read-only --pipe echo thisisatest >/tmp/unpriv.out2
     echo thisisatest | cmp /tmp/unpriv.out2 -
 fi
 
