@@ -624,6 +624,9 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
 
+        FOREACH_ELEMENT(sysctl_event_source, m->sysctl_event_sources)
+                sd_event_source_disable_unref(*sysctl_event_source);
+
         hashmap_free(m->sysctl_shadow);
 
         m->request_queue = ordered_set_free(m->request_queue);
