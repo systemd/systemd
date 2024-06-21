@@ -280,6 +280,7 @@ static Link *link_free(Link *link) {
 
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
+        hashmap_free(link->sysctl_shadow);
 
         set_free_with_destructor(link->slaves, link_unref);
 
