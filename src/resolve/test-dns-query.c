@@ -532,11 +532,13 @@ static void dns_scope_freep(DnsScope **s) {
 
 typedef struct GoConfig {
         bool use_link;
+        bool use_bypass;
 } GoConfig;
 
 static GoConfig mk_go_config(void) {
         return (GoConfig) {
-                .use_link = false
+                .use_link = false,
+                .use_bypass = false
         };
 }
 
@@ -547,6 +549,7 @@ static void exercise_dns_query_go(GoConfig *cfg) {
         _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
 
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
         DnsProtocol protocol = DNS_PROTOCOL_DNS;
@@ -577,7 +580,20 @@ static void exercise_dns_query_go(GoConfig *cfg) {
         ASSERT_OK(dns_scope_new(&manager, &scope, link, protocol, family));
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
-        ASSERT_OK(dns_query_new(&manager, &query, question, question, NULL, ifindex, flags));
+
+        if (cfg->use_bypass) {
+                ASSERT_OK(dns_packet_new_query(&packet, protocol, 0, false));
+                DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
+                packet->question = dns_question_ref(question);
+                ASSERT_OK(dns_packet_append_question(packet, question));
+
+                /* search domains must be turned off for bypass queries, otherwise dns_query_add_candidate()
+                 * tries to extract the domain name from question_idna which cannot exist on bypasses. */
+                flags |= SD_RESOLVED_NO_SEARCH;
+                ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, ifindex, flags));
+        } else {
+                ASSERT_OK(dns_query_new(&manager, &query, question, question, NULL, ifindex, flags));
+        }
 
         ASSERT_OK(dns_query_go(query));
 
@@ -585,12 +601,18 @@ static void exercise_dns_query_go(GoConfig *cfg) {
 }
 
 TEST(dns_query_go) {
-        GoConfig cfg1 = mk_go_config();
-        exercise_dns_query_go(&cfg1);
+        GoConfig cfg;
 
-        GoConfig cfg2 = mk_go_config();
-        cfg2.use_link = true;
-        exercise_dns_query_go(&cfg2);
+        cfg = mk_go_config();
+        exercise_dns_query_go(&cfg);
+
+        cfg = mk_go_config();
+        cfg.use_link = true;
+        exercise_dns_query_go(&cfg);
+
+        cfg = mk_go_config();
+        cfg.use_bypass = true;
+        exercise_dns_query_go(&cfg);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
