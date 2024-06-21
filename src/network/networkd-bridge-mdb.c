@@ -128,7 +128,7 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, Request *req) {
                 /* If MDB entry is added on bridge master, then the state must be MDB_TEMPORARY,
                  * except on L2 routes, where they must always be permanent.
                  * See br_mdb_add_group() in net/bridge/br_mdb.c of kernel. */
-                .state = (link->master_ifindex <= 0) && (mdb->type == BRIDGE_MDB_ENTRY_TYPE_L3) ? MDB_TEMPORARY : MDB_PERMANENT,
+                .state = link->master_ifindex <= 0 && mdb->type == BRIDGE_MDB_ENTRY_TYPE_L3 ? MDB_TEMPORARY : MDB_PERMANENT,
                 .ifindex = link->ifindex,
                 .vid = mdb->vlan_id,
         };
@@ -391,7 +391,7 @@ int config_parse_mdb_group_address(
         else {
                 r = in_addr_from_string_auto(rvalue, &mdb->family, &mdb->group_addr);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Cannot parse multicast group address as either L2 MAC, IPv4 or IPv6: %m");
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Cannot parse multicast group address as either L2 MAC, IPv4 or IPv6, ignoring: %m");
                         return 0;
                 }
                 mdb->type = BRIDGE_MDB_ENTRY_TYPE_L3;

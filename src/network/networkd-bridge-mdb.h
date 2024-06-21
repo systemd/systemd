@@ -10,18 +10,18 @@
 typedef struct Link Link;
 typedef struct Network Network;
 
-typedef enum EntryType {
+typedef enum BridgeMDBEntryType {
         BRIDGE_MDB_ENTRY_TYPE_L2,
         BRIDGE_MDB_ENTRY_TYPE_L3,
         _BRIDGE_MDB_ENTRY_TYPE_MAX,
         _BRIDGE_MDB_ENTRY_TYPE_INVALID = -EINVAL,
-} EntryType;
+} BridgeMDBEntryType;
 
 typedef struct BridgeMDB {
         Network *network;
         ConfigSection *section;
 
-        EntryType type;
+        BridgeMDBEntryType type;
 
         struct ether_addr l2_addr;
 
