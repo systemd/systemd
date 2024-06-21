@@ -2314,7 +2314,10 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
                 };
-        } else {
+
+        } else if (p->tmp_dir || p->var_tmp_dir) {
+                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+
                 if (p->tmp_dir) {
                         bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
 
@@ -3154,4 +3157,4 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);

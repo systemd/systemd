@@ -3205,8 +3205,6 @@ static int apply_mount_namespace(
                 .temporary_filesystems = context->temporary_filesystems,
                 .n_temporary_filesystems = context->n_temporary_filesystems,
 
-                .private_tmp = context->private_tmp,
-
                 .mount_images = context->mount_images,
                 .n_mount_images = context->n_mount_images,
                 .mount_image_policy = context->mount_image_policy ?: &image_policy_service,
@@ -3245,6 +3243,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+                .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
 
