@@ -1782,6 +1782,9 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_vari
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
+                        if (field->field_type == _VARLINK_FIELD_COMMENT)
+                                continue;
+
                         assert(field->field_type == VARLINK_ENUM_VALUE);
 
                         if (streq_ptr(field->name, s)) {
@@ -1809,6 +1812,9 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_vari
                 }
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+
+                        if (field->field_type == _VARLINK_FIELD_COMMENT)
+                                continue;
 
                         if (field->field_direction != direction)
                                 continue;
