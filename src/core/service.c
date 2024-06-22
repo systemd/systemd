@@ -1228,13 +1228,12 @@ static void service_search_main_pid(Service *s) {
 }
 
 static void service_set_state(Service *s, ServiceState state) {
+        Unit *u = UNIT(ASSERT_PTR(s));
         ServiceState old_state;
         const UnitActiveState *table;
 
-        assert(s);
-
         if (s->state != state)
-                bus_unit_send_pending_change_signal(UNIT(s), false);
+                bus_unit_send_pending_change_signal(u, false);
 
         table = s->type == SERVICE_IDLE ? state_translation_table_idle : state_translation_table;
 
@@ -1268,8 +1267,8 @@ static void service_set_state(Service *s, ServiceState state) {
                    SERVICE_DEAD, SERVICE_FAILED,
                    SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED,
                    SERVICE_DEAD_RESOURCES_PINNED)) {
-                unit_unwatch_all_pids(UNIT(s));
-                unit_dequeue_rewatch_pids(UNIT(s));
+                unit_unwatch_all_pids(u);
+                unit_dequeue_rewatch_pids(u);
         }
 
         if (state != SERVICE_START)
@@ -1278,15 +1277,17 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
                 service_stop_watchdog(s);
 
-        /* For the inactive states unit_notify() will trim the cgroup,
-         * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
-                unit_prune_cgroup(UNIT(s));
+        /* For the inactive states unit_notify() will trim the cgroup, and service_enter_dead() will
+         * destroy runtime data. But for exit we have to do that ourselves... */
+        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(u->manager)) {
+                unit_prune_cgroup(u);
+                unit_destroy_runtime_data(u);
+        }
 
         if (old_state != state)
-                log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
+                log_unit_debug(u, "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
+        unit_notify(u, table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
