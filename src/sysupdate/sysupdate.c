@@ -36,6 +36,7 @@
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
+static char *arg_registry = NULL;
 bool arg_sync = true;
 uint64_t arg_instances_max = UINT64_MAX;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
@@ -50,6 +51,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_registry, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
@@ -58,6 +60,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 typedef struct Context {
         Transfer **transfers;
         size_t n_transfers;
+
+        Transfer **registry;
+        size_t n_registry;
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -77,6 +82,10 @@ static Context *context_free(Context *c) {
                 transfer_free(c->transfers[i]);
         free(c->transfers);
 
+        for (size_t i = 0; i < c->n_registry; i++)
+                transfer_free(c->registry[i]);
+        free(c->registry);
+
         for (size_t i = 0; i < c->n_update_sets; i++)
                 update_set_free(c->update_sets[i]);
         free(c->update_sets);
@@ -93,49 +102,84 @@ static Context *context_new(void) {
         return new0(Context, 1);
 }
 
-static int context_read_definitions(
-                Context *c,
+static void free_definitions(Transfer **definitions, size_t n) {
+        assert(definitions || n == 0);
+
+        FOREACH_ARRAY(t, definitions, n)
+                transfer_free(*t);
+
+        free(definitions);
+}
+
+static int read_definitions(
+                bool enabled,
                 const char *directory,
                 const char *component,
                 const char *root,
-                const char *node) {
+                const char *node,
+                Set **seen,
+                Transfer ***ret_transfers,
+                size_t *ret_n_transfers) {
 
         _cleanup_strv_free_ char **files = NULL;
+        Transfer **transfers = NULL;
+        size_t n_transfers = 0;
         int r;
 
-        assert(c);
+        CLEANUP_ARRAY(transfers, n_transfers, free_definitions);
+
+        assert(seen);
+        assert(ret_transfers);
+        assert(ret_n_transfers);
 
         if (directory)
-                r = conf_files_list_strv(&files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(directory));
+                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                         (const char**) STRV_MAKE(directory));
         else if (component) {
-                _cleanup_strv_free_ char **n = NULL;
+                _cleanup_strv_free_ char **dirs = NULL
                 char **l = CONF_PATHS_STRV("");
+                const char *prefix;
                 size_t k = 0;
 
-                n = new0(char*, strv_length(l) + 1);
-                if (!n)
+                if (enabled)
+                        prefix = "sysupdate.";
+                else
+                        prefix = "sysregistry.";
+
+                dirs = new0(char*, strv_length(l) + 1);
+                if (!dirs)
                         return log_oom();
 
                 STRV_FOREACH(i, l) {
                         char *j;
 
-                        j = strjoin(*i, "sysupdate.", component, ".d");
+                        j = strjoin(*i, prefix, component, ".d");
                         if (!j)
                                 return log_oom();
 
-                        n[k++] = j;
+                        dirs[k++] = j;
                 }
 
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) n);
-        } else
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) CONF_PATHS_STRV("sysupdate.d"));
+                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                         (const char**) dirs);
+        } else if (enabled)
+                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                         (const char**) CONF_PATHS_STRV("sysupdate.d"));
+        else
+                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                         (const char**) CONF_PATHS_STRV("sysregistry.d"));
+
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
         STRV_FOREACH(f, files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
+                char *id = basename(*f);
 
-                if (!GREEDY_REALLOC(c->transfers, c->n_transfers + 1))
+                if (set_contains(*seen, id))
+                        continue;
+
+                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
                         return log_oom();
 
                 t = transfer_new();
@@ -150,8 +194,38 @@ static int context_read_definitions(
                 if (r < 0)
                         return r;
 
-                c->transfers[c->n_transfers++] = TAKE_PTR(t);
+                r = transfer_resolve_paths(t, root, node);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(seen, &string_hash_ops_free, strdup(id));
+                if (r < 0)
+                        return r;
+
+                transfers[n_transfers++] = TAKE_PTR(t);
         }
+
+        *ret_transfers = TAKE_PTR(transfers);
+        *ret_n_transfers = n_transfers;
+        return 0;
+}
+
+static int context_read_definitions(
+                Context *c,
+                const char *directory,
+                const char *registry,
+                const char *component,
+                const char *root,
+                const char *node) {
+
+        _cleanup_set_free_ Set *seen = NULL;
+        int r;
+
+        assert(c);
+
+        r = read_definitions(true, directory, component, root, node, &seen, &c->transfers, &c->n_transfers);
+        if (r < 0)
+                return r;
 
         if (c->n_transfers == 0) {
                 if (arg_component)
@@ -166,17 +240,18 @@ static int context_read_definitions(
                 r = strv_push(&c->changelog, c->transfers[i]->changelog);
                 if (r < 0)
                         return r;
+
                 r = strv_push(&c->appstream, c->transfers[i]->appstream);
                 if (r < 0)
                         return r;
-
-                c->changelog = strv_uniq(c->changelog);
-                c->appstream = strv_uniq(c->appstream);
-
-                r = transfer_resolve_paths(c->transfers[i], root, node);
-                if (r < 0)
-                        return r;
         }
+
+        c->changelog = strv_uniq(c->changelog);
+        c->appstream = strv_uniq(c->appstream);
+
+        r = read_definitions(false, registry, component, root, node, &seen, &c->registry, &c->n_registry);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -191,6 +266,15 @@ static int context_load_installed_instances(Context *c) {
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = resource_load_instances(
                                 &c->transfers[i]->target,
+                                arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
+                                &c->web_cache);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < c->n_registry; i++) {
+                r = resource_load_instances(
+                                &c->registry[i]->target,
                                 arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
                                 &c->web_cache);
                 if (r < 0)
@@ -744,6 +828,7 @@ static int context_vacuum(
                 uint64_t space,
                 const char *extra_protected_version) {
 
+        size_t registry_count = 0;
         int r, count = 0;
 
         assert(c);
@@ -766,16 +851,32 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
+        for (size_t i = 0; i < c->n_registry; i++) {
+                /* The registry contains only transfers that have been disabled, so let's make sure that we
+                 * delete any instances that might be lying around... */
+
+                r = transfer_vacuum(c->registry[i], UINT64_MAX /* delete all instances */, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        registry_count++;
+        }
+
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                if (count > 0)
+                if (count > 0 && registry_count > 0)
+                        log_info("Removed %i instances, and %zu disabled transfers.", count, registry_count);
+                else if (count > 0)
                         log_info("Removed %i instances.", count);
+                else if (registry_count > 0)
+                        log_info("Removed %zu disabled transfers.", registry_count);
                 else
-                        log_info("Removed no instances.");
+                        log_info("Found nothing to remove.");
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
                 r = sd_json_build(&json, SD_JSON_BUILD_OBJECT(
-                                               SD_JSON_BUILD_PAIR_INTEGER("removed", count)));
+                                               SD_JSON_BUILD_PAIR_INTEGER("instances", count),
+                                               SD_JSON_BUILD_PAIR_UNSIGNED("disabled_transfers", registry_count)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -800,7 +901,7 @@ static int context_make_offline(Context **ret, const char *node) {
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, arg_definitions, arg_component, arg_root, node);
+        r = context_read_definitions(context, arg_definitions, arg_registry, arg_component, arg_root, node);
         if (r < 0)
                 return r;
 
@@ -1406,7 +1507,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "  -C --component=NAME     Select component to update\n"
-               "     --definitions=DIR    Find transfer definitions in specified directory\n"
+               "     --definitions=DIR    Specify directory with transfer definitions\n"
+               "     --registry=DIR       Specify directory with optional transfer definitions\n"
                "     --root=PATH          Operate on an alternate filesystem root\n"
                "     --image=PATH         Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY\n"
@@ -1439,6 +1541,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_SYNC,
                 ARG_DEFINITIONS,
+                ARG_REGISTRY,
                 ARG_JSON,
                 ARG_ROOT,
                 ARG_IMAGE,
@@ -1454,6 +1557,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
+                { "registry",          required_argument, NULL, ARG_REGISTRY          },
                 { "instances-max",     required_argument, NULL, 'm'                   },
                 { "sync",              required_argument, NULL, ARG_SYNC              },
                 { "json",              required_argument, NULL, ARG_JSON              },
@@ -1505,6 +1609,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFINITIONS:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_definitions);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_REGISTRY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_registry);
                         if (r < 0)
                                 return r;
                         break;
