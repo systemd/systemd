@@ -689,6 +689,8 @@ int transfer_vacuum(
         assert(instances_max >= 1);
         if (instances_max == UINT64_MAX) /* Keep infinite instances? */
                 limit = UINT64_MAX;
+        else if (space == UINT64_MAX) /* forcibly delete all instances? */
+                limit = 0;
         else if (space > instances_max)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                        "Asked to delete more instances than total maximum allowed number of instances, refusing.");
@@ -698,7 +700,7 @@ int transfer_vacuum(
         else
                 limit = instances_max - space;
 
-        if (t->target.type == RESOURCE_PARTITION) {
+        if (t->target.type == RESOURCE_PARTITION && space != UINT64_MAX) {
                 uint64_t rm, remain;
 
                 /* If we are looking at a partition table, we also have to take into account how many
@@ -752,7 +754,11 @@ int transfer_vacuum(
 
                 assert(oldest->resource);
 
-                log_info("%s Removing old '%s' (%s).", special_glyph(SPECIAL_GLYPH_RECYCLING), oldest->path, resource_type_to_string(oldest->resource->type));
+                log_info("%s Removing %s '%s' (%s).",
+                         special_glyph(SPECIAL_GLYPH_RECYCLING),
+                         space == UINT64_MAX ? "disabled" : "old",
+                         oldest->path,
+                         resource_type_to_string(oldest->resource->type));
 
                 switch (t->target.type) {
 
