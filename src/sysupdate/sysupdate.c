@@ -25,9 +25,11 @@
 #include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
+#include "sysupdate-feature.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
@@ -55,9 +57,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+const Specifier specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};
+
 typedef struct Context {
         Transfer **transfers;
         size_t n_transfers;
+
+        Transfer **disabled_transfers;
+        size_t n_disabled_transfers;
+
+        Hashmap *features; /* Defined features, keyed by ID */
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -78,9 +91,16 @@ static Context *context_free(Context *c) {
         }
         free(c->transfers);
 
+        FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers)
+                transfer_free(*tr);
+        free(c->disabled_transfers);
+
+        hashmap_free(c->features);
+
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets) {
                 update_set_free(*us);
         }
+
         free(c->update_sets);
 
         hashmap_free(c->web_cache);
@@ -95,70 +115,139 @@ static Context *context_new(void) {
         return new0(Context, 1);
 }
 
-static int context_read_definitions(
+static void free_transfers(Transfer **array, size_t n) {
+        FOREACH_ARRAY(t, array, n)
+                transfer_free(*t);
+        free(array);
+}
+
+static int read_definitions(
                 Context *c,
-                const char *directory,
-                const char *component,
-                const char *root,
+                const char **dirs,
+                const char *suffix,
                 const char *node) {
 
         _cleanup_strv_free_ char **files = NULL;
+        Transfer **transfers = NULL, **disabled = NULL;
+        size_t n_transfers = 0, n_disabled = 0;
         int r;
 
+        CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
+        CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
+
         assert(c);
+        assert(dirs);
+        assert(suffix);
 
-        if (directory)
-                r = conf_files_list_strv(&files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(directory));
-        else if (component) {
-                _cleanup_strv_free_ char **n = NULL;
-                char **l = CONF_PATHS_STRV("");
-                size_t k = 0;
-
-                n = new0(char*, strv_length(l) + 1);
-                if (!n)
-                        return log_oom();
-
-                STRV_FOREACH(i, l) {
-                        char *j;
-
-                        j = strjoin(*i, "sysupdate.", component, ".d");
-                        if (!j)
-                                return log_oom();
-
-                        n[k++] = j;
-                }
-
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) n);
-        } else
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) CONF_PATHS_STRV("sysupdate.d"));
+        r = conf_files_list_strv(&files, suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate *.conf files: %m");
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH(p, files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
-
-                if (!GREEDY_REALLOC(c->transfers, c->n_transfers + 1))
-                        return log_oom();
+                Transfer **appended;
 
                 t = transfer_new();
                 if (!t)
                         return log_oom();
 
-                t->definition_path = strdup(*f);
-                if (!t->definition_path)
-                        return log_oom();
-
-                r = transfer_read_definition(t, *f);
+                r = transfer_read_definition(t, *p, dirs, c->features);
                 if (r < 0)
                         return r;
 
-                c->transfers[c->n_transfers++] = TAKE_PTR(t);
+                r = transfer_resolve_paths(t, arg_root, node);
+                if (r < 0)
+                        return r;
+
+                if (t->enabled)
+                        appended = GREEDY_REALLOC_APPEND(transfers, n_transfers, t, 1);
+                else
+                        appended = GREEDY_REALLOC_APPEND(disabled, n_disabled, t, 1);
+                if (!appended)
+                        return log_oom();
+                TAKE_PTR(t);
+        }
+
+        c->transfers = TAKE_PTR(transfers);
+        c->n_transfers = n_transfers;
+        c->disabled_transfers = TAKE_PTR(disabled);
+        c->n_disabled_transfers = n_disabled;
+        return 0;
+}
+
+static int context_read_definitions(Context *c, const char* node) {
+        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        int r;
+
+        assert(c);
+
+        if (arg_definitions)
+                dirs = strv_new(arg_definitions);
+        else if (arg_component) {
+                char **l = CONF_PATHS_STRV("");
+                size_t i = 0;
+
+                dirs = new0(char*, strv_length(l) + 1);
+                if (!dirs)
+                        return log_oom();
+
+                STRV_FOREACH(dir, l) {
+                        char *j;
+
+                        j = strjoin(*dir, "sysupdate", arg_component, ".d");
+                        if (!j)
+                                return log_oom();
+
+                        dirs[i++] = j;
+                }
+        } else
+                dirs = strv_new(CONF_PATHS("sysupdate.d"));
+        if (!dirs)
+                return log_oom();
+
+        r = conf_files_list_strv(&files,
+                                 ".feature",
+                                 arg_root,
+                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                 (const char**) dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+
+        STRV_FOREACH(p, files) {
+                _cleanup_(feature_unrefp) Feature *f = NULL;
+
+                f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, *p, (const char**) dirs);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+        }
+
+        r = read_definitions(c, (const char**) dirs, ".transfer", node);
+        if (r < 0)
+                return r;
+
+        if (c->n_transfers + c->n_disabled_transfers == 0) {
+                /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
+                r = read_definitions(c, (const char**) dirs, ".conf", node);
+                if (r < 0)
+                        return r;
+
+                if (c->n_transfers + c->n_disabled_transfers > 0)
+                        log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
         if (c->n_transfers == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "No transfer definitions for component '%s' found.", arg_component);
+                                               "No transfer definitions for component '%s' found.",
+                                               arg_component);
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
@@ -166,14 +255,12 @@ static int context_read_definitions(
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
+
                 r = strv_extend_strv(&c->changelog, t->changelog, /* filter_duplicates */ true);
                 if (r < 0)
                         return r;
-                r = strv_extend_strv(&c->appstream, t->appstream, /* filter_duplicates */ true);
-                if (r < 0)
-                        return r;
 
-                r = transfer_resolve_paths(t, root, node);
+                r = strv_extend_strv(&c->appstream, t->appstream, /* filter_duplicates */ true);
                 if (r < 0)
                         return r;
         }
@@ -193,6 +280,15 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 arg_verify >= 0 ? arg_verify : t->verify,
+                                &c->web_cache);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
+                r = resource_load_instances(
+                                &c->disabled_transfers[i]->target,
+                                arg_verify >= 0 ? arg_verify : c->disabled_transfers[i]->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -746,6 +842,7 @@ static int context_vacuum(
                 uint64_t space,
                 const char *extra_protected_version) {
 
+        size_t disabled_count = 0;
         int r, count = 0;
 
         assert(c);
@@ -769,15 +866,29 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
+        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
+                r = transfer_vacuum(c->disabled_transfers[i], UINT64_MAX /* wipe all instances */, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        disabled_count++;
+        }
+
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                if (count > 0)
+                if (count > 0 && disabled_count > 0)
+                        log_info("Removed %i instances, and %zu disabled transfers.", count, disabled_count);
+                else if (count > 0)
                         log_info("Removed %i instances.", count);
+                else if (disabled_count > 0)
+                        log_info("Removed %zu disabled transfers.", disabled_count);
                 else
-                        log_info("Removed no instances.");
+                        log_info("Found nothing to remove.");
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_INTEGER("removed", count));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_INTEGER("removed", count),
+                                   SD_JSON_BUILD_PAIR_UNSIGNED("disabled_transfers", disabled_count));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -802,7 +913,7 @@ static int context_make_offline(Context **ret, const char *node) {
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, arg_definitions, arg_component, arg_root, node);
+        r = context_read_definitions(context, node);
         if (r < 0)
                 return r;
 

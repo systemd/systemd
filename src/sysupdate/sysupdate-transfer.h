@@ -14,11 +14,12 @@ typedef struct Transfer Transfer;
 #include "sysupdate-resource.h"
 
 struct Transfer {
-        char *definition_path;
         char *min_version;
         char **protected_versions;
         char *current_symlink;
         bool verify;
+
+        bool enabled;
 
         Resource source, target;
 
@@ -52,11 +53,10 @@ struct Transfer {
 typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage, void *userdata);
 
 Transfer *transfer_new(void);
-
 Transfer *transfer_free(Transfer *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
 
-int transfer_read_definition(Transfer *t, const char *path);
+int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *features);
 
 int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 
