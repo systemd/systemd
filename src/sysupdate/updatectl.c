@@ -10,11 +10,17 @@
 #include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "conf-files.h"
+#include "conf-parser.h"
 #include "errno-list.h"
+#include "fd-util.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pager.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
 #include "strv.h"
@@ -27,6 +33,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_reboot = false;
 static bool arg_offline = false;
+static bool arg_now = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 
@@ -972,21 +979,19 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+static int do_update(sd_bus *bus, char **targets) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *render_exit = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *map = NULL;
-        _cleanup_strv_free_ char **targets = NULL, **versions = NULL, **target_paths = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         void *p;
         bool did_anything = false;
         int r;
 
-        r = ensure_targets(bus, argv + 1, &targets);
-        if (r < 0)
-                return r;
+        assert(bus);
+        assert(targets);
 
         r = parse_targets(targets, &n, &target_paths, &versions);
         if (r < 0)
@@ -1052,18 +1057,64 @@ static int verb_update(int argc, char **argv, void *userdata) {
                 did_anything = true;
         }
 
-        if (arg_reboot) {
-                if (did_anything)
-                        return reboot_now();
-                log_info("Nothing was updated... skipping reboot.");
-        }
+        return did_anything ? 1 : 0;
+}
 
+static int verb_update(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **targets = NULL;
+        bool did_anything = false;
+        int r;
+
+        r = ensure_targets(bus, argv + 1, &targets);
+        if (r < 0)
+                return r;
+
+        r = do_update(bus, targets);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                did_anything = true;
+
+        if (!arg_reboot)
+                return 0;
+
+        if (did_anything)
+                return reboot_now();
+
+        log_info("Nothing was updated... skipping reboot.");
         return 0;
+}
+
+static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t count, disabled;
+        int r;
+
+        r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination, path, SYSUPDATE_TARGET_INTERFACE, "Vacuum", &error, &reply, NULL);
+        if (r < 0)
+                return log_bus_error(r, &error, target, "call Vacuum");
+
+        r = sd_bus_message_read(reply, "uu", &count, &disabled);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (count > 0 && disabled > 0)
+                log_info("Deleted %u instance(s) and %u disabled transfer(s) of %s.",
+                         count, disabled, target);
+        else if (count > 0)
+                log_info("Deleted %u instance(s) of %s.", count, target);
+        else if (disabled > 0)
+                log_info("Deleted %u disabled transfer(s) of %s.", disabled, target);
+        else
+                log_info("Found nothing to delete for %s.", target);
+
+        return count + disabled > 0 ? 1 : 0;
 }
 
 static int verb_vacuum(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
@@ -1077,27 +1128,191 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
                 return r;
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                uint32_t count, disabled;
-
-                r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination, target_paths[i], SYSUPDATE_TARGET_INTERFACE, "Vacuum", &error, &reply, NULL);
+                r = do_vacuum(bus, targets[i], target_paths[i]);
                 if (r < 0)
-                        return log_bus_error(r, &error, targets[i], "call Vacuum");
-
-                r = sd_bus_message_read(reply, "uu", &count, &disabled);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (count > 0 && disabled > 0)
-                        log_info("Deleted %u instance(s) and %u disabled transfer(s) of %s.",
-                                 count, disabled, targets[i]);
-                else if (count > 0)
-                        log_info("Deleted %u instance(s) of %s.", count, targets[i]);
-                else if (disabled > 0)
-                        log_info("Deleted %u disabled transfer(s) of %s.", disabled, targets[i]);
-                else
-                        log_info("Found nothing to delete for %s.", targets[i]);
+                        return r;
         }
+        return 0;
+}
+
+static int conf_read_alias(const char *path, char **ret) {
+        _cleanup_free_ char *alias = NULL;
+        int r;
+
+        ConfigTableItem table[] = {
+                { "Transfer", "Alias", config_parse_string, CONFIG_PARSE_STRING_SAFE, &alias },
+                {}
+        };
+
+        assert(path);
+        assert(ret);
+
+        r = config_parse(NULL, path, NULL,
+                         "Transfer\0",
+                         config_item_table_lookup, table,
+                         CONFIG_PARSE_RELAXED,
+                         NULL,
+                         NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse transfer %s: %m", path);
+
+        if (!alias) {
+                char *e;
+
+                alias = strdup(basename(path));
+                if (!alias)
+                        return log_oom();
+
+                e = endswith(alias, ".conf");
+                if (e)
+                        *e = 0; /* chop off suffix */
+        }
+
+        *ret = TAKE_PTR(alias);
+        return 0;
+}
+
+static int verb_enable(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_hashmap_free_ Hashmap *registry = NULL;
+        _cleanup_strv_free_ char **registry_files = NULL;
+        _cleanup_close_ int dest = -EBADF;
+        char **transfers;
+        bool did_anything = false, enable;
+        int r;
+
+        enable = streq(argv[0], "enable");
+        transfers = strv_skip(argv, 1);
+        registry = hashmap_new(&string_hash_ops_free_strv_free);
+
+        /* Load the transfers from the registry */
+
+        r = conf_files_list_strv(&registry_files,
+                                 ".conf",
+                                 NULL,
+                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                 (const char**) CONF_PATHS_STRV("sysregistry.d"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysregistry.d: %m");
+
+        STRV_FOREACH(file, registry_files) {
+                _cleanup_free_ char *alias = NULL;
+                char **strv;
+
+                r = conf_read_alias(*file, &alias);
+                if (r < 0)
+                        return r;
+
+                strv = hashmap_get(registry, alias);
+                if (strv) {
+                        r = strv_extend(&strv, *file);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = hashmap_update(registry, alias, strv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to update alias '%s' in registry: %m", alias);
+                } else {
+                        _cleanup_strv_free_ char **strv_alloc = NULL;
+
+                        strv_alloc = strv_new(*file);
+                        if (!strv_alloc)
+                                return log_oom();
+
+                        r = hashmap_put(registry, alias, strv_alloc);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert alias '%s' into registry: %m", alias);
+
+                        TAKE_PTR(alias);
+                        TAKE_PTR(strv_alloc);
+                }
+        }
+
+
+        /* Next, make/delete the symlinks */
+
+        dest = open_mkdir(SYSCONF_DIR "/sysupdate.d", O_CLOEXEC, 0755);
+        if (dest < 0)
+                return log_error_errno(dest, "Failed to open %s: %m", SYSCONF_DIR "/sysupdate.d");
+
+        STRV_FOREACH(alias, transfers) {
+                size_t missing = 0;
+                char **paths;
+
+                paths = hashmap_get(registry, *alias);
+                if (!paths)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Could not find transfer with alias: %s",
+                                               *alias);
+
+                STRV_FOREACH(path, paths) {
+                        if (enable) {
+                                r = symlinkat_idempotent(*path, dest, basename(*path), false);
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                               "Failed to link %s -> %s/%s: %m",
+                                                               *path,
+                                                               SYSCONF_DIR "/sysupdate.d",
+                                                               basename(*path));
+                        } else {
+                                r = RET_NERRNO(unlinkat(dest, basename(*path), /* flags= */ 0));
+                                if (r == -ENOENT)
+                                        missing++; /* Continue if interrupted last time, but still report. */
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                               "Failed to unlink %s/%s: %m",
+                                                               SYSCONF_DIR "/sysupdate.d",
+                                                               basename(*path));
+                        }
+                }
+
+                if (missing > 0) {
+                        assert(!enable);
+
+                        if (missing != strv_length(paths))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "Missing %zu transfers from group: %s.",
+                                                       missing,
+                                                       *alias);
+                        log_info("%s %s was not enabled, so did nothing.",
+                                 missing > 1 ? "Group" : "Transfer",
+                                 *alias);
+                }
+        }
+
+        /* Finally, if we were asked to, apply the changes */
+
+        if (!arg_now)
+                return 0;
+
+        if (enable) {
+                _cleanup_free_ char *booted_version = NULL, *target = NULL;
+
+                r = parse_os_release(NULL, "IMAGE_VERSION", &booted_version);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse /etc/os-release: %m");
+                if (!booted_version)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
+
+                target = strjoin(".host@", booted_version);
+                if (!target)
+                        return log_oom();
+
+                r = do_update(bus, STRV_MAKE(target));
+        } else
+                r = do_vacuum(bus, ".host", "/org/freedesktop/sysupdate1/target/.host");
+        if (r < 0)
+                return r;
+        if (r > 0)
+                did_anything = true;
+
+        if (!arg_reboot)
+                return 0;
+
+        if (did_anything)
+                return reboot_now();
+
+        log_info("Nothing was %s, skipping reboot.", enable ? "downloaded" : "deleted");
         return 0;
 }
 
@@ -1116,11 +1331,14 @@ static int help(void) {
                "  check [TARGET...]             Check for updates\n"
                "  update [TARGET[@VERSION]...]  Install updates\n"
                "  vacuum [TARGET...]            Clean up old updates\n"
+               "  enable [TRANSFER...]          Enable optional transfers on host OS\n"
+               "  disable [TRANSFER...]         Disable optional transfer on host OS\n"
                "  -h --help                     Show this help\n"
                "     --version                  Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --reboot             Reboot after updating to newer version\n"
                "     --offline            Do not fetch metadata from the network\n"
+               "     --now                Download/delete resources immediately\n"
                "  -H --host=[USER@]HOST   Operate on remote host\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
@@ -1142,6 +1360,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_REBOOT,
                 ARG_OFFLINE,
+                ARG_NOW,
         };
 
         static const struct option options[] = {
@@ -1152,6 +1371,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",      required_argument, NULL, 'H'             },
                 { "reboot",    no_argument,       NULL, ARG_REBOOT      },
                 { "offline",   no_argument,       NULL, ARG_OFFLINE     },
+                { "now",       no_argument,       NULL, ARG_OFFLINE     },
                 {}
         };
 
@@ -1190,6 +1410,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_offline = true;
                         break;
 
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1206,10 +1430,12 @@ static int run(int argc, char *argv[]) {
         int r;
 
         static const Verb verbs[] = {
-                { "list",   VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
-                { "check",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
-                { "update", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
-                { "vacuum", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
+                { "list",    VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
+                { "check",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
+                { "update",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
+                { "vacuum",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
+                { "enable",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
+                { "disable", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
                 {}
         };
 

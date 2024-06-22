@@ -90,6 +90,29 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>enable</command> [<replaceable>TRANSFER</replaceable>…]</term>
+        <term><command>disable</command> [<replaceable>TRANSFER</replaceable>…]</term>
+
+        <listitem><para>These commands enable or disable optional transfers in the <literal>host</literal>
+        target.
+        Such transfers are defined in the <filename>sysregistry.d/</filename> directory, and are identified
+        by their <varname>Alias=</varname> setting, as defined in
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        If multiple transfers share an <varname>Alias=</varname>, they will be enabled or disabled together
+        as a group.</para>
+
+        <para>By default, these commands will only change the system's configuration by creating or deleting
+        symlinks; they will not download the enabled transfers or clean up after the disabled ones.
+        Enabled transfers will be downloaded the next time the <literal>host</literal> target is updated.
+        Disabled transfers will have their downloaded resources deleted the next time the <literal>host</literal>
+        target is vacuumed or updated.
+        Pass <option>--now</option> to immediately download enabled transfers or clean up after disabled
+        transfers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -107,6 +130,9 @@
         <listitem><para>When used with the <command>update</command> command, reboots the system
         after updates finish applying. If any update fails, the system will not reboot.</para>
 
+        <para>When used with the <command>enable</command> or <command>disable</command> commands and the
+        <option>--now</option> flag, reboots the system after download or clean-up finish applying.</para>
+
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
@@ -117,6 +143,16 @@
         metadata from the network. This makes the <command>list</command> command only return
         information that is available locally (i.e. about versions already installed on the system).
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem><para>When used with the <command>enable</command> command, downloads and installs the
+        enabled transfers. When used with the <command>disable</command> command, deletes all resources
+        downloaded by the disabled transfers.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

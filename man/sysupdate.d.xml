@@ -78,6 +78,9 @@
     An optional transfer can be enabled by creating a symlink to it in the <filename>sysupdate.d/</filename>
     directory, and disabled by removing the symlink.
     The symlink must be named the same as the <filename>*.conf</filename> file.
+    The preferred way to manage these symlinks is via the <command>enable</command> and <command>disable</command>
+    commands of
+    <citerefentry><refentrytitle>updatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     </para>
 
     <para>Each <filename>*.conf</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
@@ -547,6 +550,22 @@
         specifiers.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Alias=</varname></term>
+
+        <listitem><para>Specifies a user-facing alias for this transfer.
+        This is used by the <command>enable</command> and <command>disable</command> verbs of
+        <citerefentry><refentrytitle>updatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, so
+        it is relevant only to transfers that are defined in <filename>sysregistry.d/</filename>.
+        If multiple transfers share the same alias, <command>updatectl</command> will treat these transfers
+        as a group and enable/disable them together.
+        If unset, the transfer's file name without the <literal>.conf</literal> suffix will be used as the
+        default alias.</para>
+
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
