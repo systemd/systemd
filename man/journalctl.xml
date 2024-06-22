@@ -351,6 +351,42 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-I</option></term>
+        <term><option>--invocation=<replaceable>ID</replaceable><optional><replaceable>±offset</replaceable></optional>|<replaceable>offset</replaceable></option></term>
+
+        <listitem>
+          <para>Show messages from a specific invocation of unit. This will add a match for
+          <literal>_SYSTEMD_INVOCATION_ID=</literal>, <literal>OBJECT_SYSTEMD_INVOCATION_ID=</literal>,
+          <literal>INVOCATION_ID=</literal>, <literal>USER_INVOCATION_ID=</literal>.</para>
+
+          <para>A positive <replaceable>offset</replaceable> will look up the invocations of a systemd unit
+          from the beginning of the journal, and zero or a negative offset will look up invocations starting
+          from the end of the journal. Thus, <constant>1</constant> means the first invocation found in the
+          journal in chronological order, <constant>2</constant> the second and so on; while
+          <constant>0</constant> is the latest invocation, <constant>-1</constant> the invocation before the
+          latest, and so on.</para>
+
+          <para>If the 32-character <replaceable>ID</replaceable> is specified, it may optionally be followed
+          by <replaceable>±offset</replaceable> which identifies the invocation relative to the one given by
+          invocation <replaceable>ID</replaceable>. Negative values mean earlier invocations and positive
+          values mean later invocations. If <replaceable>±offset</replaceable> is not specified, a value of
+          zero is assumed, and the logs for the invocation given by <replaceable>ID</replaceable> will be
+          shown.</para>
+
+          <para><option>-I</option> is equivalent to <option>--invocation=0</option>, and logs for the latest
+          invocation will be shown.</para>
+
+          <para>When an offset is specified, a unit name must be specified with <option>-u/--unit=</option>
+          or <option>--user-unit=</option> option.</para>
+
+          <para>When specified with <option>-b/--boot=</option>, then invocations are searched within the
+          specified boot.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-t</option></term>
         <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
 
@@ -859,6 +895,23 @@
           <option>-r/--reverse</option>, the list will be shown in the reverse order.</para>
 
           <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-invocations</option></term>
+
+        <listitem>
+          <para>List invocation IDs of a unit. Requires a unit name with <option>-u/--unit=</option> or
+          <option>--user-unit=</option>. Show a tabular list of invocation numbers (relative to the current
+          or latest invocation), their IDs, and the timestamps of the first and last message pertaining to
+          the invocation. When <option>-b/-boot</option> is specified, invocations in the boot will be shown.
+          When specified with <option>-n/--lines=<optional>+</optional><replaceable>N</replaceable></option>
+          option, only the first (when the number prefixed with <literal>+</literal>) or the last (without
+          prefix) <replaceable>N</replaceable> entries will be shown. When specified with
+          <option>-r/--reverse</option>, the list will be shown in the reverse order.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 

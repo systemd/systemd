@@ -14,11 +14,19 @@
 #include "set.h"
 #include "time-util.h"
 
-typedef struct BootId {
-        sd_id128_t id;
+typedef struct LogId {
+        sd_id128_t id; /* boot ID or invocation ID */
         usec_t first_usec;
         usec_t last_usec;
-} BootId;
+} LogId;
+
+typedef enum LogIdType {
+        LOG_BOOT_ID,
+        LOG_SYSTEM_UNIT_INVOCATION_ID,
+        LOG_USER_UNIT_INVOCATION_ID,
+        _LOG_ID_TYPE_MAX,
+        _LOG_ID_TYPE_INVALID = -EINVAL,
+} LogIdType;
 
 int show_journal_entry(
                 FILE *f,
@@ -44,13 +52,16 @@ int show_journal(
 int add_match_boot_id(sd_journal *j, sd_id128_t id);
 int add_match_this_boot(sd_journal *j, const char *machine);
 
-int add_matches_for_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id);
 
-int add_matches_for_user_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_unit_full(j, true, unit);
+}
+int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_user_unit_full(j, true, unit);
+}
 
 int show_journal_by_unit(
                 FILE *f,
@@ -71,10 +82,45 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
-int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
-int journal_get_boots(
+int journal_find_log_id(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret);
+
+static inline int journal_find_boot(
+                sd_journal *j,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret) {
+
+        return journal_find_log_id(j, LOG_BOOT_ID,
+                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   id, offset, ret);
+}
+
+int journal_get_log_ids(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                bool advance_older,
+                size_t max_ids,
+                LogId **ret_ids,
+                size_t *ret_n_ids);
+
+static inline int journal_get_boots(
                 sd_journal *j,
                 bool advance_older,
                 size_t max_ids,
-                BootId **ret_boots,
-                size_t *ret_n_boots);
+                LogId **ret_ids,
+                size_t *ret_n_ids) {
+
+        return journal_get_log_ids(j, LOG_BOOT_ID,
+                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   advance_older, max_ids,
+                                   ret_ids, ret_n_ids);
+}
