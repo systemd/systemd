@@ -527,13 +527,25 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
         return 0;
 }
 
+static int instance_version_match(Instance *const*a, Instance *const*b) {
+        assert(a);
+        assert(b);
+        assert(*a);
+        assert(*b);
+        assert((*a)->metadata.version);
+        assert((*b)->metadata.version);
+
+        /* List is sorted newest-to-oldest */
+        return -strverscmp_improved((*a)->metadata.version, (*b)->metadata.version);
+}
+
 Instance* resource_find_instance(Resource *rr, const char *version) {
         Instance key = {
                 .metadata.version = (char*) version,
         }, *k = &key;
 
         Instance **found;
-        found = typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_cmp);
+        found = typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_version_match);
         if (!found)
                 return NULL;
 
