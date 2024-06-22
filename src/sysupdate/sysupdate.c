@@ -1067,6 +1067,10 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
 
         assert(argc <= 1);
 
+        if (arg_instances_max < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max argument must be >= 1 while vacuuming");
+
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
@@ -1089,6 +1093,10 @@ static int verb_update(int argc, char **argv, void *userdata) {
 
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
+
+        if (arg_instances_max < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max argument must be >= 2 while updating");
 
         if (arg_reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
