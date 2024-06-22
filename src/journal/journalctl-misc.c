@@ -104,6 +104,7 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
 
         assert(ids);
         assert(n_ids > 0);
+        assert(n_ids < INT64_MAX);
         assert(name);
 
         table = table_new("idx", name, "first entry", "last entry");
@@ -120,21 +121,21 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        for (int i = 0; i < (int) n_ids; i++) {
-                int index;
+        for (size_t i = 0; i < n_ids; i++) {
+                int64_t index;
 
                 if (arg_lines_needs_seek_end())
                         /* With --lines=N, we only know the negative index, and the older ID is located earlier. */
-                        index = -i;
+                        index = - (int64_t) i;
                 else if (arg_lines >= 0)
                         /* With --lines=+N, we only know the positive index, and the newer ID is located earlier. */
                         index = i + 1;
                 else
                         /* Otherwise, show negative index. Note, in this case, newer ID is located earlier. */
-                        index = i + 1 - (int) n_ids;
+                        index = (int64_t) (i + 1) - (int64_t) n_ids;
 
                 r = table_add_many(table,
-                                   TABLE_INT, index,
+                                   TABLE_INT64, index,
                                    TABLE_SET_ALIGN_PERCENT, 100,
                                    TABLE_ID128, ids[i].id,
                                    TABLE_TIMESTAMP, ids[i].first_usec,
