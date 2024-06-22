@@ -1135,13 +1135,14 @@ static int target_method_vacuum_finish(
                 sd_json_variant *json,
                 sd_bus_error *error) {
 
-        uint64_t instances;
+        uint64_t instances, disabled;
 
         assert(json);
 
-        instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "removed"));
+        instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "instances"));
+        disabled = sd_json_variant_unsigned(sd_json_variant_by_key(json, "disabled_transfers"));
 
-        return sd_bus_reply_method_return(msg, "u", instances);
+        return sd_bus_reply_method_return(msg, "uu", instances, disabled);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1368,7 +1369,7 @@ static const sd_bus_vtable target_vtable[] = {
 
         SD_BUS_METHOD_WITH_ARGS("Vacuum",
                                 SD_BUS_NO_ARGS,
-                                SD_BUS_RESULT("u", count),
+                                SD_BUS_RESULT("u", instances, "u", disabled_transfers),
                                 target_method_vacuum,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 

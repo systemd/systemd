@@ -120,7 +120,8 @@ node /org/freedesktop/sysupdate1/target/host {
              out s new_version,
              out u job_id,
              out o job_path);
-      Vacuum(out u count);
+      Vacuum(out u instances,
+             out u disabled_transfers);
       GetAppStream(out as appstream);
       GetVersion(out s version);
     properties:
