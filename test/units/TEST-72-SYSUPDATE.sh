@@ -29,6 +29,10 @@ if [[ ! -e /dev/loop-control ]]; then
     SECTOR_SIZES=(512)
 fi
 
+sysupdate() {
+	"$SYSUPDATE" --definitions="$WORKDIR/defs" --registry="$WORKDIR/registry" "$@"
+}
+
 at_exit() {
     set +e
 
@@ -56,6 +60,9 @@ new_version() {
     # Create a random extra payload
     echo $RANDOM >"$WORKDIR/source/uki-extra-$version.efi"
 
+    # Create a random optional payload
+    echo $RANDOM >"$WORKDIR/source/optional-$version.efi"
+
     # Create tarball of a directory
     mkdir -p "$WORKDIR/source/dir-$version"
     echo $RANDOM >"$WORKDIR/source/dir-$version/foo.txt"
@@ -69,9 +76,9 @@ update_now() {
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
 
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no update
-    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+    sysupdate --verify=no check-new
+    sysupdate --verify=no update
+    (! sysupdate --verify=no check-new)
 }
 
 updatectl_update_now() {
@@ -80,9 +87,9 @@ updatectl_update_now() {
     # Ensure sysupdated is running
     systemctl start systemd-sysupdated
 
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
+    sysupdate --verify=no check-new
     "$UPDATECTL" update
-    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+    (! sysupdate --verify=no check-new)
 }
 
 verify_version() {
@@ -145,7 +152,7 @@ size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 EOF
 
-    for d in "dirs" "defs"; do
+    for d in "dirs" "defs" "registry"; do
         rm -rf "${WORKDIR:?}/$d"
         mkdir -p "$WORKDIR/$d"
     done
@@ -224,6 +231,21 @@ Mode=0444
 InstancesMax=2
 EOF
 
+    cat >"$WORKDIR/registry/optional.conf" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=optional-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=uki_@v.efi.extra.d/optional.efi
+Mode=0444
+InstancesMax=2
+EOF
+
     rm -rf "${WORKDIR:?}"/{esp,xbootldr,source}
     mkdir -p "$WORKDIR"/{source,esp/EFI/Linux,xbootldr/EFI/Linux}
 
@@ -252,7 +274,7 @@ EOF
     new_version "$sector_size" v4
     rm "$WORKDIR/source/uki-extra-v4.efi"
     (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
-    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+    (! sysupdate --verify=no check-new)
 
     # Create a fifth version, that's complete on the server side. We should
     # completely skip the incomplete v4 and install v5 instead.
@@ -265,11 +287,30 @@ EOF
     # sure that sysupdate still recognizes the installation and can complete it
     # in place
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --offline list v5 | grep -q "incomplete"
+    sysupdate --offline list v5 | grep -q "incomplete"
     update_now
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --offline list v5 | grep -qv "incomplete"
+    sysupdate --offline list v5 | grep -qv "incomplete"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
+
+    # Now let's try enabling an optional transfer
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+    ln -rs "$WORKDIR/registry/optional.conf" "$WORKDIR/defs/optional.conf"
+    sysupdate --offline list v5 | grep -q "incomplete"
+    update_now
+    sysupdate --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+
+    # And now let's disable it and make sure it gets cleaned up
+    rm "$WORKDIR/defs/optional.conf"
+    (! sysupdate --verify=no check-new)
+    sysupdate vacuum
+    sysupdate --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
 
     # Create sixth version, update using updatectl and verify it replaced the
     # correct version
