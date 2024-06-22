@@ -169,7 +169,7 @@
         <para>It is recommended to first run this command in combination with <option>--dry-run</option>
         (see below) to verify which files and directories will be deleted.</para>
 
-        <para><emphasis>Warning!</emphasis> This is is usually not the command you want! In most cases
+        <para><emphasis>Warning!</emphasis> This is usually not the command you want! In most cases
         <option>--remove</option> is what you are looking for.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
