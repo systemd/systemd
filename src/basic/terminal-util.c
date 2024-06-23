@@ -40,6 +40,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -51,7 +52,7 @@ static volatile unsigned cached_lines = 0;
 
 static volatile int cached_on_tty = -1;
 static volatile int cached_on_dev_null = -1;
-static volatile int cached_color_mode = _COLOR_INVALID;
+static volatile int cached_color_mode = _COLOR_MODE_INVALID;
 static volatile int cached_underline_enabled = -1;
 
 bool isatty_safe(int fd) {
@@ -959,7 +960,7 @@ void reset_terminal_feature_caches(void) {
         cached_columns = 0;
         cached_lines = 0;
 
-        cached_color_mode = _COLOR_INVALID;
+        cached_color_mode = _COLOR_MODE_INVALID;
         cached_underline_enabled = -1;
         cached_on_tty = -1;
         cached_on_dev_null = -1;
@@ -1315,69 +1316,68 @@ bool terminal_is_dumb(void) {
         return getenv_terminal_is_dumb();
 }
 
+static const char* const color_mode_table[_COLOR_MODE_MAX] = {
+        [COLOR_OFF]   = "off",
+        [COLOR_16]    = "16",
+        [COLOR_256]   = "256",
+        [COLOR_24BIT] = "24bit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+
 static ColorMode parse_systemd_colors(void) {
         const char *e;
-        int r;
 
         e = getenv("SYSTEMD_COLORS");
         if (!e)
-                return _COLOR_INVALID;
-        if (streq(e, "16"))
-                return COLOR_16;
-        if (streq(e, "256"))
-                return COLOR_256;
-        r = parse_boolean(e);
-        if (r >= 0)
-                return r > 0 ? COLOR_24BIT : COLOR_OFF;
-        return _COLOR_INVALID;
+                return _COLOR_MODE_INVALID;
+
+        ColorMode m = color_mode_from_string(e);
+        if (m < 0)
+                return log_debug_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
+
+        return m;
+}
+
+static ColorMode get_color_mode_impl(void) {
+        /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
+         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
+         * unrestricted color output. */
+
+        /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
+        ColorMode m = parse_systemd_colors();
+        if (m >= 0)
+                return m;
+
+        /* Next, check for the presence of $NO_COLOR; value is ignored. */
+        if (getenv("NO_COLOR"))
+                return COLOR_OFF;
+
+        /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
+         * turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we
+         * do not check whether we are connected to a TTY, because we don't keep /dev/console open
+         * continuously due to fear of SAK, and hence things are a bit weird. */
+        if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
+                return COLOR_OFF;
+
+        /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
+        if (STRPTR_IN_SET(getenv("COLORTERM"),
+                          "truecolor",
+                          "24bit"))
+                return COLOR_24BIT;
+
+        /* Note that the Linux console can only display 16 colors. We still enable 256 color mode
+         * even for PID1 output though (which typically goes to the Linux console), since the Linux
+         * console is able to parse the 256 color sequences and automatically map them to the closest
+         * color in the 16 color palette (since kernel 3.16). Doing 256 colors is nice for people who
+         * invoke systemd in a container or via a serial link or such, and use a true 256 color
+         * terminal to do so. */
+        return COLOR_256;
 }
 
 ColorMode get_color_mode(void) {
-
-        /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
-         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
-         * unrestricted color output. For that we check $SYSTEMD_COLORS first (which is the explicit way to
-         * change the mode). If that didn't work we turn colors off unless we are on a TTY. And if we are on a TTY
-         * we turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we do not
-         * check whether we are connected to a TTY, because we don't keep /dev/console open continuously due to fear
-         * of SAK, and hence things are a bit weird. */
-        ColorMode m;
-
-        if (cached_color_mode < 0) {
-                m = parse_systemd_colors();
-                if (m >= 0)
-                        cached_color_mode = m;
-                else if (getenv("NO_COLOR"))
-                        /* We only check for the presence of the variable; value is ignored. */
-                        cached_color_mode = COLOR_OFF;
-
-                else if (getpid_cached() == 1) {
-                        /* PID1 outputs to the console without holding it open all the time.
-                         *
-                         * Note that the Linux console can only display 16 colors. We still enable 256 color
-                         * mode even for PID1 output though (which typically goes to the Linux console),
-                         * since the Linux console is able to parse the 256 color sequences and automatically
-                         * map them to the closest color in the 16 color palette (since kernel 3.16). Doing
-                         * 256 colors is nice for people who invoke systemd in a container or via a serial
-                         * link or such, and use a true 256 color terminal to do so. */
-                        if (getenv_terminal_is_dumb())
-                                cached_color_mode = COLOR_OFF;
-                } else {
-                        if (terminal_is_dumb())
-                                cached_color_mode = COLOR_OFF;
-                }
-
-                if (cached_color_mode < 0) {
-                        /* We failed to figure out any reason to *disable* colors.
-                         * Let's see how many colors we shall use. */
-                        if (STRPTR_IN_SET(getenv("COLORTERM"),
-                                          "truecolor",
-                                          "24bit"))
-                                cached_color_mode = COLOR_24BIT;
-                        else
-                                cached_color_mode = COLOR_256;
-                }
-        }
+        if (cached_color_mode < 0)
+                cached_color_mode = get_color_mode_impl();
 
         return cached_color_mode;
 }
