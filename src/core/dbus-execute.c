@@ -2800,9 +2800,11 @@ int bus_exec_context_set_transient_property(
                                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                                 "WorkingDirectory= expects a normalized path or '~'");
 
-                                if (path_below_api_vfs(simplified))
+                                /* Relax WorkingDirectory= check for user units. This is mostly paranoia
+                                 * anyway, and DEs might need to spawn file managers under API VFS. */
+                                if (MANAGER_IS_SYSTEM(u->manager) && path_below_api_vfs(simplified))
                                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= may not be below /proc/, /sys/ or /dev/");
+                                                                "WorkingDirectory= may not be below /proc/, /sys/, or /dev/");
                         }
                 }
 
