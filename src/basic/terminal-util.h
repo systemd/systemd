@@ -204,8 +204,11 @@ static inline const char* ansi_add_underline(void) {
 }
 
 static inline const char* ansi_add_underline_grey(void) {
+        /* Ideally, color mode except for 'off' should be unrelated here. But, several non-24bit color
+         * terminals do not support coloring of underline. Let's enable colored underline only on 24bit color
+         * terminals. See issue #33449. */
         return underline_enabled() ?
-                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
+                (get_color_mode() == COLOR_24BIT ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
 }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
