@@ -4011,7 +4011,7 @@ static int send_handoff_timestamp(
         dual_timestamp dt;
         dual_timestamp_now(&dt);
 
-        if (send(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2, 0) < 0) {
+        if (write(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2) < 0) {
                 if (reterr_exit_status)
                         *reterr_exit_status = EXIT_EXEC;
                 return log_exec_error_errno(c, p, errno, "Failed to send handoff timestamp: %m");
