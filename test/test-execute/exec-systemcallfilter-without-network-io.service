@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for SystemCallFilter with @basic-io
+
+[Service]
+ExecStart=true
+Type=oneshot
+SystemCallFilter=@system-service
+# For issue #33299
+SystemCallFilter=~@network-io
