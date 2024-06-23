@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for SystemCallFilter
+
+[Service]
+ExecStart=true
+Type=oneshot
+# For issue #33299
+SystemCallFilter=~@network-io
+SystemCallFilter=~write
+SystemCallErrorNumber=ENOSYS
