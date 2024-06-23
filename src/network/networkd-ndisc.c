@@ -225,6 +225,11 @@ static int ndisc_request_route(Route *route, Link *link) {
                 if (route_get(link->manager, route, &existing) >= 0) {
                         /* Found an existing route that may conflict with this route. */
                         if (!route_can_update(existing, route)) {
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
                                 log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
@@ -235,6 +240,11 @@ static int ndisc_request_route(Route *route, Link *link) {
                 if (route_get_request(link->manager, route, &req) >= 0) {
                         existing = ASSERT_PTR(req->userdata);
                         if (!route_can_update(existing, route)) {
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
                                 log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
