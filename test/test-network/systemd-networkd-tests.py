@@ -5824,6 +5824,17 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('pref high', output)
         self.assertNotIn('pref low', output)
 
+    def test_ndisc_vs_static_route(self):
+        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-static-route.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:degraded')
+
+        # If a conflicting static route is already configured, do not override the static route.
+        output = check_output('ip -6 route show dev veth99 default via fe80::1034:56ff:fe78:9abd')
+        print(output)
+        self.assertIn('default proto static metric 1024 onlink pref medium', output)
+        self.assertNotIn('proto ra', output)
+
     # radvd supports captive portal since v2.20.
     # https://github.com/radvd-project/radvd/commit/791179a7f730decbddb2290ef0e34aa85d71b1bc
     @unittest.skipUnless(radvd_check_config('captive-portal.conf'), "Installed radvd doesn't support captive portals")
