@@ -3699,15 +3699,14 @@ int config_parse_unit_slice(
                 void *data,
                 void *userdata) {
 
+        Unit *u = ASSERT_PTR(userdata), *slice;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *k = NULL;
-        Unit *u = userdata, *slice;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(u);
 
         r = unit_name_printf(u, rvalue, &k);
         if (r < 0) {
@@ -3908,8 +3907,8 @@ int config_parse_tasks_max(
                 void *data,
                 void *userdata) {
 
-        const Unit *u = userdata;
-        CGroupTasksMax *tasks_max = data;
+        CGroupTasksMax *tasks_max = ASSERT_PTR(data);
+        const Unit *u = ASSERT_PTR(userdata);
         uint64_t v;
         int r;
 
