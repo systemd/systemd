@@ -119,23 +119,16 @@ typedef enum AcquireTerminalFlags {
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
-        /* No colors, monochrome output. */
-        COLOR_OFF,
-
-        /* All colors, no restrictions. */
-        COLOR_ON,
-
-        /* Only the base 16 colors. */
-        COLOR_16,
-
-        /* Only 256 colors. */
-        COLOR_256,
-
-        /* For truecolor or 24bit color support. */
-        COLOR_24BIT,
-
-        _COLOR_INVALID = -EINVAL,
+        COLOR_OFF,   /* No colors, monochrome output. */
+        COLOR_16,    /* Only the base 16 colors. */
+        COLOR_256,   /* Only 256 colors. */
+        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        _COLOR_MODE_MAX,
+        _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;
+
+const char* color_mode_to_string(ColorMode m) _const_;
+ColorMode color_mode_from_string(const char *s) _pure_;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
@@ -207,8 +200,11 @@ static inline const char* ansi_add_underline(void) {
 }
 
 static inline const char* ansi_add_underline_grey(void) {
+        /* Ideally, color mode except for 'off' should be unrelated here. But, several non-24bit color
+         * terminals do not support coloring of underline. Let's enable colored underline only on 24bit color
+         * terminals. See issue #33449. */
         return underline_enabled() ?
-                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
+                (get_color_mode() == COLOR_24BIT ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
 }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
