@@ -2799,10 +2799,6 @@ int bus_exec_context_set_transient_property(
                                 if (!path_is_normalized(simplified))
                                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                                 "WorkingDirectory= expects a normalized path or '~'");
-
-                                if (path_below_api_vfs(simplified))
-                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= may not be below /proc/, /sys/ or /dev/");
                         }
                 }
 
