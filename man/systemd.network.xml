@@ -845,7 +845,7 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IPv6Forwarding=</varname></term>
         <listitem>
-          <para>Configures IPv6 packet forwarding for the interface. Takes a boolean value. This controls the
+          <para>Configures interface-specific host/router behaviour. Takes a boolean value. This controls the
           <filename>net.ipv6.conf.<replaceable>INTERFACE</replaceable>.forwarding</filename> sysctl option of
           the network interface. See
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
@@ -858,6 +858,14 @@ Table=1234</programlisting></para>
           <para>To control the global setting, use the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <para>Note, unlike <varname>IPv4Forwarding=</varname>, enabling per-interface
+          <varname>IPv6Forwarding=</varname> on two or more interfaces <emphasis>DOES NOT</emphasis> make IPv6
+          packets forwarded within the interfaces. This setting just controls the per-interface sysctl value,
+          and the sysctl is not directly connected to if packets are forwarded. To make IPv6 packets
+          forwarded, the global setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          needs to be enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
