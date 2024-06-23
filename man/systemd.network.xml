@@ -859,6 +859,11 @@ Table=1234</programlisting></para>
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
 
+          <para>Note, typically, enabling per-interface <varname>IPv6Forwarding=</varname> on two or more
+          interfaces does not work. If you want to enable IPv6 forwarding, enable the global setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          and optionally disable the per-interface setting on some interfaces.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
