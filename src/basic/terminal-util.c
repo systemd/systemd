@@ -1328,15 +1328,15 @@ static ColorMode parse_systemd_colors(void) {
                 return COLOR_256;
         r = parse_boolean(e);
         if (r >= 0)
-                return r > 0 ? COLOR_ON : COLOR_OFF;
+                return r > 0 ? COLOR_24BIT : COLOR_OFF;
         return _COLOR_INVALID;
 }
 
 ColorMode get_color_mode(void) {
 
         /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
-         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors and COLOR_ON for unrestricted
-         * color output. For that we check $SYSTEMD_COLORS first (which is the explicit way to
+         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
+         * unrestricted color output. For that we check $SYSTEMD_COLORS first (which is the explicit way to
          * change the mode). If that didn't work we turn colors off unless we are on a TTY. And if we are on a TTY
          * we turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we do not
          * check whether we are connected to a TTY, because we don't keep /dev/console open continuously due to fear
