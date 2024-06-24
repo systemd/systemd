@@ -644,7 +644,7 @@ typedef struct GoConfig {
         bool has_scope;
         bool use_link;
         bool use_bypass;
-        bool use_search_domain;
+        size_t n_search_domains;
 } GoConfig;
 
 static GoConfig mk_go_config(void) {
@@ -652,7 +652,7 @@ static GoConfig mk_go_config(void) {
                 .has_scope = true,
                 .use_link = false,
                 .use_bypass = false,
-                .use_search_domain = false
+                .n_search_domains = 0
         };
 }
 
@@ -668,19 +668,24 @@ typedef struct GoEnvironment {
         char *server_name;
         uint16_t server_port;
         DnsServer *server;
-        DnsSearchDomain *search_domain;
+        size_t n_search_domains;
+        DnsSearchDomain *search_domains[4];
 } GoEnvironment;
 
 static void go_env_teardown(GoEnvironment *env) {
         ASSERT_NOT_NULL(env);
 
-        dns_search_domain_unref(env->search_domain);
+        for (size_t i = 0 ; i < env->n_search_domains; i++)
+                dns_search_domain_unref(env->search_domains[i]);
+
         dns_server_unref(env->server);
         dns_server_unref(env->server);
         free(env->server_name);
         dns_scope_free(env->scope);
         sd_event_unref(env->manager.event);
 }
+
+static const char *SEARCH_DOMAINS[] = { "local", "example.com", "org", "edu" };
 
 static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
         ASSERT_NOT_NULL(env);
@@ -723,15 +728,12 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
                 env->server = NULL;
         }
 
-        if (cfg->use_search_domain) {
-                if (env->link == NULL)
-                        dns_search_domain_new(&env->manager, &env->search_domain, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
-                else
-                        dns_search_domain_new(&env->manager, &env->search_domain, DNS_SEARCH_DOMAIN_LINK, env->link, "local");
+        env->n_search_domains = cfg->n_search_domains;
 
-                ASSERT_NOT_NULL(env->search_domain);
-        } else {
-                env->search_domain = NULL;
+        for (size_t i = 0 ; i < env->n_search_domains; i++) {
+                DnsSearchDomainType type = (env->link == NULL) ? DNS_SEARCH_DOMAIN_SYSTEM : DNS_SEARCH_DOMAIN_LINK;
+                ASSERT_OK(dns_search_domain_new(&env->manager, &env->search_domains[i], type, env->link, SEARCH_DOMAINS[i]));
+                ASSERT_NOT_NULL(env->search_domains[i]);
         }
 }
 
@@ -745,7 +747,7 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
 
         int flags = SD_RESOLVED_FLAGS_MAKE(env.protocol, env.family, false, false);
 
-        if (cfg->use_search_domain) {
+        if (cfg->n_search_domains > 0) {
                 /* search domains trigger on single-label domains */
                 ASSERT_OK(dns_question_new_address(&question, env.family, "berlin", false));
                 flags &= ~SD_RESOLVED_NO_SEARCH;
@@ -803,7 +805,7 @@ TEST(dns_query_go) {
         exercise_dns_query_go(&cfg, check_query_no_servers);
 
         cfg = mk_go_config();
-        cfg.use_search_domain = true;
+        cfg.n_search_domains = 2;
         exercise_dns_query_go(&cfg, NULL);
 }
 
