@@ -218,9 +218,6 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
-#define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
-#define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
-
 /* Maximum buffer size needed for formatting an unsigned integer type as hex, including space for '0x'
  * prefix and trailing NUL suffix. */
 #define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
