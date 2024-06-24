@@ -314,7 +314,7 @@ struct ExecContext {
         int private_mounts;
         int mount_apivfs;
         int memory_ksm;
-        bool private_tmp;
+        PrivateTmp private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
@@ -525,7 +525,7 @@ void exec_context_revert_tty(ExecContext *c);
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
-const char *exec_context_tty_path(const ExecContext *context);
+const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int tty_fd, const char *tty_path);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
 

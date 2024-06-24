@@ -113,7 +113,7 @@ node /org/freedesktop/login1 {
       LockSessions();
       UnlockSessions();
       KillSession(in  s session_id,
-                  in  s who,
+                  in  s whom,
                   in  i signal_number);
       KillUser(in  u uid,
                in  i signal_number);
@@ -253,8 +253,9 @@ node /org/freedesktop/login1 {
       readonly b PreparingForShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (st) ScheduledShutdown = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DesignatedMaintenanceTime = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
       readonly b LidClosed = ...;
@@ -294,6 +295,8 @@ node /org/freedesktop/login1 {
     <!--property HandleSuspendKeyLongPress is not documented!-->
 
     <!--property HandleHibernateKeyLongPress is not documented!-->
+
+    <!--property DesignatedMaintenanceTime is not documented!-->
 
     <!--property StopIdleSessionUSec is not documented!-->
 
@@ -517,6 +520,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ScheduledShutdown"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DesignatedMaintenanceTime"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Docked"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LidClosed"/>
@@ -688,7 +693,10 @@ node /org/freedesktop/login1 {
       <literal>challenge</literal> is returned, the operation is available but only after authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
-      time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
+      time <varname>usec</varname> in microseconds since the UNIX epoch. Alternatively, if
+      <varname>usec</varname> <literal>UINT64_MAX</literal> and a maintenance window is
+      configured, <filename>systemd-logind</filename> will use the next time of the maintenance window
+      instead. <varname>type</varname> can be one
       of <literal>poweroff</literal>, <literal>dry-poweroff</literal>, <literal>reboot</literal>,
       <literal>dry-reboot</literal>, <literal>halt</literal>, and <literal>dry-halt</literal>. (The
       <literal>dry-</literal> variants do not actually execute the shutdown action.)
@@ -715,7 +723,7 @@ node /org/freedesktop/login1 {
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time. The method returns a file descriptor. The lock is released the moment this file
       descriptor and all its duplicates are closed. For more information on the inhibition logic see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
+      <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
 
@@ -739,7 +747,7 @@ node /org/freedesktop/login1 {
       that should be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
       completion of this work they should release their inhibition locks in order to not delay the operation
       any further. For more information see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>. The
+      <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>. The
       <function>PrepareForShutdownWithMetadata()</function> signal additionally sends a list of key/value
       pair metadata fields. Currently it sends a <varname>type</varname> string which defines the type of
       shutdown. The type can be one of <literal>power-off</literal>, <literal>reboot</literal>,
@@ -1140,7 +1148,7 @@ node /org/freedesktop/login1/session/1 {
       Unlock();
       SetIdleHint(in  b idle);
       SetLockedHint(in  b locked);
-      Kill(in  s who,
+      Kill(in  s whom,
            in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
@@ -1579,7 +1587,8 @@ node /org/freedesktop/login1/session/1 {
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
       <function>CanSleep()</function>,
-      <varname>SleepOperation</varname>, and
+      <varname>SleepOperation</varname>,
+      <varname>DesignatedMaintenanceTime</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>

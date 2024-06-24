@@ -51,7 +51,7 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         return 0;
 }
 
-const char *net_get_persistent_name(sd_device *device) {
+const char* net_get_persistent_name(sd_device *device) {
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */

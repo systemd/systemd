@@ -11,7 +11,7 @@
 #include "macro.h"
 #include "string-util.h"
 
-char *hw_addr_to_string_full(
+char* hw_addr_to_string_full(
                 const struct hw_addr_data *addr,
                 HardwareAddressToStringFlags flags,
                 char buffer[static HW_ADDR_TO_STRING_MAX]) {

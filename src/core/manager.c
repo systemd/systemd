@@ -604,7 +604,7 @@ static int manager_setup_signals(Manager *m) {
          * misunderstand this as a boolean concept. Signal level 2 shall refer to the signals PID 1
          * understands at the time of release of systemd v256, i.e. including basic SIGRTMIN+18 handling for
          * memory pressure and stuff. When more signals are hooked up (or more SIGRTMIN+18 multiplex
-         * operations added, this level should be increased).  */
+         * operations added, this level should be increased). */
         (void) sd_notify(/* unset_environment= */ false,
                          "X_SYSTEMD_SIGNALS_LEVEL=2");
 
@@ -1037,9 +1037,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         r = xdg_user_runtime_dir(&units_path, "/systemd/units");
                         if (r < 0)
                                 return r;
+
                         r = mkdir_p_label(units_path, 0755);
                 }
-
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -1049,12 +1049,12 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 if (m->executor_fd < 0)
                         return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
-                _cleanup_free_ char *executor_path = NULL;
-                r = fd_get_path(m->executor_fd, &executor_path);
-                if (r < 0)
-                        return r;
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *executor_path = NULL;
 
-                log_debug("Using systemd-executor binary from '%s'.", executor_path);
+                        (void) fd_get_path(m->executor_fd, &executor_path);
+                        log_debug("Using systemd-executor binary from '%s'.", strna(executor_path));
+                }
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
@@ -2967,15 +2967,16 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
-        /* If the user presses C-A-D more than
-         * 7 times within 2s, we reboot/shutdown immediately,
-         * unless it was disabled in system.conf */
+        assert(m);
+
+        /* If the user presses C-A-D more than 7 times within 2s, we reboot/shutdown immediately,
+         * unless it was disabled in system.conf. */
 
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_special(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(m, m->cad_burst_action, EMERGENCY_ACTION_WARN, NULL, -1,
-                                "Ctrl-Alt-Del was pressed more than 7 times within 2s");
+                                 "Ctrl-Alt-Del was pressed more than 7 times within 2s");
 }
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {

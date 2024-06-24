@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
@@ -21,7 +22,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "glyph-util.h"
-#include "json.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "sort-util.h"
@@ -56,7 +56,7 @@ static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 PagerFlags arg_pager_flags = 0;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
@@ -265,8 +265,8 @@ static int print_record(sd_device *device, const char *prefix) {
         return 0;
 }
 
-static int record_to_json(sd_device *device, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int record_to_json(sd_device *device, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *str;
         int r;
 
@@ -277,19 +277,19 @@ static int record_to_json(sd_device *device, JsonVariant **ret) {
          * all the other ones have a matching property which will already be included. */
 
         if (sd_device_get_sysname(device, &str) >= 0) {
-                r = json_variant_set_field_string(&v, "SYSNAME", str);
+                r = sd_json_variant_set_field_string(&v, "SYSNAME", str);
                 if (r < 0)
                         return r;
         }
 
         if (sd_device_get_sysnum(device, &str) >= 0) {
-                r = json_variant_set_field_string(&v, "SYSNUM", str);
+                r = sd_json_variant_set_field_string(&v, "SYSNUM", str);
                 if (r < 0)
                         return r;
         }
 
         FOREACH_DEVICE_PROPERTY(device, key, val) {
-                r = json_variant_set_field_string(&v, key, val);
+                r = sd_json_variant_set_field_string(&v, key, val);
                 if (r < 0)
                         return r;
         }
@@ -331,16 +331,16 @@ static int export_devices(sd_device_enumerator *e) {
         pager_open(arg_pager_flags);
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         (void) print_record(d, NULL);
                 else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(d, &v);
                         if (r < 0)
                                 return r;
 
-                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
                 }
 
         return 0;
@@ -507,16 +507,16 @@ static int query_device(QueryType query, sd_device* device) {
                 return 0;
 
         case QUERY_ALL:
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         return print_record(device, NULL);
                 else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(device, &v);
                         if (r < 0)
                                 return r;
 
-                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
                 }
 
                 return 0;

@@ -780,7 +780,7 @@ static char *format_cgroup_memory_limit_comparison(Unit *u, const char *property
         return buf;
 }
 
-const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) {
+const char* cgroup_device_permissions_to_string(CGroupDevicePermissions p) {
         static const char *table[_CGROUP_DEVICE_PERMISSIONS_MAX] = {
                 /* Lets simply define a table with every possible combination. As long as those are just 8 we
                  * can get away with it. If this ever grows to more we need to revisit this logic though. */
@@ -2615,7 +2615,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u) {
                 unit_invalidate_cgroup_members_masks(slice);
 }
 
-const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
+const char* unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
 
         /* Returns the realized cgroup path of the specified unit where all specified controllers are available. */
 

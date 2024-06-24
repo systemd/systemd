@@ -28,9 +28,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/logind.conf</filename></member>
       <member><filename>/run/systemd/logind.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/logind.conf</filename></member>
       <member><filename>/usr/lib/systemd/logind.conf</filename></member>
       <member><filename>/etc/systemd/logind.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/logind.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/logind.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
@@ -390,6 +392,20 @@
         </para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DesignatedMaintenanceTime=</varname></term>
+
+        <listitem>
+          <para>
+            Specifies a default calendar event for scheduled shutdowns. So when using e.g. the command
+            <command>shutdown -r</command> to reboot the system without specifying a timeout, logind would
+            use the configured calendar event instead. For details about the syntax of calendar events, see
+            <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -7,13 +7,13 @@
 #if HAVE_PCRE2
 static void *pcre2_dl = NULL;
 
-DLSYM_FUNCTION(pcre2_match_data_create);
-DLSYM_FUNCTION(pcre2_match_data_free);
-DLSYM_FUNCTION(pcre2_code_free);
-DLSYM_FUNCTION(pcre2_compile);
-DLSYM_FUNCTION(pcre2_get_error_message);
-DLSYM_FUNCTION(pcre2_match);
-DLSYM_FUNCTION(pcre2_get_ovector_pointer);
+DLSYM_PROTOTYPE(pcre2_match_data_create) = NULL;
+DLSYM_PROTOTYPE(pcre2_match_data_free) = NULL;
+DLSYM_PROTOTYPE(pcre2_code_free) = NULL;
+DLSYM_PROTOTYPE(pcre2_compile) = NULL;
+DLSYM_PROTOTYPE(pcre2_get_error_message) = NULL;
+DLSYM_PROTOTYPE(pcre2_match) = NULL;
+DLSYM_PROTOTYPE(pcre2_get_ovector_pointer) = NULL;
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         pcre2_code_hash_ops_free,

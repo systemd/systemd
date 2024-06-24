@@ -671,12 +671,13 @@
         part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by
         these users/groups around, as a different unit might get the same UID/GID assigned later on, and thus
         gain access to these files or directories. If <varname>DynamicUser=</varname> is enabled,
-        <varname>RemoveIPC=</varname> and <varname>PrivateTmp=</varname> are implied (and cannot be turned
-        off). This ensures that the lifetime of IPC objects and temporary files created by the executed
-        processes is bound to the runtime of the service, and hence the lifetime of the dynamic
-        user/group. Since <filename>/tmp/</filename> and <filename>/var/tmp/</filename> are usually the only
-        world-writable directories on a system this ensures that a unit making use of dynamic user/group
-        allocation cannot leave files around after unit termination. Furthermore
+        <varname>RemoveIPC=</varname> is implied (and cannot be turned off). This ensures that the lifetime
+        of IPC objects and temporary files created by the executed processes is bound to the runtime of the
+        service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> are usually the only world-writable directories on a system, unless
+        <varname>PrivateTmp=</varname> is manually set to <literal>true</literal>, <literal>disconnected</literal>
+        would be implied. This ensures that a unit making use of dynamic user/group allocation cannot
+        leave files around after unit termination. Furthermore
         <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
         (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
         files or directories. Moreover <varname>ProtectSystem=strict</varname> and
@@ -1747,20 +1748,27 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the
-        executed processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
-        directories inside it that are not shared by processes outside of the namespace. This is useful to
-        secure access to temporary files of the process, but makes sharing between processes via
-        <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If true, all temporary files
-        created by a service in these directories will be removed after the service is stopped. Defaults to
-        false. It is possible to run two or more units within the same private <filename>/tmp/</filename> and
-        <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
-        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting, the
-        same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. Enabling this setting has the side
-        effect of adding <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount
-        units necessary to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. Moreover an
+        <listitem><para>Takes a boolean argument, or <literal>disconnected</literal>. If enabled, a new
+        file system namespace will be set up for the executed processes, and <filename>/tmp/</filename>
+        and <filename>/var/tmp/</filename> directories inside it are not shared with processes outside of
+        the namespace, plus all temporary files created by a service in these directories will be removed after
+        the service is stopped. If <literal>true</literal>, the backing storage of the private temporary directories
+        will remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories.
+        If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs instance,
+        meaning that the storage is fully disconnected from the host namespace. Defaults to false.</para>
+
+        <para>This setting is useful to secure access to temporary files of the process, but makes sharing
+        between processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible.
+        If not set to <literal>disconnected</literal>, it is possible to run two or more units within
+        the same private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using
+        the <varname>JoinsNamespaceOf=</varname> directive, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting,
+        the same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
+        (as opposed to <literal>disconnected</literal>), this has the side effect of adding
+        <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
+        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover an
         implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
@@ -2021,8 +2029,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <filename>/proc/sys/</filename>, <filename>/sys/</filename>, <filename>/proc/sysrq-trigger</filename>,
         <filename>/proc/latency_stats</filename>, <filename>/proc/acpi</filename>,
         <filename>/proc/timer_stats</filename>, <filename>/proc/fs</filename> and <filename>/proc/irq</filename> will
-        be made read-only to all processes of the unit. Usually, tunable kernel variables should be initialized only at
-        boot-time, for example with the
+        be made read-only and <filename>/proc/kallsyms</filename> as well as <filename>/proc/kcore</filename> will be
+        inaccessible to all processes of the unit.
+        Usually, tunable kernel variables should be initialized only at boot-time, for example with the
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Few
         services need to write to these at runtime; it is hence recommended to turn this on for most services. For this
         setting the same restrictions regarding mount propagation and privileges apply as for
@@ -4101,8 +4110,17 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$REMOTE_PORT</varname></term>
 
           <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
-          unit with <varname>Accept=yes</varname>), these environment variables contain the IP address and
-          port number of the remote peer of the socket connection.</para>
+          unit with <varname>Accept=yes</varname>), these environment variables contain information about the
+          remote peer of the socket connection.</para>
+
+          <para>For IPv4 and IPv6 connections, <varname>$REMOTE_ADDR</varname> contains the IP address, and
+          <varname>$REMOTE_PORT</varname> contains the port number of the remote peer.</para>
+
+          <para>For <constant>AF_UNIX</constant> socket connections, <varname>$REMOTE_ADDR</varname> contains
+          either the remote socket's file system path starting with a slash (<literal>/</literal>), its
+          address in the abstract namespace starting with an at symbol (<literal>@</literal>), or is unset
+          in case of an unnamed socket. <varname>$REMOTE_PORT</varname> is not set for <constant>AF_UNIX</constant>
+          sockets.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>

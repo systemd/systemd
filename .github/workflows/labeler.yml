@@ -24,13 +24,13 @@ permissions:
 jobs:
   triage:
     if: github.repository == 'systemd/systemd'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: write
 
     steps:
     - name: Repository checkout
-      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+      uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
       if: github.event_name == 'pull_request'
 
     - name: Label PR based on policy in labeler.yml

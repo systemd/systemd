@@ -23,12 +23,14 @@ TEST(basic_mask_and_enable) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL) == -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "g.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "h.service", NULL), -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
         assert_se(write_string_file(p,
@@ -197,6 +199,24 @@ TEST(basic_mask_and_enable) {
         changes = NULL; n_changes = 0;
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        /* Test enabling units with only Alias= (unit_file_enable should return > 0 to indicate we did
+         * something, #33411) */
+
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR "/g.service");
+        ASSERT_OK(write_string_file(p,
+                                    "[Install]\n"
+                                    "Alias=h.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_GT(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("g.service"), &changes, &n_changes), 0);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "g.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "h.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 }
 
 TEST(linked_units) {
@@ -680,8 +700,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(h = hashmap_new(&unit_file_list_hash_ops_free));
-        assert_se(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL) >= 0);
+        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, NULL, NULL, &h));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");

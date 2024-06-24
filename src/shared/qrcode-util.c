@@ -18,8 +18,8 @@
 
 static void *qrcode_dl = NULL;
 
-static DLSYM_FUNCTION(QRcode_encodeString);
-static DLSYM_FUNCTION(QRcode_free);
+static DLSYM_PROTOTYPE(QRcode_encodeString) = NULL;
+static DLSYM_PROTOTYPE(QRcode_free) = NULL;
 
 int dlopen_qrencode(void) {
         int r;

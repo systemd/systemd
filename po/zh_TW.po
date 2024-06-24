@@ -4,12 +4,13 @@
 # Jeff Huang <s8321414@gmail.com>, 2015, 2016.
 # pan93412 <pan93412@gmail.com>, 2019.
 # Cheng-Chia Tseng <pswo10680@gmail.com>, 2023.
+# hanjinpeng <hanjinpeng@kylinos.cn>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
-"PO-Revision-Date: 2023-11-10 11:30+0000\n"
-"Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-06 00:50+0000\n"
+"Last-Translator: hanjinpeng <hanjinpeng@kylinos.cn>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
 "projects/systemd/master/zh_TW/>\n"
 "Language: zh_TW\n"
@@ -64,7 +65,7 @@ msgstr "重新載入 systemd 狀態需要驗證。"
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "無速率限制地轉儲系統狀態"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
@@ -137,12 +138,12 @@ msgstr "創建用戶家區域需要身份驗證。"
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr ""
+msgstr "用戶 %s 的家區域當前不存在，請插入必要的儲存設備或備份檔案系統。"
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "用戶%s的登入嘗試過於頻繁，請稍後再試。"
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
@@ -151,139 +152,139 @@ msgstr "密碼： "
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "用戶 %s 的密碼不正確或不足以進行身份驗證。"
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "抱歉，請重試："
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "恢復金鑰："
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
+msgstr "用戶 %s 密碼/恢復金鑰不正確或不足以進行身份驗證。"
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "抱歉，重新輸入恢復金鑰："
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "用戶 %s 的安全權杖未插入。"
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "使用密碼重試："
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr ""
+msgstr "密碼不正確或不足，並且未插入用戶 %s 的配寘安全權杖。"
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr ""
+msgstr "安全權杖 PIN:"
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "請在用戶 %s 的安全權杖上進行物理身份驗證。"
 
 #: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "請確認用戶 %s 的安全權杖是否存在。"
 
 #: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "請在用戶 %s 的安全權杖上驗證用戶。"
 
 #: src/home/pam_systemd_home.c:429
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr ""
+msgstr "安全權杖 PIN 已鎖定，請先解鎖。 （提示：移除和重新插入可能就足够了。）"
 
 #: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "用戶 %s 的安全權杖 PIN 不正確。"
 
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "抱歉，請重試安全權杖 PIN:"
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
+msgstr "用戶 %s 的安全權杖 PIN 不正確（只剩下幾次嘗試！）"
 
 #: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
+msgstr "用戶 %s 的安全權杖 PIN 不正確（只剩下一次嘗試！）"
 
 #: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
+msgstr "用戶 %s 的家區域當前未處於活動狀態，請先在本地登入。"
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
+msgstr "用戶 %s 的家區域當前已鎖定，請先在本地解鎖。"
 
 #: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "用戶 %s 的登入嘗試失敗次數過多，正在拒絕。"
 
 #: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "用戶記錄被封锁，禁止訪問。"
 
 #: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "用戶記錄尚未生效，禁止訪問。"
 
 #: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "用戶記錄不再有效，禁止訪問。"
 
 #: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "用戶記錄無效，禁止訪問。"
 
 #: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "登錄次數太多，請在 %s 後重試。"
 
 #: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
-msgstr ""
+msgstr "需要更改密碼。"
 
 #: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
-msgstr ""
+msgstr "密碼已過期，需要更改。"
 
 #: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "密碼已過期，但無法更改，拒絕登入。"
 
 #: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "密碼即將過期，請更改。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -321,62 +322,62 @@ msgstr "取得產品 UUID 需要身份驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "獲取硬體序號"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 #, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "設定系統時間需要驗證。"
+msgstr "獲取硬體序號需要身份驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 #, fuzzy
 msgid "Get system description"
-msgstr "設定系統時區"
+msgstr "獲取系統描述"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 #, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "設定系統時區需要驗證。"
+msgstr "需要身份驗證才能獲得系統描述。"
 
 #: src/import/org.freedesktop.import1.policy:22
 #, fuzzy
 msgid "Import a disk image"
-msgstr "匯入虛擬機器或容器映像"
+msgstr "導入磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
 msgid "Authentication is required to import an image"
-msgstr "匯入虛擬機器或容器映像需要驗證"
+msgstr "導入映像需要身份驗證"
 
 #: src/import/org.freedesktop.import1.policy:32
 #, fuzzy
 msgid "Export a disk image"
-msgstr "匯出虛擬機器或容器映像"
+msgstr "匯出磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr "匯出虛擬機器或容器映像需要驗證"
+msgstr "匯出磁片映像需要驗證"
 
 #: src/import/org.freedesktop.import1.policy:42
 #, fuzzy
 msgid "Download a disk image"
-msgstr "下載虛擬機器或容器映像"
+msgstr "下載磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr "下載虛擬機器或容器映像需要驗證"
+msgstr "下載磁片映像需要驗證"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "取消磁片映像的傳輸"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
-msgstr "更改家區域密碼需要認證。"
+msgstr "需要身份驗證才能取消正在進行的磁片映像傳輸"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -934,14 +935,14 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "重新配置網絡接口需要驗證。"
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
-msgstr ""
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "指定systemd-networkd的永久存儲是否可用"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr ""
+msgstr "需要身份驗證才能指定systemd-networkd的永久存儲是否可用。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1065,7 +1066,7 @@ msgid ""
 "'$(unit)'."
 msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "凍結或解凍「$(unit)」的程序需要身份驗證。"

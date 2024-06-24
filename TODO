@@ -130,6 +130,40 @@ Deprecations and removals:
 
 Features:
 
+* add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
+  open the inode via O_PATH first, then validate its type, and then convert to
+  proper fd via fd_reopen()
+
+* rough proposed implementation design for remote attestation infra: add a tool
+  that generates a quote of local PCRs and NvPCRs, along with synchronous log
+  snapshot. use "audit session" logic for that, so that we get read-outs and
+  signature in one step. Then turn this into a JSON object. Use the "TCG TSS 2.0
+  JSON Data Types and Policy Language" format to encode the signature. And CEL
+  for the measurement log.
+
+* creds: add a new cred format that reused the JSON structures we use in the
+  LUKS header, so that we get the various newer policies for free.
+
+* drop PCR 7 from default PCR mask in credentials and LUKS2 enrollments
+
+* systemd-analyze: port "pcrs" verb to talk directly to TPM device, instead of
+  using sysfs interface (well, or maybe not, as that would require privileges?)
+
+* pcrextend/tpm2-util: add a concept of "rotation" to event log. i.e. allow
+  trailing parts of the logs if time or disk space limit is hit. Protect the
+  boot-time measurements however (i.e. up to some point where things are
+  settled), since we need those for pcrlock measurements and similar. When
+  deleting entries for rotation, place an event that declares how many items
+  have been dropped, and what the hash before and after that.
+
+* measure information about all DDIs as we activate them to an NvPCR. We
+  probably should measure the dm-verity root hash from the kernel side, but
+  DDI meta info from userspace.
+
+* rework tpm2_parse_pcr_argument_to_mask() to refuse literal hash value
+  specifications. They are currently parsed but ignored. We should refuse them
+  however, to not confuse people.
+
 * use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
   number) for identifying inodes, for example in copy.c when finding hard
   links, or loop-util.c for tracking backing files, and other places.
@@ -170,8 +204,6 @@ Features:
 
 * insert the new pidfs inode number as a third field into PidRef, so that
   PidRef are reasonably serializable without having to pass around fds.
-
-* systemd-analyze smbios11 to dump smbios type 11 vendor strings
 
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
@@ -244,8 +276,6 @@ Features:
   pidfd, so that we can reasonably robustly do this. Would only cover the
   execution environment like namespaces, but not the privilege settings.
 
-* varlink: extend varlink IDL macros to include documentation strings
-
 * Introduce a CGroupRef structure, inspired by PidRef. Should contain cgroup
   path, cgroup id, and cgroup fd. Use it to continuously pin all v2 cgroups via
   a cgroup_ref field in the CGroupRuntime structure. Eventually switch things
@@ -294,11 +324,6 @@ Features:
 * add a new ExecStart= flag that inserts the configured user's shell as first
   word in the command line. (maybe use character '.'). Usecase: tool such as
   run0 can use that to spawn the target user's default shell.
-
-* varlink: figure out how to do docs for our varlink interfaces. Idea: install
-  interface files augmented with docs in /usr/share/ somewhere. And have
-  functionality in varlinkctl to merge interface info extracted from binaries
-  with interface info on disk. And store the doc strings only in the latter.
 
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
@@ -453,10 +478,6 @@ Features:
   - kernel-install
   - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
-* in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
-  identifiers, and store them along with the exit status of a server and report
-  via "systemctl status".
-
 * enumerate virtiofs devices during boot-up in a generator, and synthesize
   mounts for rootfs, /usr/, /home/, /srv/ and some others from it, depending on
   the "tag". (waits for: https://gitlab.com/virtio-fs/virtiofsd/-/issues/128)
@@ -498,7 +519,6 @@ Features:
   - get_ctty_devnr()
   - pid1: sd_notify() receiver should use SCM_PIDFD to authenticate client
   - actually wait for POLLIN on pidref's pidfd in service logic
-  - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
@@ -1802,7 +1822,7 @@ Features:
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
-* docs: bring https://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+* docs: bring https://systemd.io/MY_SERVICE_CANT_GET_REATLIME up to date
 
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service

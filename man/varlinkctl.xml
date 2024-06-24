@@ -41,7 +41,7 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">introspect</arg>
       <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
-      <arg choice="plain"><replaceable>INTERFACE</replaceable></arg>
+      <arg choice="opt"><replaceable>INTERFACE</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -120,11 +120,23 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> <replaceable>INTERFACE</replaceable></term>
+        <term><command>list-methods</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
 
-        <listitem><para>Show interface definition of the specified interface provided by the specified
-        service. Expects a service address in one of the formats described above and a Varlink interface
-        name.</para>
+        <listitem><para>Show list of methods implemented by the specified service. Expects a service address
+        in one of the formats described above as well as one or more interface names. If no interface name is
+        specified, lists all methods of all interfaces implemented by the service, otherwise just the methods
+        in the specified services.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
+
+        <listitem><para>Show the interface definitions of the specified interfaces provided by the specified
+        service. Expects a service address in one of the formats described above and optionally one or more
+        Varlink interface names. If no interface names are specified, shows all provided interfaces by the
+        service.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -224,6 +236,31 @@
           program.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem>
+          <para>Suppress output of method call replies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful=</option></term>
+
+        <listitem>
+          <para>Takes a qualified Varlink error name (i.e. an interface name, suffixed by an error name,
+          separated by a dot; e.g. <literal>org.varlink.service.InvalidParameter</literal>). Ensures that if
+          a method call fails with the specified error this will be treated as success, i.e. will cause the
+          <command>varlinkctl</command> invocation to exit with a zero exit status. This option may be used more
+          than once in order to treat multiple different errors as successes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 

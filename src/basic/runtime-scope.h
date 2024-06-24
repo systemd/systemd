@@ -13,7 +13,7 @@ typedef enum RuntimeScope {
         _RUNTIME_SCOPE_INVALID = -EINVAL,
 } RuntimeScope;
 
-const char *runtime_scope_to_string(RuntimeScope scope) _const_;
+const char* runtime_scope_to_string(RuntimeScope scope) _const_;
 RuntimeScope runtime_scope_from_string(const char *s) _const_;
 
-const char *runtime_scope_cmdline_option_to_string(RuntimeScope scope) _const_;
+const char* runtime_scope_cmdline_option_to_string(RuntimeScope scope) _const_;

@@ -6,5 +6,6 @@ integration_tests += [
                 'configuration' : integration_test_template['configuration'] + {
                         'memory-accounting' : 'yes',
                 },
+                'vm' : true,
         },
 ]

@@ -5,20 +5,21 @@
 # Filipe Brandenburger <filbranden@gmail.com>, 2018.
 # Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020.
 # Gustavo Costa <xfgusta@gmail.com>, 2021.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
-"PO-Revision-Date: 2021-08-17 07:04+0000\n"
-"Last-Translator: Gustavo Costa <xfgusta@gmail.com>\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-05-31 07:36+0000\n"
+"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
-"projects/systemd/master/pt_BR/>\n"
+"projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.7.2\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -153,28 +154,31 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"A home do usuário %s está ausente no momento. Por favor, conecte o "
+"dispositivo de armazenamento necessário ou sistema de arquivo de recuperação."
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"Muitas tentativas de login para o usuário %s, tente novamente mais tarde."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Senha: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Senha incorreta ou insuficiente para autenticação do usuário %s."
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Desculpe, tente novamente: "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "Chave de recuperação: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
@@ -182,10 +186,12 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Senha/chave de recuperação incorreta ou insuficiente para autenticação do "
+"usuário %s."
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Desculpe, reinsira a chave de recuperação: "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
@@ -194,7 +200,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "Tente a senha novamente: "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -1028,7 +1034,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "É necessária autenticação para reconfigurar a interface de rede."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1175,7 +1181,7 @@ msgstr ""
 "É necessária autenticação para excluir arquivos e diretórios associados com "
 "“$(unit)”."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

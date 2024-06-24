@@ -706,10 +706,6 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog logic, ignoring: %m");
 
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0)
-                return r;
-
         m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (m->notify_fd < 0)
                 return -errno;
@@ -1703,10 +1699,16 @@ static const BusObjectImplementation manager_object = {
         .children = BUS_IMPLEMENTATIONS(&transfer_object),
 };
 
-static int manager_add_bus_objects(Manager *m) {
+static int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
+        assert(m->event);
+        assert(!m->bus);
+
+        r = sd_bus_default_system(&m->bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get system bus connection: %m");
 
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
@@ -1728,9 +1730,10 @@ static int manager_add_bus_objects(Manager *m) {
 }
 
 static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        return hashmap_isempty(m->transfers);
+        return hashmap_isempty(m->transfers) &&
+                hashmap_isempty(m->polkit_registry);
 }
 
 static void manager_parse_env(Manager *m) {
@@ -1779,7 +1782,7 @@ static int run(int argc, char *argv[]) {
 
         manager_parse_env(m);
 
-        r = manager_add_bus_objects(m);
+        r = manager_connect_bus(m);
         if (r < 0)
                 return r;
 

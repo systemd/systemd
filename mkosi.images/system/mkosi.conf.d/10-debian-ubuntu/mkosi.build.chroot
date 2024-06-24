@@ -44,33 +44,61 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
-# FIXME: Remove after tmp.mount is kept intact in the debian packaging for UPSTREAM=1 builds.
-sed --in-place '/tmp.mount/d' debian/rules
-sed --in-place '/tmp.mount/d' debian/not-installed
+MKOSI_CFLAGS="-O0"
+if ((LLVM)); then
+    # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
+fi
 
+MKOSI_LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+fi
+
+MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+if ((WIPE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+
+# TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
 build() {
-    DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
+    env \
+    CC="$( ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LLVM)) && echo lld)" \
+    DEB_BUILD_OPTIONS="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
-        terse \
+        $( ! ((MESON_VERBOSE)) && echo terse) \
         optimize=-lto \
         hardening=-fortify \
-    ") \
-    DEB_BUILD_PROFILES=$(awk '$1=$1' <<<"\
+    ")" \
+    DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
-    ") \
-    DEB_CFLAGS_APPEND="-O${OPTIMIZATION:-0}" \
+    ")" \
+    DEB_CFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_CXXFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_LDFLAGS_APPEND="$MKOSI_LDFLAGS $LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
-    CONFFLAGS_UPSTREAM="-D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
-    dpkg-buildpackage \
+    CONFFLAGS_UPSTREAM="$MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
+    GENSYMBOLS_LEVEL="$( ((LLVM)) && echo 0 || echo 1)" \
+        dpkg-buildpackage \
         --no-pre-clean \
         --unsigned-changes \
         --build=binary
+
+    EXIT_STATUS=$?
+
+    # Make sure we don't reconfigure twice.
+    MKOSI_MESON_OPTIONS="${MKOSI_MESON_OPTIONS//"--wipe"/}"
+
+    return $EXIT_STATUS
 }
 
 if ! build; then

@@ -55,7 +55,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
 
-const char *network_config_source_to_string(NetworkConfigSource s) _const_;
+const char* network_config_source_to_string(NetworkConfigSource s) _const_;
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
 
@@ -131,23 +131,23 @@ int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
                                     0);                                 \
         }
 
-const char *address_family_to_string(AddressFamily b) _const_;
+const char* address_family_to_string(AddressFamily b) _const_;
 AddressFamily address_family_from_string(const char *s) _pure_;
 
 AddressFamily link_local_address_family_from_string(const char *s) _pure_;
 
-const char *routing_policy_rule_address_family_to_string(AddressFamily b) _const_;
+const char* routing_policy_rule_address_family_to_string(AddressFamily b) _const_;
 AddressFamily routing_policy_rule_address_family_from_string(const char *s) _pure_;
 
-const char *nexthop_address_family_to_string(AddressFamily b) _const_;
+const char* nexthop_address_family_to_string(AddressFamily b) _const_;
 AddressFamily nexthop_address_family_from_string(const char *s) _pure_;
 
-const char *duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
+const char* duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
 AddressFamily duplicate_address_detection_address_family_from_string(const char *s) _pure_;
 
 AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
 
-const char *dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
+const char* dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
 sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);

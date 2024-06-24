@@ -7,6 +7,7 @@
 #include "efi-api.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -481,6 +482,7 @@ int efi_get_boot_options(uint16_t **ret_options) {
 
 bool efi_has_tpm2(void) {
         static int cache = -1;
+        int r;
 
         /* Returns whether the system has a TPM2 chip which is known to the EFI firmware. */
 
@@ -488,30 +490,35 @@ bool efi_has_tpm2(void) {
                 return cache;
 
         /* First, check if we are on an EFI boot at all. */
-        if (!is_efi_boot()) {
-                cache = 0;
-                return cache;
-        }
+        if (!is_efi_boot())
+                return (cache = false);
 
         /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
-         * This table exists whenever the firmware is hooked up to TPM2. */
-        cache = access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0;
-        if (cache)
-                return cache;
-
+         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2. */
+        if (access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0)
+                return (cache = true);
         if (errno != ENOENT)
                 log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
 
         /* As the last try, check if the EFI firmware provides the EFI_TCG2_FINAL_EVENTS_TABLE
          * stored in EFI configuration table, see:
-         * https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf
-         */
-        cache = access("/sys/kernel/security/tpm0/binary_bios_measurements", F_OK) >= 0;
-        if (!cache && errno != ENOENT)
-                log_debug_errno(errno, "Unable to test whether /sys/kernel/security/tpm0/binary_bios_measurements exists, assuming it doesn't: %m");
+         *
+         * https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf */
+        if (access("/sys/kernel/security/tpm0/binary_bios_measurements", F_OK) >= 0) {
+                _cleanup_free_ char *major = NULL;
 
-        return cache;
+                /* The EFI table might exist for TPM 1.2 as well, hence let's check explicitly which TPM version we are looking at here. */
+                r = read_virtual_file("/sys/class/tpm/tpm0/tpm_version_major", SIZE_MAX, &major, /* ret_size= */ NULL);
+                if (r >= 0)
+                        return (cache = streq(strstrip(major), "2"));
+
+                log_debug_errno(r, "Unable to read /sys/class/tpm/tpm0/tpm_version_major, assuming TPM does not qualify as TPM2: %m");
+
+        } else if (errno != ENOENT)
+                  log_debug_errno(errno, "Unable to test whether /sys/kernel/security/tpm0/binary_bios_measurements exists, assuming it doesn't: %m");
+
+        return (cache = false);
 }
 
 #endif

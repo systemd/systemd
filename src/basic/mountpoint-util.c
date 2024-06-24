@@ -596,11 +596,14 @@ int dev_is_devtmpfs(void) {
         return false;
 }
 
-int mount_fd(const char *source,
-             int target_fd,
-             const char *filesystemtype,
-             unsigned long mountflags,
-             const void *data) {
+static int mount_fd(
+                const char *source,
+                int target_fd,
+                const char *filesystemtype,
+                unsigned long mountflags,
+                const void *data) {
+
+        assert(target_fd >= 0);
 
         if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
                 if (errno != ENOENT)
@@ -626,6 +629,8 @@ int mount_nofollow(
 
         _cleanup_close_ int fd = -EBADF;
 
+        assert(target);
+
         /* In almost all cases we want to manipulate the mount table without following symlinks, hence
          * mount_nofollow() is usually the way to go. The only exceptions are environments where /proc/ is
          * not available yet, since we need /proc/self/fd/ for this logic to work. i.e. during the early
@@ -642,7 +647,7 @@ int mount_nofollow(
         return mount_fd(source, fd, filesystemtype, mountflags, data);
 }
 
-const char *mount_propagation_flag_to_string(unsigned long flags) {
+const char* mount_propagation_flag_to_string(unsigned long flags) {
 
         switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
         case 0:

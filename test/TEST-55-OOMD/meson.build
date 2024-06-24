@@ -5,6 +5,7 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'credentials' : integration_test_template['credentials'] + [
                         files('systemd.unit-dropin.init.scope'),
-                ]
+                ],
+                'vm' : true,
         },
 ]

@@ -14,6 +14,7 @@
 
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "blkid-util.h"
@@ -43,7 +44,7 @@
 #include "id128-util.h"
 #include "initrd-util.h"
 #include "io-util.h"
-#include "json.h"
+#include "json-util.h"
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -140,7 +141,7 @@ static bool arg_randomize = false;
 static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
 static bool arg_size_auto = false;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static void *arg_key = NULL;
@@ -187,6 +188,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_defer_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
@@ -2980,7 +2982,7 @@ static int context_dump_partitions(Context *context) {
         const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16;
         bool has_roothash = false, has_dropin_files = false, has_split_path = false;
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
+        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
@@ -3006,7 +3008,7 @@ static int context_dump_partitions(Context *context) {
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 8, (size_t) 9, (size_t) 12, roothash_col, dropin_files_col,
                                                     split_path_col);
@@ -3089,7 +3091,7 @@ static int context_dump_partitions(Context *context) {
                 has_split_path = has_split_path || !isempty(p->split_path);
         }
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
+        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
                 const char *a, *b;
 
                 a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_size));
@@ -3356,17 +3358,17 @@ static int context_dump(Context *context, bool late) {
 
         assert(context);
 
-        if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return 0;
 
         /* If we're outputting JSON, only dump after doing all operations so we can include the roothashes
          * in the output.  */
-        if (!late && !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!late && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return 0;
 
         /* If we're not outputting JSON, only dump again after doing all operations if there are any
          * roothashes that we need to communicate to the user. */
-        if (late && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !context_has_roothash(context))
+        if (late && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && !context_has_roothash(context))
                 return 0;
 
         r = context_dump_partitions(context);
@@ -3375,7 +3377,7 @@ static int context_dump(Context *context, bool late) {
 
         /* Only write the partition bar once, even if we're writing the partition table twice to communicate
          * roothashes. */
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !late) {
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && !late) {
                 putc('\n', stdout);
 
                 r = context_dump_partition_bar(context);
@@ -3913,7 +3915,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 }
 
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
-#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
+#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && (HAVE_CRYPT_REENCRYPT_RUN || HAVE_CRYPT_REENCRYPT)
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
@@ -3929,7 +3931,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
         };
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+#if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+#endif
         _cleanup_fclose_ FILE *h = NULL;
         _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
@@ -4023,7 +4027,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 #if HAVE_TPM2
                 _cleanup_(iovec_done) struct iovec pubkey = {}, blob = {}, srk = {};
                 _cleanup_(iovec_done_erase) struct iovec secret = {};
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
@@ -4218,7 +4222,11 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to load reencryption context: %m");
 
+#if HAVE_CRYPT_REENCRYPT_RUN
+                r = sym_crypt_reencrypt_run(cd, NULL, NULL);
+#else
                 r = sym_crypt_reencrypt(cd, NULL);
+#endif
                 if (r < 0)
                         return log_error_errno(r, "Failed to encrypt %s: %m", node);
         } else {
@@ -4230,7 +4238,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 dm_name,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+                                (arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
 
@@ -4427,7 +4435,7 @@ static int sign_verity_roothash(
 }
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(iovec_done) struct iovec sig = {};
         _cleanup_free_ char *text = NULL, *hint = NULL;
         Partition *hp;
@@ -4459,20 +4467,15 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
 
-        r = json_build(&v,
-                        JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash.iov_base, hp->roothash.iov_len)),
-                                JSON_BUILD_PAIR(
-                                        "certificateFingerprint",
-                                        JSON_BUILD_HEX(fp, sizeof(fp))
-                                ),
-                                JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig))
-                        )
-        );
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(hp->roothash.iov_base, hp->roothash.iov_len)),
+                        SD_JSON_BUILD_PAIR("certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
+                        SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build verity signature JSON object: %m");
 
-        r = json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format verity signature JSON object: %m");
 

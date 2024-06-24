@@ -25,9 +25,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/coredump.conf</filename></member>
       <member><filename>/run/systemd/coredump.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/coredump.conf</filename></member>
       <member><filename>/usr/lib/systemd/coredump.conf</filename></member>
       <member><filename>/etc/systemd/coredump.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/coredump.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

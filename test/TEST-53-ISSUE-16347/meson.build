@@ -6,5 +6,6 @@ integration_tests += [
                 'mkosi-args' : integration_test_template['mkosi-args'] + [
                         '--configure-script', meson.current_source_dir() / 'mkosi.configure',
                 ],
+                'vm' : true,
         },
 ]

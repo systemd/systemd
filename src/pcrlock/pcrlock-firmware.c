@@ -100,12 +100,12 @@ int validate_firmware_header(
         if (size < (uint64_t) offsetof(TCG_PCClientPCREvent, event) + (uint64_t) h->eventDataSize)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log too short for TCG_PCClientPCREvent events data.");
 
-        if (h->pcrIndex != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected PCR index %" PRIu32, h->pcrIndex);
         if (h->eventType != EV_NO_ACTION)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected event type 0x%" PRIx32, h->eventType);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected event type 0x%08" PRIx32 ". (Probably not a TPM2 event log?)", h->eventType);
+        if (h->pcrIndex != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected PCR index %" PRIu32 ". (Probably not a TPM2 event log?)", h->pcrIndex);
         if (!memeqzero(h->digest, sizeof(h->digest)))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected non-zero digest.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header has unexpected non-zero digest. (Probably not a TPM2 event log?)");
 
         if (h->eventDataSize < offsetof(TCG_EfiSpecIDEvent, digestSizes))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Event log header too short for TCG_EfiSpecIdEvent.");

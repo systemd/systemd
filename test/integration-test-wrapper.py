@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 '''Test wrapper command for driving integration tests.
-
-Note: This is deliberately rough and only intended to drive existing tests
-with the expectation that as part of formally defining the API it will be tidy.
-
 '''
 
 import argparse
@@ -40,6 +36,7 @@ ExecStart=false
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--mkosi', required=True)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
@@ -47,6 +44,7 @@ def main():
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
@@ -57,6 +55,10 @@ def main():
 
     if args.slow and not bool(int(os.getenv("SYSTEMD_SLOW_TESTS", "0"))):
         print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
+    if args.vm and bool(int(os.getenv("TEST_NO_QEMU", "0"))):
+        print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
         exit(77)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
@@ -102,7 +104,7 @@ def main():
         journal_file = None
 
     cmd = [
-        'mkosi',
+        args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
@@ -126,6 +128,7 @@ def main():
         *args.mkosi_args,
         '--append',
         '--qemu-firmware', args.firmware,
+        '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
@@ -144,7 +147,7 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        'qemu',
+        'qemu' if args.vm or os.getuid() != 0 else 'boot',
     ]
 
     result = subprocess.run(cmd)
@@ -165,7 +168,7 @@ def main():
             j = json.loads(
                 subprocess.run(
                     [
-                        "mkosi",
+                        args.mkosi,
                         "--directory", os.fspath(args.meson_source_dir),
                         "--json",
                         "summary",

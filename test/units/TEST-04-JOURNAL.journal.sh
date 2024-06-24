@@ -104,12 +104,10 @@ diff /tmp/expected /tmp/output
 
 # test that LogLevelMax can also suppress logging about services, not only by services
 systemctl start silent-success
-journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
-journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
@@ -262,8 +260,8 @@ UNIT_NAME="test-cursor-$RANDOM.service"
 CURSOR_FILE="$(mktemp)"
 # Generate some messages we can match against
 journalctl --cursor-file="$CURSOR_FILE" -n1
-systemd-run --unit="$UNIT_NAME" --wait --service-type=exec bash -ec "sleep 2; set -x; echo hello; echo world; set +x; sleep 2"
-journalctl --sync
+systemd-run --unit="$UNIT_NAME" --wait --service-type=exec -p LogLevelMax=info \
+            bash -ec "set -x; echo hello; echo world; set +x; journalctl --sync"
 # --after-cursor= + --unit=
 # The format of the "Starting ..." message depends on StatusUnitFormat=, so match only the beginning
 # which should be enough in this case

@@ -10,8 +10,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
-"PO-Revision-Date: 2024-04-24 05:36+0000\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-04 05:35+0000\n"
 "Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1009,8 +1009,8 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Autentisering krävs för att konfigurera om nätverksgränssnitt."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
-msgstr "Specificera om beständig lagring för systemd-networkd är tillgänglig."
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "Specificera om beständig lagring för systemd-networkd är tillgänglig"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
@@ -1157,7 +1157,7 @@ msgstr ""
 "Autentisering krävs för att radera filer och kataloger associerade med "
 "”$(unit)”."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

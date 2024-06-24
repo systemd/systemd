@@ -122,6 +122,17 @@ Type=oneshot
 ExecStart=sleep infinity</programlisting>
       </listitem>
 
+      <listitem><para>On top of the above, templated units also need a configuration file for their slice, as
+      they by default use a slice named after the non-templated part of the unit. For example, for a
+      <filename>foo@test.service</filename> instance, a <filename>system-foo.slice</filename> unit may be
+      added with the following content:</para>
+
+      <programlisting>[Unit]
+SurviveFinalKillSignal=yes
+IgnoreOnIsolate=yes
+DefaultDependencies=no</programlisting>
+      </listitem>
+
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via
       <varname>DefaultDependencies=no</varname>, and by avoiding

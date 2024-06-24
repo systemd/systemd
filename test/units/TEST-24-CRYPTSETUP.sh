@@ -71,7 +71,7 @@ cryptsetup_start_and_check() {
         if [[ "$umount_header_and_key" -ne 0 ]]; then
             umount "$TMPFS_DETACHED_KEYFILE"
             umount "$TMPFS_DETACHED_HEADER"
-            udevadm settle --timeout=30
+            udevadm settle --timeout=60
         fi
 
         systemctl status "$unit"
@@ -143,18 +143,18 @@ cryptsetup luksAddKey --batch-mode \
 STORE_IMAGE="$WORKDIR/store.img"
 truncate -s 64M "$STORE_IMAGE"
 STORE_LOOP="$(losetup --show --find --partscan "$STORE_IMAGE")"
-sfdisk "$STORE_LOOP" <<EOF
+udevadm lock --device "$STORE_LOOP" sfdisk "$STORE_LOOP" <<EOF
 label: gpt
 type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=header_store size=32M
 type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=keyfile_store
 EOF
-udevadm settle --timeout=30
+udevadm settle --timeout=60
 mkdir -p /mnt
-mkfs.ext4 -L header_store "/dev/disk/by-partlabel/header_store"
+udevadm lock --device "/dev/disk/by-partlabel/header_store" mkfs.ext4 -L header_store "/dev/disk/by-partlabel/header_store"
 mount "/dev/disk/by-partlabel/header_store" /mnt
 cp "$IMAGE_DETACHED_HEADER" /mnt/header
 umount /mnt
-mkfs.ext4 -L keyfile_store "/dev/disk/by-partlabel/keyfile_store"
+udevadm lock --device "/dev/disk/by-partlabel/keyfile_store" mkfs.ext4 -L keyfile_store "/dev/disk/by-partlabel/keyfile_store"
 mount "/dev/disk/by-partlabel/keyfile_store" /mnt
 cp "$IMAGE_DETACHED_KEYFILE2" /mnt/keyfile
 umount /mnt
@@ -167,7 +167,7 @@ mount -t tmpfs -o size=32M tmpfs "$TMPFS_DETACHED_HEADER"
 cp "$IMAGE_DETACHED_KEYFILE" "$TMPFS_DETACHED_KEYFILE/keyfile"
 cp "$IMAGE_DETACHED_HEADER" "$TMPFS_DETACHED_HEADER/header"
 
-udevadm settle --timeout=30
+udevadm settle --timeout=60
 
 # Prepare our test crypttab
 [[ -e /etc/crypttab ]] && cp -fv /etc/crypttab /tmp/crypttab.bak

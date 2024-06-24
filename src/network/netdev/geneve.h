@@ -44,7 +44,7 @@ struct Geneve {
 DEFINE_NETDEV_CAST(GENEVE, Geneve);
 extern const NetDevVTable geneve_vtable;
 
-const char *geneve_df_to_string(GeneveDF d) _const_;
+const char* geneve_df_to_string(GeneveDF d) _const_;
 GeneveDF geneve_df_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_vni);

@@ -437,7 +437,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u);
 
 void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
-const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
+const char* unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 int unit_default_cgroup_path(const Unit *u, char **ret);
 int unit_set_cgroup_path(Unit *u, const char *path);
 int unit_pick_cgroup_path(Unit *u);
@@ -537,7 +537,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
 const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
 CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
 
-const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
+const char* cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
 CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;
 
 const char* cgroup_ip_accounting_metric_to_string(CGroupIPAccountingMetric m) _const_;

@@ -6,8 +6,9 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "io-util.h"
-#include "varlink-idl.h"
 #include "log.h"
+#include "string-util.h"
+#include "varlink-idl.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;

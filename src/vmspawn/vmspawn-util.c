@@ -4,13 +4,15 @@
 #include <linux/vhost.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "json.h"
+#include "json-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -140,52 +142,52 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(FirmwareData*, firmware_data_free);
 
-static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware),        JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware_format), JSON_MANDATORY },
+static int firmware_executable(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field table[] = {
+                { "filename", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware),        SD_JSON_MANDATORY },
+                { "format",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware_format), SD_JSON_MANDATORY },
                 {}
         };
 
-        return json_dispatch(v, table, flags, userdata);
+        return sd_json_dispatch(v, table, flags, userdata);
 }
 
-static int firmware_nvram_template(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars),        JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars_format), JSON_MANDATORY },
+static int firmware_nvram_template(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field table[] = {
+                { "filename", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, vars),        SD_JSON_MANDATORY },
+                { "format",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, vars_format), SD_JSON_MANDATORY },
                 {}
         };
 
-        return json_dispatch(v, table, flags, userdata);
+        return sd_json_dispatch(v, table, flags, userdata);
 }
 
-static int firmware_mapping(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        static const JsonDispatch table[] = {
-                { "device",         JSON_VARIANT_STRING, NULL,                    0, JSON_MANDATORY },
-                { "executable",     JSON_VARIANT_OBJECT, firmware_executable,     0, JSON_MANDATORY },
-                { "nvram-template", JSON_VARIANT_OBJECT, firmware_nvram_template, 0, JSON_MANDATORY },
+static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field table[] = {
+                { "device",         SD_JSON_VARIANT_STRING, NULL,                    0, SD_JSON_MANDATORY },
+                { "executable",     SD_JSON_VARIANT_OBJECT, firmware_executable,     0, SD_JSON_MANDATORY },
+                { "nvram-template", SD_JSON_VARIANT_OBJECT, firmware_nvram_template, 0, SD_JSON_MANDATORY },
                 {}
         };
 
-        return json_dispatch(v, table, flags, userdata);
+        return sd_json_dispatch(v, table, flags, userdata);
 }
 
-static int target_architecture(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
+static int target_architecture(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         int r;
-        JsonVariant *e;
+        sd_json_variant *e;
         char ***supported_architectures = ASSERT_PTR(userdata);
 
-        static const JsonDispatch table[] = {
-                { "architecture", JSON_VARIANT_STRING, json_dispatch_string, 0, JSON_MANDATORY },
-                { "machines",     JSON_VARIANT_ARRAY,  NULL,                 0, JSON_MANDATORY },
+        static const sd_json_dispatch_field table[] = {
+                { "architecture", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+                { "machines",     SD_JSON_VARIANT_ARRAY,  NULL,                    0, SD_JSON_MANDATORY },
                 {}
         };
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 _cleanup_free_ char *arch = NULL;
 
-                r = json_dispatch(e, table, flags, &arch);
+                r = sd_json_dispatch(e, table, flags, &arch);
                 if (r < 0)
                         return r;
 
@@ -251,8 +253,8 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
         assert(path);
         assert(ret);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
-        r = json_parse_file(
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        r = sd_json_parse_file(
                         /* f= */ NULL,
                         path,
                         /* flags= */ 0,
@@ -262,13 +264,13 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
         if (r < 0)
                 return r;
 
-        static const JsonDispatch table[] = {
-                { "description",     JSON_VARIANT_STRING, NULL,                0,                                     JSON_MANDATORY },
-                { "interface-types", JSON_VARIANT_ARRAY,  NULL,                0,                                     JSON_MANDATORY },
-                { "mapping",         JSON_VARIANT_OBJECT, firmware_mapping,    0,                                     JSON_MANDATORY },
-                { "targets",         JSON_VARIANT_ARRAY,  target_architecture, offsetof(FirmwareData, architectures), JSON_MANDATORY },
-                { "features",        JSON_VARIANT_ARRAY,  json_dispatch_strv,  offsetof(FirmwareData, features),      JSON_MANDATORY },
-                { "tags",            JSON_VARIANT_ARRAY,  NULL,                0,                                     JSON_MANDATORY },
+        static const sd_json_dispatch_field table[] = {
+                { "description",     SD_JSON_VARIANT_STRING, NULL,                  0,                                     SD_JSON_MANDATORY },
+                { "interface-types", SD_JSON_VARIANT_ARRAY,  NULL,                  0,                                     SD_JSON_MANDATORY },
+                { "mapping",         SD_JSON_VARIANT_OBJECT, firmware_mapping,      0,                                     SD_JSON_MANDATORY },
+                { "targets",         SD_JSON_VARIANT_ARRAY,  target_architecture,   offsetof(FirmwareData, architectures), SD_JSON_MANDATORY },
+                { "features",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv, offsetof(FirmwareData, features),      SD_JSON_MANDATORY },
+                { "tags",            SD_JSON_VARIANT_ARRAY,  NULL,                  0,                                     SD_JSON_MANDATORY },
                 {}
         };
 
@@ -277,7 +279,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
         if (!fwd)
                 return -ENOMEM;
 
-        r = json_dispatch(json, table, JSON_ALLOW_EXTENSIONS, fwd);
+        r = sd_json_dispatch(json, table, SD_JSON_ALLOW_EXTENSIONS, fwd);
         if (r < 0)
                 return r;
 

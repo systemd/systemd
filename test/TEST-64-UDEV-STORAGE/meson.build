@@ -4,7 +4,11 @@ name = fs.name(meson.current_source_dir())
 unit = configure_file(
         input : files('../test.service.in'),
         output : '@0@.service'.format(name),
-        configuration : integration_test_template['configuration'],
+        # Disable user service manager by default for performance.
+        configuration : integration_test_template['configuration'] + {
+              'wants' : '',
+              'after' : '',
+        },
 )
 
 foreach testcase : [
@@ -14,11 +18,11 @@ foreach testcase : [
         'lvm_basic',
         'mdadm_basic',
         'mdadm_lvm',
-        'megasas2_basic',
         'multipath_basic_failover',
         'nvme_basic',
         'nvme_subsystem',
         'simultaneous_events',
+        'virtio_scsi_basic',
         'virtio_scsi_identically_named_partitions',
 ]
         integration_tests += [
@@ -33,6 +37,7 @@ foreach testcase : [
                                 '--configure-script', files('@0@.configure'.format(testcase)),
                         ],
                         'priority' : 10,
+                        'vm' : true,
                 },
         ]
 endforeach

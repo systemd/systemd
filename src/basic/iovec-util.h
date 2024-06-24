@@ -8,11 +8,8 @@
 #include "alloc-util.h"
 #include "macro.h"
 
-/* An iovec pointing to a single NUL byte */
-#define IOVEC_NUL_BYTE (const struct iovec) {                   \
-                .iov_base = (void*) (const uint8_t[1]) { 0 },   \
-                .iov_len = 1,                                   \
-        }
+extern const struct iovec iovec_nul_byte; /* Points to a single NUL byte */
+extern const struct iovec iovec_empty;    /* Points to an empty, but valid (i.e. non-NULL) pointer */
 
 size_t iovec_total_size(const struct iovec *iovec, size_t n);
 

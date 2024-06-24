@@ -40,7 +40,7 @@ char* cpu_set_to_string(const CPUSet *a) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
-char *cpu_set_to_range_string(const CPUSet *set) {
+char* cpu_set_to_range_string(const CPUSet *set) {
         unsigned range_start = 0, range_end;
         _cleanup_free_ char *str = NULL;
         bool in_range = false;

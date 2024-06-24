@@ -22,6 +22,7 @@
 #include "chase.h"
 #include "daemon-util.h"
 #include "data-fd-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "memstream-util.h"
@@ -98,6 +99,19 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         return 0;
 }
 
+static bool idle_allowed(void) {
+        static int allowed = -1;
+
+        if (allowed >= 0)
+                return allowed;
+
+        allowed = secure_getenv_bool("SYSTEMD_EXIT_ON_IDLE");
+        if (allowed < 0 && allowed != -ENXIO)
+                log_debug_errno(allowed, "Failed to parse $SYSTEMD_EXIT_ON_IDLE, ignoring: %m");
+
+        return allowed != 0;
+}
+
 int bus_event_loop_with_idle(
                 sd_event *e,
                 sd_bus *bus,
@@ -122,7 +136,9 @@ int bus_event_loop_with_idle(
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                if (check_idle)
+                if (!idle_allowed() || sd_bus_pending_method_calls(bus) > 0)
+                        idle = false;
+                else if (check_idle)
                         idle = check_idle(userdata);
                 else
                         idle = true;
@@ -132,6 +148,8 @@ int bus_event_loop_with_idle(
                         return r;
 
                 if (r == 0 && !exiting && idle) {
+                        log_debug("Idle for %s, exiting.", FORMAT_TIMESPAN(timeout, 1));
+
                         /* Inform the service manager that we are going down, so that it will queue all
                          * further start requests, instead of assuming we are still running. */
                         (void) sd_notify(false, NOTIFY_STOPPING);

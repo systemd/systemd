@@ -66,6 +66,13 @@ sd_login_sources = files('sd-login/sd-login.c')
 
 ############################################################
 
+sd_json_sources = files(
+        'sd-json/json-util.c',
+        'sd-json/sd-json.c',
+)
+
+############################################################
+
 libsystemd_sources = files(
         'sd-bus/bus-common-errors.c',
         'sd-bus/bus-container.c',
@@ -109,7 +116,7 @@ libsystemd_sources = files(
         'sd-network/sd-network.c',
         'sd-path/sd-path.c',
         'sd-resolve/sd-resolve.c',
-) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
+) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources + sd_json_sources
 
 libsystemd_c_args = ['-fvisibility=default']
 
@@ -120,6 +127,7 @@ libsystemd_static = static_library(
         c_args : libsystemd_c_args,
         link_with : [libbasic],
         dependencies : [threads,
+                        libm,
                         librt,
                         userspace],
         build_by_default : false)

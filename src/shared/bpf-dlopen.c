@@ -18,36 +18,36 @@
 #define MODERN_LIBBPF 0
 #endif
 
-DLSYM_FUNCTION(bpf_link__destroy);
-DLSYM_FUNCTION(bpf_link__fd);
-DLSYM_FUNCTION(bpf_link__open);
-DLSYM_FUNCTION(bpf_link__pin);
-DLSYM_FUNCTION(bpf_map__fd);
-DLSYM_FUNCTION(bpf_map__name);
-DLSYM_FUNCTION(bpf_map__set_inner_map_fd);
-DLSYM_FUNCTION(bpf_map__set_max_entries);
-DLSYM_FUNCTION(bpf_map__set_pin_path);
-DLSYM_FUNCTION(bpf_map_delete_elem);
-DLSYM_FUNCTION(bpf_map_get_fd_by_id);
-DLSYM_FUNCTION(bpf_map_lookup_elem);
-DLSYM_FUNCTION(bpf_map_update_elem);
-DLSYM_FUNCTION(bpf_object__attach_skeleton);
-DLSYM_FUNCTION(bpf_object__destroy_skeleton);
-DLSYM_FUNCTION(bpf_object__detach_skeleton);
-DLSYM_FUNCTION(bpf_object__load_skeleton);
-DLSYM_FUNCTION(bpf_object__name);
-DLSYM_FUNCTION(bpf_object__open_skeleton);
-DLSYM_FUNCTION(bpf_object__pin_maps);
-DLSYM_FUNCTION(bpf_program__attach);
-DLSYM_FUNCTION(bpf_program__attach_cgroup);
-DLSYM_FUNCTION(bpf_program__attach_lsm);
-DLSYM_FUNCTION(bpf_program__name);
-DLSYM_FUNCTION(libbpf_get_error);
-DLSYM_FUNCTION(libbpf_set_print);
-DLSYM_FUNCTION(ring_buffer__epoll_fd);
-DLSYM_FUNCTION(ring_buffer__free);
-DLSYM_FUNCTION(ring_buffer__new);
-DLSYM_FUNCTION(ring_buffer__poll);
+DLSYM_PROTOTYPE(bpf_link__destroy) = NULL;
+DLSYM_PROTOTYPE(bpf_link__fd) = NULL;
+DLSYM_PROTOTYPE(bpf_link__open) = NULL;
+DLSYM_PROTOTYPE(bpf_link__pin) = NULL;
+DLSYM_PROTOTYPE(bpf_map__fd) = NULL;
+DLSYM_PROTOTYPE(bpf_map__name) = NULL;
+DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd) = NULL;
+DLSYM_PROTOTYPE(bpf_map__set_max_entries) = NULL;
+DLSYM_PROTOTYPE(bpf_map__set_pin_path) = NULL;
+DLSYM_PROTOTYPE(bpf_map_delete_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_map_get_fd_by_id) = NULL;
+DLSYM_PROTOTYPE(bpf_map_lookup_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_map_update_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_object__attach_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__destroy_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__detach_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__load_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__name) = NULL;
+DLSYM_PROTOTYPE(bpf_object__open_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__pin_maps) = NULL;
+DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
+DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
+DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
+DLSYM_PROTOTYPE(bpf_program__name) = NULL;
+DLSYM_PROTOTYPE(libbpf_get_error) = NULL;
+DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
+DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
+DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
+DLSYM_PROTOTYPE(ring_buffer__new) = NULL;
+DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
@@ -179,6 +179,23 @@ int dlopen_bpf(void) {
         REENABLE_WARNING;
 
         return r;
+}
+
+int bpf_get_error_translated(const void *ptr) {
+        int r;
+
+        r = sym_libbpf_get_error(ptr);
+
+        switch (r) {
+        case -524:
+                /* Workaround for kernel bug, BPF returns an internal error instead of translating it, until
+                 * it is fixed:
+                 * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/errno.h?h=v6.9&id=a38297e3fb012ddfa7ce0321a7e5a8daeb1872b6#n27
+                 */
+                return -EOPNOTSUPP;
+        default:
+                return r;
+        }
 }
 
 #else

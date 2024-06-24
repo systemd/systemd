@@ -3,4 +3,4 @@
 
 #include "varlink.h"
 
-int vl_method_register(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
+int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata);

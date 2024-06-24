@@ -1639,13 +1639,10 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                         break;
         }
 
-        if (n_items <= 0) {
-                *ret = NULL;
-                return 0;
-        }
+        assert((n_items > 0) == !!items);
+        assert(n_items <= INT_MAX);
 
         *ret = TAKE_PTR(items);
-
         return (int) n_items;
 }
 

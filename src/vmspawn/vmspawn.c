@@ -2051,7 +2051,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 bus,
                                 arg_machine,
                                 arg_uuid,
-                                trans_scope,
+                                "systemd-vmspawn",
                                 arg_directory,
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,

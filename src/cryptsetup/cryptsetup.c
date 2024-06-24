@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -28,6 +29,7 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
+#include "json-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -95,6 +97,10 @@ static bool arg_fido2_device_auto = false;
 static void *arg_fido2_cid = NULL;
 static size_t arg_fido2_cid_size = 0;
 static char *arg_fido2_rp_id = NULL;
+/* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
+ * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
+ * use PIN + UP when needed, and do not configure UV at all. */
+static Fido2EnrollFlags arg_fido2_manual_flags = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
 static char *arg_tpm2_device = NULL; /* These and the following fields are about locking an encrypted volume to the local TPM */
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
@@ -392,6 +398,39 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
+        } else if ((val = startswith(option, "fido2-pin="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_PIN_IF_NEEDED;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_PIN, r);
+
+        } else if ((val = startswith(option, "fido2-up="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_UP_IF_NEEDED;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_UP, r);
+
+        } else if ((val = startswith(option, "fido2-uv="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_fido2_manual_flags &= ~FIDO2ENROLL_UV_OMIT;
+                SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_UV, r);
+
         } else if ((val = startswith(option, "tpm2-device="))) {
 
                 if (streq(val, "auto")) {
@@ -448,7 +487,7 @@ static int parse_one_option(const char *option) {
                 if (r < 0) {
                         r = parse_boolean(val);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                                log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                                 return 0;
                         }
 
@@ -515,14 +554,15 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "link-volume-key="))) {
 #ifdef HAVE_CRYPT_SET_KEYRING_TO_LINK
-                const char *sep, *c;
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
+                const char *sep;
 
                 /* Stick with cryptsetup --link-vk-to-keyring format
                  * <keyring_description>::%<key_type>:<key_description>,
                  * where %<key_type> is optional and defaults to 'user'.
                  */
-                if (!(sep = strstr(val, "::")))
+                sep = strstr(val, "::");
+                if (!sep)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                 /* cryptsetup (cli) supports <keyring_description> passed in various formats:
@@ -543,7 +583,8 @@ static int parse_one_option(const char *option) {
                 /* %<key_type> is optional (and defaults to 'user') */
                 if (*sep == '%') {
                         /* must be separated by colon */
-                        if (!(c = strchr(sep, ':')))
+                        const char *c = strchr(sep, ':');
+                        if (!c)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                         key_type = strndup(sep + 1, c - sep - 1);
@@ -720,9 +761,9 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
 
         /* Iterate all LUKS2 tokens and keep track of all their slots */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 const char *type;
-                JsonVariant *w, *z;
+                sd_json_variant *w, *z;
                 int tk;
 
                 tk = cryptsetup_get_token_as_json(cd, token, NULL, &v);
@@ -733,21 +774,21 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                         continue;
                 }
 
-                w = json_variant_by_key(v, "type");
-                if (!w || !json_variant_is_string(w)) {
+                w = sd_json_variant_by_key(v, "type");
+                if (!w || !sd_json_variant_is_string(w)) {
                         log_warning("Token JSON data lacks type field, ignoring.");
                         continue;
                 }
 
-                type = json_variant_string(w);
+                type = sd_json_variant_string(w);
                 if (STR_IN_SET(type, "systemd-recovery", "systemd-pkcs11", "systemd-fido2", "systemd-tpm2")) {
 
                         /* At least exists one recovery key */
                         if (streq(type, "systemd-recovery"))
                                 passphrase_type |= PASSPHRASE_RECOVERY_KEY;
 
-                        w = json_variant_by_key(v, "keyslots");
-                        if (!w || !json_variant_is_array(w)) {
+                        w = sd_json_variant_by_key(v, "keyslots");
+                        if (!w || !sd_json_variant_is_array(w)) {
                                 log_warning("Token JSON data lacks keyslots field, ignoring.");
                                 continue;
                         }
@@ -756,12 +797,12 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                                 unsigned u;
                                 int at;
 
-                                if (!json_variant_is_string(z)) {
+                                if (!sd_json_variant_is_string(z)) {
                                         log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
                                         continue;
                                 }
 
-                                at = safe_atou(json_variant_string(z), &u);
+                                at = safe_atou(sd_json_variant_string(z), &u);
                                 if (at < 0) {
                                         log_warning_errno(at, "Token JSON data's keyslot field is not an integer formatted as string, ignoring.");
                                         continue;
@@ -1212,7 +1253,7 @@ static int run_security_device_monitor(
         }
 }
 
-static bool libcryptsetup_plugins_support(void) {
+static bool use_token_plugins(void) {
 
 #if HAVE_TPM2
         /* Currently, there's no way for us to query the volume key when plugins are used. Hence don't use
@@ -1220,6 +1261,10 @@ static bool libcryptsetup_plugins_support(void) {
         if (arg_tpm2_measure_pcr != UINT_MAX)
                 return false;
 #endif
+
+        /* Disable tokens if we're in FIDO2 mode with manual parameters. */
+        if (arg_fido2_cid)
+                return false;
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         int r;
@@ -1359,33 +1404,18 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        size_t decrypted_key_size, cid_size = 0;
+        size_t decrypted_key_size;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        const char *rp_id = NULL;
-        const void *cid = NULL;
-        Fido2EnrollFlags required;
-        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        bool use_libcryptsetup_plugin = use_token_plugins();
 
         assert(cd);
         assert(name);
         assert(arg_fido2_device || arg_fido2_device_auto);
 
-        if (arg_fido2_cid) {
-                if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
-
-                rp_id = arg_fido2_rp_id;
-                cid = arg_fido2_cid;
-                cid_size = arg_fido2_cid_size;
-
-                /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
-                 * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
-                 * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
-                 * explicitly configurable. */
-                required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
-        }
+        if (arg_fido2_cid && !key_file && !key_data)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
         friendly = friendly_disk_name(crypt_get_device_name(cd), name);
         if (!friendly)
@@ -1399,17 +1429,17 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
 
                 } else {
-                        if (cid)
+                        if (arg_fido2_cid)
                                 r = acquire_fido2_key(
                                                 name,
                                                 friendly,
                                                 arg_fido2_device,
-                                                rp_id,
-                                                cid, cid_size,
+                                                arg_fido2_rp_id,
+                                                arg_fido2_cid, arg_fido2_cid_size,
                                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                                 key_data, key_data_size,
                                                 until,
-                                                required,
+                                                arg_fido2_manual_flags,
                                                 "cryptsetup.fido2-pin",
                                                 arg_ask_password_flags,
                                                 &decrypted_key,
@@ -1529,7 +1559,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_free_ void *discovered_key = NULL;
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
-        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        bool use_libcryptsetup_plugin = use_token_plugins();
 
         assert(cd);
         assert(name);
@@ -1683,20 +1713,6 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
-static bool use_token_plugins(void) {
-        int r;
-
-        /* Disable tokens if we shall measure, since we won't get access to the volume key then. */
-        if (arg_tpm2_measure_pcr != UINT_MAX)
-                return false;
-
-        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
-
-        return r != 0;
-}
-
 static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
@@ -1711,9 +1727,9 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .pcrlock_path = arg_tpm2_pcrlock,
         };
 
-        if (!libcryptsetup_plugins_support())
+        if (!use_token_plugins())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Libcryptsetup has external plugins support disabled.");
+                                       "libcryptsetup has external plugins support disabled.");
 
         return crypt_activate_by_token_pin_ask_password(
                         cd,
@@ -2416,8 +2432,10 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
+                bool use_cached_passphrase = true;
+                _cleanup_strv_free_erase_ char **passwords = NULL;
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
+                        log_debug("Beginning attempt %u to unlock.", tries);
 
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
@@ -2428,7 +2446,9 @@ static int run(int argc, char *argv[]) {
                          *    5. We enquire the user for a password
                          */
 
-                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
+                        if (!passwords && !key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
+
+                                /* If we have nothing to try anymore, then acquire a new password */
 
                                 if (arg_try_empty_password) {
                                         /* Hmm, let's try an empty password now, but only once */
@@ -2448,7 +2468,8 @@ static int run(int argc, char *argv[]) {
                                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                         }
 
-                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, passphrase_type, &passwords);
+                                        r = get_password(volume, source, until, use_cached_passphrase && !arg_verify, passphrase_type, &passwords);
+                                        use_cached_passphrase = false;
                                         if (r == -EAGAIN)
                                                 continue;
                                         if (r < 0)
@@ -2465,17 +2486,44 @@ static int run(int argc, char *argv[]) {
                         if (r != -EAGAIN)
                                 return r;
 
-                        /* Key not correct? Let's try again! */
+                        /* Key not correct? Let's try again, but let's invalidate one of the passed fields,
+                         * so that we fallback to the next best thing. */
 
-                        key_file = NULL;
-                        key_data = erase_and_free(key_data);
-                        key_data_size = 0;
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = false;
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = false;
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = false;
+                        if (arg_tpm2_device || arg_tpm2_device_auto) {
+                                arg_tpm2_device = mfree(arg_tpm2_device);
+                                arg_tpm2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_fido2_device || arg_fido2_device_auto) {
+                                arg_fido2_device = mfree(arg_fido2_device);
+                                arg_fido2_device_auto = false;
+                                continue;
+                        }
+
+                        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
+                                arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                                arg_pkcs11_uri_auto = false;
+                                continue;
+                        }
+
+                        if (key_data) {
+                                key_data = erase_and_free(key_data);
+                                key_data_size = 0;
+                                continue;
+                        }
+
+                        if (key_file) {
+                                key_file = NULL;
+                                continue;
+                        }
+
+                        if (passwords) {
+                                passwords = strv_free_erase(passwords);
+                                continue;
+                        }
+
+                        log_debug("Prepared for next attempt to unlock.");
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
@@ -2485,7 +2533,7 @@ static int run(int argc, char *argv[]) {
                 const char *volume = ASSERT_PTR(argv[optind + 1]);
 
                 if (argc - optind >= 3)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach does not accept more than one argument.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach does not accept more than one argument.");
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);

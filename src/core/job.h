@@ -218,7 +218,7 @@ int job_start_timer(Job *j, bool job_running);
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already);
 
-char *job_dbus_path(Job *j);
+char* job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 

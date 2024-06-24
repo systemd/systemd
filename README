@@ -270,8 +270,8 @@ REQUIREMENTS:
         longer supported, and moving everything under /usr/ is required. Systems
         with a separate /usr/ partition must mount it before transitioning into it
         (i.e.: from the initrd). For more information see:
-        https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
-        https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge
+        https://systemd.io/SEPARATE_USR_IS_BROKEN
+        https://systemd.io/THE_CASE_FOR_THE_USR_MERGE
 
         Additional packages are necessary to run some tests:
         - nc                 (used by test/TEST-12-ISSUE-3171)
@@ -446,5 +446,4 @@ STABLE BRANCHES AND BACKPORTS:
         Stable branches are started for certain releases of systemd and named
         after them, e.g. v238-stable. Stable branches are managed by
         distribution maintainers on an as needed basis. See
-        https://www.freedesktop.org/wiki/Software/systemd/Backports for some
-        more information and examples.
+        https://systemd.io/BACKPORTS for some more information and examples.

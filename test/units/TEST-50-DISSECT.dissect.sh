@@ -724,7 +724,10 @@ systemd-sysext unmerge --no-reload
 systemd-sysext merge
 journalctl --sync
 set +o pipefail
-timeout -v 30s journalctl -b -u foo.service _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'
+# "journalctl -u foo.service" may not work as expected, especially entries for _TRANSPORT=stdout,
+# for short-living services or when the service manager generates debugging logs.
+# Instead, SYSLOG_IDENTIFIER= should be reliable for stdout. Let's use it.
+timeout -v 30s journalctl -b SYSLOG_IDENTIFIER=echo _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'
 set -o pipefail
 systemd-sysext unmerge --no-reload
 # Grep on the Warning to find the warning helper mentioning the daemon reload.

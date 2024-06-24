@@ -69,6 +69,7 @@ shared_sources = files(
         'exit-status.c',
         'extension-util.c',
         'fdset.c',
+        'fido2-util.c',
         'fileio-label.c',
         'find-esp.c',
         'firewall-util-nft.c',
@@ -96,10 +97,9 @@ shared_sources = files(
         'journal-file-util.c',
         'journal-importer.c',
         'journal-util.c',
-        'json.c',
         'kbd-util.c',
+        'kernel-config.c',
         'kernel-image.c',
-        'keyring-util.c',
         'killall.c',
         'label-util.c',
         'libarchive-util.c',
@@ -157,6 +157,7 @@ shared_sources = files(
         'service-util.c',
         'sleep-config.c',
         'smack-util.c',
+        'smbios11.c',
         'socket-label.c',
         'socket-netlink.c',
         'spawn-ask-password-agent.c',
@@ -300,7 +301,7 @@ shared_sources += shared_generated_gperf_headers
 fname = 'ethtool-link-mode.h'
 ethtool_link_mode_h = custom_target(
         fname,
-        input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
         capture : true)
@@ -309,7 +310,7 @@ shared_sources += ethtool_link_mode_h
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(
         fname,
-        input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
         capture : true)

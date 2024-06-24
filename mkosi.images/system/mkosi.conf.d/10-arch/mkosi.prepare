@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ "$1" = "build" ]; then
+if [ "$1" = "build" ] || ((NO_BUILD)); then
     exit 0
 fi
 

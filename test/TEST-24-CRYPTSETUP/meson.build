@@ -15,10 +15,12 @@ integration_tests += [
                         'luks.options=0d318174-56b0-4d6e-a324-ac1e7e7d235d=x-initrd.attach',
                 ],
                 'qemu-args' : [
-                        '-drive', 'format=raw,cache=unsafe,file=@0@'.format(project_build_root / 'mkosi.output/keydev.raw'),
+                        '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@0@'.format(project_build_root / 'mkosi.output/keydev.raw'),
+                        '-device', 'scsi-hd,drive=keydev',
                 ],
                 'mkosi-args' : integration_test_template['mkosi-args'] + [
                         '--runtime-size=11G',
                 ],
+                'vm' : true,
         },
 ]

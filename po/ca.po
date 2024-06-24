@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2018-02-27 04:18-0500\n"
 "Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
 "Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
@@ -1068,7 +1068,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Es requereix autenticació per reiniciar el sistema."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1215,7 +1215,7 @@ msgid ""
 "'$(unit)'."
 msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

@@ -8,7 +8,7 @@
 extern const BusObjectImplementation image_object;
 
 int manager_acquire_image(Manager *m, const char *name, Image **ret);
-char *image_bus_path(const char *name);
+char* image_bus_path(const char *name);
 
 int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_rename(sd_bus_message *message, void *userdata, sd_bus_error *error);

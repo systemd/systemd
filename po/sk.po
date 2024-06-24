@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2021-02-22 20:21+0000\n"
 "Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
@@ -1014,7 +1014,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1158,7 +1158,7 @@ msgid ""
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

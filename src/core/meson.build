@@ -143,6 +143,7 @@ core_includes = [includes, include_directories('.')]
 systemd_sources = files(
         'main.c',
         'crash-handler.c',
+        'clock-warp.c',
 )
 
 systemd_executor_sources = files(

@@ -51,7 +51,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
         /* If bpf_program__attach_lsm fails the resulting value stores libbpf error code instead of memory
          * pointer. That is the case when the helper is called on architectures where BPF trampoline (hence
          * BPF_LSM_MAC attach type) is not supported. */
-        return sym_libbpf_get_error(link) == 0;
+        return bpf_get_error_translated(link) == 0;
 }
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
@@ -139,7 +139,7 @@ int bpf_restrict_fs_setup(Manager *m) {
                 return r;
 
         link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
-        r = sym_libbpf_get_error(link);
+        r = bpf_get_error_translated(link);
         if (r != 0)
                 return log_error_errno(r, "bpf-restrict-fs: Failed to link '%s' LSM BPF program: %m",
                                        sym_bpf_program__name(obj->progs.restrict_filesystems));

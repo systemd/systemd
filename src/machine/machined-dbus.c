@@ -218,21 +218,26 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
+static int method_create_or_register_machine(
+                Manager *manager,
+                sd_bus_message *message,
+                bool read_network,
+                Machine **ret,
+                sd_bus_error *error) {
+
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *name, *service, *class, *root_directory;
         const int32_t *netif = NULL;
         MachineClass c;
         uint32_t leader;
         sd_id128_t id;
-        const void *v;
         Machine *m;
-        size_t n, n_netif = 0;
+        size_t n_netif = 0;
         int r;
 
         assert(manager);
         assert(message);
-        assert(_m);
+        assert(ret);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -240,14 +245,8 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         if (!hostname_is_valid(name, 0))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
-        r = sd_bus_message_read_array(message, 'y', &v, &n);
+        r = bus_message_read_id128(message, &id);
         if (r < 0)
-                return r;
-        if (n == 0)
-                id = SD_ID128_NULL;
-        else if (n == 16)
-                memcpy(&id, v, n);
-        else
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine ID parameter");
 
         r = sd_bus_message_read(message, "ssus", &service, &class, &leader, &root_directory);
@@ -282,22 +281,14 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
-                        return r;
-
-                assert_cc(sizeof(uint32_t) == sizeof(pid_t));
-
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
+        } else {
+                r = pidref_set_pid(&pidref, leader);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
         }
-
-        r = pidref_set_pid(&pidref, leader);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", pidref.pid);
 
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
@@ -337,8 +328,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 m->n_netif = n_netif;
         }
 
-        *_m = m;
-
+        *ret = m;
         return 1;
 
 fail:
@@ -393,7 +383,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         if (r < 0)
                 return r;
 
-        r = cg_pid_get_unit(m->leader.pid, &m->unit);
+        r = cg_pidref_get_unit(&m->leader, &m->unit);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",

@@ -6,14 +6,26 @@
 #include "set.h"
 #include "unit-name.h"
 
-int drop_in_file(const char *dir, const char *unit, unsigned level,
-                 const char *name, char **_p, char **_q);
+int drop_in_file(
+                const char *dir,
+                const char *unit,
+                unsigned level,
+                const char *name,
+                char **ret_unit_dir,
+                char **ret_path);
 
-int write_drop_in(const char *dir, const char *unit, unsigned level,
-                  const char *name, const char *data);
-
-int write_drop_in_format(const char *dir, const char *unit, unsigned level,
-                         const char *name, const char *format, ...) _printf_(5, 6);
+int write_drop_in(
+                const char *dir,
+                const char *unit,
+                unsigned level,
+                const char *name,
+                const char *data);
+int write_drop_in_format(
+                const char *dir,
+                const char *unit,
+                unsigned level,
+                const char *name,
+                const char *format, ...) _printf_(5, 6);
 
 int unit_file_find_dropin_paths(
                 const char *original_root,

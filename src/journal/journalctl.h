@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
-#include "json.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "pcre2-util.h"
@@ -37,7 +37,7 @@ typedef enum JournalctlAction {
 
 extern JournalctlAction arg_action;
 extern OutputMode arg_output;
-extern JsonFormatFlags arg_json_format_flags;
+extern sd_json_format_flags_t arg_json_format_flags;
 extern PagerFlags arg_pager_flags;
 extern bool arg_utc;
 extern bool arg_follow;

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ "$1" = "build" ]; then
+if [ "$1" = "build" ] || ((NO_BUILD)); then
     exit 0
 fi
 
@@ -23,7 +23,7 @@ for DEPS in --requires --buildrequires; do
         --define "_topdir /var/tmp" \
         --define "_sourcedir pkg/$ID" \
         "pkg/$ID/systemd.spec" |
-            grep --invert-match --regexp systemd --regexp /bin/sh --regexp "rpmlib(" --regexp udev |
+            grep --invert-match --regexp systemd --regexp /bin/sh --regexp "rpmlib(" --regexp udev --regexp grubby --regexp sdubby |
             sort --unique |
             tee /tmp/buildrequires |
             xargs --delimiter '\n' mkosi-install

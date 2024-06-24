@@ -46,7 +46,7 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
@@ -56,22 +56,43 @@ jobs:
         include:
           - distro: arch
             release: rolling
+            sanitizers: ""
+            llvm: 0
+            cflags: "-O2 -D_FORTIFY_SOURCE=3"
           - distro: debian
             release: testing
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
           - distro: ubuntu
             release: noble
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
           - distro: fedora
             release: "40"
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
           - distro: fedora
             release: rawhide
+            sanitizers: address,undefined
+            llvm: 1
+            cflags: "-Og"
           - distro: opensuse
             release: tumbleweed
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
           - distro: centos
             release: "9"
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
 
     steps:
-    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
-    - uses: systemd/mkosi@55f17a8ae67ece9712324c3107804daad94ad0d9
+    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
+    - uses: systemd/mkosi@6972f9efba5c8472d990be3783b7e7dbf76e109e
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
@@ -96,6 +117,8 @@ jobs:
 
     - name: Configure
       run: |
+        # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
+        sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
         tee mkosi.local.conf <<EOF
         [Distribution]
         Distribution=${{ matrix.distro }}
@@ -111,29 +134,17 @@ jobs:
 
         [Content]
         Environment=
-                # mkfs.erofs is extremely noisy when not connected to a tty.
-                SYSTEMD_REPART_MKFS_OPTIONS_EROFS="--quiet"
                 # Build debuginfo packages since we'll be publishing the packages as artifacts.
                 WITH_DEBUG=1
-                # Enabling optimizations significantly speeds up integration tests.
-                OPTIMIZATION=g
+                CFLAGS="${{ matrix.cflags }}"
+                SANITIZERS=${{ matrix.sanitizers }}
+                MESON_OPTIONS=--werror
+                LLVM=${{ matrix.llvm }}
 
         [Host]
-        ToolsTree=default
-        ToolsTreeDistribution=fedora
-        # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
-        QemuFirmware=uefi
+        QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
         RuntimeBuildSources=no
-        EOF
-
-        # These should override the options from mkosi.conf so we put them in a dropin that's ordered later
-        # instead.
-        tee mkosi.conf.d/99-ci.conf <<EOF
-        [Host]
-        KernelCommandLineExtra=
-                # Root device can take a long time to appear, so let's bump the timeout.
-                systemd.default_device_timeout_sec=180
         EOF
 
     - name: Generate secure boot key
@@ -142,23 +153,20 @@ jobs:
     - name: Show image summary
       run: mkosi summary
 
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
-        sudo apt-get install \
-            meson \
+        mkosi dependencies |
+        xargs -d '\n' sudo apt-get install \
             gperf \
-            libfdisk-dev \
-            libtss2-dev \
             libblkid-dev \
-            libmicrohttpd-dev \
             libcap-dev \
-            libcurl4-openssl-dev \
             libcryptsetup-dev \
-            erofs-utils \
-            dosfstools \
-            python3-pefile \
-            sbsigntool \
-            mtools
+            libcurl4-openssl-dev \
+            libfdisk-dev \
+            libmicrohttpd-dev \
+            libmount-dev \
+            libtss2-dev \
+            meson
 
     - name: Configure meson
       run: |
@@ -171,7 +179,7 @@ jobs:
             -Dtpm2=enabled \
             -Dlibcryptsetup=enabled \
             -Dlibcurl=enabled \
-            -Drepart=disabled \
+            -Drepart=enabled \
             -Dfirstboot=true \
             -Dsysusers=true \
             -Dtmpfiles=true \
@@ -182,7 +190,7 @@ jobs:
       run: meson compile -C build mkosi
 
     - name: Run integration tests
-      run: meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
+      run: sudo --preserve-env meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
 
     - name: Archive failed test journals
       uses: actions/upload-artifact@v4

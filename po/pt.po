@@ -2,20 +2,21 @@
 #
 # Portuguese translation of systemd.
 # Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-14 17:01+0100\n"
-"PO-Revision-Date: 2023-11-01 02:48+0000\n"
-"Last-Translator: Hugo Carvalho <hugokarvalho@hotmail.com>\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-05-31 07:36+0000\n"
+"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
-"systemd/master/pt/>\n"
+"systemd/main/pt/>\n"
 "Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.1.1\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -136,14 +137,12 @@ msgstr ""
 "utilizador."
 
 #: src/home/org.freedesktop.home1.policy:73
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Criar uma área home"
+msgstr "Ativar uma área home"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "É necessária autenticação para criar a área home de um utilizador."
+msgstr "É necessária autenticação para ativar a área home de um usuário."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -375,46 +374,39 @@ msgid "Authentication is required to get system description."
 msgstr "É necessária autenticação para obter a descrição do sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importar uma VM ou imagem contentor"
+msgstr "Importar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr "É necessária autenticação para importar uma VM ou imagem contentor"
+msgstr "É necessária autenticação para importar uma imagem"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Exportar uma VM ou imagem contentor"
+msgstr "Exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr "É necessária autenticação para exportar uma VM ou imagem contentor"
+msgstr "É necessária autenticação para exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Baixar uma VM ou imagem contentor"
+msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr "É necessária autenticação para transferir uma VM ou imagem contentor"
+msgstr "É necessária autenticação para baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Cancelar transferência de uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
 msgstr ""
-"É necessária autenticação para alterar a palavra-passe da área home de um "
-"utilizador."
+"É necessária autenticação para cancelar a transferência em andamento de uma "
+"imagem de disco"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -1043,14 +1035,20 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "É necessária autenticação para reconfigurar a interface de rede."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Especifique se há armazenamento persistente para systemd-networkd disponível."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"É necessária autenticação para especificar se há armazenamento persistente "
+"para systemd-networkd disponível."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1189,7 +1187,7 @@ msgstr ""
 "É necessária autenticação para eliminar ficheiros e diretórios associados "
 "com '$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

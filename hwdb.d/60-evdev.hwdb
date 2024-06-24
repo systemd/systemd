@@ -76,6 +76,11 @@ evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
+# AIPTEK Media Tablet Ultimate (detected as Waltop International Corp. Batteryless Tablet)
+evdev:input:b0003v172Fp0503*
+ EVDEV_ABS_00=::160
+ EVDEV_ABS_01=::160
+
 #########################################
 # Apple
 #########################################

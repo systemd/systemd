@@ -25,6 +25,7 @@ foreach testcase : network_testcases
                                 'systemd.setenv=TEST_MATCH_TESTCASE=@0@'.format(testcase)
                         ],
                         'priority' : 10,
+                        'vm' : true,
                 },
         ]
 endforeach

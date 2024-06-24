@@ -201,17 +201,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-M</option></term>
         <term><option>--machine=</option></term>
 
         <listitem>
-          <para>Execute operation on a local container. Specify a container name to connect to, optionally
-          prefixed by a user name to connect as and a separating <literal>@</literal> character. If the special
-          string <literal>.host</literal> is used in place of the container name, a connection to the local
-          system is made. If the <literal>@</literal> syntax is not used, the connection is made as root user.
-          If the <literal>@</literal> syntax is used either the left hand side or the right hand side may be
-          omitted (but not both) in which case the local user name and <literal>.host</literal> are implied.
-          </para>
+          <para>Execute operation on a local container. Specify a container name to connect to.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>

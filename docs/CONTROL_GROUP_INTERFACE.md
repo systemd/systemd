@@ -223,9 +223,9 @@ Use these APIs to register any kind of process workload with systemd to be place
 
 ### Reading Accounting Information
 
-Note that there's currently no systemd API to retrieve accounting information from cgroups. For now, if you need to retrieve this information use `/proc/&#036;PID/cgroup` to determine the cgroup path for your process in the `cpuacct` controller (or whichever controller matters to you), and then read the attributes directly from the cgroup tree.
+Note that there's currently no systemd API to retrieve accounting information from cgroups. For now, if you need to retrieve this information use `/proc/$PID/cgroup` to determine the cgroup path for your process in the `cpuacct` controller (or whichever controller matters to you), and then read the attributes directly from the cgroup tree.
 
-If you want to collect the exit status and other runtime parameters of your transient scope or service unit after the processes in them ended set the `RemainAfterExited` boolean property when creating it. This will has the effect that the unit will stay around even after all processes in it died, in the `SubState="exited"` state. Simply watch for state changes until this state is reached, then read the status details from the various properties you need, and finally terminate the unit via `StopUnit()` on the `Manager` object or `Stop()` on the `Unit` object itself.
+If you want to collect the exit status and other runtime parameters of your transient scope or service unit after the processes in them ended set the `RemainAfterExit` boolean property when creating it. This will has the effect that the unit will stay around even after all processes in it died, in the `SubState="exited"` state. Simply watch for state changes until this state is reached, then read the status details from the various properties you need, and finally terminate the unit via `StopUnit()` on the `Manager` object or `Stop()` on the `Unit` object itself.
 
 ### Becoming a Controller
 
@@ -241,7 +241,7 @@ Service and scope units know a special `Delegate` boolean property. If set, then
 2. Access to the cgroup directory of the scope/service is permitted, and files/and directories are updated to get write access for the user specified in `User=` if the scope/unit runs unprivileged. Note that in this case access to any controllers is not available.
 3. systemd will refrain from moving processes across the "delegation" boundary.
 
-Generally, the `Delegate` property is only useful for services that need to manage their own cgroup subtrees, such as container managers. After creating a unit with this property set, they should use `/proc/&#036;PID/cgroup` to figure out the cgroup subtree path they may manage (the one from the name=systemd hierarchy!). Managers should refrain from making any changes to the cgroup tree outside of the subtrees for units they created with the `Delegate` flag turned on.
+Generally, the `Delegate` property is only useful for services that need to manage their own cgroup subtrees, such as container managers. After creating a unit with this property set, they should use `/proc/$PID/cgroup` to figure out the cgroup subtree path they may manage (the one from the name=systemd hierarchy!). Managers should refrain from making any changes to the cgroup tree outside of the subtrees for units they created with the `Delegate` flag turned on.
 
 Note that scope units created by `machined`'s `CreateMachine()` call have this flag set.
 

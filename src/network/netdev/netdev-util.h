@@ -16,7 +16,7 @@ typedef enum NetDevLocalAddressType {
         _NETDEV_LOCAL_ADDRESS_TYPE_INVALID = -EINVAL,
 } NetDevLocalAddressType;
 
-const char *netdev_local_address_type_to_string(NetDevLocalAddressType t) _const_;
+const char* netdev_local_address_type_to_string(NetDevLocalAddressType t) _const_;
 NetDevLocalAddressType netdev_local_address_type_from_string(const char *s) _pure_;
 
 int link_get_local_address(

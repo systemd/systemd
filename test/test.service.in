@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=%N
-Wants=basic.target network.target multi-user.target user@4711.service @wants@
-After=basic.target network.target user@4711.service @after@
+Wants=basic.target network.target @wants@
+After=basic.target network.target @after@
 Before=getty-pre.target
 
 [Service]

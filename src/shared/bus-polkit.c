@@ -718,7 +718,7 @@ static int bus_message_new_polkit_auth_call_for_varlink(
 }
 
 static bool varlink_allow_interactive_authentication(Varlink *link) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(link);
@@ -732,11 +732,11 @@ static bool varlink_allow_interactive_authentication(Varlink *link) {
                 return false;
         }
 
-        JsonVariant *b;
-        b = json_variant_by_key(v, "allowInteractiveAuthentication");
+        sd_json_variant *b;
+        b = sd_json_variant_by_key(v, "allowInteractiveAuthentication");
         if (b) {
-                if (json_variant_is_boolean(b))
-                        return json_variant_boolean(b);
+                if (sd_json_variant_is_boolean(b))
+                        return sd_json_variant_boolean(b);
 
                 log_debug("Incoming 'allowInteractiveAuthentication' field is not a boolean, ignoring.");
         }

@@ -7,7 +7,7 @@
 
 extern const BusObjectImplementation user_object;
 
-char *user_bus_path(User *s);
+char* user_bus_path(User *s);
 
 int user_send_signal(User *u, bool new_user);
 int user_send_changed(User *u, const char *properties, ...) _sentinel_;

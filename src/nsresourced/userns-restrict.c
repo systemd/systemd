@@ -131,7 +131,7 @@ int userns_restrict_install(
                                 return log_oom();
 
                         link = sym_bpf_link__open(fn);
-                        r = sym_libbpf_get_error(link);
+                        r = bpf_get_error_translated(link);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Unable to open pinned program link: %m");
@@ -144,7 +144,7 @@ int userns_restrict_install(
 
                 if (!link) {
                         link = sym_bpf_program__attach(*ps->prog);
-                        r = sym_libbpf_get_error(link);
+                        r = bpf_get_error_translated(link);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to attach LSM BPF program: %m");
 

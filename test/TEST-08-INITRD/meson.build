@@ -7,5 +7,6 @@ integration_tests += [
                         'rd.systemd.wants=initrd-run-mount.service',
                 ],
                 'exit-code' : 124,
+                'vm' : true,
         },
 ]

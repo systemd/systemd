@@ -9,11 +9,11 @@
 #if HAVE_XKBCOMMON
 static void *xkbcommon_dl = NULL;
 
-DLSYM_FUNCTION(xkb_context_new);
-DLSYM_FUNCTION(xkb_context_unref);
-DLSYM_FUNCTION(xkb_context_set_log_fn);
-DLSYM_FUNCTION(xkb_keymap_new_from_names);
-DLSYM_FUNCTION(xkb_keymap_unref);
+DLSYM_PROTOTYPE(xkb_context_new) = NULL;
+DLSYM_PROTOTYPE(xkb_context_unref) = NULL;
+DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
 static int dlopen_xkbcommon(void) {
         ELF_NOTE_DLOPEN("xkbcommon",

@@ -10,7 +10,7 @@
 [Unit]
 Description=Arbitrary Executable File Formats File System Automount Point
 Documentation=https://docs.kernel.org/admin-guide/binfmt-misc.html
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+Documentation=https://systemd.io/API_FILE_SYSTEMS
 
 ConditionPathExists=/proc/sys/fs/binfmt_misc/
 ConditionPathIsReadWrite=/proc/sys/

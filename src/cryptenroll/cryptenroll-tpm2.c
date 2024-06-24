@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
@@ -8,7 +10,6 @@
 #include "errno-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "json.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
@@ -29,11 +30,11 @@ static int search_policy_hash(
                 return 0;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 _cleanup_free_ void *thash = NULL;
                 size_t thash_size = 0;
                 int keyslot;
-                JsonVariant *w;
+                sd_json_variant *w;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
@@ -49,12 +50,12 @@ static int search_policy_hash(
                         continue;
                 }
 
-                w = json_variant_by_key(v, "tpm2-policy-hash");
-                if (!w || !json_variant_is_string(w))
+                w = sd_json_variant_by_key(v, "tpm2-policy-hash");
+                if (!w || !sd_json_variant_is_string(w))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-                r = unhexmem(json_variant_string(w), &thash, &thash_size);
+                r = unhexmem(sd_json_variant_string(w), &thash, &thash_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
@@ -257,7 +258,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *pcrlock_path,
                 int *ret_slot_to_wipe) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(iovec_done) struct iovec srk = {}, blob = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec secret = {};
@@ -329,7 +330,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
                                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
                                 if (r < 0)
-                                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                                        return log_error_errno(r, "Failed to read TPM PCR signature: %m");
                         }
                 }
         } else
@@ -342,6 +343,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find pcrlock policy %s.", pcrlock_path);
 
                 any_pcr_value_specified = true;
                 flags |= TPM2_FLAGS_USE_PCRLOCK;
@@ -371,8 +374,10 @@ int enroll_tpm2(struct crypt_device *cd,
 
         uint16_t hash_pcr_bank = 0;
         uint32_t hash_pcr_mask = 0;
+
         if (n_hash_pcr_values > 0) {
                 size_t hash_count;
+
                 r = tpm2_pcr_values_hash_count(hash_pcr_values, n_hash_pcr_values, &hash_count);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash count: %m");
@@ -380,10 +385,21 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (hash_count > 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
 
+                /* If we use a literal PCR value policy, derive the bank to use from the algorithm specified on the hash values */
                 hash_pcr_bank = hash_pcr_values[0].hash;
                 r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash mask: %m");
+        } else if (pubkey_pcr_mask != 0) {
+
+                /* If no literal PCR value policy is used, then let's determine the mask to use automatically
+                 * from the measurements of the TPM. */
+                r = tpm2_get_best_pcr_bank(
+                                tpm2_context,
+                                pubkey_pcr_mask,
+                                &hash_pcr_bank);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine best PCR bank: %m");
         }
 
         TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);

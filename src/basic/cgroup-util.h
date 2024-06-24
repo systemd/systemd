@@ -188,6 +188,7 @@ typedef enum CGroupFlags {
         CGROUP_IGNORE_SELF        = 1 << 1,
         CGROUP_REMOVE             = 1 << 2,
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 3,
+        CGROUP_NO_PIDFD           = 1 << 4,
 } CGroupFlags;
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
@@ -297,7 +298,7 @@ int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
 bool cg_needs_escape(const char *p);
 int cg_escape(const char *p, char **ret);
-char *cg_unescape(const char *p) _pure_;
+char* cg_unescape(const char *p) _pure_;
 
 bool cg_controller_is_valid(const char *p);
 

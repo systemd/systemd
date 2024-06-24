@@ -58,8 +58,7 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
                 if (r < 0)
                         return log_oom();
 
-                strv_sort(g);
-                strv_uniq(g);
+                strv_sort_uniq(g);
 
                 s = strv_join(g, "', '");
                 if (!s)

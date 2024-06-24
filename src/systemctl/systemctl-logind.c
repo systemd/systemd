@@ -408,7 +408,7 @@ int logind_show_shutdown(void) {
         else /* If we don't recognize the action string, we'll show it as-is */
                 pretty_action = action;
 
-        if (arg_action == ACTION_SYSTEMCTL)
+        if (IN_SET(arg_action, ACTION_SYSTEMCTL, ACTION_SYSTEMCTL_SHOW_SHUTDOWN))
                 log_info("%s scheduled for %s, use 'systemctl %s --when=cancel' to cancel.",
                          pretty_action,
                          FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style),

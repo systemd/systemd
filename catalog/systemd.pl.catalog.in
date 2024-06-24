@@ -4,7 +4,7 @@
 # Polish translation
 
 # The catalog format is documented on
-# https://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://systemd.io/CATALOG
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -722,16 +722,6 @@ Support: %SUPPORT_URL%
 
 Po raz pierwszy podczas obecnego uruchomienia uzyskano synchronizację NTP
 i zainicjowano regulację lokalnego zegara systemowego.
-
--- 7db73c8af0d94eeb822ae04323fe6ab6
-Subject: Początkowe przestawienie zegara
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Przestawiono zegar systemowy na podstawie pliku ze znacznikiem czasu na dysku
-w celu zapewnienia, że nadal jest w przybliżeniu monotoniczny — nawet między
-ponownymi uruchomieniami — jeśli zegar czasu rzeczywistego jest niedostępny
-lub zawodny.
 
 -- 3f7d5ef3e54f4302b4f0b143bb270cab
 Subject: Rozszerzono PCR układu TPM

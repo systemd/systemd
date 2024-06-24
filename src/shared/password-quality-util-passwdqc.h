@@ -6,12 +6,14 @@
 #if HAVE_PASSWDQC
 #include <passwdqc.h>
 
-DLSYM_PROTOTYPE(passwdqc_params_reset);
-DLSYM_PROTOTYPE(passwdqc_params_load);
-DLSYM_PROTOTYPE(passwdqc_params_parse);
-DLSYM_PROTOTYPE(passwdqc_params_free);
-DLSYM_PROTOTYPE(passwdqc_check);
-DLSYM_PROTOTYPE(passwdqc_random);
+#include "dlfcn-util.h"
+
+extern DLSYM_PROTOTYPE(passwdqc_params_reset);
+extern DLSYM_PROTOTYPE(passwdqc_params_load);
+extern DLSYM_PROTOTYPE(passwdqc_params_parse);
+extern DLSYM_PROTOTYPE(passwdqc_params_free);
+extern DLSYM_PROTOTYPE(passwdqc_check);
+extern DLSYM_PROTOTYPE(passwdqc_random);
 
 int dlopen_passwdqc(void);
 

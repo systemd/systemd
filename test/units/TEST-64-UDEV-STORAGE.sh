@@ -168,7 +168,7 @@ helper_check_device_units() {(
     check_device_units 1 "$@"
 )}
 
-testcase_megasas2_basic() {
+testcase_virtio_scsi_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
 }
@@ -250,7 +250,8 @@ testcase_virtio_scsi_identically_named_partitions() {
     fi
 
     for ((i = 0; i < num_disk; i++)); do
-        sfdisk "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive$i" <<EOF
+        udevadm lock --device "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive$i" \
+                sfdisk "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive$i" <<EOF
 label: gpt
 
 $(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done)
@@ -282,14 +283,16 @@ blacklist {
 }
 EOF
 
-    sfdisk /dev/disk/by-id/wwn-0xdeaddeadbeef0000 <<EOF
+    udevadm lock --device /dev/disk/by-id/wwn-0xdeaddeadbeef0000 \
+            sfdisk /dev/disk/by-id/wwn-0xdeaddeadbeef0000 <<EOF
 label: gpt
 
 name="first_partition", size=5M
 uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
 EOF
     udevadm settle
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2
+    udevadm lock --device /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2 \
+            mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2
 
     modprobe -v dm_multipath
     systemctl start multipathd.service
@@ -571,6 +574,7 @@ testcase_lvm_basic() {
     lvm lvs
     udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
+    udevadm trigger --settle "/dev/$vgroup/mypart1"
     udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/mylvpart1"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
     helper_check_device_units
@@ -626,6 +630,7 @@ testcase_lvm_basic() {
     cryptsetup open --key-file=/etc/lvm_keyfile "/dev/$vgroup/mypart2" "lvmluksmap"
     udevadm wait --settle --timeout="$timeout" "/dev/mapper/lvmluksmap"
     mkfs.ext4 -L lvmluksfs "/dev/mapper/lvmluksmap"
+    udevadm trigger --settle "/dev/mapper/lvmluksmap"
     udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/lvmluksfs"
     # Make systemd "interested" in the mount by adding it to /etc/fstab
     echo "/dev/disk/by-label/lvmluksfs /tmp/lvmluksmnt ext4 defaults 0 2" >>/etc/fstab
@@ -914,7 +919,7 @@ testcase_iscsi_lvm() {
     mpoint="$(mktemp -d /iscsi_storeXXX)"
     expected_symlinks=()
     # Use the first device as it's configured with larger capacity
-    mkfs.ext4 -L iscsi_store "${devices[0]}"
+    udevadm lock --device "${devices[0]}" mkfs.ext4 -L iscsi_store "${devices[0]}"
     udevadm wait --settle --timeout=30 "${devices[0]}"
     mount "${devices[0]}" "$mpoint"
     for i in {1..4}; do
@@ -950,6 +955,7 @@ testcase_iscsi_lvm() {
     lvm lvs
     udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
+    udevadm trigger --settle "/dev/$vgroup/mypart1"
     udevadm wait --settle --timeout=30 "/dev/disk/by-label/mylvpart1"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
     helper_check_device_units
@@ -998,15 +1004,15 @@ testcase_long_sysfs_path() {
     readlink -f /sys/block/vda/dev
 
     dev="/dev/vda"
-    sfdisk "${dev:?}" <<EOF
+    udevadm lock --device "$dev" sfdisk "$dev" <<EOF
 label: gpt
 
 name="test_swap", size=32M
 uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
 EOF
     udevadm settle
-    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${dev}1"
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${dev}2"
+    udevadm lock --device "${dev}1" mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${dev}1"
+    udevadm lock --device "${dev}2" mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${dev}2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
 
     # Try to mount the data partition manually (using its label)
@@ -1068,7 +1074,9 @@ testcase_mdadm_basic() {
     # Create a simple RAID 1 with an ext4 filesystem
     echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
     udevadm wait --settle --timeout=30 "$raid_dev"
+    # udevd does not lock md devices, hence we need to trigger uevent after creating filesystem.
     mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm trigger --settle "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     for i in {0..9}; do
         echo "Disassemble - reassemble loop, iteration #$i"
@@ -1098,6 +1106,7 @@ testcase_mdadm_basic() {
     echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm trigger --settle "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     for i in {0..9}; do
         echo "Disassemble - reassemble loop, iteration #$i"
@@ -1139,6 +1148,7 @@ testcase_mdadm_basic() {
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Partition the raid device
     # Here, 'udevadm lock' is meaningless, as udevd does not lock MD devices.
+    # We need to trigger uevents after sfdisk and mkfs.
     sfdisk --wipe=always "$raid_dev" <<EOF
 label: gpt
 
@@ -1146,8 +1156,10 @@ uuid="deadbeef-dead-dead-beef-111111111111", name="mdpart1", size=8M
 uuid="deadbeef-dead-dead-beef-222222222222", name="mdpart2", size=32M
 uuid="deadbeef-dead-dead-beef-333333333333", name="mdpart3", size=16M
 EOF
+    udevadm trigger --settle --parent-match "$raid_dev"
     udevadm wait --settle --timeout=30 "/dev/disk/by-id/md-uuid-$uuid-part2"
     mkfs.ext4 -L "$part_name" "/dev/disk/by-id/md-uuid-$uuid-part2"
+    udevadm trigger --settle "/dev/disk/by-id/md-uuid-$uuid-part2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     for i in {0..9}; do
         echo "Disassemble - reassemble loop, iteration #$i"
@@ -1201,6 +1213,7 @@ testcase_mdadm_lvm() {
     lvm lvs
     udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     mkfs.ext4 -L "$part_name" "/dev/$vgroup/mypart2"
+    udevadm trigger --settle "/dev/$vgroup/mypart2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     # Disassemble the array
     lvm vgchange -an "$vgroup"

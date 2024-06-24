@@ -476,7 +476,7 @@ int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eo
         return DIV_ROUND_UP(now(CLOCK_REALTIME), USEC_PER_SEC) > (usec_t) eol;
 }
 
-const char *os_release_pretty_name(const char *pretty_name, const char *name) {
+const char* os_release_pretty_name(const char *pretty_name, const char *name) {
         /* Distills a "pretty" name to show from os-release data. First argument is supposed to be the
          * PRETTY_NAME= field, the second one the NAME= field. This function is trivial, of course, and
          * exists mostly to ensure we use the same logic wherever possible. */

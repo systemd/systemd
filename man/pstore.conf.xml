@@ -25,9 +25,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/pstore.conf</filename></member>
       <member><filename>/run/systemd/pstore.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/pstore.conf</filename></member>
       <member><filename>/usr/lib/systemd/pstore.conf</filename></member>
       <member><filename>/etc/systemd/pstore.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/pstore.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/pstore.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/pstore.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

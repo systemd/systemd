@@ -77,7 +77,7 @@ extern const UdevBuiltin udev_builtin_uaccess;
 void udev_builtin_init(void);
 void udev_builtin_exit(void);
 UdevBuiltinCommand udev_builtin_lookup(const char *command);
-const char *udev_builtin_name(UdevBuiltinCommand cmd);
+const char* udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
 int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *command);
 void udev_builtin_list(void);

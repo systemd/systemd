@@ -49,7 +49,17 @@ EOF
 
 chmod +x "$SCRIPT"
 
-systemd-run -u "$UNIT" -p Type=exec -p ProtectControlGroups=1 -p DynamicUser=1 -p MemoryPressureWatch=on -p MemoryPressureThresholdSec=123ms -p BindPaths=$SCRIPT --wait "$SCRIPT"
+systemd-run \
+    -u "$UNIT" \
+    -p Type=exec \
+    -p ProtectControlGroups=1 \
+    -p DynamicUser=1 \
+    -p MemoryPressureWatch=on \
+    -p MemoryPressureThresholdSec=123ms \
+    -p BindPaths=$SCRIPT \
+    `# Make sanitizers happy when DynamicUser=1 pulls in instrumented systemd NSS modules` \
+    -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+    --wait "$SCRIPT"
 
 rm "$SCRIPT"
 

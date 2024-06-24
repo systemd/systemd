@@ -19,8 +19,8 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#ifndef _UAPI_LINUX_IN6_H
-#define _UAPI_LINUX_IN6_H
+#ifndef _LINUX_IN6_H
+#define _LINUX_IN6_H
 
 #include <linux/types.h>
 #include <linux/libc-compat.h>
@@ -299,4 +299,4 @@ struct in6_flowlabel_req {
  * ...
  * MRT6_MAX
  */
-#endif /* _UAPI_LINUX_IN6_H */
+#endif /* _LINUX_IN6_H */

@@ -1112,14 +1112,10 @@ ssize_t receive_many_fds_iov(
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                         size_t n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
-                        fds_array = GREEDY_REALLOC(fds_array, n_fds_array + n);
-                        if (!fds_array) {
+                        if (!GREEDY_REALLOC_APPEND(fds_array, n_fds_array, CMSG_TYPED_DATA(cmsg, int), n)) {
                                 cmsg_close_all(&mh);
                                 return -ENOMEM;
                         }
-
-                        memcpy(fds_array + n_fds_array, CMSG_TYPED_DATA(cmsg, int), sizeof(int) * n);
-                        n_fds_array += n;
                 }
 
         if (n_fds_array == 0) {
@@ -1761,13 +1757,12 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
 int vsock_get_local_cid(unsigned *ret) {
         _cleanup_close_ int vsock_fd = -EBADF;
 
-        assert(ret);
-
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)
                 return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
 
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret) < 0)
+        unsigned tmp;
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
 
         return 0;

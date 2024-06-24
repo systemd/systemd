@@ -713,3 +713,9 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   and `run0` invocations is turned off. Note that this environment variable has
   no effect if the background color is explicitly selected via the relevant
   `--background=` switch of the tool.
+
+`systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
+`systemd-portabled`, `systemd-timedated`:
+
+* `SYSTEMD_EXIT_ON_IDLE` – Takes a boolean. When false, the exit-on-idle logic
+  of these services is disabled, making it easier to debug them.

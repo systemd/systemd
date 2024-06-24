@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "missing_random.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
@@ -162,6 +163,24 @@ int crypto_random_bytes(void *p, size_t n) {
         if (fd < 0)
                 return -errno;
         return loop_read_exact(fd, p, n, false);
+}
+
+int crypto_random_bytes_allocate_iovec(size_t n, struct iovec *ret) {
+        _cleanup_free_ void *p = NULL;
+        int r;
+
+        assert(ret);
+
+        p = malloc(MAX(n, 1U));
+        if (!p)
+                return -ENOMEM;
+
+        r = crypto_random_bytes(p, n);
+        if (r < 0)
+                return r;
+
+        *ret = IOVEC_MAKE(TAKE_PTR(p), n);
+        return 0;
 }
 
 size_t random_pool_size(void) {

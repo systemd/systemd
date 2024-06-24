@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 
 void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
         char *p = buffer;
@@ -289,7 +290,7 @@ void print_separator(void) {
                 size_t c = columns();
 
                 flockfile(stdout);
-                fputs_unlocked(ANSI_UNDERLINE, stdout);
+                fputs_unlocked(ANSI_GREY_UNDERLINE, stdout);
 
                 for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
@@ -461,14 +462,20 @@ bool shall_tint_background(void) {
 
 void draw_progress_bar(const char *prefix, double percentage) {
 
+        /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
+         * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
+         * as a single buffer, to make things more efficient. */
+        char buffer[LONG_LINE_MAX];
+        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
+
         fputc('\r', stderr);
         if (prefix)
                 fputs(prefix, stderr);
 
         if (!terminal_is_dumb()) {
                 size_t cols = columns();
-                size_t prefix_length = strlen_ptr(prefix);
-                size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
+                size_t prefix_width = utf8_console_width(prefix);
+                size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
 
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
                         size_t p = (size_t) (length * percentage / 100.0);
@@ -512,18 +519,27 @@ void draw_progress_bar(const char *prefix, double percentage) {
 
         fputc('\r', stderr);
         fflush(stderr);
+
+        /* Disable buffering again */
+        setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 void clear_progress_bar(const char *prefix) {
 
+        char buffer[LONG_LINE_MAX];
+        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
+
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
-                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                fputs(strrepa(" ", utf8_console_width(prefix) + 4), /* 4: %3.0f%% */
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
         fflush(stderr);
+
+        /* Disable buffering again */
+        setvbuf(stderr, NULL, _IONBF, 0);
 }

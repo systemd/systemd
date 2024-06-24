@@ -241,7 +241,7 @@ systemctl revert "$UNIT_NAME"
 systemctl set-property --runtime "$UNIT_NAME" CPUAccounting=no CPUQuota=10%
 systemctl cat "$UNIT_NAME"
 grep -r "CPUAccounting=no" "/run/systemd/system.control/${UNIT_NAME}.d/"
-grep -r "CPUQuota=10%" "/run/systemd/system.control/${UNIT_NAME}.d/"
+grep -r "CPUQuota=10.00%" "/run/systemd/system.control/${UNIT_NAME}.d/"
 systemctl revert "$UNIT_NAME"
 (! grep -r "CPUAccounting=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
@@ -343,6 +343,12 @@ systemctl cat "$UNIT_NAME"
 systemctl help "$UNIT_NAME"
 systemctl service-watchdogs
 systemctl service-watchdogs "$(systemctl service-watchdogs)"
+# Ensure that the enablement symlinks can still be removed after the user is gone, to avoid having leftovers
+systemctl enable "$UNIT_NAME"
+systemctl stop "$UNIT_NAME"
+rm -f "/usr/lib/systemd/system/$UNIT_NAME"
+systemctl daemon-reload
+systemctl disable "$UNIT_NAME"
 
 # show/set-environment
 # Make sure PATH is set

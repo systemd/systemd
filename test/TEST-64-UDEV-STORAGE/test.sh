@@ -159,18 +159,18 @@ test_run() {
     return 0
 }
 
-testcase_megasas2_basic() {
-    if ! "${QEMU_BIN:?}" -device help | grep 'name "megasas-gen2"'; then
-        echo "megasas-gen2 device driver is not available, skipping test..."
+testcase_virtio_scsi_basic() {
+    if ! "${QEMU_BIN:?}" -device help | grep 'name "virtio-scsi-pci"'; then
+        echo "virtio-scsi-pci device driver is not available, skipping test..."
         return 77
     fi
 
     local i
     local qemu_opts=(
-        "-device megasas-gen2,id=scsi0"
-        "-device megasas-gen2,id=scsi1"
-        "-device megasas-gen2,id=scsi2"
-        "-device megasas-gen2,id=scsi3"
+        "-device virtio-scsi-pci,id=scsi0"
+        "-device virtio-scsi-pci,id=scsi1"
+        "-device virtio-scsi-pci,id=scsi2"
+        "-device virtio-scsi-pci,id=scsi3"
     )
 
     for i in {0..127}; do

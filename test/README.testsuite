@@ -1,10 +1,72 @@
+# Integration tests
+
+## Running the integration tests with meson + mkosi
+
+To run the integration tests with meson + mkosi, make sure you're running the
+latest version of mkosi. See
+[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/test/README.md)
+for more specific details. Make sure `mkosi` is available in `$PATH` when
+reconfiguring meson to make sure it is picked up properly.
+
+We also need to make sure the required meson options are enabled:
+
+```shell
+$ meson setup --reconfigure build -Dremote=enabled
+```
+
+Next, we can build the integration test image:
+
+```shell
+$ meson compile -C build mkosi
+```
+
+After the image has been built, the integration tests can be run with:
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 4))"
+```
+
+As usual, specific tests can be run in meson by appending the name of the test
+which is usually the name of the directory e.g.
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
+```
+
+See `meson introspect build --tests` for a list of tests.
+
+To interactively debug a failing integration test, the `--interactive` option
+(`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
+newer:
+
+```shell
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -i TEST-01-BASIC
+```
+
+Due to limitations in meson, the integration tests do not yet depend on the
+mkosi target, which means the mkosi target has to be manually rebuilt before
+running the integration tests. To rebuild the image and rerun a test, the
+following command can be used:
+
+```shell
+$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
+```
+
+The integration tests use the same mkosi configuration that's used when you run
+mkosi in the systemd reposistory, so any local modifications to the mkosi
+configuration (e.g. in `mkosi.local.conf`) are automatically picked up and used
+by the integration tests as well.
+
+## Running the integration tests the old fashioned way
+
 The extended testsuite only works with UID=0. It consists of the subdirectories
-named "test/TEST-??-*", each of which contains a description of an OS image and
+named `test/TEST-??-*`, each of which contains a description of an OS image and
 a test which consists of systemd units and scripts to execute in this image.
 The same image is used for execution under `systemd-nspawn` and `qemu`.
 
 To run the extended testsuite do the following:
 
+```shell
 $ ninja -C build  # Avoid building anything as root later
 $ sudo test/run-integration-tests.sh
 ninja: Entering directory `/home/zbyszek/src/systemd/build'
@@ -20,137 +82,107 @@ make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 --x-- Result of TEST-01-BASIC: 0 --x--
 --x-- Running TEST-02-CRYPTSETUP --x--
 + make -C TEST-02-CRYPTSETUP clean setup run
+```
 
 If one of the tests fails, then $subdir/test.log contains the log file of
 the test.
 
 To run just one of the cases:
 
+```shell
 $ sudo make -C test/TEST-01-BASIC clean setup run
+```
 
-To run the meson-based integration test config
-enable integration tests and options for required commands with the following:
-
-$ meson configure build -Dremote=enabled -Dopenssl=enabled -Dblkid=enabled -Dtpm2=enabled
-
-Once enabled, first build the integration test image:
-
-$ meson compile -C build mkosi
-
-After the image has been built, the integration tests can be run with:
-
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 2))"
-
-As usual, specific tests can be run in meson by appending the name of the test
-which is usually the name of the directory e.g.
-
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
-
-Due to limitations in meson, the integration tests do not yet depend on the mkosi target, which means the
-mkosi target has to be manually rebuilt before running the integration tests. To rebuild the image and rerun
-a test, the following command can be used:
-
-$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
-
-See `meson introspect build --tests` for a list of tests.
-
-Specifying the build directory
-==============================
+### Specifying the build directory
 
 If the build directory is not detected automatically, it can be specified
 with BUILD_DIR=:
 
+```shell
 $ sudo BUILD_DIR=some-other-build/ test/run-integration-tests
+```
 
 or
 
+```shell
 $ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
+```
 
 Note that in the second case, the path is relative to the test case directory.
 An absolute path may also be used in both cases.
 
-Testing installed binaries instead of built
-===========================================
+### Testing installed binaries instead of built
 
 To run the extended testsuite using the systemd installed on the system instead
 of the systemd from a build, use the NO_BUILD=1:
 
+```shell
 $ sudo NO_BUILD=1 test/run-integration-tests
+```
 
-Configuration variables
-=======================
+### Configuration variables
 
-TEST_NO_QEMU=1
-    Don't run tests under qemu
+`TEST_NO_QEMU=1`: Don't run tests under qemu.
 
-TEST_QEMU_ONLY=1
-    Run only tests that require qemu
+`TEST_QEMU_ONLY=1`: Run only tests that require qemu.
 
-TEST_NO_NSPAWN=1
-    Don't run tests under systemd-nspawn
+`TEST_NO_NSPAWN=1`:  Don't run tests under systemd-nspawn.
 
-TEST_PREFER_NSPAWN=1
-    Run all tests that do not require qemu under systemd-nspawn
+`TEST_PREFER_NSPAWN=1`:  Run all tests that do not require qemu under
+systemd-nspawn.
 
-TEST_NO_KVM=1
-    Disable qemu KVM auto-detection (may be necessary when you're trying to run the
-    *vanilla* qemu and have both qemu and qemu-kvm installed)
+`TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
+trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
 
-TEST_NESTED_KVM=1
-    Allow tests to run with nested KVM. By default, the testsuite disables
-    nested KVM if the host machine already runs under KVM. Setting this
-    variable disables such checks
+`TEST_NESTED_KVM=1`:  Allow tests to run with nested KVM. By default, the
+testsuite disables nested KVM if the host machine already runs under KVM.
+Setting this variable disables such checks.
 
-QEMU_MEM=512M
-    Configure amount of memory for qemu VMs (defaults to 512M)
+`QEMU_MEM=512M`: Configure amount of memory for qemu VMs (defaults to 512M).
 
-QEMU_SMP=1
-    Configure number of CPUs for qemu VMs (defaults to 1)
+`QEMU_SMP=1`: Configure number of CPUs for qemu VMs (defaults to 1).
 
-KERNEL_APPEND='...'
-    Append additional parameters to the kernel command line
+`KERNEL_APPEND='...'`: Append additional parameters to the kernel command line.
 
-NSPAWN_ARGUMENTS='...'
-    Specify additional arguments for systemd-nspawn
+`NSPAWN_ARGUMENTS='...'`:  Specify additional arguments for systemd-nspawn.
 
-QEMU_TIMEOUT=infinity
-    Set a timeout for tests under qemu (defaults to 1800 sec)
+`QEMU_TIMEOUT=infinity`: Set a timeout for tests under qemu (defaults to 1800
+sec).
 
-NSPAWN_TIMEOUT=infinity
-    Set a timeout for tests under systemd-nspawn (defaults to 1800 sec)
+`NSPAWN_TIMEOUT=infinity`: Set a timeout for tests under systemd-nspawn
+(defaults to 1800 sec).
 
-INTERACTIVE_DEBUG=1
-    Configure the machine to be more *user-friendly* for interactive debuggung
-    (e.g. by setting a usable default terminal, suppressing the shutdown after
-    the test, etc.)
+`INTERACTIVE_DEBUG=1`: Configure the machine to be more *user-friendly* for
+interactive debugging (e.g. by setting a usable default terminal, suppressing
+the shutdown after the test, etc.).
 
-TEST_MATCH_SUBTEST=subtest
-    If the test makes use of `run_subtests` use this variable to provide
-    a POSIX extended regex to run only subtests matching the expression
+`TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
+variable to provide a POSIX extended regex to run only subtests matching the
+expression.
 
-TEST_MATCH_TESTCASE=testcase
-    Same as $TEST_MATCH_SUBTEST but for subtests that make use of `run_testcases`
+`TEST_MATCH_TESTCASE=testcase`: Same as $TEST_MATCH_SUBTEST but for subtests
+that make use of `run_testcases`.
 
 The kernel and initrd can be specified with $KERNEL_BIN and $INITRD. (Fedora's
 or Debian's default kernel path and initrd are used by default.)
 
 A script will try to find your qemu binary. If you want to specify a different
-one with $QEMU_BIN.
+one with `$QEMU_BIN`.
 
-Debugging the qemu image
-========================
+### Debugging the qemu image
 
-If you want to log in the testsuite virtual machine, use INTERACTIVE_DEBUG=1
+If you want to log in the testsuite virtual machine, use `INTERACTIVE_DEBUG=1`
 and log in as root:
 
+```shell
 $ sudo make -C test/TEST-01-BASIC INTERACTIVE_DEBUG=1 run
+```
 
 The root password is empty.
 
-Ubuntu CI
-=========
+## Ubuntu CI
 
-New PR submitted to the project are run through regression tests, and one set
+New PRs submitted to the project are run through regression tests, and one set
 of those is the 'autopkgtest' runs for several different architectures, called
 'Ubuntu CI'.  Part of that testing is to run all these tests.  Sometimes these
 tests are temporarily deny-listed from running in the 'autopkgtest' tests while
@@ -182,11 +214,20 @@ will be stored at the following URL:
 
 https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/noble/s390x/s/systemd-upstream/20240323_020911_e8e88@/log.gz
 
+Fortunately a list of URLs listing file paths for recently completed test runs
+is available at:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/
+
+paths listed at this URL can be appended to the URL to download them.
+
 The 5 characters at the end of the last directory are not random, but the first
 5 characters of a SHA1 hash generated based on the set of parameters given to
 the build plus the completion timestamp, such as:
 
+```shell
 $ echo -n 'systemd-upstream {"build-git": "https://salsa.debian.org/systemd-team/systemd.git#debian/master", "env": ["UPSTREAM_REPO=https://github.com/systemd/systemd.git", "CFLAGS=-O0", "DEB_BUILD_PROFILES=pkg.systemd.upstream noudeb", "TEST_UPSTREAM=1", "CONFFLAGS_UPSTREAM=--werror -Dslow-tests=true", "UPSTREAM_PULL_REQUEST=31444", "GITHUB_STATUSES_URL=https://api.github.com/repos/systemd/systemd/statuses/c27f600a1c47f10b22964eaedfb5e9f0d4279cd9"], "ppas": ["upstream-systemd-ci/systemd-ci"], "submit-time": "2024-02-27 17:06:27", "uuid": "02cd262f-af22-4f82-ac91-53fa5a9e7811"}' | sha1sum | cut -c1-5
+```
 
 To add new dependencies or new binaries to the packages used during the tests,
 a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
@@ -209,23 +250,26 @@ places:
 - running a job: all currently running jobs are listed at
   https://autopkgtest.ubuntu.com/running#pkg-systemd-upstream in case the PR
   does not show the status for some reason
-- reporting the job result: this is done on Canonical's cloud infrastructure,
-  if jobs are started and running but no status is visible on the PR, then it is
+- reporting the job result: this is done on Canonical's cloud infrastructure, if
+  jobs are started and running but no status is visible on the PR, then it is
   likely that reporting back is not working
 
-The CI job needs a PPA in order to be accepted, and the upstream-systemd-ci/systemd-ci
-PPA is used. Note that this is necessary even when there are no packages to backport,
-but by default a PPA won't have a repository for a release if there are no packages
-built for it. To work around this problem, when a new empty release is needed the
-mark-suite-dirty tool from the https://git.launchpad.net/ubuntu-archive-tools can
-be used to force the PPA to publish an empty repository, for example:
+The CI job needs a PPA in order to be accepted, and the
+upstream-systemd-ci/systemd-ci PPA is used. Note that this is necessary even
+when there are no packages to backport, but by default a PPA won't have a
+repository for a release if there are no packages built for it. To work around
+this problem, when a new empty release is needed the mark-suite-dirty tool from
+the https://git.launchpad.net/ubuntu-archive-tools can be used to force the PPA
+to publish an empty repository, for example:
 
- $ ./mark-suite-dirty -A ppa:upstream-systemd-ci/ubuntu/systemd-ci -s noble
+```shell
+$ ./mark-suite-dirty -A ppa:upstream-systemd-ci/ubuntu/systemd-ci -s noble
+```
 
 will create an empty 'noble' repository that can be used for 'noble' CI jobs.
 
-For infrastructure help, reaching out to 'qa-help' via the #ubuntu-quality channel
-on libera.chat is an effective way to receive support in general.
+For infrastructure help, reaching out to 'qa-help' via the #ubuntu-quality
+channel on libera.chat is an effective way to receive support in general.
 
 Given access to the shared secret, tests can be re-run using the generic
 retry-github-test tool:
@@ -236,54 +280,62 @@ A wrapper script that makes it easier to use is also available:
 
 https://piware.de/gitweb/?p=bin.git;a=blob;f=retry-gh-systemd-Test
 
-Manually running a part of the Ubuntu CI test suite
-===================================================
+## Manually running a part of the Ubuntu CI test suite
 
 In some situations one may want/need to run one of the tests run by Ubuntu CI
 locally for debugging purposes. For this, you need a machine (or a VM) with
 the same Ubuntu release as is used by Ubuntu CI (Jammy ATTOW).
 
 First of all, clone the Debian systemd repository and sync it with the code of
-the PR (set by the $UPSTREAM_PULL_REQUEST env variable) you'd like to debug:
+the PR (set by the `$UPSTREAM_PULL_REQUEST` env variable) you'd like to debug:
 
-# git clone https://salsa.debian.org/systemd-team/systemd.git
-# cd systemd
-# git checkout upstream-ci
-# TEST_UPSTREAM=1 UPSTREAM_PULL_REQUEST=12345 ./debian/extra/checkout-upstream
+```shell
+$ git clone https://salsa.debian.org/systemd-team/systemd.git
+$ cd systemd
+$ git checkout upstream-ci
+$ TEST_UPSTREAM=1 UPSTREAM_PULL_REQUEST=12345 ./debian/extra/checkout-upstream
+```
 
 Now install necessary build & test dependencies:
 
-## PPA with some newer Ubuntu packages required by upstream systemd
-# add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
-# apt build-dep -y systemd
-# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+```shell
+# PPA with some newer Ubuntu packages required by upstream systemd
+$ add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
+$ apt build-dep -y systemd
+$ apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
                  libcurl4-openssl-dev libfdisk-dev libtss2-dev libfido2-dev \
                  libssl-dev python3-pefile
+```
 
 Build systemd deb packages with debug info:
 
-# TEST_UPSTREAM=1 DEB_BUILD_OPTIONS="nocheck nostrip noopt" dpkg-buildpackage -us -uc
-# cd ..
+```shell
+$ TEST_UPSTREAM=1 DEB_BUILD_OPTIONS="nocheck nostrip noopt" dpkg-buildpackage -us -uc
+$ cd ..
+```
 
 Prepare a testbed image for autopkgtest (tweak the release as necessary):
 
-# autopkgtest-buildvm-ubuntu-cloud --ram-size 1024 -v -a amd64 -r jammy
+```shell
+$ autopkgtest-buildvm-ubuntu-cloud --ram-size 1024 -v -a amd64 -r jammy
+```
 
 And finally run the autopkgtest itself:
 
-# autopkgtest -o logs *.deb systemd/ \
+```shell
+$ autopkgtest -o logs *.deb systemd/ \
               --env=TEST_UPSTREAM=1 \
               --timeout-factor=3 \
               --test-name=boot-and-services \
               --shell-fail \
               -- autopkgtest-virt-qemu --cpus 4 --ram-size 2048 autopkgtest-jammy-amd64.img
+```
 
-where --test-name= is the name of the test you want to run/debug. The
---shell-fail option will pause the execution in case the test fails and shows
+where `--test-name=` is the name of the test you want to run/debug. The
+`--shell-fail` option will pause the execution in case the test fails and shows
 you the information how to connect to the testbed for further debugging.
 
-Manually running CodeQL analysis
-=====================================
+## Manually running CodeQL analysis
 
 This is mostly useful for debugging various CodeQL quirks.
 
@@ -293,31 +345,40 @@ binary from the unpacked archive in $PATH for brevity.
 
 Switch to the systemd repository if not already:
 
+```shell
 $ cd <systemd-repo>
+```
 
 Create an initial CodeQL database:
 
+```shell
 $ CCACHE_DISABLE=1 codeql database create codeqldb --language=cpp -vvv
+```
 
 Disabling ccache is important, otherwise you might see CodeQL complaining:
 
-No source code was seen and extracted to /home/mrc0mmand/repos/@ci-incubator/systemd/codeqldb.
-This can occur if the specified build commands failed to compile or process any code.
- - Confirm that there is some source code for the specified language in the project.
- - For codebases written in Go, JavaScript, TypeScript, and Python, do not specify
-   an explicit --command.
- - For other languages, the --command must specify a "clean" build which compiles
-   all the source code files without reusing existing build artefacts.
+No source code was seen and extracted to
+/home/mrc0mmand/repos/@ci-incubator/systemd/codeqldb. This can occur if the
+specified build commands failed to compile or process any code.
+ - Confirm that there is some source code for the specified language in the
+   project.
+ - For codebases written in Go, JavaScript, TypeScript, and Python, do not
+   specify an explicit --command.
+ - For other languages, the --command must specify a "clean" build which
+   compiles all the source code files without reusing existing build artefacts.
 
 If you want to run all queries systemd uses in CodeQL, run:
 
+```shell
 $ codeql database analyze codeqldb/ --format csv --output results.csv .github/codeql-custom.qls .github/codeql-queries/*.ql -vvv
+```
 
 Note: this will take a while.
 
 If you're interested in a specific check, the easiest way (without hunting down
 the specific CodeQL query file) is to create a custom query suite. For example:
 
+```shell
 $ cat >test.qls <<EOF
 - queries: .
   from: codeql/cpp-queries
@@ -325,10 +386,13 @@ $ cat >test.qls <<EOF
     id:
         - cpp/missing-return
 EOF
+```
 
 And then execute it in the same way as above:
 
+```shell
 $ codeql database analyze codeqldb/ --format csv --output results.csv test.qls -vvv
+```
 
 More about query suites here: https://codeql.github.com/docs/codeql-cli/creating-codeql-query-suites/
 
@@ -336,12 +400,11 @@ The results are then located in the `results.csv` file as a comma separated
 values list (obviously), which is the most human-friendly output format the
 CodeQL utility provides (so far).
 
-Running Coverity locally
-========================
+## Running Coverity locally
 
-Note: this requires a Coverity license, as the public tool tarball (from [0])
-doesn't contain cov-analyze and friends, so the usefulness of this guide is
-somewhat limited.
+Note: this requires a Coverity license, as the public tool
+[tarball](https://scan.coverity.com/download) doesn't contain cov-analyze and
+friends, so the usefulness of this guide is somewhat limited.
 
 Debugging certain pesky Coverity defects can be painful, especially since the
 OSS Coverity instance has a very strict limit on how many builds we can send it
@@ -350,44 +413,50 @@ how to debug defects locally might come in handy.
 
 After installing the necessary tooling we need to populate the emit DB first:
 
+```shell
 $ rm -rf build cov
 $ meson setup build -Dman=false
 $ cov-build --dir=./cov ninja -C build
+```
 
 From there it depends if you're interested in a specific defect or all of them.
 For the latter run:
 
+```shell
 $ cov-analyze --dir=./cov --wait-for-license
+```
 
 If you want to debug a specific defect, telling that to cov-analyze speeds
 things up a bit:
 
+```shell
 $ cov-analyze --dir=./cov --wait-for-license --disable-default --enable ASSERT_SIDE_EFFECT
+```
 
 The final step is getting the actual report which can be generated in multiple
 formats, for example:
 
+```shell
 $ cov-format-errors --dir ./cov --text-output-style multiline
 $ cov-format-errors --dir=./cov --emacs-style
 $ cov-format-errors --dir=./cov --html-output html-out
+```
 
 Which generate a text report, an emacs-compatible text report, and an HTML
 report respectively.
 
-Other useful options for cov-format-error include --file <file> to filter out
-defects for a specific file, --checker-regex DEFECT_TYPE to filter our only a
+Other useful options for cov-format-error include `--file <file>` to filter out
+defects for a specific file, `--checker-regex DEFECT_TYPE` to filter our only a
 specific defect (if this wasn't done already by cov-analyze), and many others,
-see --help for an exhaustive list.
+see `--help` for an exhaustive list.
 
-[0] https://scan.coverity.com/download
-
-Code coverage
-=============
+## Code coverage
 
 We have a daily cron job in CentOS CI which runs all unit and integration tests,
-collects coverage using gcov/lcov, and uploads the report to Coveralls[0]. In
-order to collect the most accurate coverage information, some measures have
-to be taken regarding sandboxing, namely:
+collects coverage using gcov/lcov, and uploads the report to
+[Coveralls](https://coveralls.io/github/systemd/systemd). In order to collect
+the most accurate coverage information, some measures have to be taken regarding
+sandboxing, namely:
 
  - ProtectSystem= and ProtectHome= need to be turned off
  - the $BUILD_DIR with necessary .gcno files needs to be present in the image
@@ -396,23 +465,21 @@ to be taken regarding sandboxing, namely:
 The first point is relatively easy to handle and is handled automagically by
 our test "framework" by creating necessary dropins.
 
-Making the $BUILD_DIR accessible to _everything_ is slightly more complicated.
-First, and foremost, the $BUILD_DIR has a POSIX ACL that makes it writable
+Making the `$BUILD_DIR` accessible to _everything_ is slightly more complicated.
+First, and foremost, the `$BUILD_DIR` has a POSIX ACL that makes it writable
 to everyone. However, this is not enough in some cases, like for services
 that use DynamicUser=yes, since that implies ProtectSystem=strict that can't
-be turned off. A solution to this is to use ReadWritePaths=$BUILD_DIR, which
+be turned off. A solution to this is to use `ReadWritePaths=$BUILD_DIR`, which
 works for the majority of cases, but can't be turned on globally, since
 ReadWritePaths= creates its own mount namespace which might break some
-services. Hence, the ReadWritePaths=$BUILD_DIR is enabled for all services
+services. Hence, the `ReadWritePaths=$BUILD_DIR` is enabled for all services
 with the `test-` prefix (i.e. test-foo.service or test-foo-bar.service), both
 in the system and the user managers.
 
-So, if you're considering writing an integration test that makes use
-of DynamicUser=yes, or other sandboxing stuff that implies it, please prefix
-the test unit (be it a static one or a transient one created via systemd-run),
-with `test-`, unless the test unit needs to be able to install mount points
-in the main mount namespace - in that case use IGNORE_MISSING_COVERAGE=yes
-in the test definition (i.e. TEST-*-NAME/test.sh), which will skip the post-test
+So, if you're considering writing an integration test that makes use of
+DynamicUser=yes, or other sandboxing stuff that implies it, please prefix the
+test unit (be it a static one or a transient one created via systemd-run), with
+`test-`, unless the test unit needs to be able to install mount points in the
+main mount namespace - in that case use `IGNORE_MISSING_COVERAGE=yes` in the
+test definition (i.e. `TEST-*-NAME/test.sh`), which will skip the post-test
 check for missing coverage for the respective test.
-
-[0] https://coveralls.io/github/systemd/systemd

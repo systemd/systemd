@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<variablelist>
+<variablelist xmlns:xi="http://www.w3.org/2001/XInclude">
   <varlistentry id='user'>
     <term><option>--user</option></term>
 
@@ -64,6 +64,8 @@
       <para>Execute operation on a capsule. Specify a capsule name to connect to. See
       <citerefentry><refentrytitle>capsule@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
       details about capsules.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/>
     </listitem>
   </varlistentry>
 </variablelist>
