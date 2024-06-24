@@ -1855,23 +1855,24 @@ static void generate_boot_entry_titles(Config *config) {
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
-        EFI_STATUS err;
         static const char * const sections[] = {
                 ".sdmagic",
                 NULL
         };
-        size_t offset = 0, size = 0, read;
         _cleanup_free_ char *content = NULL;
+        PeSectionVector vector = {};
+        EFI_STATUS err;
+        size_t read;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
+        err = pe_file_locate_sections(root_dir, loader_path, sections, &vector);
+        if (err != EFI_SUCCESS || vector.size != sizeof(SD_MAGIC))
                 return false;
 
-        err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        err = file_read(root_dir, loader_path, vector.file_offset, vector.size, &content, &read);
+        if (err != EFI_SUCCESS || vector.size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2104,7 +2105,7 @@ static void config_load_type2_entries(
                         _SECTION_MAX,
                 };
 
-                static const char * const sections[_SECTION_MAX + 1] = {
+                static const char * const section_names[_SECTION_MAX + 1] = {
                         [SECTION_CMDLINE] = ".cmdline",
                         [SECTION_OSREL]   = ".osrel",
                         NULL,
@@ -2114,8 +2115,9 @@ static void config_load_type2_entries(
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
                 _cleanup_free_ char *content = NULL;
-                size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
+                PeSectionVector sections[_SECTION_MAX] = {};
                 char *line, *key, *value;
+                size_t pos = 0;
 
                 err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
@@ -2131,11 +2133,16 @@ static void config_load_type2_entries(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
+                err = pe_file_locate_sections(linux_dir, f->FileName, section_names, sections);
+                if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                sections[SECTION_OSREL].file_offset,
+                                sections[SECTION_OSREL].size,
+                                &content,
+                                NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2206,14 +2213,19 @@ static void config_load_type2_entries(
                 config_add_entry(config, entry);
                 boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
-                if (szs[SECTION_CMDLINE] == 0)
+                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
                         continue;
 
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
                 size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                sections[SECTION_CMDLINE].file_offset,
+                                sections[SECTION_CMDLINE].size,
+                                &content,
+                                &cmdline_len);
                 if (err == EFI_SUCCESS) {
                         entry->options = xstrn8_to_16(content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
