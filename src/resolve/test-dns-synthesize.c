@@ -10,6 +10,26 @@
 #include "tests.h"
 
 /* ================================================================
+ * dns_synthesize_family(), dns_synthesize_protocol()
+ * ================================================================ */
+
+TEST(dns_synthesize_family_and_protocol) {
+        int flags;
+
+        flags = SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_DNS, AF_INET, false, false);
+        ASSERT_EQ(dns_synthesize_family(flags), AF_UNSPEC);
+        ASSERT_EQ(dns_synthesize_protocol(flags), DNS_PROTOCOL_DNS);
+
+        flags = SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_LLMNR, AF_INET6, false, false);
+        ASSERT_EQ(dns_synthesize_family(flags), AF_INET6);
+        ASSERT_EQ(dns_synthesize_protocol(flags), DNS_PROTOCOL_LLMNR);
+
+        flags = SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_MDNS, AF_INET, false, false);
+        ASSERT_EQ(dns_synthesize_family(flags), AF_INET);
+        ASSERT_EQ(dns_synthesize_protocol(flags), DNS_PROTOCOL_MDNS);
+}
+
+/* ================================================================
  * dns_synthesize_answer()
  * ================================================================ */
 
