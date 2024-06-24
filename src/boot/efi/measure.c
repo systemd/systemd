@@ -240,7 +240,6 @@ EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, siz
                 return err;
 
         err = tcg2_log_ipl_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
-
         if (err == EFI_SUCCESS && ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;
 
