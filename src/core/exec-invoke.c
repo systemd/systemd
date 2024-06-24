@@ -3775,7 +3775,7 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags | O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
                         return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
