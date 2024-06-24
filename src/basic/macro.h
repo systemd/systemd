@@ -263,18 +263,6 @@ static inline int __coverity_check_and_return__(int condition) {
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
 
-#define _FOREACH_ARRAY(i, array, num, m, end)                           \
-        for (typeof(array[0]) *i = (array), *end = ({                   \
-                                typeof(num) m = (num);                  \
-                                (i && m > 0) ? i + m : NULL;            \
-                        }); end && i < end; i++)
-
-#define FOREACH_ARRAY(i, array, num)                                    \
-        _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
-
-#define FOREACH_ELEMENT(i, array)                                 \
-        FOREACH_ARRAY(i, array, ELEMENTSOF(array))
-
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
                 if (!p)                                         \
