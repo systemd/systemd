@@ -530,10 +530,6 @@ TEST(dns_query_process_cname_many_success_match_multiple_cname) {
  *   transaction state without actually causing any requests to be sent.
  */
 
-static void dns_scope_freep(DnsScope **s) {
-        dns_scope_free(*s);
-}
-
 typedef struct GoConfig {
         bool has_scope;
         bool use_link;
@@ -550,61 +546,93 @@ static GoConfig mk_go_config(void) {
         };
 }
 
-static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *query)) {
-        Manager manager = {};
-        Link *link = NULL;
-        _cleanup_(dns_server_unrefp) DnsServer *server = NULL;
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd = NULL;
+typedef struct GoEnvironment {
+        Manager manager;
+        DnsProtocol protocol;
+        int family;
+        int ifindex;
+        Link *link;
+        DnsScope *scope;
+        DnsServerType server_type;
+        union in_addr_union server_addr;
+        char *server_name;
+        uint16_t server_port;
+        DnsServer *server;
+        DnsSearchDomain *search_domain;
+} GoEnvironment;
 
+static void go_env_teardown(GoEnvironment *env) {
+        dns_search_domain_unref(env->search_domain);
+        dns_server_unref(env->server);
+        dns_server_unref(env->server);
+        free(env->server_name);
+        dns_scope_free(env->scope);
+        sd_event_unref(env->manager.event);
+}
+
+static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
+        env->manager = (Manager) {};
+        env->protocol = DNS_PROTOCOL_DNS;
+        env->family = AF_INET;
+
+        ASSERT_OK(sd_event_new(&env->manager.event));
+
+        if (cfg->use_link) {
+                env->ifindex = 1;
+                ASSERT_OK(link_new(&env->manager, &env->link, env->ifindex));
+                env->server_type = DNS_SERVER_LINK;
+        } else {
+                env->ifindex = 0;
+                env->link = NULL;
+                env->server_type = DNS_SERVER_FALLBACK;
+        }
+
+        if (cfg->has_scope) {
+                ASSERT_OK(dns_scope_new(&env->manager, &env->scope, env->link, env->protocol, env->family));
+
+                env->server_addr.in.s_addr = htobe32(0x7f000001);
+                env->server_name = strdup("localhost");
+                env->server_port = 53;
+
+                ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
+                                env->link, env->family, &env->server_addr, env->server_port,
+                                env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+        } else {
+                env->scope = NULL;
+                env->server_name = NULL;
+                env->server = NULL;
+        }
+
+        if (cfg->use_search_domain) {
+                if (env->link == NULL)
+                        dns_search_domain_new(&env->manager, &env->search_domain, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+                else
+                        dns_search_domain_new(&env->manager, &env->search_domain, DNS_SEARCH_DOMAIN_LINK, env->link, "local");
+        } else {
+                env->search_domain = NULL;
+        }
+}
+
+static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *query)) {
+        _cleanup_(go_env_teardown) GoEnvironment env = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        DnsProtocol protocol = DNS_PROTOCOL_DNS;
-        int family = AF_INET;
-        int flags = SD_RESOLVED_FLAGS_MAKE(protocol, family, false, false);
-        int ifindex;
+        go_env_setup(&env, cfg);
 
-        union in_addr_union server_addr = { .in.s_addr = htobe32(0x7f000001) };
-        const char *server_name = "localhost";
-        uint16_t port = 53;
-        DnsServerType type;
-
-        if (cfg->use_link) {
-                ifindex = 1;
-                ASSERT_OK(link_new(&manager, &link, ifindex));
-                type = DNS_SERVER_LINK;
-        } else {
-                ifindex = 0;
-                link = NULL;
-                type = DNS_SERVER_FALLBACK;
-        }
-
-        ASSERT_OK(sd_event_new(&manager.event));
-
-        if (cfg->has_scope) {
-                ASSERT_OK(dns_server_new(&manager, &server, type, link, family, &server_addr,
-                                port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_DBUS));
-
-                ASSERT_OK(dns_scope_new(&manager, &scope, link, protocol, family));
-        }
+        int flags = SD_RESOLVED_FLAGS_MAKE(env.protocol, env.family, false, false);
 
         if (cfg->use_search_domain) {
-                if (link == NULL)
-                        dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
-                else
-                        dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local");
-
                 /* search domains trigger on single-label domains */
-                ASSERT_OK(dns_question_new_address(&question, AF_INET, "berlin", false));
+                ASSERT_OK(dns_question_new_address(&question, env.family, "berlin", false));
                 flags &= ~SD_RESOLVED_NO_SEARCH;
         } else {
-                ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+                ASSERT_OK(dns_question_new_address(&question, env.family, "www.example.com", false));
         }
 
         if (cfg->use_bypass) {
-                ASSERT_OK(dns_packet_new_query(&packet, protocol, 0, false));
+                ASSERT_OK(dns_packet_new_query(&packet, env.protocol, 0, false));
                 DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
                 packet->question = dns_question_ref(question);
                 ASSERT_OK(dns_packet_append_question(packet, question));
@@ -612,18 +640,15 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
                 /* search domains must be turned off for bypass queries, otherwise dns_query_add_candidate()
                  * tries to extract the domain name from question_idna which cannot exist on bypasses. */
                 flags |= SD_RESOLVED_NO_SEARCH;
-                ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, ifindex, flags));
+                ASSERT_OK(dns_query_new(&env.manager, &query, NULL, NULL, packet, env.ifindex, flags));
         } else {
-                ASSERT_OK(dns_query_new(&manager, &query, question, question, NULL, ifindex, flags));
+                ASSERT_OK(dns_query_new(&env.manager, &query, question, question, NULL, env.ifindex, flags));
         }
 
         ASSERT_TRUE(dns_query_go(query));
 
         if (check_query != NULL)
                 check_query(query);
-
-        dns_server_unref(server);
-        sd_event_unref(manager.event);
 }
 
 static void check_query_no_servers(DnsQuery *query) {
