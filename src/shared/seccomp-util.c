@@ -2030,39 +2030,43 @@ int parse_syscall_archs(char **l, Set **ret_archs) {
         return 0;
 }
 
+int seccomp_filter_set_add_by_name(Hashmap *filter, bool add, const char *name) {
+        assert(filter);
+        assert(name);
+
+        if (name[0] == '@') {
+                const SyscallFilterSet *more;
+
+                more = syscall_filter_set_find(name);
+                if (!more)
+                        return -ENXIO;
+
+                return seccomp_filter_set_add(filter, add, more);
+        }
+
+        int id = seccomp_syscall_resolve_name(name);
+        if (id == __NR_SCMP_ERROR) {
+                log_debug("System call %s is not known, ignoring.", name);
+                return 0;
+        }
+
+        if (add)
+                return hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(-1));
+
+        (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
+        return 0;
+}
+
 int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set) {
         int r;
 
+        assert(filter);
         assert(set);
 
         NULSTR_FOREACH(i, set->value) {
-
-                if (i[0] == '@') {
-                        const SyscallFilterSet *more;
-
-                        more = syscall_filter_set_find(i);
-                        if (!more)
-                                return -ENXIO;
-
-                        r = seccomp_filter_set_add(filter, add, more);
-                        if (r < 0)
-                                return r;
-                } else {
-                        int id;
-
-                        id = seccomp_syscall_resolve_name(i);
-                        if (id == __NR_SCMP_ERROR) {
-                                log_debug("System call %s is not known, ignoring.", i);
-                                continue;
-                        }
-
-                        if (add) {
-                                r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(-1));
-                                if (r < 0)
-                                        return r;
-                        } else
-                                (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
-                }
+                r = seccomp_filter_set_add_by_name(filter, add, i);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
