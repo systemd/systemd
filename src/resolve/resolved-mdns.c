@@ -386,8 +386,11 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         if (r <= 0)
                 return r;
 
-        if (manager_packet_from_local_address(m, p))
-                return 0;
+        if (manager_packet_from_local_address(m, p)) {
+                /* if it's not a reply, handle this request */
+                if (dns_packet_validate_reply(p) > 0)
+                        return 0;
+        }
 
         scope = manager_find_scope(m, p);
         if (!scope) {
