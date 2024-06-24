@@ -26,7 +26,7 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
-static void combine_measured_flag(int *value, bool measured) {
+static void combine_measured_flag(int *value, int measured) {
         assert(value);
 
         /* Combine the "measured" flag in a sensible way: if we haven't measured anything yet, the first
@@ -38,6 +38,9 @@ static void combine_measured_flag(int *value, bool measured) {
          *   == 0 → there was something to measure but we didn't (because no TPM or so)
          *    < 0 → nothing has been submitted for measurement so far
          */
+
+        if (measured < 0)
+                return;
 
         *value = *value < 0 ? measured : *value && measured;
 }
@@ -302,7 +305,7 @@ static void dtb_install_addons(
                 size_t *dt_sizes,
                 char16_t **dt_filenames,
                 size_t n_dts,
-                bool *ret_parameters_measured) {
+                int *ret_parameters_measured) {
 
         int parameters_measured = -1;
         EFI_STATUS err;
@@ -735,20 +738,22 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         log_error_status(err, "Error loading embedded devicetree: %m");
         }
 
+        int dtb_measured;
         dtb_install_addons(&dt_state,
                            dt_bases_addons_global,
                            dt_sizes_addons_global,
                            dt_filenames_addons_global,
                            n_dts_addons_global,
-                           &m);
-        combine_measured_flag(&parameters_measured, m);
+                           &dtb_measured);
+        combine_measured_flag(&parameters_measured, dtb_measured);
+
         dtb_install_addons(&dt_state,
                            dt_bases_addons_uki,
                            dt_sizes_addons_uki,
                            dt_filenames_addons_uki,
                            n_dts_addons_uki,
-                           &m);
-        combine_measured_flag(&parameters_measured, m);
+                           &dtb_measured);
+        combine_measured_flag(&parameters_measured, dtb_measured);
 
         if (parameters_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
