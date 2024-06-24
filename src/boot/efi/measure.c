@@ -27,6 +27,8 @@ static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
         assert(tcg);
         assert(description);
 
+        /* New style stuff we log as EV_EVENT_TAG with a recognizable event tag. */
+
         desc_len = strsize16(description);
         event_size = offsetof(EFI_TCG2_EVENT, Event) + offsetof(EFI_TCG2_TAGGED_EVENT, Event) + desc_len;
 
@@ -53,7 +55,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
                         &event->tcg_event);
 }
 
-static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
+static EFI_STATUS tpm2_measure_to_pcr_and_ipl_event_log(
                 EFI_TCG2_PROTOCOL *tcg,
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
@@ -66,11 +68,10 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
         assert(tcg);
         assert(description);
 
-        /* NB: We currently record everything as EV_IPL. Which sucks, because it makes it hard to
-         * recognize from the event log which of the events are ours. Measurement logs are kinda API hence
-         * this is hard to change for existing, established events. But for future additions, let's use
-         * EV_EVENT_TAG instead, with a tag of our choosing that makes clear what precisely we are measuring
-         * here. */
+        /* We record older stuff as EV_IPL. Which sucks, because it makes it hard to recognize from the event
+         * log which of the events are ours. Measurement logs are kinda API hence this is hard to change for
+         * existing, established events. But for future additions, let's use EV_EVENT_TAG instead, with a tag
+         * of our choosing that makes clear what precisely we are measuring here. See above. */
 
         desc_len = strsize16(description);
         tcg_event = xmalloc(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
@@ -91,7 +92,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                         tcg_event);
 }
 
-static EFI_STATUS cc_measure_to_mr_and_event_log(
+static EFI_STATUS cc_measure_to_mr_and_ipl_event_log(
                 EFI_CC_MEASUREMENT_PROTOCOL *cc,
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
@@ -187,7 +188,7 @@ bool tpm_present(void) {
         return tcg2_interface_check();
 }
 
-static EFI_STATUS tcg2_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
+static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err = EFI_SUCCESS;
 
@@ -195,7 +196,7 @@ static EFI_STATUS tcg2_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer,
 
         tpm2 = tcg2_interface_check();
         if (tpm2)
-                err = tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
+                err = tpm2_measure_to_pcr_and_ipl_event_log(tpm2, pcrindex, buffer, buffer_size, description);
 
         *ret_measured = tpm2 && (err == EFI_SUCCESS);
 
@@ -210,14 +211,14 @@ static EFI_STATUS cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, s
 
         cc = cc_interface_check();
         if (cc)
-                err = cc_measure_to_mr_and_event_log(cc, pcrindex, buffer, buffer_size, description);
+                err = cc_measure_to_mr_and_ipl_event_log(cc, pcrindex, buffer, buffer_size, description);
 
         *ret_measured = cc && (err == EFI_SUCCESS);
 
         return err;
 }
 
-EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
+EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_STATUS err;
         bool tpm_ret_measured, cc_ret_measured;
 
@@ -238,8 +239,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = tcg2_log_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
-
+        err = tcg2_log_ipl_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
         if (err == EFI_SUCCESS && ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;
 
@@ -278,13 +278,13 @@ EFI_STATUS tpm_log_tagged_event(
         return err;
 }
 
-EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char *description, bool *ret_measured) {
+EFI_STATUS tpm_log_ipl_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char *description, bool *ret_measured) {
         _cleanup_free_ char16_t *c = NULL;
 
         if (description)
                 c = xstr8_to_16(description);
 
-        return tpm_log_event(pcrindex, buffer, buffer_size, c, ret_measured);
+        return tpm_log_ipl_event(pcrindex, buffer, buffer_size, c, ret_measured);
 }
 
 EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured) {
@@ -293,7 +293,7 @@ EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured
 
         /* Measures a load options string into the TPM2, i.e. the kernel command line */
 
-        err = tpm_log_event(
+        err = tpm_log_ipl_event(
                         TPM2_PCR_KERNEL_CONFIG,
                         POINTER_TO_PHYSICAL_ADDRESS(load_options),
                         strsize16(load_options),
