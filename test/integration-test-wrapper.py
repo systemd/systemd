@@ -61,6 +61,8 @@ def main():
         print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    keep_journal = os.getenv("TEST_SAVE_JOURNAL", "fail")
+
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
@@ -152,11 +154,10 @@ def main():
 
     result = subprocess.run(cmd)
 
-    if result.returncode in (args.exit_code, 77):
-        # Do not keep journal files for tests that don't fail.
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
+        journal_file.unlink(missing_ok=True)
 
+    if result.returncode in (args.exit_code, 77):
         exit(0 if result.returncode == args.exit_code else 77)
 
     if journal_file:
