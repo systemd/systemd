@@ -561,3 +561,6 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 
 #define FOREACH_ELEMENT(i, array)                                 \
         FOREACH_ARRAY(i, array, ELEMENTSOF(array))
+
+#define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
+#define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
