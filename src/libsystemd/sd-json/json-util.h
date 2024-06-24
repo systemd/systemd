@@ -139,6 +139,7 @@ enum {
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
         _JSON_BUILD_STRING_UNDERSCORIFY,
+        _JSON_BUILD_DUAL_TIMESTAMP,
 
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_FINITE_USEC,
@@ -166,6 +167,7 @@ enum {
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
 #define JSON_BUILD_STRING_UNDERSCORIFY(s) _JSON_BUILD_STRING_UNDERSCORIFY, (const char *) { s }
+#define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
 
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }

@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Make sure unix/* and vsock/* can be used to connect to AF_UNIX and AF_VSOCK paths
+# Allow connecting to the local host directly via ".host"
+Host .host machine/.host
+        ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy unix/run/ssh-unix-local/socket %p
+        ProxyUseFdpass yes
+        CheckHostIP no
+
+# Make sure unix/* and vsock/* can be used to connect to AF_UNIX and AF_VSOCK paths.
+# Make sure machine/* can be used to connect to local machines registered in machined.
 #
-Host unix/* vsock/*
+Host unix/* vsock/* machine/*
         ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy %h %p
         ProxyUseFdpass yes
         CheckHostIP no
@@ -10,9 +17,3 @@ Host unix/* vsock/*
         # Disable all kinds of host identity checks, since these addresses are generally ephemeral.
         StrictHostKeyChecking no
         UserKnownHostsFile /dev/null
-
-# Allow connecting to the local host directly via ".host"
-Host .host
-        ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy unix/run/ssh-unix-local/socket %p
-        ProxyUseFdpass yes
-        CheckHostIP no
