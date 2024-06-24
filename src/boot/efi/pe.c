@@ -123,22 +123,35 @@ typedef struct PeSectionHeader {
 
 static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
-        return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
+
+        DISABLE_WARNING_TYPE_LIMITS;
+        return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0 &&
+                dos->ExeHeader >= sizeof(DosFileHeader) &&
+                (size_t) dos->ExeHeader <= SIZE_MAX - sizeof(PeFileHeader);
+        REENABLE_WARNING;
 }
 
-static bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
+static bool verify_pe(
+                const DosFileHeader *dos,
+                const PeFileHeader *pe,
+                bool allow_compatibility) {
+
+        assert(dos);
         assert(pe);
+
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
-               (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
-                (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
-               pe->FileHeader.NumberOfSections > 0 &&
-               pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
-               IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
+                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
+                 (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
+                pe->FileHeader.NumberOfSections > 0 &&
+                pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
+                IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
+                pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
 }
 
 static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
         assert(dos);
         assert(pe);
+
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
@@ -220,7 +233,7 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
                 return EFI_LOAD_ERROR;
 
         const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
-        if (!verify_pe(pe, /* allow_compatibility= */ true))
+        if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
@@ -255,8 +268,8 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sectio
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
-        pe = (const PeFileHeader *) ((uint8_t *) base + dos->ExeHeader);
-        if (!verify_pe(pe, /* allow_compatibility= */ false))
+        pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
+        if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
@@ -308,7 +321,7 @@ EFI_STATUS pe_file_locate_sections(
         err = handle->Read(handle, &len, &pe);
         if (err != EFI_SUCCESS)
                 return err;
-        if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ false))
+        if (len != sizeof(pe) || !verify_pe(&dos, &pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         DISABLE_WARNING_TYPE_LIMITS;
