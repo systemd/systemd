@@ -504,6 +504,63 @@ TEST(dns_query_process_cname_many_success_match_multiple_cname) {
 }
 
 /* ================================================================
+ * dns_query_string()
+ * ================================================================ */
+
+TEST(dns_query_string_question_utf8) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "utf8.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+
+        const char *str = dns_query_string(query);
+        ASSERT_STREQ(str, "utf8.example.com");
+}
+
+TEST(dns_query_string_question_idna) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "idna.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+
+        const char *str = dns_query_string(query);
+        ASSERT_STREQ(str, "idna.example.com");
+}
+
+TEST(dns_query_string_question_bypass) {
+        Manager manager = {};
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket * packet = NULL;
+
+        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
+        ASSERT_OK(dns_question_new_address(&packet->question, AF_INET, "bypass.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, 1, 0));
+
+        const char *str = dns_query_string(query);
+        ASSERT_STREQ(str, "bypass.example.com");
+}
+
+TEST(dns_query_string_request_address) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+
+        query->request_family = AF_INET;
+        query->request_address.in.s_addr = htobe32(0x7f000001);
+        query->request_address_valid = true;
+
+        const char *str = dns_query_string(query);
+        ASSERT_STREQ(str, "127.0.0.1");
+}
+
+/* ================================================================
  * dns_query_go()
  * ================================================================ */
 
