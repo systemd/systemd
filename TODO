@@ -242,13 +242,6 @@ Features:
   assert_ret(). Only export the stuff we are sure about, and keep some symbols
   internally where things are not clear whether we want other projects to use.
 
-* machined: allow running in a per-user instance too, to allow unpriv
-  systemd-nspawn and systemd-vmspawn do something useful. (Alternatively: open
-  up system machined to unpriv client's registering their machines, and enforce
-  they come with some prefix or suffix that clarifies they are the
-  user's. i.e. when a user registers a machine it must be called
-  foobar.<username> or so.).
-
 * importd/…: define per-user dirs for container/VM images too.
 
 * add a new specifier to unit files that figures out the DDI the unit file is
@@ -314,12 +307,8 @@ Features:
   to read them from. This way the data doesn't remain in the SMBIOS blob during
   runtime, but only in the credentials fs.
 
-* machined: make machine registration available via varlink to simplify
-  nspawn/vmspawn, and to have an extensible way to register VM/machine metadata
-
-* ssh-proxy: add support for "ssh machine/foobar" to automatically connect to
-  machined registered machine "foobar". Requires updating machined to track CID
-  and unix-export dir of containers.
+* machined: optionally track nspawn unix-export/ runtime for each machined, and
+  then update systemd-ssh-proxy so that it can connect to that.
 
 * add a new ExecStart= flag that inserts the configured user's shell as first
   word in the command line. (maybe use character '.'). Usecase: tool such as

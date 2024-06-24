@@ -11,5 +11,7 @@ int register_machine(
                 const char *directory,
                 unsigned cid,
                 const char *address,
-                const char *key_path);
+                const char *key_path,
+                bool keep_unit);
+
 int unregister_machine(sd_bus *bus, const char *machine_name);

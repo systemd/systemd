@@ -14,7 +14,11 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(ifIndices,         VARLINK_INT,    VARLINK_ARRAY|VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(vSockCid,          VARLINK_INT,    VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(sshAddress,        VARLINK_STRING, VARLINK_NULLABLE),
-                VARLINK_DEFINE_INPUT(sshPrivateKeyPath, VARLINK_STRING, VARLINK_NULLABLE));
+                VARLINK_DEFINE_INPUT(sshPrivateKeyPath, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
+                VARLINK_DEFINE_INPUT(allocateUnit,      VARLINK_BOOL,   VARLINK_NULLABLE),
+                VARLINK_FIELD_COMMENT("Whether to allow interactive authentication on this operation."),
+                VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, VARLINK_BOOL, VARLINK_NULLABLE));
 
 static VARLINK_DEFINE_STRUCT_TYPE(
                 Timestamp,
