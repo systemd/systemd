@@ -119,6 +119,8 @@ typedef struct PeSectionHeader {
         uint32_t Characteristics;
 } _packed_ PeSectionHeader;
 
+#define SECTION_TABLE_BYTES_MAX (16U * 1024U * 1024U)
+
 static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
         return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
@@ -309,7 +311,11 @@ EFI_STATUS pe_file_locate_sections(
         if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
-        section_table_len = pe.FileHeader.NumberOfSections * sizeof(PeSectionHeader);
+        if (pe.FileHeader.NumberOfSections > SIZE_MAX / sizeof(PeSectionHeader))
+                return EFI_OUT_OF_RESOURCES;
+        section_table_len = (size_t) pe.FileHeader.NumberOfSections * sizeof(PeSectionHeader);
+        if (section_table_len > SECTION_TABLE_BYTES_MAX)
+                return EFI_OUT_OF_RESOURCES;
         section_table = xmalloc(section_table_len);
         if (!section_table)
                 return EFI_OUT_OF_RESOURCES;
