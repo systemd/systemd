@@ -26,6 +26,25 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
+static void combine_measured_flag(int *value, int measured) {
+        assert(value);
+
+        /* Combine the "measured" flag in a sensible way: if we haven't measured anything yet, the first
+         * write is taken as is. Later writes can only turn off the flag, never on again. Or in other words,
+         * we eventually want to return true iff we really measured *everything* there was to measure.
+         *
+         * Reminder how the "measured" flag actually works:
+         *    > 0 → something was measured
+         *   == 0 → there was something to measure but we didn't (because no TPM or so)
+         *    < 0 → nothing has been submitted for measurement so far
+         */
+
+        if (measured < 0)
+                return;
+
+        *value = *value < 0 ? measured : *value && measured;
+}
+
 /* Combine initrds by concatenation in memory */
 static EFI_STATUS combine_initrds(
                 const void * const initrds[], const size_t initrd_sizes[], size_t n_initrds,
@@ -286,7 +305,7 @@ static void dtb_install_addons(
                 size_t *dt_sizes,
                 char16_t **dt_filenames,
                 size_t n_dts,
-                bool *ret_parameters_measured) {
+                int *ret_parameters_measured) {
 
         int parameters_measured = -1;
         EFI_STATUS err;
@@ -316,7 +335,7 @@ static void dtb_install_addons(
                                                 i,
                                                 TPM2_PCR_KERNEL_CONFIG);
 
-                        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                        combine_measured_flag(&parameters_measured, m);
                 }
         }
 
@@ -502,9 +521,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons_global = NULL, *cmdline_addons_uki = NULL;
-        int sections_measured = -1, parameters_measured = -1;
+        int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_free_ char *uname = NULL;
-        bool sysext_measured = false, confext_measured = false, m;
+        bool m;
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
@@ -581,19 +600,18 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 if (szs[section] == 0) /* not found */
                         continue;
 
-                m = false;
-
                 /* First measure the name of the section */
+                m = false;
                 (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
                                 strsize8(unified_sections[section]), /* including NUL byte */
                                 unified_sections[section],
                                 &m);
-
-                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+                combine_measured_flag(&sections_measured, m);
 
                 /* Then measure the data of the section */
+                m = false;
                 (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
@@ -601,7 +619,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 unified_sections[section],
                                 &m);
 
-                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+                combine_measured_flag(&sections_measured, m);
         }
 
         /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
@@ -619,7 +637,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                  * any boot menu, let's measure things anyway. */
                 m = false;
                 (void) tpm_log_load_options(cmdline, &m);
-                parameters_measured = m;
+                combine_measured_flag(&parameters_measured, m);
         } else if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
                 cmdline = xstrn8_to_16(
                                 (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
@@ -632,7 +650,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
          * loaded first, and the image-specific ones later, for the same reason. */
         cmdline_append_and_measure_addons(cmdline_addons_global, cmdline_addons_uki, &cmdline, &m);
-        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+        combine_measured_flag(&parameters_measured, m);
 
         /* SMBIOS OEM Strings data is controlled by the host admin and not covered
          * by the VM attestation, so MUST NOT be trusted when in a confidential VM */
@@ -647,7 +665,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                          * measurements that are not under control of the machine owner. */
                         m = false;
                         (void) tpm_log_load_options(extra16, &m);
-                        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                        combine_measured_flag(&parameters_measured, m);
                 }
         }
 
@@ -665,7 +683,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &credential_initrd,
                       &credential_initrd_size,
                       &m) == EFI_SUCCESS)
-                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                combine_measured_flag(&parameters_measured, m);
 
         if (pack_cpio(loaded_image,
                       u"\\loader\\credentials",
@@ -679,7 +697,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &global_credential_initrd,
                       &global_credential_initrd_size,
                       &m) == EFI_SUCCESS)
-                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                combine_measured_flag(&parameters_measured, m);
 
         if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
@@ -693,7 +711,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &sysext_initrd,
                       &sysext_initrd_size,
                       &m) == EFI_SUCCESS)
-                sysext_measured = m;
+                combine_measured_flag(&sysext_measured, m);
 
         if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
@@ -707,7 +725,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &confext_initrd,
                       &confext_initrd_size,
                       &m) == EFI_SUCCESS)
-                confext_measured = m;
+                combine_measured_flag(&confext_measured, m);
 
         dt_size = szs[UNIFIED_SECTION_DTB];
         dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
@@ -720,26 +738,28 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         log_error_status(err, "Error loading embedded devicetree: %m");
         }
 
+        int dtb_measured;
         dtb_install_addons(&dt_state,
                            dt_bases_addons_global,
                            dt_sizes_addons_global,
                            dt_filenames_addons_global,
                            n_dts_addons_global,
-                           &m);
-        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                           &dtb_measured);
+        combine_measured_flag(&parameters_measured, dtb_measured);
+
         dtb_install_addons(&dt_state,
                            dt_bases_addons_uki,
                            dt_sizes_addons_uki,
                            dt_filenames_addons_uki,
                            n_dts_addons_uki,
-                           &m);
-        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                           &dtb_measured);
+        combine_measured_flag(&parameters_measured, dtb_measured);
 
         if (parameters_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
-        if (sysext_measured)
+        if (sysext_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
-        if (confext_measured)
+        if (confext_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
 
         /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
