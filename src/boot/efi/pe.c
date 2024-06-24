@@ -155,6 +155,26 @@ static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader 
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
+static bool pe_section_name_equal(const char *a, const char *b) {
+
+        if (a == b)
+                return true;
+        if (!a != !b)
+                return false;
+
+        /* Compares up to 8 characters of a and b i.e. the name size limit in the PE section header */
+
+        for (size_t i = 0; i < sizeof_field(PeSectionHeader, Name); i++) {
+                if (a[i] != b[i])
+                        return false;
+
+                if (a[i] == 0) /* Name is shorter than 8 */
+                        return true;
+        }
+
+        return true;
+}
+
 static void locate_sections(
                 const PeSectionHeader section_table[],
                 size_t n_table,
@@ -172,7 +192,7 @@ static void locate_sections(
                 const PeSectionHeader *sect = section_table + i;
 
                 for (size_t j = 0; sections[j]; j++) {
-                        if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
+                        if (!pe_section_name_equal(sect->Name, sections[j]))
                                 continue;
 
                         offsets[j] = in_memory ? sect->VirtualAddress : sect->PointerToRawData;
