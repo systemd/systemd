@@ -1754,6 +1754,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
  KEYBOARD_KEY_88=media                                  # "quick play
 
 ###########################################################
+# Redmi
+###########################################################
+
+# RedmiBook Pro 15 2022
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTIMI:pnRedmiBookPro152022:pvr*
+ KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
+ KEYBOARD_KEY_dd=rightctrl                              # Right Ctrl is preferrable over Menu
+
+###########################################################
 # Samsung
 ###########################################################
 
