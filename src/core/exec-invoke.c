@@ -1439,6 +1439,13 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, b
                         return r;
         }
 
+        /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
+        if (p->exec_fd >= 0 || p->handoff_timestamp_fd >= 0) {
+                r = seccomp_filter_set_add_by_name(c->syscall_filter, c->syscall_allow_list, "write");
+                if (r < 0)
+                        return r;
+        }
+
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
 }
 
