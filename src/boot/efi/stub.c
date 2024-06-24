@@ -584,7 +584,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 m = false;
 
                 /* First measure the name of the section */
-                (void) tpm_log_event_ascii(
+                (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
                                 strsize8(unified_sections[section]), /* including NUL byte */
@@ -594,7 +594,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 sections_measured = sections_measured < 0 ? m : (sections_measured && m);
 
                 /* Then measure the data of the section */
-                (void) tpm_log_event_ascii(
+                (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
                                 szs[section],

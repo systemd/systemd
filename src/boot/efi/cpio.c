@@ -430,7 +430,7 @@ EFI_STATUS pack_cpio(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
-        err = tpm_log_event(
+        err = tpm_log_ipl_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
@@ -499,7 +499,7 @@ EFI_STATUS pack_cpio_literal(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
-        err = tpm_log_event(
+        err = tpm_log_ipl_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
