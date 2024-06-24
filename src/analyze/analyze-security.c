@@ -1244,8 +1244,8 @@ static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "CapabilityBoundingSet=~CAP_BPF",
                 .json_field = "CapabilityBoundingSet_CAP_BPF",
-                .description_good = "Service may load BPF programs",
-                .description_bad = "Service may not load BPF programs",
+                .description_good = "Service may not load BPF programs",
+                .description_bad = "Service may load BPF programs",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
                 .weight = 25,
                 .range = 1,
