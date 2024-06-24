@@ -3717,7 +3717,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
         r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
         if (r < 0)
-                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
         FOREACH_ELEMENT(i, socket_types) {
@@ -3725,7 +3725,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
                 fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to create socket for '%s': %m",
                                                     of->path);
 
@@ -3733,12 +3733,12 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
                 if (r >= 0)
                         return TAKE_FD(fd);
                 if (r != -EPROTOTYPE)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     r, "Failed to connect to socket for '%s': %m",
                                                     of->path);
         }
 
-        return log_exec_error_errno(c, p,
+        return log_exec_debug_errno(c, p,
                                     SYNTHETIC_ERRNO(EPROTOTYPE), "No suitable socket type to connect to socket '%s'.",
                                     of->path);
 }
@@ -3753,10 +3753,10 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(c, p, of, ofd);
@@ -3764,7 +3764,7 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to shutdown send for socket '%s': %m",
                                                     of->path);
 
@@ -3778,7 +3778,7 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
                 fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
+                        return log_exec_debug_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
                 log_exec_debug(c, p, "Opened file '%s' as fd %d.", of->path, fd);
         }
@@ -3787,8 +3787,6 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 }
 
 static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t *n_fds) {
-        int r;
-
         assert(c);
         assert(p);
         assert(n_fds);
@@ -3799,21 +3797,24 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 fd = get_open_file_fd(c, p, of);
                 if (fd < 0) {
                         if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
-                                log_exec_warning_errno(c, p, fd,
-                                                       "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
-                                                       of->path);
+                                log_exec_full_errno(c, p,
+                                                    fd == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(fd) ? LOG_DEBUG : LOG_WARNING,
+                                                    fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
+                                                    of->path);
                                 continue;
                         }
 
-                        return fd;
+                        return log_exec_error_errno(c, p, fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s': %m",
+                                                    of->path);
                 }
 
                 if (!GREEDY_REALLOC(p->fds, *n_fds + 1))
-                        return -ENOMEM;
+                        return log_oom();
 
-                r = strv_extend(&p->fd_names, of->fdname);
-                if (r < 0)
-                        return r;
+                if (strv_extend(&p->fd_names, of->fdname) < 0)
+                        return log_oom();
 
                 p->fds[(*n_fds)++] = TAKE_FD(fd);
         }
