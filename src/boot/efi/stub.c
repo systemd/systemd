@@ -413,7 +413,7 @@ static EFI_STATUS load_addons(
         sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
 
         for (size_t i = 0; i < n_items; i++) {
-                size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
+                PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
                 _cleanup_free_ EFI_DEVICE_PATH *addon_path = NULL;
                 _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_addon = NULL;
@@ -441,9 +441,10 @@ static EFI_STATUS load_addons(
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
 
-                err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, addrs, szs);
+                err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
                 if (err != EFI_SUCCESS ||
-                    (szs[UNIFIED_SECTION_CMDLINE] == 0 && szs[UNIFIED_SECTION_DTB] == 0)) {
+                    (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
+                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB))) {
                         if (err == EFI_SUCCESS)
                                 err = EFI_NOT_FOUND;
                         log_error_status(err,
@@ -453,38 +454,38 @@ static EFI_STATUS load_addons(
                 }
 
                 /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
-                if (szs[UNIFIED_SECTION_LINUX] > 0) {
+                if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
                         log_error_status(EFI_INVALID_PARAMETER, "%ls is a UKI, not an addon, ignoring: %m", items[i]);
                         continue;
                 }
 
                 /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
                  * enforcing compatibility with a specific UKI only */
-                if (uname && szs[UNIFIED_SECTION_UNAME] > 0 &&
+                if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
                                 !strneq8(uname,
-                                         (char *)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_UNAME],
-                                         szs[UNIFIED_SECTION_UNAME])) {
+                                         (char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
+                                         sections[UNIFIED_SECTION_UNAME].size)) {
                         log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
                         continue;
                 }
 
-                if (ret_cmdline && szs[UNIFIED_SECTION_CMDLINE] > 0) {
+                if (ret_cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline),
-                                                *extra16 = xstrn8_to_16((char *)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
-                                                                        szs[UNIFIED_SECTION_CMDLINE]);
+                                                *extra16 = xstrn8_to_16((char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
+                                                                        sections[UNIFIED_SECTION_CMDLINE].size);
                         cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
 
-                if (ret_dt_bases && szs[UNIFIED_SECTION_DTB] > 0) {
+                if (ret_dt_bases && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                         dt_sizes = xrealloc(dt_sizes,
                                             n_dt * sizeof(size_t),
                                             (n_dt + 1)  * sizeof(size_t));
-                        dt_sizes[n_dt] = szs[UNIFIED_SECTION_DTB];
+                        dt_sizes[n_dt] = sections[UNIFIED_SECTION_DTB].size;
 
                         dt_bases = xrealloc(dt_bases,
                                             n_dt * sizeof(void *),
                                             (n_dt + 1) * sizeof(void *));
-                        dt_bases[n_dt] = xmemdup((uint8_t*)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_DTB],
+                        dt_bases[n_dt] = xmemdup((uint8_t*)loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset,
                                                  dt_sizes[n_dt]);
 
                         dt_filenames = xrealloc(dt_filenames,
@@ -515,11 +516,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
-        size_t linux_size, initrd_size, ucode_size, dt_size, n_dts_addons_global = 0, n_dts_addons_uki = 0;
-        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, ucode_base, dt_base;
+        size_t linux_size, initrd_size = 0, ucode_size = 0, dt_size = 0, n_dts_addons_global = 0, n_dts_addons_uki = 0;
+        EFI_PHYSICAL_ADDRESS linux_base, initrd_base = 0, ucode_base = 0, dt_base = 0;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
+        PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons_global = NULL, *cmdline_addons_uki = NULL;
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_free_ char *uname = NULL;
@@ -541,8 +542,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         (void) process_random_seed(esp_dir);
         }
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, addrs, szs);
-        if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {
+        err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
+        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
                 return log_error_status(err, "Unable to locate embedded .linux section: %m");
@@ -553,9 +554,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_filenames_addons_global, n_dts_addons_global, dt_filenames_free);
         CLEANUP_ARRAY(dt_filenames_addons_uki, n_dts_addons_uki, dt_filenames_free);
 
-        if (szs[UNIFIED_SECTION_UNAME] > 0)
-                uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
-                                  szs[UNIFIED_SECTION_UNAME]);
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME))
+                uname = xstrndup8((char *)loaded_image->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
+                                  sections[UNIFIED_SECTION_UNAME].size);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
@@ -597,7 +598,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 if (!unified_section_measure(section)) /* shall not measure? */
                         continue;
 
-                if (szs[section] == 0) /* not found */
+                if (!PE_SECTION_VECTOR_IS_SET(sections + section)) /* not found */
                         continue;
 
                 /* First measure the name of the section */
@@ -614,11 +615,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 m = false;
                 (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
-                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
-                                szs[section],
+                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[section].memory_offset,
+                                sections[section].size,
                                 unified_sections[section],
                                 &m);
-
                 combine_measured_flag(&sections_measured, m);
         }
 
@@ -628,9 +628,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, 0);
 
         /* Show splash screen as early as possible */
-        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_SPLASH))
+                graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
 
-        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
+        if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
@@ -638,10 +639,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 m = false;
                 (void) tpm_log_load_options(cmdline, &m);
                 combine_measured_flag(&parameters_measured, m);
-        } else if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
+        } else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                 cmdline = xstrn8_to_16(
-                                (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
-                                szs[UNIFIED_SECTION_CMDLINE]);
+                                (char *) loaded_image->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
+                                sections[UNIFIED_SECTION_CMDLINE].size);
                 mangle_stub_cmdline(cmdline);
         }
 
@@ -727,8 +728,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(&confext_measured, m);
 
-        dt_size = szs[UNIFIED_SECTION_DTB];
-        dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
+
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+                dt_size = sections[UNIFIED_SECTION_DTB].size;
+                dt_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_DTB].memory_offset;
+        }
 
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         if (dt_size > 0) {
@@ -767,10 +771,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * is not measured, neither as raw section (see above), nor as cpio (here), because it is the
          * signature of expected PCR values, i.e. its input are PCR measurements, and hence it shouldn't
          * itself be input for PCR measurements. */
-        if (szs[UNIFIED_SECTION_PCRSIG] > 0)
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRSIG))
                 (void) pack_cpio_literal(
-                                (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRSIG],
-                                szs[UNIFIED_SECTION_PCRSIG],
+                                (uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRSIG].memory_offset,
+                                sections[UNIFIED_SECTION_PCRSIG].size,
                                 ".extra",
                                 u"tpm2-pcr-signature.json",
                                 /* dir_mode= */ 0555,
@@ -785,10 +789,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * a cpio and also pass it to the kernel, so that it can be read from
          * /.extra/tpm2-pcr-public-key.pem. This section is already measure above, hence we won't measure the
          * cpio. */
-        if (szs[UNIFIED_SECTION_PCRPKEY] > 0)
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRPKEY))
                 (void) pack_cpio_literal(
-                                (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRPKEY],
-                                szs[UNIFIED_SECTION_PCRPKEY],
+                                (uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRPKEY].memory_offset,
+                                sections[UNIFIED_SECTION_PCRPKEY].size,
                                 ".extra",
                                 u"tpm2-pcr-public-key.pem",
                                 /* dir_mode= */ 0555,
@@ -799,14 +803,18 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 &pcrpkey_initrd_size,
                                 /* ret_measured= */ NULL);
 
-        linux_size = szs[UNIFIED_SECTION_LINUX];
-        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_LINUX];
+        linux_size = sections[UNIFIED_SECTION_LINUX].size;
+        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_LINUX].memory_offset;
 
-        initrd_size = szs[UNIFIED_SECTION_INITRD];
-        initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
+                initrd_size = sections[UNIFIED_SECTION_INITRD].size;
+                initrd_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_INITRD].memory_offset;
+        }
 
-        ucode_size = szs[UNIFIED_SECTION_UCODE];
-        ucode_base = ucode_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_UCODE] : 0;
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                ucode_size = sections[UNIFIED_SECTION_UCODE].size;
+                ucode_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_UCODE].memory_offset;
+        }
 
         _cleanup_pages_ Pages initrd_pages = {};
         if (ucode_base || credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
@@ -857,4 +865,4 @@ static EFI_STATUS run(EFI_HANDLE image) {
         return err;
 }
 
-DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /*wait_for_debugger=*/false);
+DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /* wait_for_debugger= */ false);
