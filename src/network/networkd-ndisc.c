@@ -1275,10 +1275,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
 
         if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Prefix '%s' is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_prefix) ? "not in allow list"
-                                                                                              : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_prefix))
+                        log_link_debug(link, "Prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
+                else
+                        log_link_debug(link, "Prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
@@ -1329,11 +1330,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (in6_prefix_is_filtered(&dst, prefixlen,
                                    link->network->ndisc_allow_listed_route_prefix,
                                    link->network->ndisc_deny_listed_route_prefix)) {
-
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Route prefix %s is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_route_prefix) ? "not in allow list"
-                                                                                                    : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_route_prefix))
+                        log_link_debug(link, "Route prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
+                else
+                        log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
                 return 0;
         }
@@ -2103,12 +2104,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
         if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
-                if (DEBUG_LOGGING) {
-                        if (!set_isempty(link->network->ndisc_allow_listed_router))
-                                log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                        else
-                                log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                }
+                if (!set_isempty(link->network->ndisc_allow_listed_router))
+                        log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
+                else
+                        log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
                 return 0;
         }
 

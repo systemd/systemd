@@ -1137,14 +1137,12 @@ static int dhcp_server_is_filtered(Link *link, sd_dhcp_client *client) {
                 return log_link_debug_errno(link, r, "Failed to get DHCP server IP address: %m");
 
         if (in4_address_is_filtered(&addr, link->network->dhcp_allow_listed_ip, link->network->dhcp_deny_listed_ip)) {
-                if (DEBUG_LOGGING) {
-                        if (link->network->dhcp_allow_listed_ip)
-                                log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" not found in allow-list, ignoring offer.",
-                                               IPV4_ADDRESS_FMT_VAL(addr));
-                        else
-                                log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in deny-list, ignoring offer.",
-                                               IPV4_ADDRESS_FMT_VAL(addr));
-                }
+                if (link->network->dhcp_allow_listed_ip)
+                        log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" not found in allow-list, ignoring offer.",
+                                       IPV4_ADDRESS_FMT_VAL(addr));
+                else
+                        log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in deny-list, ignoring offer.",
+                                       IPV4_ADDRESS_FMT_VAL(addr));
 
                 return true;
         }
