@@ -609,5 +609,6 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
         va_end(ap);
 
         execv(path, l);
+        log_error_errno(errno, "Failed to execute %s: %m", path);
         _exit(EXIT_FAILURE);
 }
