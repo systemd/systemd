@@ -150,9 +150,10 @@ static void link_alloc_env_teardown(LinkAllocEnv *env) {
         free(env->server_name);
         link_address_free(env->address);
         dns_server_unref(env->server);
+        sd_event_unref(env->manager.event);
 }
 
-static void link_alloc_env_setup(LinkAllocEnv *env, DnsServerType server_type) {
+static void link_alloc_env_setup(LinkAllocEnv *env, int family, DnsServerType server_type) {
         Link *link = NULL;
 
         ASSERT_NOT_NULL(env);
@@ -160,13 +161,16 @@ static void link_alloc_env_setup(LinkAllocEnv *env, DnsServerType server_type) {
         env->manager = (Manager) {};
         env->ifindex = 1;
 
+        sd_event_new(&env->manager.event);
+        ASSERT_NOT_NULL(env->manager.event);
+
         ASSERT_OK(link_new(&env->manager, &env->link, env->ifindex));
         ASSERT_NOT_NULL(env->link);
         env->link->flags = IFF_UP | IFF_LOWER_UP;
         env->link->operstate = IF_OPER_UP;
 
         env->ip_addr.in.s_addr = htobe32(0xc0a84301);
-        ASSERT_OK(link_address_new(env->link, &env->address, AF_INET, &env->ip_addr, &env->ip_addr));
+        ASSERT_OK(link_address_new(env->link, &env->address, family, &env->ip_addr, &env->ip_addr));
         ASSERT_NOT_NULL(env->address);
 
         env->server_type = server_type;
@@ -178,7 +182,7 @@ static void link_alloc_env_setup(LinkAllocEnv *env, DnsServerType server_type) {
                 link = env->link;
 
         ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
-                        link, AF_INET, &env->server_addr, env->server_port,
+                        link, family, &env->server_addr, env->server_port,
                         env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_NOT_NULL(env->server);
@@ -187,7 +191,7 @@ static void link_alloc_env_setup(LinkAllocEnv *env, DnsServerType server_type) {
 TEST(link_allocate_scopes_resets_manager_dns_server) {
         _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
 
-        link_alloc_env_setup(&env, DNS_SERVER_SYSTEM);
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_SYSTEM);
 
         env.link->unicast_relevant = false;
         env.manager.dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
@@ -205,12 +209,18 @@ TEST(link_allocate_scopes_resets_manager_dns_server) {
         ASSERT_FALSE(env.manager.dns_servers->packet_rrsig_missing);
         ASSERT_FALSE(env.manager.dns_servers->packet_do_off);
         ASSERT_FALSE(env.manager.dns_servers->warned_downgrade);
+
+        ASSERT_NULL(env.link->unicast_scope);
+        ASSERT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_NULL(env.link->llmnr_ipv6_scope);
+        ASSERT_NULL(env.link->mdns_ipv4_scope);
+        ASSERT_NULL(env.link->mdns_ipv6_scope);
 }
 
-TEST(link_allocate_scopes_resets_link_dns_server) {
+TEST(link_allocate_scopes_unicast) {
         _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
 
-        link_alloc_env_setup(&env, DNS_SERVER_LINK);
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
 
         env.link->unicast_relevant = true;
         env.link->dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
@@ -228,6 +238,99 @@ TEST(link_allocate_scopes_resets_link_dns_server) {
         ASSERT_FALSE(env.link->dns_servers->packet_rrsig_missing);
         ASSERT_FALSE(env.link->dns_servers->packet_do_off);
         ASSERT_FALSE(env.link->dns_servers->warned_downgrade);
+
+        ASSERT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_NULL(env.link->llmnr_ipv6_scope);
+        ASSERT_NULL(env.link->mdns_ipv4_scope);
+        ASSERT_NULL(env.link->mdns_ipv6_scope);
+
+        ASSERT_TRUE(env.link->unicast_scope->link == env.link);
+        ASSERT_EQ(env.link->unicast_scope->protocol, DNS_PROTOCOL_DNS);
+        ASSERT_EQ(env.link->unicast_scope->family, AF_UNSPEC);
+}
+
+TEST(link_allocate_scopes_llmnr_ipv4) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->llmnr_support = RESOLVE_SUPPORT_YES;
+        env.manager.llmnr_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->unicast_scope);
+        ASSERT_NULL(env.link->llmnr_ipv6_scope);
+        ASSERT_NULL(env.link->mdns_ipv4_scope);
+        ASSERT_NULL(env.link->mdns_ipv6_scope);
+
+        ASSERT_TRUE(env.link->llmnr_ipv4_scope->link == env.link);
+        ASSERT_EQ(env.link->llmnr_ipv4_scope->protocol, DNS_PROTOCOL_LLMNR);
+        ASSERT_EQ(env.link->llmnr_ipv4_scope->family, AF_INET);
+}
+
+TEST(link_allocate_scopes_llmnr_ipv6) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET6, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->llmnr_support = RESOLVE_SUPPORT_YES;
+        env.manager.llmnr_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->unicast_scope);
+        ASSERT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_NULL(env.link->mdns_ipv4_scope);
+        ASSERT_NULL(env.link->mdns_ipv6_scope);
+
+        ASSERT_TRUE(env.link->llmnr_ipv6_scope->link == env.link);
+        ASSERT_EQ(env.link->llmnr_ipv6_scope->protocol, DNS_PROTOCOL_LLMNR);
+        ASSERT_EQ(env.link->llmnr_ipv6_scope->family, AF_INET6);
+}
+
+TEST(link_allocate_scopes_mdns_ipv4) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->mdns_support = RESOLVE_SUPPORT_YES;
+        env.manager.mdns_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->unicast_scope);
+        ASSERT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_NULL(env.link->llmnr_ipv6_scope);
+        ASSERT_NULL(env.link->mdns_ipv6_scope);
+
+        ASSERT_TRUE(env.link->mdns_ipv4_scope->link == env.link);
+        ASSERT_EQ(env.link->mdns_ipv4_scope->protocol, DNS_PROTOCOL_MDNS);
+        ASSERT_EQ(env.link->mdns_ipv4_scope->family, AF_INET);
+}
+
+TEST(link_allocate_scopes_mdns_ipv6) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET6, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->mdns_support = RESOLVE_SUPPORT_YES;
+        env.manager.mdns_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->unicast_scope);
+        ASSERT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_NULL(env.link->llmnr_ipv6_scope);
+        ASSERT_NULL(env.link->mdns_ipv4_scope);
+
+        ASSERT_TRUE(env.link->mdns_ipv6_scope->link == env.link);
+        ASSERT_EQ(env.link->mdns_ipv6_scope->protocol, DNS_PROTOCOL_MDNS);
+        ASSERT_EQ(env.link->mdns_ipv6_scope->family, AF_INET6);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
