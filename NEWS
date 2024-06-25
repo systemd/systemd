@@ -31,6 +31,15 @@ CHANGES WITH 257 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        * systemd-logind now always obeys inibitor locks, where previously it
+          ignored locks taken by the caller or when the caller was root. A
+          privileged caller can always close the other sessions, remove the
+          inhibitor locks, or use --force or --check-inhibitors=no to ignore the
+          inhibitors. This change thus doesn't affect security, since everything
+          that was possible before at a given privilege level is still possible,
+          but it should make the inhibitor logic easier to use and understand,
+          and also help avoiding accidental reboots and shutdowns.
+
         — <place>, <date>
 
 CHANGES WITH 256:
