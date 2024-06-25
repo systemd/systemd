@@ -35,6 +35,24 @@
  * with large file handles anyway. */
 #define ORIGINAL_MAX_HANDLE_SZ 128
 
+bool is_name_to_handle_at_fatal_error(int err) {
+        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For example the
+         * kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
+         * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container), or the mount
+         * point is not triggered yet (EOVERFLOW, think autofs+nfs4), or some general name_to_handle_at()
+         * flakiness (EINVAL). However other errors are not supposed to happen and therefore are considered
+         * fatal ones. */
+
+        assert(err < 0);
+
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(err))
+                return false;
+        if (ERRNO_IS_NEG_PRIVILEGE(err))
+                return false;
+
+        return !IN_SET(err, -EOVERFLOW, -EINVAL);
+}
+
 int name_to_handle_at_loop(
                 int fd,
                 const char *path,
@@ -158,19 +176,6 @@ static bool filename_possibly_with_slash_suffix(const char *s) {
 
         copied = strndupa_safe(s, slash - s);
         return filename_is_valid(copied);
-}
-
-static bool is_name_to_handle_at_fatal_error(int err) {
-        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For
-         * example the kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall
-         * was blocked (EACCES/EPERM; maybe through seccomp, because we are running inside of a
-         * container), or the mount point is not triggered yet (EOVERFLOW, think nfs4), or some
-         * general name_to_handle_at() flakiness (EINVAL). However other errors are not supposed to
-         * happen and therefore are considered fatal ones. */
-
-        assert(err < 0);
-
-        return !IN_SET(err, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL);
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
