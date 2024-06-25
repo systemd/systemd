@@ -4,6 +4,7 @@
 #include <linux/magic.h>
 #include <sched.h>
 #include <sys/eventfd.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,6 +12,8 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "missing_mount.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
@@ -47,15 +50,58 @@ TEST(inode_same) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-files_same.XXXXXX";
         _cleanup_(unlink_tempfilep) char name_alias[] = "/tmp/test-files_same.alias";
+        int r;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(symlink(name, name_alias) >= 0);
 
-        assert_se(inode_same(name, name, 0));
-        assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
-        assert_se(inode_same(name, name_alias, 0));
-        assert_se(!inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
+        assert_se(inode_same(name, name, 0) > 0);
+        assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same(name, name_alias, 0) > 0);
+        assert_se(inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW) == 0);
+
+        assert_se(inode_same("/proc", "/proc", 0));
+        assert_se(inode_same("/proc", "/proc", AT_SYMLINK_NOFOLLOW));
+
+        _cleanup_close_ int fd1 = open("/dev/null", O_CLOEXEC|O_RDONLY),
+                fd2 = open("/dev/null", O_CLOEXEC|O_RDONLY);
+
+        assert_se(fd1 >= 0);
+        assert_se(fd2 >= 0);
+
+        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same_at(fd1, NULL, fd1, NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd2, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+
+        safe_close(fd2);
+        fd2 = open("/dev/urandom", O_CLOEXEC|O_RDONLY);
+        assert_se(fd2 >= 0);
+
+        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
+        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
+
+        assert_se(inode_same_at(AT_FDCWD, NULL, AT_FDCWD, NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(AT_FDCWD, NULL, fd1, NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd1, NULL, AT_FDCWD, NULL, AT_EMPTY_PATH) == 0);
+
+        _cleanup_(umount_and_unlink_and_freep) char *p = NULL;
+
+        assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
+        assert_se(touch(p) >= 0);
+
+        r = mount_nofollow_verbose(LOG_ERR, name, p, NULL, MS_BIND, NULL);
+        if (r < 0)
+                assert_se(ERRNO_IS_NEG_PRIVILEGE(r));
+        else {
+                assert_se(inode_same(name, p, 0) > 0);
+                assert_se(inode_same(name, p, AT_SYMLINK_NOFOLLOW) > 0);
+        }
 }
 
 TEST(is_symlink) {
