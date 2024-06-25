@@ -42,11 +42,19 @@ int polkit_agent_open(void) {
 
         xsprintf(notify_fd, "%i", pipe_fd[1]);
 
+        if (access(POLKIT_AGENT_BINARY_PATH, X_OK) < 0)
+                return log_error_errno(errno, "Failed to find polkit agent binary. Is polkit agent installed?");
+
         r = fork_agent("(polkit-agent)",
-                       &pipe_fd[1], 1,
+                       &pipe_fd[1],
+                       1,
                        &agent_pid,
                        POLKIT_AGENT_BINARY_PATH,
-                       POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
+                       POLKIT_AGENT_BINARY_PATH,
+                       "--notify-fd",
+                       notify_fd,
+                       "--fallback",
+                       NULL);
 
         /* Close the writing side, because that's the one for the agent */
         safe_close(pipe_fd[1]);
