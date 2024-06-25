@@ -131,100 +131,103 @@ TEST(link_find_address) {
  * link_allocate_scopes()
  * ================================================================ */
 
-TEST(link_allocate_scopes_resets_manager_dns_server) {
-        Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_(link_address_freep) LinkAddress *address = NULL;
-        int ifindex = 1;
-
+typedef struct LinkAllocEnv {
+        Manager manager;
+        int ifindex;
+        Link *link;
+        union in_addr_union ip_addr;
+        LinkAddress *address;
+        DnsServerType server_type;
         union in_addr_union server_addr;
-        _cleanup_free_ char *server_name;
+        char *server_name;
         uint16_t server_port;
-        _cleanup_(dns_server_unrefp) DnsServer *server;
+        DnsServer *server;
+} LinkAllocEnv;
 
-        ASSERT_OK(link_new(&manager, &link, ifindex));
-        ASSERT_NOT_NULL(link);
-        link->flags = IFF_UP | IFF_LOWER_UP;
-        link->operstate = IF_OPER_UP;
+static void link_alloc_env_teardown(LinkAllocEnv *env) {
+        ASSERT_NOT_NULL(env);
 
-        union in_addr_union ipv4 = { .in.s_addr = htobe32(0xc0a84301) };
-        ASSERT_OK(link_address_new(link, &address, AF_INET, &ipv4, &ipv4));
-        ASSERT_NOT_NULL(address);
+        free(env->server_name);
+        link_address_free(env->address);
+        dns_server_unref(env->server);
+}
 
-        server_addr.in.s_addr = htobe32(0x7f000001);
-        server_name = strdup("localhost");
-        server_port = 53;
+static void link_alloc_env_setup(LinkAllocEnv *env, DnsServerType server_type) {
+        Link *link = NULL;
 
-        ASSERT_OK(dns_server_new(&manager, &server, DNS_SERVER_SYSTEM,
-                        NULL, AF_INET, &server_addr, server_port, ifindex,
-                        server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+        ASSERT_NOT_NULL(env);
 
-        ASSERT_NOT_NULL(server);
+        env->manager = (Manager) {};
+        env->ifindex = 1;
 
-        link->unicast_relevant = false;
-        manager.dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
-        manager.dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
-        manager.dns_servers->received_udp_fragment_max = 1024u;
+        ASSERT_OK(link_new(&env->manager, &env->link, env->ifindex));
+        ASSERT_NOT_NULL(env->link);
+        env->link->flags = IFF_UP | IFF_LOWER_UP;
+        env->link->operstate = IF_OPER_UP;
 
-        link_allocate_scopes(link);
+        env->ip_addr.in.s_addr = htobe32(0xc0a84301);
+        ASSERT_OK(link_address_new(env->link, &env->address, AF_INET, &env->ip_addr, &env->ip_addr));
+        ASSERT_NOT_NULL(env->address);
 
-        ASSERT_TRUE(link->unicast_relevant);
-        ASSERT_EQ(manager.dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
-        ASSERT_EQ(manager.dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
-        ASSERT_EQ(manager.dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
+        env->server_type = server_type;
+        env->server_addr.in.s_addr = htobe32(0x7f000001);
+        env->server_name = strdup("localhost");
+        env->server_port = 53;
 
-        ASSERT_FALSE(manager.dns_servers->packet_bad_opt);
-        ASSERT_FALSE(manager.dns_servers->packet_rrsig_missing);
-        ASSERT_FALSE(manager.dns_servers->packet_do_off);
-        ASSERT_FALSE(manager.dns_servers->warned_downgrade);
+        if (server_type == DNS_SERVER_LINK)
+                link = env->link;
+
+        ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
+                        link, AF_INET, &env->server_addr, env->server_port,
+                        env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+
+        ASSERT_NOT_NULL(env->server);
+}
+
+TEST(link_allocate_scopes_resets_manager_dns_server) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, DNS_SERVER_SYSTEM);
+
+        env.link->unicast_relevant = false;
+        env.manager.dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.manager.dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dns_servers->received_udp_fragment_max = 1024u;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_TRUE(env.link->unicast_relevant);
+        ASSERT_EQ(env.manager.dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
+        ASSERT_EQ(env.manager.dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
+        ASSERT_EQ(env.manager.dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
+
+        ASSERT_FALSE(env.manager.dns_servers->packet_bad_opt);
+        ASSERT_FALSE(env.manager.dns_servers->packet_rrsig_missing);
+        ASSERT_FALSE(env.manager.dns_servers->packet_do_off);
+        ASSERT_FALSE(env.manager.dns_servers->warned_downgrade);
 }
 
 TEST(link_allocate_scopes_resets_link_dns_server) {
-        Manager manager = {};
-        DnsServer *server;
-        _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_(link_address_freep) LinkAddress *address = NULL;
-        int ifindex = 1;
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
 
-        union in_addr_union server_addr;
-        _cleanup_free_ char *server_name;
-        uint16_t server_port;
+        link_alloc_env_setup(&env, DNS_SERVER_LINK);
 
-        ASSERT_OK(link_new(&manager, &link, ifindex));
-        ASSERT_NOT_NULL(link);
-        link->flags = IFF_UP | IFF_LOWER_UP;
-        link->operstate = IF_OPER_UP;
+        env.link->unicast_relevant = true;
+        env.link->dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.link->dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.link->dns_servers->received_udp_fragment_max = 1024u;
 
-        union in_addr_union ipv4 = { .in.s_addr = htobe32(0xc0a84301) };
-        ASSERT_OK(link_address_new(link, &address, AF_INET, &ipv4, &ipv4));
-        ASSERT_NOT_NULL(address);
+        link_allocate_scopes(env.link);
 
-        server_addr.in.s_addr = htobe32(0x7f000001);
-        server_name = strdup("localhost");
-        server_port = 53;
+        ASSERT_TRUE(env.link->unicast_relevant);
+        ASSERT_EQ(env.link->dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
+        ASSERT_EQ(env.link->dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
+        ASSERT_EQ(env.link->dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
 
-        ASSERT_OK(dns_server_new(&manager, &server, DNS_SERVER_LINK,
-                        link, AF_INET, &server_addr, server_port, ifindex,
-                        server_name, RESOLVE_CONFIG_SOURCE_DBUS));
-
-        ASSERT_NOT_NULL(server);
-
-        link->unicast_relevant = true;
-        link->dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
-        link->dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
-        link->dns_servers->received_udp_fragment_max = 1024u;
-
-        link_allocate_scopes(link);
-
-        ASSERT_TRUE(link->unicast_relevant);
-        ASSERT_EQ(link->dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
-        ASSERT_EQ(link->dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
-        ASSERT_EQ(link->dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
-
-        ASSERT_FALSE(link->dns_servers->packet_bad_opt);
-        ASSERT_FALSE(link->dns_servers->packet_rrsig_missing);
-        ASSERT_FALSE(link->dns_servers->packet_do_off);
-        ASSERT_FALSE(link->dns_servers->warned_downgrade);
+        ASSERT_FALSE(env.link->dns_servers->packet_bad_opt);
+        ASSERT_FALSE(env.link->dns_servers->packet_rrsig_missing);
+        ASSERT_FALSE(env.link->dns_servers->packet_do_off);
+        ASSERT_FALSE(env.link->dns_servers->warned_downgrade);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
