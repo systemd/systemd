@@ -1813,3 +1813,12 @@ int make_fsmount(
 
         return TAKE_FD(mnt_fd);
 }
+
+char *umount_and_unlink_and_free(char *p) {
+        PROTECT_ERRNO;
+        if (p) {
+                (void) umount2(p, 0);
+                (void) unlink(p);
+        }
+        return mfree(p);
+}

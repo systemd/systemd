@@ -92,3 +92,7 @@
 #define RAW_O_LARGEFILE 00100000
 #endif
 #endif
+
+#ifndef AT_HANDLE_FID
+#define AT_HANDLE_FID AT_REMOVEDIR
+#endif
