@@ -72,6 +72,15 @@ manual_testcase_01_resolvectl() {
 ip link add hoge type dummy
 ip link add hoge.foo type dummy
 
+# Cleanup
+cleanup() {
+rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
+ip link del hoge
+ip link del hoge.foo
+}
+
+trap cleanup RETURN
+
 resolvectl dns hoge 10.0.0.1 10.0.0.2
 resolvectl dns hoge.foo 10.0.0.3 10.0.0.4
 assert_in '10.0.0.1 10.0.0.2' "$(resolvectl dns hoge)"
@@ -104,17 +113,21 @@ assert_in '127.0.0.53' "$(dig @127.0.0.53 _localdnsstub)"
 assert_in '_localdnsstub' "$(dig @127.0.0.53 -x 127.0.0.53)"
 assert_in '127.0.0.54' "$(dig @127.0.0.53 _localdnsproxy)"
 assert_in '_localdnsproxy' "$(dig @127.0.0.53 -x 127.0.0.54)"
-
-# Cleanup
-rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
-ip link del hoge
-ip link del hoge.foo
 }
 
 # Tests for mDNS and LLMNR settings
 manual_testcase_02_mdns_llmnr() {
 ip link add hoge type dummy
 ip link add hoge.foo type dummy
+
+# Cleanup
+cleanup() {
+rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
+ip link del hoge
+ip link del hoge.foo
+}
+
+trap cleanup RETURN
 
 mkdir -p /run/systemd/resolved.conf.d
 {
@@ -190,11 +203,6 @@ resolvectl mdns hoge no
 resolvectl llmnr hoge no
 assert_in 'no' "$(resolvectl mdns hoge)"
 assert_in 'no' "$(resolvectl llmnr hoge)"
-
-# Cleanup
-rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
-ip link del hoge
-ip link del hoge.foo
 }
 
 testcase_03_23951() {
