@@ -6099,6 +6099,7 @@ int unit_test_trigger_loaded(Unit *u) {
 
 void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
         assert(u);
+        assert(u->manager);
         assert(context);
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
