@@ -178,6 +178,17 @@ static bool filename_possibly_with_slash_suffix(const char *s) {
         return filename_is_valid(copied);
 }
 
+bool file_handle_equal(const struct file_handle *a, const struct file_handle *b) {
+        if (a == b)
+                return true;
+        if (!a != !b)
+                return false;
+        if (a->handle_type != b->handle_type)
+                return false;
+
+        return memcmp_nn(a->f_handle, a->handle_bytes, b->f_handle, b->handle_bytes) == 0;
+}
+
 int fd_is_mount_point(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
@@ -277,10 +288,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         /* If the file handle for the directory we are interested in and its parent are identical,
          * we assume this is the root directory, which is a mount point. */
-
-        if (h->handle_type == h_parent->handle_type &&
-            memcmp_nn(h->f_handle, h->handle_bytes,
-                      h_parent->f_handle, h_parent->handle_bytes) == 0)
+        if (file_handle_equal(h_parent, h))
                 return 1;
 
         return mount_id != mount_id_parent;
