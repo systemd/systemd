@@ -36,6 +36,8 @@
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
 #define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
 
+bool is_name_to_handle_at_fatal_error(int err);
+
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
 
 int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret);
