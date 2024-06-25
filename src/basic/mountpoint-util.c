@@ -272,7 +272,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         else if (FLAGS_SET(sx.stx_mask, STATX_TYPE) && S_ISLNK(sx.stx_mode))
                 return false; /* symlinks are never mount points */
 
-        r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
+        r = name_to_handle_at_try_fid(fd, filename, &h, &mount_id, flags);
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
@@ -286,9 +286,9 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         }
 
         if (isempty(filename))
-                r = name_to_handle_at_loop(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
+                r = name_to_handle_at_try_fid(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
         else
-                r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
+                r = name_to_handle_at_try_fid(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
