@@ -62,6 +62,17 @@ SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
                    --private-key=/tmp/test-50-privkey.key \
                    /run/extensions/waldo.sysext.raw
 
+# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
+cp /run/extensions/waldo.sysext.raw /tmp/waldo_copy.sysext.raw
+systemd-run -P \
+            --property ExtensionImages=/run/extensions/waldo.sysext.raw  \
+            --property ExtensionImages=/tmp/waldo_copy.sysext.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            --property BindReadOnlyPaths=/dev/log \
+            --property BindReadOnlyPaths=/run/systemd/journal/socket \
+            --property BindReadOnlyPaths=/run/systemd/journal/stdout \
+            cat /usr/lib/extension-release.d/extension-release.waldo | grep -q -F "IMAGE_ID=waldo"
+
 systemd-dissect --mtree /run/extensions/waldo.sysext.raw
 systemd-sysext refresh
 test -f /usr/waldo
