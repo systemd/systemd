@@ -536,6 +536,48 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) process_random_seed(esp_dir);
 }
 
+static void measure_sections(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                int *sections_measured) {
+
+        assert(loaded_image);
+        assert(sections);
+        assert(sections_measured);
+
+        /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
+         * into so far), so that we have one PCR that we can nicely write policies against because it
+         * contains all static data of this image, and thus can be easily be pre-calculated. */
+        for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
+
+                if (!unified_section_measure(section)) /* shall not measure? */
+                        continue;
+
+                if (!PE_SECTION_VECTOR_IS_SET(sections + section)) /* not found */
+                        continue;
+
+                /* First measure the name of the section */
+                bool m = false;
+                (void) tpm_log_ipl_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
+                                strsize8(unified_sections[section]), /* including NUL byte */
+                                unified_sections[section],
+                                &m);
+                combine_measured_flag(sections_measured, m);
+
+                /* Then measure the data of the section */
+                m = false;
+                (void) tpm_log_ipl_event_ascii(
+                                TPM2_PCR_KERNEL_BOOT,
+                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[section].memory_offset,
+                                sections[section].size,
+                                unified_sections[section],
+                                &m);
+                combine_measured_flag(sections_measured, m);
+        }
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -607,37 +649,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
         }
 
-        /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
-         * into so far), so that we have one PCR that we can nicely write policies against because it
-         * contains all static data of this image, and thus can be easily be pre-calculated. */
-        for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
-
-                if (!unified_section_measure(section)) /* shall not measure? */
-                        continue;
-
-                if (!PE_SECTION_VECTOR_IS_SET(sections + section)) /* not found */
-                        continue;
-
-                /* First measure the name of the section */
-                m = false;
-                (void) tpm_log_ipl_event_ascii(
-                                TPM2_PCR_KERNEL_BOOT,
-                                POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
-                                strsize8(unified_sections[section]), /* including NUL byte */
-                                unified_sections[section],
-                                &m);
-                combine_measured_flag(&sections_measured, m);
-
-                /* Then measure the data of the section */
-                m = false;
-                (void) tpm_log_ipl_event_ascii(
-                                TPM2_PCR_KERNEL_BOOT,
-                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[section].memory_offset,
-                                sections[section].size,
-                                unified_sections[section],
-                                &m);
-                combine_measured_flag(&sections_measured, m);
-        }
+        measure_sections(loaded_image, sections, &sections_measured);
 
         /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
          * in it which PCR was used. */
