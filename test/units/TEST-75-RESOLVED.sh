@@ -67,6 +67,154 @@ restart_resolved() {
     systemctl service-log-level systemd-resolved.service debug
 }
 
+setup() {
+    : "SETUP BEGIN"
+
+    : "Setup - Configure network"
+    hostnamectl hostname ns1.unsigned.test
+cat >>/etc/hosts <<EOF
+10.0.0.1               ns1.unsigned.test
+fd00:dead:beef:cafe::1 ns1.unsigned.test
+
+127.128.0.5     localhost5 localhost5.localdomain localhost5.localdomain4 localhost.localdomain5 localhost5.localdomain5
+EOF
+
+    mkdir -p /run/systemd/network
+cat >/run/systemd/network/10-dns0.netdev <<EOF
+[NetDev]
+Name=dns0
+Kind=dummy
+EOF
+cat >/run/systemd/network/10-dns0.network <<EOF
+[Match]
+Name=dns0
+
+[Network]
+IPv6AcceptRA=no
+Address=10.0.0.1/24
+Address=fd00:dead:beef:cafe::1/64
+DNSSEC=allow-downgrade
+DNS=10.0.0.1
+DNS=fd00:dead:beef:cafe::1
+EOF
+cat >/run/systemd/network/10-dns1.netdev <<EOF
+[NetDev]
+Name=dns1
+Kind=dummy
+EOF
+cat >/run/systemd/network/10-dns1.network <<EOF
+[Match]
+Name=dns1
+
+[Network]
+IPv6AcceptRA=no
+Address=10.99.0.1/24
+DNSSEC=no
+EOF
+systemctl edit --stdin --full --runtime --force "resolved-dummy-server.service" <<EOF
+[Service]
+Type=notify
+Environment=SYSTEMD_LOG_LEVEL=debug
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-resolved-dummy-server 10.99.0.1:53
+EOF
+
+    DNS_ADDRESSES=(
+        "10.0.0.1"
+        "fd00:dead:beef:cafe::1"
+    )
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "FallbackDNS="
+        echo "DNSSEC=allow-downgrade"
+        echo "DNSOverTLS=opportunistic"
+    } >/run/systemd/resolved.conf.d/test.conf
+    ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    # Override the default NTA list, which turns off DNSSEC validation for (among
+    # others) the test. domain
+    mkdir -p "/etc/dnssec-trust-anchors.d/"
+    echo local >/etc/dnssec-trust-anchors.d/local.negative
+
+    # Copy over our knot configuration
+    mkdir -p /var/lib/knot/zones/ /etc/knot/
+    cp -rfv /usr/lib/systemd/tests/testdata/knot-data/zones/* /var/lib/knot/zones/
+    cp -fv /usr/lib/systemd/tests/testdata/knot-data/knot.conf /etc/knot/knot.conf
+    chgrp -R knot /etc/knot/ /var/lib/knot/
+    chmod -R ug+rwX /var/lib/knot/
+    chmod -R g+r /etc/knot/
+
+    : "Setup - Sign the root zone"
+    keymgr . generate algorithm=ECDSAP256SHA256 ksk=yes zsk=yes
+    # Create a trust anchor for resolved with our root zone
+    keymgr . ds | sed 's/ DS/ IN DS/g' >/etc/dnssec-trust-anchors.d/root.positive
+    # Create a bind-compatible trust anchor (for delv)
+    # Note: the trust-anchors directive is relatively new, so use the original
+    #       managed-keys one until it's widespread enough
+    {
+        echo 'managed-keys {'
+        keymgr . dnskey | sed -r 's/^\. DNSKEY ([0-9]+ [0-9]+ [0-9]+) (.+)$/. static-key \1 "\2";/g'
+        echo '};'
+    } >/etc/bind.keys
+    # Create an /etc/bind/bind.keys symlink, which is used by delv on Ubuntu
+    mkdir -p /etc/bind
+    ln -svf /etc/bind.keys /etc/bind/bind.keys
+
+    # Start the services
+    systemctl unmask systemd-networkd
+    systemctl restart systemd-networkd
+    /usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
+    systemctl reload systemd-resolved
+    systemctl start resolved-dummy-server
+
+    # Create knot's runtime dir, since from certain version it's provided only by
+    # the package and not created by tmpfiles/systemd
+    if [[ ! -d /run/knot ]]; then
+        mkdir -p /run/knot
+        chown -R knot:knot /run/knot
+    fi
+    systemctl start knot
+    # Wait a bit for the keys to propagate
+    sleep 4
+
+    systemctl status resolved-dummy-server
+    networkctl status
+    resolvectl status
+    resolvectl log-level debug
+
+    : "Setup - Start monitoring queries"
+    systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
+    systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
+
+    : "Setup - Check if all the zones are valid"
+    # FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
+    #        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
+    #        let's fall back to pre-processing the `zone-check` output a bit before checking it
+    #
+    # See: https://gitlab.nic.cz/knot/knot-dns/-/issues/913
+    run knotc zone-check || :
+    sed -i '/forwarded.test./d' "$RUN_OUT"
+    [[ ! -s "$RUN_OUT" ]]
+    # We need to manually propagate the DS records of onlinesign.test. to the parent
+    # zone, since they're generated online
+    knotc zone-begin test.
+    if knotc zone-get test. onlinesign.test. ds | grep .; then
+        # Drop any old DS records, if present (e.g. on test re-run)
+        knotc zone-unset test. onlinesign.test. ds
+    fi
+
+    : "Setup - Propagate the new DS records"
+    while read -ra line; do
+        knotc zone-set test. "${line[0]}" 600 "${line[@]:1}"
+    done < <(keymgr onlinesign.test. ds)
+    knotc zone-commit test.
+
+    knotc reload
+    sleep 2
+
+    : "SETUP END"
+}
+
 # Test for resolvectl, resolvconf
 manual_testcase_01_resolvectl() {
     ip link add hoge type dummy
@@ -804,151 +952,8 @@ systemctl service-log-level systemd-resolved.service debug
 manual_testcase_01_resolvectl
 manual_testcase_02_mdns_llmnr
 
-: "SETUP BEGIN"
-
-: "Setup - Configure network"
-hostnamectl hostname ns1.unsigned.test
-cat >>/etc/hosts <<EOF
-10.0.0.1               ns1.unsigned.test
-fd00:dead:beef:cafe::1 ns1.unsigned.test
-
-127.128.0.5     localhost5 localhost5.localdomain localhost5.localdomain4 localhost.localdomain5 localhost5.localdomain5
-EOF
-
-mkdir -p /run/systemd/network
-cat >/run/systemd/network/10-dns0.netdev <<EOF
-[NetDev]
-Name=dns0
-Kind=dummy
-EOF
-cat >/run/systemd/network/10-dns0.network <<EOF
-[Match]
-Name=dns0
-
-[Network]
-IPv6AcceptRA=no
-Address=10.0.0.1/24
-Address=fd00:dead:beef:cafe::1/64
-DNSSEC=allow-downgrade
-DNS=10.0.0.1
-DNS=fd00:dead:beef:cafe::1
-EOF
-cat >/run/systemd/network/10-dns1.netdev <<EOF
-[NetDev]
-Name=dns1
-Kind=dummy
-EOF
-cat >/run/systemd/network/10-dns1.network <<EOF
-[Match]
-Name=dns1
-
-[Network]
-IPv6AcceptRA=no
-Address=10.99.0.1/24
-DNSSEC=no
-EOF
-systemctl edit --stdin --full --runtime --force "resolved-dummy-server.service" <<EOF
-[Service]
-Type=notify
-Environment=SYSTEMD_LOG_LEVEL=debug
-ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-resolved-dummy-server 10.99.0.1:53
-EOF
-
-DNS_ADDRESSES=(
-    "10.0.0.1"
-    "fd00:dead:beef:cafe::1"
-)
-
-mkdir -p /run/systemd/resolved.conf.d
-{
-    echo "[Resolve]"
-    echo "FallbackDNS="
-    echo "DNSSEC=allow-downgrade"
-    echo "DNSOverTLS=opportunistic"
-} >/run/systemd/resolved.conf.d/test.conf
-ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-# Override the default NTA list, which turns off DNSSEC validation for (among
-# others) the test. domain
-mkdir -p "/etc/dnssec-trust-anchors.d/"
-echo local >/etc/dnssec-trust-anchors.d/local.negative
-
-# Copy over our knot configuration
-mkdir -p /var/lib/knot/zones/ /etc/knot/
-cp -rfv /usr/lib/systemd/tests/testdata/knot-data/zones/* /var/lib/knot/zones/
-cp -fv /usr/lib/systemd/tests/testdata/knot-data/knot.conf /etc/knot/knot.conf
-chgrp -R knot /etc/knot/ /var/lib/knot/
-chmod -R ug+rwX /var/lib/knot/
-chmod -R g+r /etc/knot/
-
-: "Setup - Sign the root zone"
-keymgr . generate algorithm=ECDSAP256SHA256 ksk=yes zsk=yes
-# Create a trust anchor for resolved with our root zone
-keymgr . ds | sed 's/ DS/ IN DS/g' >/etc/dnssec-trust-anchors.d/root.positive
-# Create a bind-compatible trust anchor (for delv)
-# Note: the trust-anchors directive is relatively new, so use the original
-#       managed-keys one until it's widespread enough
-{
-    echo 'managed-keys {'
-    keymgr . dnskey | sed -r 's/^\. DNSKEY ([0-9]+ [0-9]+ [0-9]+) (.+)$/. static-key \1 "\2";/g'
-    echo '};'
-} >/etc/bind.keys
-# Create an /etc/bind/bind.keys symlink, which is used by delv on Ubuntu
-mkdir -p /etc/bind
-ln -svf /etc/bind.keys /etc/bind/bind.keys
-
-# Start the services
-systemctl unmask systemd-networkd
-systemctl restart systemd-networkd
-/usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
-systemctl reload systemd-resolved
-systemctl start resolved-dummy-server
-
-# Create knot's runtime dir, since from certain version it's provided only by
-# the package and not created by tmpfiles/systemd
-if [[ ! -d /run/knot ]]; then
-    mkdir -p /run/knot
-    chown -R knot:knot /run/knot
-fi
-systemctl start knot
-# Wait a bit for the keys to propagate
-sleep 4
-
-systemctl status resolved-dummy-server
-networkctl status
-resolvectl status
-resolvectl log-level debug
-
-: "Setup - Start monitoring queries"
-systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
-systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
-
-: "Setup - Check if all the zones are valid"
-# FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
-#        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
-#        let's fall back to pre-processing the `zone-check` output a bit before checking it
-#
-# See: https://gitlab.nic.cz/knot/knot-dns/-/issues/913
-run knotc zone-check || :
-sed -i '/forwarded.test./d' "$RUN_OUT"
-[[ ! -s "$RUN_OUT" ]]
-# We need to manually propagate the DS records of onlinesign.test. to the parent
-# zone, since they're generated online
-knotc zone-begin test.
-if knotc zone-get test. onlinesign.test. ds | grep .; then
-    # Drop any old DS records, if present (e.g. on test re-run)
-    knotc zone-unset test. onlinesign.test. ds
-fi
-
-: "Setup - Propagate the new DS records"
-while read -ra line; do
-    knotc zone-set test. "${line[0]}" 600 "${line[@]:1}"
-done < <(keymgr onlinesign.test. ds)
-knotc zone-commit test.
-
-knotc reload
-sleep 2
-
-: "SETUP END"
+# Run setup
+setup
 
 # Run tests
 run_testcases
