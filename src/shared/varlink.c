@@ -4162,3 +4162,51 @@ int varlink_error_to_errno(const char *error, sd_json_variant *parameters) {
 
         return -EBADR; /* Catch-all */
 }
+
+int varlink_many_notifyb(Set *s, ...) {
+        int r;
+
+        /* Equivalent to varlink_notifyb(), but does this for each entry of the supplied set of Varlink connections */
+
+        if (set_isempty(s))
+                return 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        va_start(ap, s);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_notify(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_reply(Set *s, sd_json_variant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_reply(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_error(link, error_id, parameters));
+
+        return ret;
+}
