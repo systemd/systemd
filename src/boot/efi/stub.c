@@ -510,6 +510,32 @@ static EFI_STATUS load_addons(
         return EFI_SUCCESS;
 }
 
+static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
+        EFI_STATUS err;
+
+        assert(loaded_image);
+
+        /* Handle case, where bootloader doesn't support DeviceHandle. */
+        if (!loaded_image->DeviceHandle)
+                return;
+
+        uint64_t loader_features = 0;
+        err = efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features);
+        if (err != EFI_SUCCESS)
+                return;
+
+        /* Don't measure again, if sd-boot already initialized the random seed */
+        if (!FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
+                return;
+
+        _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
+        err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
+        if (err != EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
+                return;
+
+        (void) process_random_seed(esp_dir);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -525,22 +551,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_free_ char *uname = NULL;
         bool m;
-        uint64_t loader_features = 0;
         EFI_STATUS err;
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        if (loaded_image->DeviceHandle && /* Handle case, where bootloader doesn't support DeviceHandle. */
-            (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
-            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))) {
-                _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
-
-                err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
-                if (err == EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
-                        (void) process_random_seed(esp_dir);
-        }
+        refresh_random_seed(loaded_image);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
         if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
