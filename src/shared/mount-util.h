@@ -3,6 +3,7 @@
 
 #include <mntent.h>
 #include <stdio.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -99,6 +100,16 @@ static inline char *umount_and_free(char *p) {
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
+
+static inline char *umount_and_unlink_and_free(char *p) {
+        PROTECT_ERRNO;
+        if (p) {
+                (void) umount2(p, 0);
+                (void) unlink(p);
+        }
+        return mfree(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_unlink_and_free);
 
 int bind_mount_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
