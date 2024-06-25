@@ -254,7 +254,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
-                if (r != -EOPNOTSUPP)
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
                         goto fallback_fdinfo;
 
                 /* This kernel or file system does not support name_to_handle_at(), hence let's see
@@ -270,7 +270,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
-                if (r != -EOPNOTSUPP)
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
                         goto fallback_fdinfo;
                 if (nosupp)
                         /* Both the parent and the directory can't do name_to_handle_at() */
@@ -295,7 +295,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (IN_SET(r, -EOPNOTSUPP, -EACCES, -EPERM, -ENOSYS))
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r))
                 goto fallback_fstat;
         if (r < 0)
                 return r;
