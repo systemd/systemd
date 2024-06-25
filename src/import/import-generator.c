@@ -240,7 +240,8 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
 
         fputs("\n"
               "[Service]\n"
-              "Type=oneshot\n", f);
+              "Type=oneshot\n"
+              "NotifyAccess=main\n", f);
 
         _cleanup_free_ char *formatted = NULL;
         r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
