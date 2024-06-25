@@ -39,6 +39,7 @@
 bool is_name_to_handle_at_fatal_error(int err);
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
 
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
 
