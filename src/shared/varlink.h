@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
+#include <sys/socket.h>
 
+#include "sd-event.h"
 #include "sd-json.h"
+
 #include "pidref.h"
 #include "time-util.h"
 #include "varlink-idl.h"
@@ -60,6 +62,7 @@ int varlink_connect_address(Varlink **ret, const char *address);
 int varlink_connect_exec(Varlink **ret, const char *command, char **argv);
 int varlink_connect_url(Varlink **ret, const char *url);
 int varlink_connect_fd(Varlink **ret, int fd);
+int varlink_connect_fd_pair(Varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
 Varlink* varlink_ref(Varlink *link);
 Varlink* varlink_unref(Varlink *v);
@@ -217,6 +220,8 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
 int varlink_server_listen_fd(VarlinkServer *s, int fd);
 int varlink_server_listen_auto(VarlinkServer *s);
 int varlink_server_add_connection(VarlinkServer *s, int fd, Varlink **ret);
+int varlink_server_add_connection_pair(VarlinkServer *s, int input_fd, int output_fd, const struct ucred *ucred_override, Varlink **ret);
+int varlink_server_add_connection_stdio(VarlinkServer *s, Varlink **ret);
 
 /* Bind callbacks */
 int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMethod callback);
