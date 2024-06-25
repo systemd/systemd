@@ -106,9 +106,9 @@ int name_to_handle_at_loop(
                         return 0;
                 }
 
-                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by something
-                 * else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes), not by the too small
-                 * buffer. In that case propagate EOVERFLOW */
+                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by
+                 * something else (apparently EOVERFLOW is returned for untriggered nfs4 autofs mounts
+                 * sometimes), not by the too small buffer. In that case propagate EOVERFLOW */
                 if (h->handle_bytes <= n)
                         return -EOVERFLOW;
 
