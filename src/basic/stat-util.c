@@ -20,6 +20,7 @@
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "stat-util.h"
@@ -271,18 +272,103 @@ int path_is_read_only_fs(const char *path) {
 }
 
 int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags) {
-        struct stat a, b;
+        struct stat sta, stb;
+        int r;
 
         assert(fda >= 0 || fda == AT_FDCWD);
         assert(fdb >= 0 || fdb == AT_FDCWD);
+        assert((flags & ~(AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT)) == 0);
 
-        if (fstatat(fda, strempty(filea), &a, flags) < 0)
+        /* Refuse an unset filea or fileb early unless AT_EMPTY_PATH is set */
+        if ((isempty(filea) || isempty(fileb)) && !FLAGS_SET(flags, AT_EMPTY_PATH))
+                return -EINVAL;
+
+        /* Shortcut: comparing the same fd with itself means we can return true */
+        if (fda >= 0 && fda == fdb && isempty(filea) && isempty(fileb) && FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW))
+                return true;
+
+        _cleanup_close_ int pin_a = -EBADF, pin_b = -EBADF;
+        if (!FLAGS_SET(flags, AT_NO_AUTOMOUNT)) {
+                /* Let's try to use the name_to_handle_at() AT_HANDLE_FID API to identify identical
+                 * inodes. We have to issue multiple calls on the same file for that (first, to acquire the
+                 * FID, and then to check if .st_dev is actually the same). Hence let's pin the inode in
+                 * between via O_PATH, unless we already have an fd for it. */
+
+                if (!isempty(filea)) {
+                        pin_a = openat(fda, filea, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        if (pin_a < 0)
+                                return -errno;
+
+                        fda = pin_a;
+                        filea = NULL;
+                        flags |= AT_EMPTY_PATH;
+                }
+
+                if (!isempty(fileb)) {
+                        pin_b = openat(fdb, fileb, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        if (pin_b < 0)
+                                return -errno;
+
+                        fdb = pin_b;
+                        fileb = NULL;
+                        flags |= AT_EMPTY_PATH;
+                }
+
+                int ntha_flags = (flags & AT_EMPTY_PATH) | (FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? 0 : AT_SYMLINK_FOLLOW);
+                _cleanup_free_ struct file_handle *ha = NULL, *hb = NULL;
+                int mntida = -1, mntidb = -1;
+
+                r = name_to_handle_at_try_fid(
+                                fda,
+                                filea,
+                                &ha,
+                                &mntida,
+                                ntha_flags);
+                if (r < 0) {
+                        if (is_name_to_handle_at_fatal_error(r))
+                                return r;
+
+                        goto fallback;
+                }
+
+                r = name_to_handle_at_try_fid(
+                                fdb,
+                                fileb,
+                                &hb,
+                                &mntidb,
+                                ntha_flags);
+                if (r < 0) {
+                        if (is_name_to_handle_at_fatal_error(r))
+                                return r;
+
+                        goto fallback;
+                }
+
+                /* Now compare the two file handles */
+                if (!file_handle_equal(ha, hb))
+                        return false;
+
+                /* If the file handles are the same and they come from the same mount ID? Great, then we are
+                 * good, they are definitely the same */
+                if (mntida == mntidb)
+                        return true;
+
+                /* File handles are the same, they are not on the same mount id. This might either be because
+                 * they are on two entirely different file systems, that just happen to have the same FIDs
+                 * (because they originally where created off the same disk images), or it could be because
+                 * they are located on two distinct bind mounts of the same fs. To check that, let's look at
+                 * .st_rdev of the inode. We simply reuse the fallback codepath for that, since it checks
+                 * exactly that (it checks slightly more, but we don't care.) */
+        }
+
+fallback:
+        if (fstatat(fda, strempty(filea), &sta, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", filea);
 
-        if (fstatat(fdb, strempty(fileb), &b, flags) < 0)
+        if (fstatat(fdb, strempty(fileb), &stb, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", fileb);
 
-        return stat_inode_same(&a, &b);
+        return stat_inode_same(&sta, &stb);
 }
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
