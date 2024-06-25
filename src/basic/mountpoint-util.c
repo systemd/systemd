@@ -62,7 +62,7 @@ int name_to_handle_at_loop(
 
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH|AT_HANDLE_FID)) == 0);
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
          * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
@@ -117,6 +117,28 @@ int name_to_handle_at_loop(
                 if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
+}
+
+int name_to_handle_at_try_fid(
+                int fd,
+                const char *path,
+                struct file_handle **ret_handle,
+                int *ret_mnt_id,
+                int flags) {
+
+        int r;
+
+        /* First issues name_to_handle_at() with AT_HANDLE_FID. If this fails and this is not a fatal error
+         * we'll try without the flag, in order to support older kernels that didn't have AT_HANDLE_FID
+         * (i.e. older than Linux 6.5). */
+
+        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags | AT_HANDLE_FID);
+        if (r >= 0)
+                return r;
+        if (is_name_to_handle_at_fatal_error(r))
+                return r;
+
+        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
 }
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
