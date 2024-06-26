@@ -518,7 +518,7 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
         }
 }
 
-static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
+static int print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         _cleanup_free_ char *addresses = NULL, *s1 = NULL, *s2 = NULL;
         int ifi = -1;
 
@@ -533,7 +533,11 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 putchar('\n');
 
         s1 = strdup(strempty(FORMAT_TIMESTAMP_RELATIVE(i->timestamp.realtime)));
+        if (!s1)
+                return log_oom();
         s2 = strdup(strempty(FORMAT_TIMESTAMP(i->timestamp.realtime)));
+        if (!s2)
+                return log_oom();
 
         if (!isempty(s1))
                 printf("\t   Since: %s; %s\n", strna(s2), s1);
@@ -616,6 +620,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                                         /* system_unit = */ true,
                                         /* ellipsized = */ NULL);
         }
+
+        return 0;
 }
 
 static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -680,7 +686,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 printf("\n");
         *new_line = true;
 
-        print_machine_status_info(bus, &info);
+        r = print_machine_status_info(bus, &info);
 
         return r;
 }
