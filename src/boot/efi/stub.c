@@ -281,35 +281,30 @@ static EFI_STATUS load_addons_from_dir(
 }
 
 static void cmdline_append_and_measure_addons(
-                char16_t *cmdline_global,
-                char16_t *cmdline_uki,
+                char16_t *cmdline_addon,
                 char16_t **cmdline_append,
                 bool *ret_parameters_measured) {
-
-        _cleanup_free_ char16_t *tmp = NULL, *merged = NULL;
-        bool m = false;
 
         assert(cmdline_append);
         assert(ret_parameters_measured);
 
-        if (isempty(cmdline_global) && isempty(cmdline_uki))
+        if (isempty(cmdline_addon))
                 return;
 
-        merged = xasprintf("%ls%ls%ls",
-                           strempty(cmdline_global),
-                           isempty(cmdline_global) || isempty(cmdline_uki) ? u"" : u" ",
-                           strempty(cmdline_uki));
-
-        mangle_stub_cmdline(merged);
-
-        if (isempty(merged))
+        _cleanup_free_ char16_t *copy = xstrdup16(cmdline_addon);
+        mangle_stub_cmdline(copy);
+        if (isempty(copy))
                 return;
 
-        (void) tpm_log_load_options(merged, &m);
+        bool m = false;
+        (void) tpm_log_load_options(copy, &m);
         *ret_parameters_measured = m;
 
-        tmp = TAKE_PTR(*cmdline_append);
-        *cmdline_append = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", merged);
+        _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline_append);
+        if (isempty(tmp))
+                *cmdline_append = TAKE_PTR(copy);
+        else
+                *cmdline_append = xasprintf("%ls %ls", tmp, copy);
 }
 
 typedef struct DevicetreeAddon {
@@ -379,13 +374,12 @@ static EFI_STATUS load_addons(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *prefix,
                 const char *uname,
-                char16_t **ret_cmdline,
-                DevicetreeAddon **ret_devicetree_addons,
-                size_t *ret_n_devicetree_addons) {
+                char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
+                DevicetreeAddon **devicetree_addons,        /* Ditto */
+                size_t *n_devicetree_addons) {
 
         _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_(file_closep) EFI_FILE *root = NULL;
-        _cleanup_free_ char16_t *cmdline = NULL;
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
 
@@ -414,10 +408,6 @@ static EFI_STATUS load_addons(
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
         sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
-
-        DevicetreeAddon *dt_addons = NULL;
-        size_t n_dt_addons = 0;
-        CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
 
         for (size_t i = 0; i < n_items; i++) {
                 PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
@@ -470,25 +460,25 @@ static EFI_STATUS load_addons(
                  * enforcing compatibility with a specific UKI only */
                 if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
                                 !strneq8(uname,
-                                         (char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
+                                         (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
                                          sections[UNIFIED_SECTION_UNAME].size)) {
                         log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
                         continue;
                 }
 
-                if (ret_cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                        _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline),
+                if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
                                                 *extra16 = xstrn8_to_16((char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
                                                                         sections[UNIFIED_SECTION_CMDLINE].size);
-                        cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+                        *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
 
-                if (ret_devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
-                        dt_addons = xrealloc(dt_addons,
-                                            n_dt_addons * sizeof(size_t),
-                                            (n_dt_addons + 1)  * sizeof(size_t));
+                if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+                        *devicetree_addons = xrealloc(*devicetree_addons,
+                                                      *n_devicetree_addons * sizeof(size_t),
+                                                      (*n_devicetree_addons + 1)  * sizeof(size_t));
 
-                        dt_addons[n_dt_addons++] = (DevicetreeAddon) {
+                        *devicetree_addons[(*n_devicetree_addons)++] = (DevicetreeAddon) {
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].size),
                                         .iov_len = sections[UNIFIED_SECTION_DTB].size,
@@ -497,13 +487,6 @@ static EFI_STATUS load_addons(
                         };
                 }
         }
-
-        if (ret_cmdline)
-                *ret_cmdline = TAKE_PTR(cmdline);
-        if (ret_devicetree_addons)
-                *ret_devicetree_addons = TAKE_PTR(dt_addons);
-        if (ret_n_devicetree_addons)
-                *ret_n_devicetree_addons = n_dt_addons;
 
         return EFI_SUCCESS;
 }
@@ -827,12 +810,12 @@ static void install_embedded_devicetree(
 
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
-        DevicetreeAddon *dt_addons_global = NULL, *dt_addons_local = NULL;
-        size_t n_dt_addons_global = 0, n_dt_addons_local = 0;
+        DevicetreeAddon *dt_addons = NULL;
+        size_t n_dt_addons = 0;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
-        _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons_global = NULL, *cmdline_addons_uki = NULL;
+        _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons = NULL;
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_free_ char *uname = NULL;
         bool m;
@@ -853,8 +836,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         lookup_uname(loaded_image, sections, &uname);
 
-        CLEANUP_ARRAY(dt_addons_global, n_dt_addons_local, devicetree_addon_free_many);
-        CLEANUP_ARRAY(dt_addons_local, n_dt_addons_local, devicetree_addon_free_many);
+        CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
@@ -863,9 +845,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         loaded_image,
                         u"\\loader\\addons",
                         uname,
-                        &cmdline_addons_global,
-                        &dt_addons_global,
-                        &n_dt_addons_global);
+                        &cmdline_addons,
+                        &dt_addons,
+                        &n_dt_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
@@ -877,9 +859,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 loaded_image,
                                 dropin_dir,
                                 uname,
-                                &cmdline_addons_uki,
-                                &dt_addons_local,
-                                &n_dt_addons_local);
+                                &cmdline_addons,
+                                &dt_addons,
+                                &n_dt_addons);
                 if (err != EFI_SUCCESS)
                         log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
         }
@@ -909,7 +891,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * measure the additions together, after the embedded options, but before the smbios ones,
          * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
          * loaded first, and the image-specific ones later, for the same reason. */
-        cmdline_append_and_measure_addons(cmdline_addons_global, cmdline_addons_uki, &cmdline, &m);
+        cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &m);
         combine_measured_flag(&parameters_measured, m);
 
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
@@ -922,9 +904,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         install_embedded_devicetree(loaded_image, sections, &dt_state);
 
         int dtb_measured;
-        install_addon_devicetrees(&dt_state, dt_addons_global, n_dt_addons_global, &dtb_measured);
-        combine_measured_flag(&parameters_measured, dtb_measured);
-        install_addon_devicetrees(&dt_state, dt_addons_local, n_dt_addons_local, &dtb_measured);
+        install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &dtb_measured);
         combine_measured_flag(&parameters_measured, dtb_measured);
 
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
