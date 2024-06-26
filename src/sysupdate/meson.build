@@ -19,6 +19,7 @@ systemd_sysupdated_sources = files(
 )
 
 systemd_updatectl_sources = files(
+        'sysupdate-feature.c',
         'sysupdate-update-set-flags.c',
         'sysupdate-util.c',
         'updatectl.c',

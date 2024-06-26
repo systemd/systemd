@@ -91,24 +91,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>enable</command> [<replaceable>TRANSFER</replaceable>…]</term>
-        <term><command>disable</command> [<replaceable>TRANSFER</replaceable>…]</term>
+        <term><command>enable</command> [<replaceable>FEATURE</replaceable>…]</term>
+        <term><command>disable</command> [<replaceable>FEATURE</replaceable>…]</term>
 
-        <listitem><para>These commands enable or disable optional transfers in the <literal>host</literal>
-        target.
-        Such transfers are defined in the <filename>sysregistry.d/</filename> directory, and are identified
-        by their <varname>Alias=</varname> setting, as defined in
-        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        If multiple transfers share an <varname>Alias=</varname>, they will be enabled or disabled together
-        as a group.</para>
+        <listitem><para>These commands enable or disable optional features.
+        See <citerefentry><refentrytitle>sysfeatures.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        By default, these commands operate on the host system, but the target can be overridden via
+        <option>--target=</option>.
+        </para>
 
         <para>By default, these commands will only change the system's configuration by creating or deleting
-        symlinks; they will not download the enabled transfers or clean up after the disabled ones.
-        Enabled transfers will be downloaded the next time the <literal>host</literal> target is updated.
-        Disabled transfers will have their downloaded resources deleted the next time the <literal>host</literal>
-        target is vacuumed or updated.
-        Pass <option>--now</option> to immediately download enabled transfers or clean up after disabled
-        transfers.</para>
+        drop-in files; they will not immediately download the enabled features, or clean up after the
+        disabled ones.
+        Enabled features will be downloaded and installed the next time the target is updated, and disabled
+        transfers will be cleaned up the next time the target is updated or vacuumed.
+        Pass <option>--now</option> to immediately apply these changes.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -151,10 +148,20 @@
         <term><option>--now</option></term>
 
         <listitem><para>When used with the <command>enable</command> command, downloads and installs the
-        enabled transfers. When used with the <command>disable</command> command, deletes all resources
-        downloaded by the disabled transfers.</para>
+        enabled features. When used with the <command>disable</command> command, deletes all resources
+        downloaded by the disabled features.</para>
 
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--target=<replaceable>TARGET</replaceable></option></term>
+
+        <listitem><para>When used with the <command>enable</command> or <command>disable</command> commands,
+        specifies which target to operate on. If unspecified, the default is to operate on the host system.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

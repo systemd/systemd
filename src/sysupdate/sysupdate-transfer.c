@@ -471,7 +471,6 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
-                { "Transfer",    "Alias",                   NULL, /* Used by updatectl */      0, NULL                        },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
