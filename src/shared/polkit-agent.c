@@ -11,8 +11,8 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "polkit-agent.h"
 #include "process-util.h"
-#include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "time-util.h"
 
