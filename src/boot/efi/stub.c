@@ -57,6 +57,19 @@ static char16_t* pe_section_to_str16(
         return xstrn8_to_16((const char *) loaded_image->ImageBase + section->memory_offset, section->size);
 }
 
+static char *pe_section_to_str8(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector *section) {
+
+        assert(loaded_image);
+        assert(section);
+
+        if (!PE_SECTION_VECTOR_IS_SET(section))
+                return NULL;
+
+        return xstrndup8((const char *)loaded_image->ImageBase + section->memory_offset, section->size);
+}
+
 static void combine_measured_flag(int *value, int measured) {
         assert(value);
 
@@ -601,24 +614,6 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
                 *cmdline = xasprintf("%ls %ls", tmp, extra16);
 }
 
-static void lookup_uname(
-                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
-                char **ret_uname) {
-
-        assert(loaded_image);
-        assert(sections);
-        assert(ret_uname);
-
-        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME)) {
-                *ret_uname = NULL;
-                return;
-        }
-
-        *ret_uname = xstrndup8((char *)loaded_image->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                               sections[UNIFIED_SECTION_UNAME].size);
-}
-
 static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
         assert(initrds);
 
@@ -928,7 +923,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         refresh_random_seed(loaded_image);
 
-        lookup_uname(loaded_image, sections, &uname);
+        uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
         determine_cmdline(image, loaded_image, sections, &cmdline, &parameters_measured);
 
