@@ -276,4 +276,148 @@ TEST(dns_server_packet_lost) {
         ASSERT_EQ(env.server->n_failed_tls, 56u);
 }
 
+/* ================================================================
+ * dns_server_packet_truncated()
+ * ================================================================ */
+
+TEST(dns_server_packet_truncated) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_UDP;
+        env.server->possible_feature_level = level;
+        env.server->packet_truncated = false;
+
+        dns_server_packet_truncated(env.server, level);
+
+        ASSERT_TRUE(env.server->packet_truncated);
+}
+
+/* ================================================================
+ * dns_server_packet_rrsig_missing()
+ * ================================================================ */
+
+TEST(dns_server_packet_rrsig_missing) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_TCP;
+        env.server->verified_feature_level = level;
+        env.server->packet_rrsig_missing = false;
+
+        dns_server_packet_rrsig_missing(env.server, level);
+
+        ASSERT_FALSE(env.server->packet_rrsig_missing);
+
+        level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.server->verified_feature_level = level;
+
+        dns_server_packet_rrsig_missing(env.server, level);
+
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+        ASSERT_TRUE(env.server->packet_rrsig_missing);
+}
+
+/* ================================================================
+ * dns_server_packet_bad_opt()
+ * ================================================================ */
+
+TEST(dns_server_packet_bad_opt) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_TCP;
+        env.server->verified_feature_level = level;
+        env.server->packet_bad_opt = false;
+
+        dns_server_packet_rrsig_missing(env.server, level);
+
+        ASSERT_FALSE(env.server->packet_bad_opt);
+
+        level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.server->verified_feature_level = level;
+
+        dns_server_packet_bad_opt(env.server, level);
+
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+        ASSERT_TRUE(env.server->packet_bad_opt);
+}
+
+/* ================================================================
+ * dns_server_packet_rcode_downgrade()
+ * ================================================================ */
+
+TEST(dns_server_packet_rcode_downgrade) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+
+        server_env_setup(&env);
+
+        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+
+        dns_server_packet_rcode_downgrade(env.server, DNS_SERVER_FEATURE_LEVEL_UDP);
+
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
+/* ================================================================
+ * dns_server_packet_invalid()
+ * ================================================================ */
+
+TEST(dns_server_packet_invalid) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_UDP;
+        env.server->possible_feature_level = level;
+        env.server->packet_invalid = false;
+
+        dns_server_packet_invalid(env.server, level);
+
+        ASSERT_TRUE(env.server->packet_invalid);
+}
+
+/* ================================================================
+ * dns_server_packet_do_off()
+ * ================================================================ */
+
+TEST(dns_server_packet_do_off) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_UDP;
+        env.server->possible_feature_level = level;
+        env.server->packet_do_off = false;
+
+        dns_server_packet_do_off(env.server, level);
+
+        ASSERT_TRUE(env.server->packet_do_off);
+}
+
+/* ================================================================
+ * dns_server_packet_udp_fragmented()
+ * ================================================================ */
+
+TEST(dns_server_packet_udp_fragmented) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+
+        server_env_setup(&env);
+
+        dns_server_packet_udp_fragmented(env.server, 599);
+
+        ASSERT_EQ(env.server->received_udp_fragment_max, 599u);
+        ASSERT_TRUE(env.server->packet_fragmented);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
