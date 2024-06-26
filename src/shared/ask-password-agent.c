@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "ask-password-agent.h"
 #include "exec-util.h"
 #include "log.h"
 #include "process-util.h"
-#include "spawn-ask-password-agent.h"
 
 static pid_t agent_pid = 0;
 
