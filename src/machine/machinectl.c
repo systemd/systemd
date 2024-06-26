@@ -14,6 +14,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "ask-password-agent.h"
 #include "build.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
@@ -55,7 +56,6 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "sort-util.h"
-#include "spawn-ask-password-agent.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"

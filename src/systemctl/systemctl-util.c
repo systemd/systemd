@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "ask-password-agent.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -23,7 +24,6 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "set.h"
-#include "spawn-ask-password-agent.h"
 #include "stat-util.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
