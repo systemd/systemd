@@ -195,12 +195,17 @@ static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buf
         assert(ret_measured);
 
         tpm2 = tcg2_interface_check();
-        if (tpm2)
-                err = tpm2_measure_to_pcr_and_ipl_event_log(tpm2, pcrindex, buffer, buffer_size, description);
+        if (!tpm2) {
+                *ret_measured = false;
+                return EFI_SUCCESS;
+        }
 
-        *ret_measured = tpm2 && (err == EFI_SUCCESS);
+        err = tpm2_measure_to_pcr_and_ipl_event_log(tpm2, pcrindex, buffer, buffer_size, description);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        return err;
+        *ret_measured = true;
+        return EFI_SUCCESS;
 }
 
 static EFI_STATUS cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
@@ -210,12 +215,17 @@ static EFI_STATUS cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, s
         assert(ret_measured);
 
         cc = cc_interface_check();
-        if (cc)
-                err = cc_measure_to_mr_and_ipl_event_log(cc, pcrindex, buffer, buffer_size, description);
+        if (!cc) {
+                *ret_measured = false;
+                return EFI_SUCCESS;
+        }
 
-        *ret_measured = cc && (err == EFI_SUCCESS);
+        err = cc_measure_to_mr_and_ipl_event_log(cc, pcrindex, buffer, buffer_size, description);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        return err;
+        *ret_measured = true;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
@@ -240,10 +250,13 @@ EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, siz
                 return err;
 
         err = tcg2_log_ipl_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
-        if (err == EFI_SUCCESS && ret_measured)
+        if (err != EFI_SUCCESS)
+                return err;
+
+        if (ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;
 
-        return err;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS tpm_log_tagged_event(
@@ -272,10 +285,11 @@ EFI_STATUS tpm_log_tagged_event(
         }
 
         err = tpm2_measure_to_pcr_and_tagged_event_log(tpm2, pcrindex, buffer, buffer_size, event_id, description);
-        if (err == EFI_SUCCESS && ret_measured)
-                *ret_measured = true;
+        if (!err)
+                return err;
 
-        return err;
+        *ret_measured = true;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS tpm_log_ipl_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char *description, bool *ret_measured) {
