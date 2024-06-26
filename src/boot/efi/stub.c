@@ -578,6 +578,38 @@ static void measure_sections(
         }
 }
 
+static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameters_measured) {
+        assert(cmdline);
+        assert(parameters_measured);
+
+        /* SMBIOS OEM Strings data is controlled by the host admin and not covered by the VM attestation, so
+         * MUST NOT be trusted when in a confidential VM */
+        if (is_confidential_vm())
+                return;
+
+        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        if (!extra)
+                return;
+
+        _cleanup_free_ char16_t *extra16 = xstr8_to_16(extra);
+        mangle_stub_cmdline(extra16);
+        if (isempty(extra16))
+                return;
+
+        /* SMBIOS strings are measured in PCR1, but we also want to measure them in our specific PCR12, as
+         * firmware-owned PCRs are very difficult to use as they'll contain unpredictable measurements that
+         * are not under control of the machine owner. */
+        bool m = false;
+        (void) tpm_log_load_options(extra16, &m);
+        combine_measured_flag(parameters_measured, m);
+
+        _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline);
+        if (isempty(tmp))
+                *cmdline = TAKE_PTR(extra16);
+        else
+                *cmdline = xasprintf("%ls %ls", tmp, extra16);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -682,22 +714,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         cmdline_append_and_measure_addons(cmdline_addons_global, cmdline_addons_uki, &cmdline, &m);
         combine_measured_flag(&parameters_measured, m);
 
-        /* SMBIOS OEM Strings data is controlled by the host admin and not covered
-         * by the VM attestation, so MUST NOT be trusted when in a confidential VM */
-        if (!is_confidential_vm()) {
-                const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
-                if (extra) {
-                        _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
-                        cmdline = xasprintf("%ls %ls", tmp, extra16);
-
-                        /* SMBIOS strings are measured in PCR1, but we also want to measure them in our specific
-                         * PCR12, as firmware-owned PCRs are very difficult to use as they'll contain unpredictable
-                         * measurements that are not under control of the machine owner. */
-                        m = false;
-                        (void) tpm_log_load_options(extra16, &m);
-                        combine_measured_flag(&parameters_measured, m);
-                }
-        }
+        cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
         export_variables(loaded_image);
 
