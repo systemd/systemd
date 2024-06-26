@@ -123,19 +123,17 @@ static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *
 EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
-                const void *linux_buffer,
-                size_t linux_length,
-                const void *initrd_buffer,
-                size_t initrd_length) {
+                const struct iovec *kernel,
+                const struct iovec *initrd) {
 
         assert(parent);
-        assert(linux_buffer);
-        assert(initrd_buffer || initrd_length == 0);
+        assert(iovec_is_set(kernel));
+        assert(iovec_is_valid(initrd));
 
-        if (linux_length < sizeof(BootParams))
+        if (kernel->iov_len < sizeof(BootParams))
                 return EFI_LOAD_ERROR;
 
-        const BootParams *image_params = (const BootParams *) linux_buffer;
+        const BootParams *image_params = (const BootParams *) kernel->iov_base;
         if (image_params->hdr.header != SETUP_MAGIC || image_params->hdr.boot_flag != BOOT_FLAG_MAGIC)
                 return log_error_status(EFI_UNSUPPORTED, "Unsupported kernel image.");
         if (image_params->hdr.version < SETUP_VERSION_2_11)
@@ -155,22 +153,26 @@ EFI_STATUS linux_exec_efi_handover(
         /* There is no way to pass the high bits of code32_start. Newer kernels seems to handle this
          * just fine, but older kernels will fail even if they otherwise have above 4G boot support. */
         _cleanup_pages_ Pages linux_relocated = {};
-        if (POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + linux_length > UINT32_MAX) {
+        const void *linux_buffer;
+        if (POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len > UINT32_MAX) {
                 linux_relocated = xmalloc_pages(
-                                AllocateMaxAddress, EfiLoaderCode, EFI_SIZE_TO_PAGES(linux_length), UINT32_MAX);
+                                AllocateMaxAddress, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel->iov_len), UINT32_MAX);
                 linux_buffer = memcpy(
-                                PHYSICAL_ADDRESS_TO_POINTER(linux_relocated.addr), linux_buffer, linux_length);
-        }
+                                PHYSICAL_ADDRESS_TO_POINTER(linux_relocated.addr), kernel->iov_base, kernel->iov_len);
+        } else
+                linux_buffer = kernel->iov_base;
 
         _cleanup_pages_ Pages initrd_relocated = {};
-        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) + initrd_length > UINT32_MAX) {
+        const void *initrd_buffer;
+        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd->iov_base) + initrd->iov_len > UINT32_MAX) {
                 initrd_relocated = xmalloc_pages(
-                                AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(initrd_length), UINT32_MAX);
+                                AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(initrd->iov_len), UINT32_MAX);
                 initrd_buffer = memcpy(
                                 PHYSICAL_ADDRESS_TO_POINTER(initrd_relocated.addr),
-                                initrd_buffer,
-                                initrd_length);
-        }
+                                initrd->iov_base,
+                                initrd->iov_len);
+        } else
+                initrd_buffer = initrd->iov_base;
 
         _cleanup_pages_ Pages boot_params_page = xmalloc_pages(
                         can_4g ? AllocateAnyPages : AllocateMaxAddress,
@@ -215,8 +217,8 @@ EFI_STATUS linux_exec_efi_handover(
 
         boot_params->hdr.ramdisk_image = (uintptr_t) initrd_buffer;
         boot_params->ext_ramdisk_image = POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) >> 32;
-        boot_params->hdr.ramdisk_size = initrd_length;
-        boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
+        boot_params->hdr.ramdisk_size = initrd->iov_len;
+        boot_params->ext_ramdisk_size = ((uint64_t) initrd->iov_len) >> 32;
 
         log_wait();
         linux_efi_handover(parent, (uintptr_t) linux_buffer, boot_params);
