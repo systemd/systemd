@@ -818,13 +818,34 @@ static void export_pcr_variables(
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
 }
 
+static void install_embedded_devicetree(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                struct devicetree_state *dt_state) {
+
+        EFI_STATUS err;
+
+        assert(loaded_image);
+        assert(sections);
+        assert(dt_state);
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB))
+                return;
+
+        err = devicetree_install_from_memory(
+                        dt_state,
+                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset,
+                        sections[UNIFIED_SECTION_DTB].size);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading embedded devicetree, igoring: %m");
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
-        size_t dt_size = 0, n_dts_addons_global = 0, n_dts_addons_uki = 0;
-        EFI_PHYSICAL_ADDRESS dt_base = 0;
+        size_t n_dts_addons_global = 0, n_dts_addons_uki = 0;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
@@ -920,18 +941,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
 
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
-                dt_size = sections[UNIFIED_SECTION_DTB].size;
-                dt_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_DTB].memory_offset;
-        }
-
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
-        if (dt_size > 0) {
-                err = devicetree_install_from_memory(
-                                &dt_state, PHYSICAL_ADDRESS_TO_POINTER(dt_base), dt_size);
-                if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading embedded devicetree: %m");
-        }
+        install_embedded_devicetree(loaded_image, sections, &dt_state);
 
         int dtb_measured;
         dtb_install_addons(&dt_state,
