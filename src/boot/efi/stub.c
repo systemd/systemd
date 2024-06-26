@@ -974,9 +974,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
                         sections[UNIFIED_SECTION_LINUX].size);
 
-        err = linux_exec(image, cmdline,
-                         kernel.iov_base, kernel.iov_len,
-                         final_initrd.iov_base, final_initrd.iov_len);
+        err = linux_exec(image, cmdline, &kernel, &final_initrd);
         graphics_mode(false);
         return err;
 }
