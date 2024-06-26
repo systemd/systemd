@@ -864,6 +864,32 @@ static void display_splash(
         graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
 }
 
+static void determine_cmdline(
+                EFI_HANDLE image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                char16_t **ret_cmdline,
+                int *parameters_measured) {
+
+        assert(loaded_image);
+        assert(sections);
+
+        if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), ret_cmdline)) {
+                /* Let's measure the passed kernel command line into the TPM. Note that this possibly
+                 * duplicates what we already did in the boot menu, if that was already used. However, since
+                 * we want the boot menu to support an EFI binary, and want to this stub to be usable from
+                 * any boot menu, let's measure things anyway. */
+                bool m = false;
+                (void) tpm_log_load_options(*ret_cmdline, &m);
+                combine_measured_flag(parameters_measured, m);
+        } else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
+                *ret_cmdline = xstrn8_to_16(
+                                (char *) loaded_image->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
+                                sections[UNIFIED_SECTION_CMDLINE].size);
+                mangle_stub_cmdline(*ret_cmdline);
+        }
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         DevicetreeAddon *dt_addons = NULL;
@@ -896,25 +922,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         lookup_uname(loaded_image, sections, &uname);
 
+        determine_cmdline(image, loaded_image, sections, &cmdline, &parameters_measured);
+
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
         CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
         load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons);
-
-        if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), &cmdline)) {
-                /* Let's measure the passed kernel command line into the TPM. Note that this possibly
-                 * duplicates what we already did in the boot menu, if that was already used. However, since
-                 * we want the boot menu to support an EFI binary, and want to this stub to be usable from
-                 * any boot menu, let's measure things anyway. */
-                m = false;
-                (void) tpm_log_load_options(cmdline, &m);
-                combine_measured_flag(&parameters_measured, m);
-        } else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                cmdline = xstrn8_to_16(
-                                (char *) loaded_image->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
-                                sections[UNIFIED_SECTION_CMDLINE].size);
-                mangle_stub_cmdline(cmdline);
-        }
 
         /* If we have any extra command line to add via PE addons, load them now and append, and
          * measure the additions together, after the embedded options, but before the smbios ones,
