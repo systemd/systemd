@@ -420,4 +420,181 @@ TEST(dns_server_packet_udp_fragmented) {
         ASSERT_TRUE(env.server->packet_fragmented);
 }
 
+/* ================================================================
+ * dns_server_possible_feature_level()
+ * ================================================================ */
+
+TEST(dns_server_possible_feature_level_grace_period_expired) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.manager.dnssec_mode = DNSSEC_NO;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
+        env.server->verified_usec = 1;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_raise_to_verified) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.manager.dnssec_mode = DNSSEC_NO;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        env.server->possible_feature_level = _DNS_SERVER_FEATURE_LEVEL_MAX;
+        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_DO;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_TLS_DO);
+}
+
+TEST(dns_server_possible_feature_level_drop_to_best) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.manager.dnssec_mode = DNSSEC_NO;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        env.server->possible_feature_level = _DNS_SERVER_FEATURE_LEVEL_MAX;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_tcp_failed) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->n_failed_tcp = 5;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
+TEST(dns_server_possible_feature_level_tls_failed) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->n_failed_tls = 5;
+        env.server->possible_feature_level = _DNS_SERVER_FEATURE_LEVEL_MAX;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_OPPORTUNISTIC;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_packet_failed_downgrade_ends0) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_invalid = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
+TEST(dns_server_possible_feature_level_packet_failed_downgrade_do) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_invalid = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dnssec_mode = DNSSEC_YES;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_packet_failed_downgrade_tls_do) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_invalid = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_DO;
+        env.manager.dnssec_mode = DNSSEC_YES;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_YES;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN);
+}
+
+TEST(dns_server_possible_feature_level_packet_bad_opt) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_bad_opt = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.manager.dnssec_mode = DNSSEC_NO;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
+TEST(dns_server_possible_feature_level_packet_do_off) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_do_off = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_packet_rrsig_missing) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->packet_rrsig_missing = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+}
+
+TEST(dns_server_possible_feature_level_udp_failed) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->n_failed_udp = 5;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
+TEST(dns_server_possible_feature_level_tcp_failed_truncated) {
+        _cleanup_(server_env_teardown) ServerEnv env = {};
+        server_env_setup(&env);
+
+        env.server->n_failed_tcp = 5;
+        env.server->packet_truncated = true;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+        dns_server_possible_feature_level(env.server);
+
+        ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
