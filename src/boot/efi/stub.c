@@ -112,7 +112,7 @@ static EFI_STATUS combine_initrds(
         return EFI_SUCCESS;
 }
 
-static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
+static void export_general_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         static const uint64_t stub_features =
                 EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
@@ -160,7 +160,6 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", s, 0);
         }
-
 
         /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
          * own data) */
@@ -800,6 +799,25 @@ static void lookup_embedded_initrds(
                                 sections[UNIFIED_SECTION_UCODE].size);
 }
 
+static void export_pcr_variables(
+                int sections_measured,
+                int parameters_measured,
+                int sysext_measured,
+                int confext_measured) {
+
+        /* After we are done with measuring, set an EFI variable that tells userspace this was done
+         * successfully, and encode in it which PCR was used. */
+
+        if (sections_measured > 0)
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, 0);
+        if (parameters_measured > 0)
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
+        if (sysext_measured > 0)
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
+        if (confext_measured > 0)
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
@@ -870,11 +888,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         measure_sections(loaded_image, sections, &sections_measured);
 
-        /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
-         * in it which PCR was used. */
-        if (sections_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, 0);
-
         /* Show splash screen as early as possible */
         if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_SPLASH))
                 graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
@@ -903,7 +916,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
-        export_variables(loaded_image);
+        export_general_variables(loaded_image);
 
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
 
@@ -937,12 +950,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                            &dtb_measured);
         combine_measured_flag(&parameters_measured, dtb_measured);
 
-        if (parameters_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
-        if (sysext_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
-        if (confext_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
+        export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
 
         generate_embedded_initrds(loaded_image, sections, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
