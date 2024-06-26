@@ -4,6 +4,7 @@
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "graphics.h"
+#include "iovec-util-fundamental.h"
 #include "linux.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
@@ -20,6 +21,23 @@
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
+
+/* The list of initrds we combine into one, in the order we want to merge them */
+enum {
+        /* The first two are part of the PE binary */
+        INITRD_UCODE,
+        INITRD_BASE,
+
+        /* The rest are dynamically generated, and hence in dynamic memory */
+        _INITRD_DYNAMIC_FIRST,
+        INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
+        INITRD_GLOBAL_CREDENTIAL,
+        INITRD_SYSEXT,
+        INITRD_CONFEXT,
+        INITRD_PCRSIG,
+        INITRD_PCRPKEY,
+        _INITRD_MAX,
+};
 
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
@@ -47,21 +65,19 @@ static void combine_measured_flag(int *value, int measured) {
 
 /* Combine initrds by concatenation in memory */
 static EFI_STATUS combine_initrds(
-                const void * const initrds[], const size_t initrd_sizes[], size_t n_initrds,
-                Pages *ret_initr_pages, size_t *ret_initrd_size) {
+                struct iovec initrds[], size_t n_initrds,
+                Pages *ret_initrd_pages, size_t *ret_initrd_size) {
 
         size_t n = 0;
 
-        assert(ret_initr_pages);
+        assert(initrds || n_initrds == 0);
+        assert(ret_initrd_pages);
         assert(ret_initrd_size);
 
-        for (size_t i = 0; i < n_initrds; i++) {
-                if (!initrds[i])
-                        continue;
+        FOREACH_ARRAY(i, initrds, n_initrds) {
+                /* some initrds (the ones from UKI sections) need padding, pad all to be safe */
 
-                /* some initrds (the ones from UKI sections) need padding,
-                 * pad all to be safe */
-                size_t initrd_size = ALIGN4(initrd_sizes[i]);
+                size_t initrd_size = ALIGN4(i->iov_len);
                 if (n > SIZE_MAX - initrd_size)
                         return EFI_OUT_OF_RESOURCES;
 
@@ -74,24 +90,22 @@ static EFI_STATUS combine_initrds(
                         EFI_SIZE_TO_PAGES(n),
                         UINT32_MAX /* Below 4G boundary. */);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
-        for (size_t i = 0; i < n_initrds; i++) {
-                if (!initrds[i])
-                        continue;
-
+        FOREACH_ARRAY(i, initrds, n_initrds) {
                 size_t pad;
 
-                p = mempcpy(p, initrds[i], initrd_sizes[i]);
+                p = mempcpy(p, i->iov_base, i->iov_len);
 
-                pad = ALIGN4(initrd_sizes[i]) - initrd_sizes[i];
-                if (pad > 0)  {
-                        memzero(p, pad);
-                        p += pad;
-                }
+                pad = ALIGN4(i->iov_len) - i->iov_len;
+                if (pad == 0)
+                        continue;
+
+                memzero(p, pad);
+                p += pad;
         }
 
         assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
 
-        *ret_initr_pages = pages;
+        *ret_initrd_pages = pages;
         *ret_initrd_size = n;
         pages.n_pages = 0;
 
@@ -628,14 +642,39 @@ static void lookup_uname(
                                sections[UNIFIED_SECTION_UNAME].size);
 }
 
+static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
+        assert(initrds);
+
+        /* Free the dynamic initrds, but leave the non-dynamic ones around */
+
+        for (size_t i = _INITRD_DYNAMIC_FIRST; i < _INITRD_MAX; i++)
+                iovec_done(initrds[i]);
+}
+
+static bool initrds_need_combine(struct iovec initrds[static _INITRD_MAX]) {
+        assert(initrds);
+
+        /* Returns true if we have any initrds set that aren't the base initrd. In that case we need to
+         * merge, otherwise we can pass the embedded initrd as is */
+
+        for (size_t i = 0; i <  _INITRD_MAX; i++) {
+                if (i == INITRD_BASE)
+                        continue;
+
+                if (iovec_is_set(initrds + i))
+                        return true;
+        }
+
+        return false;
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
-        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
-        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
+        _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
-        size_t linux_size, initrd_size = 0, ucode_size = 0, dt_size = 0, n_dts_addons_global = 0, n_dts_addons_uki = 0;
-        EFI_PHYSICAL_ADDRESS linux_base, initrd_base = 0, ucode_base = 0, dt_base = 0;
+        size_t dt_size = 0, n_dts_addons_global = 0, n_dts_addons_uki = 0;
+        EFI_PHYSICAL_ADDRESS dt_base = 0;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
@@ -743,8 +782,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       /* access_mode= */ 0400,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Credentials initrd",
-                      &credential_initrd,
-                      &credential_initrd_size,
+                      initrds + INITRD_CREDENTIAL,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(&parameters_measured, m);
 
@@ -757,8 +795,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       /* access_mode= */ 0400,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global credentials initrd",
-                      &global_credential_initrd,
-                      &global_credential_initrd_size,
+                      initrds + INITRD_GLOBAL_CREDENTIAL,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(&parameters_measured, m);
 
@@ -771,8 +808,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       /* access_mode= */ 0444,
                       /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
-                      &sysext_initrd,
-                      &sysext_initrd_size,
+                      initrds + INITRD_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(&sysext_measured, m);
 
@@ -785,11 +821,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       /* access_mode= */ 0444,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
-                      &confext_initrd,
-                      &confext_initrd_size,
+                      initrds + INITRD_SYSEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(&confext_measured, m);
-
 
         if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                 dt_size = sections[UNIFIED_SECTION_DTB].size;
@@ -843,8 +877,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 /* access_mode= */ 0444,
                                 /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
-                                &pcrsig_initrd,
-                                &pcrsig_initrd_size,
+                                initrds + INITRD_PCRSIG,
                                 /* ret_measured= */ NULL);
 
         /* If the public key used for the PCR signatures was embedded in the PE image, then let's wrap it in
@@ -861,68 +894,42 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 /* access_mode= */ 0444,
                                 /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
-                                &pcrpkey_initrd,
-                                &pcrpkey_initrd_size,
+                                initrds + INITRD_PCRPKEY,
                                 /* ret_measured= */ NULL);
 
-        linux_size = sections[UNIFIED_SECTION_LINUX].size;
-        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_LINUX].memory_offset;
+        struct iovec kernel = IOVEC_MAKE(
+                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
+                        sections[UNIFIED_SECTION_LINUX].size);
 
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
-                initrd_size = sections[UNIFIED_SECTION_INITRD].size;
-                initrd_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_INITRD].memory_offset;
-        }
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD))
+                initrds[INITRD_BASE] = IOVEC_MAKE(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset,
+                                sections[UNIFIED_SECTION_INITRD].size);
 
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
-                ucode_size = sections[UNIFIED_SECTION_UCODE].size;
-                ucode_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[UNIFIED_SECTION_UCODE].memory_offset;
-        }
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))
+                initrds[INITRD_UCODE] = IOVEC_MAKE(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset,
+                                sections[UNIFIED_SECTION_UCODE].size);
 
         _cleanup_pages_ Pages initrd_pages = {};
-        if (ucode_base || credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
-                /* If we have generated initrds dynamically or there is a microcode initrd, combine them with the built-in initrd. */
-                err = combine_initrds(
-                                (const void*const[]) {
-                                        /* Microcode must always be first as kernel only scans uncompressed cpios
-                                         * and later initrds might be compressed. */
-                                        PHYSICAL_ADDRESS_TO_POINTER(ucode_base),
-                                        PHYSICAL_ADDRESS_TO_POINTER(initrd_base),
-                                        credential_initrd,
-                                        global_credential_initrd,
-                                        sysext_initrd,
-                                        confext_initrd,
-                                        pcrsig_initrd,
-                                        pcrpkey_initrd,
-                                },
-                                (const size_t[]) {
-                                        ucode_size,
-                                        initrd_size,
-                                        credential_initrd_size,
-                                        global_credential_initrd_size,
-                                        sysext_initrd_size,
-                                        confext_initrd_size,
-                                        pcrsig_initrd_size,
-                                        pcrpkey_initrd_size,
-                                },
-                                8,
-                                &initrd_pages, &initrd_size);
+        struct iovec final_initrd;
+        if (initrds_need_combine(initrds)) {
+                /* If we have generated initrds dynamically or there is a microcode initrd, combine them with
+                 * the built-in initrd. */
+                err = combine_initrds(initrds, _INITRD_MAX, &initrd_pages, &final_initrd.iov_len);
                 if (err != EFI_SUCCESS)
                         return err;
 
-                initrd_base = initrd_pages.addr;
+                final_initrd.iov_base = PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr);
 
-                /* Given these might be large let's free them explicitly, quickly. */
-                credential_initrd = mfree(credential_initrd);
-                global_credential_initrd = mfree(global_credential_initrd);
-                sysext_initrd = mfree(sysext_initrd);
-                confext_initrd = mfree(confext_initrd);
-                pcrsig_initrd = mfree(pcrsig_initrd);
-                pcrpkey_initrd = mfree(pcrpkey_initrd);
-        }
+                /* Given these might be large let's free them explicitly before we pass control to Linux */
+                initrds_free(&initrds);
+        } else
+                final_initrd = initrds[INITRD_BASE];
 
         err = linux_exec(image, cmdline,
-                         PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
-                         PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
+                         kernel.iov_base, kernel.iov_len,
+                         final_initrd.iov_base, final_initrd.iov_len);
         graphics_mode(false);
         return err;
 }
