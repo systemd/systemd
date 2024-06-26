@@ -668,6 +668,74 @@ static bool initrds_need_combine(struct iovec initrds[static _INITRD_MAX]) {
         return false;
 }
 
+static void generate_sidecar_initrds(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                struct iovec initrds[static _INITRD_MAX],
+                int *parameters_measured,
+                int *sysext_measured,
+                int *confext_measured) {
+
+        bool m;
+
+        assert(loaded_image);
+        assert(initrds);
+        assert(parameters_measured);
+        assert(sysext_measured);
+        assert(confext_measured);
+
+        if (pack_cpio(loaded_image,
+                      /* dropin_dir= */ NULL,
+                      u".cred",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/credentials",
+                      /* dir_mode= */ 0500,
+                      /* access_mode= */ 0400,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Credentials initrd",
+                      initrds + INITRD_CREDENTIAL,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(parameters_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      u"\\loader\\credentials",
+                      u".cred",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/global_credentials",
+                      /* dir_mode= */ 0500,
+                      /* access_mode= */ 0400,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Global credentials initrd",
+                      initrds + INITRD_GLOBAL_CREDENTIAL,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(parameters_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      /* dropin_dir= */ NULL,
+                      u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
+                      u".confext.raw", /* … but then exclude *.confext.raw again */
+                      ".extra/sysext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      u"System extension initrd",
+                      initrds + INITRD_CONFEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(sysext_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      /* dropin_dir= */ NULL,
+                      u".confext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/confext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Configuration extension initrd",
+                      initrds + INITRD_SYSEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(confext_measured, m);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
@@ -773,57 +841,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         export_variables(loaded_image);
 
-        if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
-                      u".cred",
-                      /* exclude_suffix= */ NULL,
-                      ".extra/credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
-                      u"Credentials initrd",
-                      initrds + INITRD_CREDENTIAL,
-                      &m) == EFI_SUCCESS)
-                combine_measured_flag(&parameters_measured, m);
-
-        if (pack_cpio(loaded_image,
-                      u"\\loader\\credentials",
-                      u".cred",
-                      /* exclude_suffix= */ NULL,
-                      ".extra/global_credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
-                      u"Global credentials initrd",
-                      initrds + INITRD_GLOBAL_CREDENTIAL,
-                      &m) == EFI_SUCCESS)
-                combine_measured_flag(&parameters_measured, m);
-
-        if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
-                      u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
-                      u".confext.raw", /* … but then exclude *.confext.raw again */
-                      ".extra/sysext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
-                      u"System extension initrd",
-                      initrds + INITRD_CONFEXT,
-                      &m) == EFI_SUCCESS)
-                combine_measured_flag(&sysext_measured, m);
-
-        if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
-                      u".confext.raw",
-                      /* exclude_suffix= */ NULL,
-                      ".extra/confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
-                      u"Configuration extension initrd",
-                      initrds + INITRD_SYSEXT,
-                      &m) == EFI_SUCCESS)
-                combine_measured_flag(&confext_measured, m);
+        generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
 
         if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                 dt_size = sections[UNIFIED_SECTION_DTB].size;
