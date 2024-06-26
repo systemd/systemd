@@ -3,6 +3,7 @@
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
+#include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
@@ -138,7 +139,7 @@ static EFI_STATUS combine_initrds(
         return EFI_SUCCESS;
 }
 
-static void export_general_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
+static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         static const uint64_t stub_features =
                 EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
@@ -152,40 +153,6 @@ static void export_general_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 0;
 
         assert(loaded_image);
-
-        /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
-                if (uuid)
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
-        }
-
-        /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
-         * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
-         * that some boot chain loaders neither set LoaderImageIdentifier nor make FilePath available to us,
-         * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
-         * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
-         * is non-NULL explicitly.) */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
-            loaded_image->FilePath) {
-                _cleanup_free_ char16_t *s = NULL;
-                if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS)
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", s, 0);
-        }
-
-        /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_free_ char16_t *s = NULL;
-                s = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", s, 0);
-        }
-
-        /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_free_ char16_t *s = NULL;
-                s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", s, 0);
-        }
 
         /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
          * own data) */
@@ -939,7 +906,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
-        export_general_variables(loaded_image);
+        export_common_variables(loaded_image);
+        export_stub_variables(loaded_image);
 
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);

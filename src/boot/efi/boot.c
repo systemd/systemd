@@ -7,6 +7,7 @@
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
+#include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "linux.h"
@@ -2538,9 +2539,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         return EFI_SUCCESS;
 }
 
-static void export_variables(
+static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const char16_t *loaded_image_path,
                 uint64_t init_usec) {
 
         static const uint64_t loader_features =
@@ -2560,28 +2560,11 @@ static void export_variables(
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 0;
 
-        _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
-
         assert(loaded_image);
 
-        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
-
-        infostr = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", infostr, 0);
-
-        typestr = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", typestr, 0);
-
+        (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
+        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
-
-        /* the filesystem path to this image, to prevent adding ourselves to the menu */
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", loaded_image_path, 0);
-
-        /* export the device path this image is started from */
-        _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
-        if (uuid)
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 
 static void config_load_all_entries(
@@ -2681,7 +2664,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
-        _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
@@ -2696,9 +2678,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
-
-        export_variables(loaded_image, loaded_image_path, init_usec);
+        export_common_variables(loaded_image);
+        export_loader_variables(loaded_image, init_usec);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS)
@@ -2706,6 +2687,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         (void) load_drivers(image, loaded_image, root_dir);
 
+        _cleanup_free_ char16_t *loaded_image_path = NULL;
+        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.n_entries == 0)
