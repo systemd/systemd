@@ -934,18 +934,19 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         export_general_variables(loaded_image);
 
-        generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
-
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);
-
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
-        export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
-
+        /* Generate & find all initrds */
+        generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
+        /* Export variables indicating what we measured */
+        export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
+
+        /* Combine the initrds into one */
         _cleanup_pages_ Pages initrd_pages = {};
         struct iovec final_initrd;
         if (initrds_need_combine(initrds)) {
