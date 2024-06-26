@@ -945,11 +945,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
 
         generate_embedded_initrds(loaded_image, sections, initrds);
-
-        struct iovec kernel = IOVEC_MAKE(
-                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
-                        sections[UNIFIED_SECTION_LINUX].size);
-
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
         _cleanup_pages_ Pages initrd_pages = {};
@@ -967,6 +962,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 initrds_free(&initrds);
         } else
                 final_initrd = initrds[INITRD_BASE];
+
+        struct iovec kernel = IOVEC_MAKE(
+                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
+                        sections[UNIFIED_SECTION_LINUX].size);
 
         err = linux_exec(image, cmdline,
                          kernel.iov_base, kernel.iov_len,
