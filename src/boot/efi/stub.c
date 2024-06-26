@@ -610,6 +610,24 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
                 *cmdline = xasprintf("%ls %ls", tmp, extra16);
 }
 
+static void lookup_uname(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                char **ret_uname) {
+
+        assert(loaded_image);
+        assert(sections);
+        assert(ret_uname);
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME)) {
+                *ret_uname = NULL;
+                return;
+        }
+
+        *ret_uname = xstrndup8((char *)loaded_image->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
+                               sections[UNIFIED_SECTION_UNAME].size);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -645,9 +663,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_filenames_addons_global, n_dts_addons_global, dt_filenames_free);
         CLEANUP_ARRAY(dt_filenames_addons_uki, n_dts_addons_uki, dt_filenames_free);
 
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME))
-                uname = xstrndup8((char *)loaded_image->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                                  sections[UNIFIED_SECTION_UNAME].size);
+        lookup_uname(loaded_image, sections, &uname);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
