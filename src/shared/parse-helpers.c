@@ -56,11 +56,12 @@ int path_simplify_and_warn(
                                   "%s= path is not normalized%s: %s",
                                   lvalue, fatal ? "" : ", ignoring", path);
 
-        if (FLAGS_SET(flags, PATH_CHECK_NON_API_VFS) && path_below_api_vfs(path))
-                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                  "%s= path is below API VFS%s: %s",
-                                  lvalue, fatal ? ", refusing" : ", ignoring",
-                                  path);
+        if ((flags & (PATH_CHECK_NON_API_VFS | PATH_CHECK_NON_API_VFS_DEV_OK)) && path_below_api_vfs(path))
+                if (!((flags & PATH_CHECK_NON_API_VFS_DEV_OK) && path_startswith(path, "/dev")))
+                        return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= path is below API VFS%s: %s",
+                                          lvalue, fatal ? ", refusing" : ", ignoring",
+                                          path);
 
         return 0;
 }
