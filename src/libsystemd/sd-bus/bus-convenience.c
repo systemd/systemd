@@ -39,7 +39,7 @@ _public_ int sd_bus_emit_signal_tov(
         if (r < 0)
                 return r;
 
-        if (!isempty(types)) {
+        if (types) {
                 r = sd_bus_message_appendv(m, types, ap);
                 if (r < 0)
                         return r;
@@ -118,7 +118,7 @@ _public_ int sd_bus_call_method_asyncv(
         if (r < 0)
                 return r;
 
-        if (!isempty(types)) {
+        if (types) {
                 r = sd_bus_message_appendv(m, types, ap);
                 if (r < 0)
                         return r;
@@ -174,7 +174,7 @@ _public_ int sd_bus_call_methodv(
         if (r < 0)
                 goto fail;
 
-        if (!isempty(types)) {
+        if (types) {
                 r = sd_bus_message_appendv(m, types, ap);
                 if (r < 0)
                         goto fail;
@@ -229,7 +229,7 @@ _public_ int sd_bus_reply_method_returnv(
         if (r < 0)
                 return r;
 
-        if (!isempty(types)) {
+        if (types) {
                 r = sd_bus_message_appendv(m, types, ap);
                 if (r < 0)
                         return r;
