@@ -36,7 +36,7 @@
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
-static char *arg_registry = NULL;
+static char *arg_features = NULL;
 bool arg_sync = true;
 uint64_t arg_instances_max = UINT64_MAX;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
@@ -51,7 +51,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_registry, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_features, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
@@ -61,8 +61,9 @@ typedef struct Context {
         Transfer **transfers;
         size_t n_transfers;
 
-        Transfer **registry;
-        size_t n_registry;
+        Feature **features;
+        Transfer **disabled_transfers;
+        size_t n_disabled_transfers;
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -82,9 +83,9 @@ static Context *context_free(Context *c) {
                 transfer_free(c->transfers[i]);
         free(c->transfers);
 
-        for (size_t i = 0; i < c->n_registry; i++)
-                transfer_free(c->registry[i]);
-        free(c->registry);
+        for (size_t i = 0; i < c->n_disabled_transfers; i++)
+                transfer_free(c->disabled_transfers[i]);
+        free(c->disabled_transfers);
 
         for (size_t i = 0; i < c->n_update_sets; i++)
                 update_set_free(c->update_sets[i]);
@@ -249,7 +250,7 @@ static int context_read_definitions(
         c->changelog = strv_uniq(c->changelog);
         c->appstream = strv_uniq(c->appstream);
 
-        r = read_definitions(false, registry, component, root, node, &seen, &c->registry, &c->n_registry);
+        r = read_definitions(false, registry, component, root, node, &seen, &c->disabled_transfers, &c->n_disabled_transfers);
         if (r < 0)
                 return r;
 
@@ -272,9 +273,9 @@ static int context_load_installed_instances(Context *c) {
                         return r;
         }
 
-        for (size_t i = 0; i < c->n_registry; i++) {
+        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
                 r = resource_load_instances(
-                                &c->registry[i]->target,
+                                &c->disabled_transfers[i]->target,
                                 arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
                                 &c->web_cache);
                 if (r < 0)
@@ -851,11 +852,11 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        for (size_t i = 0; i < c->n_registry; i++) {
+        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
                 /* The registry contains only transfers that have been disabled, so let's make sure that we
                  * delete any instances that might be lying around... */
 
-                r = transfer_vacuum(c->registry[i], UINT64_MAX /* delete all instances */, NULL);
+                r = transfer_vacuum(c->disabled_transfers[i], UINT64_MAX /* delete all instances */, NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -901,7 +902,7 @@ static int context_make_offline(Context **ret, const char *node) {
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, arg_definitions, arg_registry, arg_component, arg_root, node);
+        r = context_read_definitions(context, arg_definitions, arg_features, arg_component, arg_root, node);
         if (r < 0)
                 return r;
 
@@ -1508,7 +1509,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "\n%3$sOptions:%4$s\n"
                "  -C --component=NAME     Select component to update\n"
                "     --definitions=DIR    Specify directory with transfer definitions\n"
-               "     --registry=DIR       Specify directory with optional transfer definitions\n"
+               "     --features=DIR       Specify directory with feature definitions\n"
                "     --root=PATH          Operate on an alternate filesystem root\n"
                "     --image=PATH         Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY\n"
@@ -1541,7 +1542,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_SYNC,
                 ARG_DEFINITIONS,
-                ARG_REGISTRY,
+                ARG_FEATURES,
                 ARG_JSON,
                 ARG_ROOT,
                 ARG_IMAGE,
@@ -1557,7 +1558,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
-                { "registry",          required_argument, NULL, ARG_REGISTRY          },
+                { "features",          required_argument, NULL, ARG_FEATURES          },
                 { "instances-max",     required_argument, NULL, 'm'                   },
                 { "sync",              required_argument, NULL, ARG_SYNC              },
                 { "json",              required_argument, NULL, ARG_JSON              },
@@ -1613,8 +1614,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_REGISTRY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_registry);
+                case ARG_FEATURES:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_features);
                         if (r < 0)
                                 return r;
                         break;

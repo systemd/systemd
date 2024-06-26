@@ -889,6 +889,7 @@ manpages = [
  ['shutdown', '8', [], ''],
  ['smbios-type-11', '7', [], ''],
  ['sysctl.d', '5', [], ''],
+ ['sysfeatures.d', '5', [], 'ENABLE_SYSUPDATE'],
  ['systemctl', '1', [], ''],
  ['systemd-ac-power', '1', [], ''],
  ['systemd-analyze', '1', [], 'ENABLE_ANALYZE'],

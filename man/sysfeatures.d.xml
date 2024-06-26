@@ -1,0 +1,308 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysfeatures.d" conditional='ENABLE_SYSUPDATE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysfeatures.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysfeatures.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysfeatures.d</refname>
+    <refpurpose>Definition Files for Optional Features</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/sysfeatures.d/*</filename></member>
+      <member><filename>/run/sysfeatures.d/*</filename></member>
+      <member><filename>/usr/local/lib/sysfeatures.d/*</filename></member>
+      <member><filename>/usr/lib/sysfeatures.d/*</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>"Optional Features" are functionality provided by
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    that allow a distribution to define a set of
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    transfer definitions that are intended to be enabled or disabled by the system administrator.
+    Features, when enabled, become part of the OS and are updated together with it (or, more specifically,
+    the target they are defined under; targets other than the host system can have optional features too).
+    </para>
+
+    <para>Optional Features are described by <filename>sysfeatures.d/*.feature</filename> files, which are
+    defined below.
+    For each <filename>*.feature</filename> definition file, there must be one or more
+    <filename>sysfeatures.d/*.transfer</filename> files to define the feature's transfers.
+    These transfer definitions are identical to those described in
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    and they behave as if they were defined in <filename>sysupdate.d/</filename> when the feature is enabled.
+    Thus, an enabled feature will always be version-locked to the rest of the target.
+    When a feature is disabled, <command>systemd-sysupdate</command> will still consider its transfers when
+    looking for resources to delete during a vacuum operation.</para>
+
+    <para>Generally, a distribution will define all supported optional features in
+    <filename>/usr/lib/sysfeatures.d</filename>, and an administrator will enable or disable them via
+    drop-ins in <filename>/etc/sysfeatures.d/</filename>.</para>
+
+    <para>Each <filename>*.feature</filename> file contains one section: [Feature].</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Feature] Section Options</title>
+
+    <para>This section defines general properties of this feature.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Title=</varname></term>
+
+        <listitem><para>A short human readable title of this feature.
+        This may be used as a user-visible label for this feature, so the string should meaningfully identify
+        the feature among the features available in <filename>sysfeatures.d/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Documentation=</varname></term>
+
+        <listitem><para>A user-presentable URL to documentation about this feature.
+        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AppStream=</varname></term>
+
+        <listitem><para>A URL to an
+        <ulink url="https://www.freedesktop.org/software/appstream/docs/chap-CatalogData.html">AppStream catalog</ulink>
+        XML file.
+        This may be used by software centers (such as GNOME Software or KDE Discover) to present rich
+        metadata about this feature.
+        This includes display names, chagnelogs, icons, and more.
+        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Enabled=</varname></term>
+
+        <listitem><para>Whether or not this feature is enabled. If unspecified, the feature is disabled
+        by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Transfers=</varname></term>
+
+        <listitem><para>The list of transfers that define the feature's resources. This option may be
+        specified more than once, in which case the specified list of transfers is merged. If the empty
+        string is assigned to this option, the list is reset and all prior assignments will have no effect.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>Documentation=</varname> and <varname>AppStream=</varname>
+    settings. The following expansions are understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Development Tools for Image-Based OS</title>
+
+      <para>We'll use the hypothetical "foobarOS" described in
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> as our
+      example base OS.
+      The vast majority of foobarOS's users have no need for a compiler, build system, debugger, and other
+      such development tools to be part of their OS.
+      However, the developers of foobarOS itself need this build tooling to be available.
+      So, foobarOS needs to provide a system extension image (see
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+      containing these development tools, and this image must be updated in lock-step with the underlying
+      base OS.
+      This is a great use case for an optional OS feature, so let's define one:
+      </para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/devel.feature
+[Feature]
+Description=Development Tools
+Enabled=false
+Transfers=50-devel.transfer
+</programlisting></para>
+
+      <para>The above defines the feature and associates it with a transfer. Now the transfer:</para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/50-devel.transfer
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com
+MatchPattern=foobarOS_@v_devel.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=foobarOS_@v_devel.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para>With these two files, we have created a feature called <literal>devel</literal> that, when
+      enabled, will download and decompress the appropriate version of
+      <literal>https://download.example.com/foobarOS_@v_devel.raw.xz</literal> into
+      <literal>/var/lib/extensions/foobarOS_@v_devel.raw</literal> as part of an OS upgrade.</para>
+    </example>
+
+
+    <example>
+      <title>Proprietary Drivers</title>
+
+      <para>Many of foobarOS's users have a GPU manufactured by MVISUAL. Due to lack of documentation and
+      difficulty in reverse-engineering the hardware, the open-source drivers for MVISUAL cards are unable
+      to make proper use of available graphics and compute performance. MVISUAL provides a redistributable
+      proprietary driver for their cards, and foobarOS's developers distribute them to address their users'
+      needs.</para>
+
+      <para>MVISUAL's drivers have a couple different parts that need to be installed: a UKI addon to
+      configure some things on the kernel command-line, an initrd system extension image to add the kernel
+      module into the initrd, and a regular system extension image to add the proprietary OpenGL and Vulkan
+      userspace drivers. All of these should be version-locked to the core OS.</para>
+
+      <para>Let's start by defining an optional feature named <literal>mvisual-driver</literal>:</para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/mvisual-driver.feature
+[Feature]
+Description=MVISUAL Proprietary GPU Driver
+Enabled=false
+
+Transfers=50-mvisual-userspace.transfer 70-mvisual-initrd.transfer
+Transfers=90-mvisual-addon.transfer
+</programlisting></para>
+
+      <para>Next, let's define the transfers:</para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/50-mvisual-userspace.transfer
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com
+MatchPattern=foobarOS_@v_mvisual_userspace.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=foobarOS_@v_mvisual.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/70-mvisual-initrd.transfer
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com
+MatchPattern=foobarOS_@v_mvisual_initrd.raw.xz
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=foobarOS_@v.efi.extra.d/foobarOS_mvisual.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/sysfeatures.d/90-mvisual-addon.transfer
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com
+MatchPattern=foobarOS_@v_mvisual_addon.efi.xz
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=foobarOS_@v.efi.extra.d/foobarOS_mvisual.addon.efi
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

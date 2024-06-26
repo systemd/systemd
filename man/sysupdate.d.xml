@@ -18,7 +18,6 @@
 
   <refnamediv>
     <refname>sysupdate.d</refname>
-    <refname>sysregistry.d</refname>
     <refpurpose>Transfer Definition Files for Automatic Updates</refpurpose>
   </refnamediv>
 
@@ -28,10 +27,6 @@
       <member><filename>/run/sysupdate.d/*.conf</filename></member>
       <member><filename>/usr/local/lib/sysupdate.d/*.conf</filename></member>
       <member><filename>/usr/lib/sysupdate.d/*.conf</filename></member>
-      <member><filename>/etc/sysregistry.d/*.conf</filename></member>
-      <member><filename>/run/sysregistry.d/*.conf</filename></member>
-      <member><filename>/usr/local/lib/sysregistry.d/*.conf</filename></member>
-      <member><filename>/usr/lib/sysregistry.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
 
@@ -64,24 +59,6 @@
     complete update.
     We'll call such a collection of transfers a target.
     <command>systemd-sysupdate</command> always operates on a single target.</para>
-
-    <para>Sometimes, a distribution may want to make some transfers in a target optional, but keep their
-    versions synchronized if those transfers are enabled.
-    For example, an image-based distribution may want to ship a system extension image containing development
-    tools, debug symbols, and so on.
-    Clearly, this extension image must be updated together with the base system image, but also most users
-    would not need it installed at all.
-    In this situation, the distribution should put the optional transfer's <filename>*.conf</filename> file
-    into one of the <filename>sysregistry.d/</filename> directories.
-    Transfers found in a <filename>sysregistry.d/</filename> directory are ignored when checking for and
-    downloading updates, but they are considered when cleaning up old updates.
-    An optional transfer can be enabled by creating a symlink to it in the <filename>sysupdate.d/</filename>
-    directory, and disabled by removing the symlink.
-    The symlink must be named the same as the <filename>*.conf</filename> file.
-    The preferred way to manage these symlinks is via the <command>enable</command> and <command>disable</command>
-    commands of
-    <citerefentry><refentrytitle>updatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    </para>
 
     <para>Each <filename>*.conf</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
   </refsect1>
@@ -550,22 +527,6 @@
         specifiers.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Alias=</varname></term>
-
-        <listitem><para>Specifies a user-facing alias for this transfer.
-        This is used by the <command>enable</command> and <command>disable</command> verbs of
-        <citerefentry><refentrytitle>updatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, so
-        it is relevant only to transfers that are defined in <filename>sysregistry.d/</filename>.
-        If multiple transfers share the same alias, <command>updatectl</command> will treat these transfers
-        as a group and enable/disable them together.
-        If unset, the transfer's file name without the <literal>.conf</literal> suffix will be used as the
-        default alias.</para>
-
-
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
