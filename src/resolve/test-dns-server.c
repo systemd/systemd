@@ -5,6 +5,39 @@
 #include "resolved-manager.h"
 #include "tests.h"
 
+typedef struct ServerEnv {
+        Manager manager;
+        char *server_name;
+        union in_addr_union server_addr;
+        DnsServer *server;
+} ServerEnv;
+
+static void server_env_teardown(ServerEnv *env) {
+        ASSERT_NOT_NULL(env);
+
+        sd_event_unref(env->manager.event);
+        free(env->server_name);
+        dns_server_unref(env->server);
+}
+
+static void server_env_setup(ServerEnv *env) {
+        ASSERT_NOT_NULL(env);
+
+        env->manager = (Manager) {};
+
+        ASSERT_OK(sd_event_new(&env->manager.event));
+        ASSERT_NOT_NULL(env->manager.event);
+
+        env->server_name = strdup("server.local");
+        env->server_addr.in.s_addr = htobe32(0xc0a80180);
+
+        ASSERT_OK(dns_server_new(
+                        &env->manager, &env->server, DNS_SERVER_SYSTEM, NULL, AF_INET,
+                        &env->server_addr, 53, 0, env->server_name, RESOLVE_CONFIG_SOURCE_FILE));
+
+        ASSERT_NOT_NULL(env->server);
+}
+
 /* ================================================================
  * dns_server_move_back_and_unmark(), dns_server_unlink(),
  * dns_server_unlink_marked(), dns_server_mark_all()
@@ -101,6 +134,101 @@ TEST(dns_server_move_back_and_unmark) {
 
         const char *names5[] = {};
         check_dns_servers(&manager, names5, 0);
+}
+
+/* ================================================================
+ * dns_server_packet_received()
+ * ================================================================ */
+
+TEST(dns_server_packet_received_udp) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+        env.server->n_failed_udp = 100;
+
+        dns_server_packet_received(env.server, IPPROTO_UDP, DNS_SERVER_FEATURE_LEVEL_UDP, 599);
+
+        ASSERT_EQ(env.server->n_failed_udp, 0u);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+        ASSERT_EQ(env.server->received_udp_fragment_max, 599u);
+}
+
+TEST(dns_server_packet_received_tcp) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
+        env.server->n_failed_tcp = 100;
+
+        dns_server_packet_received(env.server, IPPROTO_TCP, DNS_SERVER_FEATURE_LEVEL_TCP, 599);
+
+        ASSERT_EQ(env.server->n_failed_tcp, 0u);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_TCP);
+}
+
+
+TEST(dns_server_packet_received_tls) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+        env.server->n_failed_tls = 100;
+
+        dns_server_packet_received(env.server, IPPROTO_TCP, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, 599);
+
+        ASSERT_EQ(env.server->n_failed_tls, 0u);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN);
+}
+
+TEST(dns_server_packet_received_non_tls) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        dns_server_packet_received(env.server, IPPROTO_TCP, DNS_SERVER_FEATURE_LEVEL_DO, 599);
+
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_TCP);
+}
+
+TEST(dns_server_packet_received_rrsig_missing) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+        server_env_setup(&env);
+
+        env.server->packet_rrsig_missing = false;
+
+        level = DNS_SERVER_FEATURE_LEVEL_DO;
+        dns_server_packet_received(env.server, IPPROTO_UDP, level, 599);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_DO);
+
+        env.server->packet_rrsig_missing = true;
+        env.server->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+
+        level = DNS_SERVER_FEATURE_LEVEL_DO;
+        dns_server_packet_received(env.server, IPPROTO_UDP, level, 599);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+
+        level = DNS_SERVER_FEATURE_LEVEL_TLS_DO;
+        dns_server_packet_received(env.server, IPPROTO_UDP, level, 599);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN);
+}
+
+TEST(dns_server_packet_received_bad_opt) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+        server_env_setup(&env);
+
+        env.server->packet_bad_opt = true;
+
+        level = DNS_SERVER_FEATURE_LEVEL_DO;
+        dns_server_packet_received(env.server, IPPROTO_UDP, level, 599);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
+
+        env.server->packet_bad_opt = false;
+
+        level = DNS_SERVER_FEATURE_LEVEL_DO;
+        dns_server_packet_received(env.server, IPPROTO_UDP, level, 599);
+        ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_DO);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
