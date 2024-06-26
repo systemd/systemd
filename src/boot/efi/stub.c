@@ -882,11 +882,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
-        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
-                if (err == EFI_SUCCESS)
-                        err = EFI_NOT_FOUND;
-                return log_error_status(err, "Unable to locate embedded .linux section: %m");
-        }
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to locate embedded PE sections: %m");
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX))
+                return log_error_status(EFI_NOT_FOUND, "Image lacks .linux section.");
 
         measure_sections(loaded_image, sections, &sections_measured);
 
