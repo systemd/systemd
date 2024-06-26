@@ -7,6 +7,7 @@
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
+#include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "linux.h"
@@ -1855,23 +1856,24 @@ static void generate_boot_entry_titles(Config *config) {
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
-        EFI_STATUS err;
         static const char * const sections[] = {
                 ".sdmagic",
                 NULL
         };
-        size_t offset = 0, size = 0, read;
         _cleanup_free_ char *content = NULL;
+        PeSectionVector vector = {};
+        EFI_STATUS err;
+        size_t read;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
+        err = pe_file_locate_sections(root_dir, loader_path, sections, &vector);
+        if (err != EFI_SUCCESS || vector.size != sizeof(SD_MAGIC))
                 return false;
 
-        err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        err = file_read(root_dir, loader_path, vector.file_offset, vector.size, &content, &read);
+        if (err != EFI_SUCCESS || vector.size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2104,7 +2106,7 @@ static void config_load_type2_entries(
                         _SECTION_MAX,
                 };
 
-                static const char * const sections[_SECTION_MAX + 1] = {
+                static const char * const section_names[_SECTION_MAX + 1] = {
                         [SECTION_CMDLINE] = ".cmdline",
                         [SECTION_OSREL]   = ".osrel",
                         NULL,
@@ -2114,8 +2116,9 @@ static void config_load_type2_entries(
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
                 _cleanup_free_ char *content = NULL;
-                size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
+                PeSectionVector sections[_SECTION_MAX] = {};
                 char *line, *key, *value;
+                size_t pos = 0;
 
                 err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
@@ -2131,11 +2134,16 @@ static void config_load_type2_entries(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
+                err = pe_file_locate_sections(linux_dir, f->FileName, section_names, sections);
+                if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                sections[SECTION_OSREL].file_offset,
+                                sections[SECTION_OSREL].size,
+                                &content,
+                                NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2206,14 +2214,19 @@ static void config_load_type2_entries(
                 config_add_entry(config, entry);
                 boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
-                if (szs[SECTION_CMDLINE] == 0)
+                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
                         continue;
 
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
                 size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                sections[SECTION_CMDLINE].file_offset,
+                                sections[SECTION_CMDLINE].size,
+                                &content,
+                                &cmdline_len);
                 if (err == EFI_SUCCESS) {
                         entry->options = xstrn8_to_16(content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
@@ -2526,9 +2539,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         return EFI_SUCCESS;
 }
 
-static void export_variables(
+static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const char16_t *loaded_image_path,
                 uint64_t init_usec) {
 
         static const uint64_t loader_features =
@@ -2548,28 +2560,11 @@ static void export_variables(
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 0;
 
-        _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
-
         assert(loaded_image);
 
-        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
-
-        infostr = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", infostr, 0);
-
-        typestr = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", typestr, 0);
-
+        (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
+        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
-
-        /* the filesystem path to this image, to prevent adding ourselves to the menu */
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", loaded_image_path, 0);
-
-        /* export the device path this image is started from */
-        _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
-        if (uuid)
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 
 static void config_load_all_entries(
@@ -2669,7 +2664,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
-        _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
@@ -2684,9 +2678,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
-
-        export_variables(loaded_image, loaded_image_path, init_usec);
+        export_common_variables(loaded_image);
+        export_loader_variables(loaded_image, init_usec);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS)
@@ -2694,6 +2687,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         (void) load_drivers(image, loaded_image, root_dir);
 
+        _cleanup_free_ char16_t *loaded_image_path = NULL;
+        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.n_entries == 0)
