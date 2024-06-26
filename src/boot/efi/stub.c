@@ -780,6 +780,26 @@ static void generate_embedded_initrds(
                                 /* ret_measured= */ NULL);
 }
 
+static void lookup_embedded_initrds(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                struct iovec initrds[static _INITRD_MAX]) {
+
+        assert(loaded_image);
+        assert(sections);
+        assert(initrds);
+
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD))
+                initrds[INITRD_BASE] = IOVEC_MAKE(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset,
+                                sections[UNIFIED_SECTION_INITRD].size);
+
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))
+                initrds[INITRD_UCODE] = IOVEC_MAKE(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset,
+                                sections[UNIFIED_SECTION_UCODE].size);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
@@ -930,15 +950,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
                         sections[UNIFIED_SECTION_LINUX].size);
 
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD))
-                initrds[INITRD_BASE] = IOVEC_MAKE(
-                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset,
-                                sections[UNIFIED_SECTION_INITRD].size);
-
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))
-                initrds[INITRD_UCODE] = IOVEC_MAKE(
-                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset,
-                                sections[UNIFIED_SECTION_UCODE].size);
+        lookup_embedded_initrds(loaded_image, sections, initrds);
 
         _cleanup_pages_ Pages initrd_pages = {};
         struct iovec final_initrd;
