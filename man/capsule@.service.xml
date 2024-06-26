@@ -41,7 +41,7 @@
       <listitem><para>The capsule service manager utilizes <varname>DynamicUser=</varname> (see
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>) to
       allocate a new UID dynamically on invocation. The user name is automatically generated from the capsule
-      name, by prefixng <literal>p_</literal>. The UID is released when the service is terminated. The user
+      name, by prefixing <literal>p_</literal>. The UID is released when the service is terminated. The user
       service manager on the other hand operates under a statically allocated user ID that must be
       pre-existing, before the user service manager is invoked.</para></listitem>
 
