@@ -821,6 +821,7 @@
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
