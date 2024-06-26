@@ -100,6 +100,9 @@ static inline char *umount_and_free(char *p) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
+char *umount_and_unlink_and_free(char *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_unlink_and_free);
+
 int bind_mount_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
 
