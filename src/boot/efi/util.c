@@ -330,7 +330,14 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **ret, size_t *ret_size) {
+EFI_STATUS file_read(
+                EFI_FILE *dir,
+                const char16_t *name,
+                uint64_t off,
+                size_t size,
+                char **ret,
+                size_t *ret_size) {
+
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
@@ -349,6 +356,9 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
                 err = get_file_info(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
                         return err;
+
+                if (size > SIZE_MAX)
+                        return EFI_BAD_BUFFER_SIZE;
 
                 size = info->FileSize;
         }
