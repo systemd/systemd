@@ -23,9 +23,9 @@
 #include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "socket-util.h"
-#include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "verbs.h"
 
