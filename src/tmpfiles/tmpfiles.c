@@ -3610,17 +3610,6 @@ static int parse_line(
         assert(buffer);
 
         const Specifier specifier_table[] = {
-                { 'a', specifier_architecture,    NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'H', specifier_hostname,        NULL },
-                { 'l', specifier_short_hostname,  NULL },
-                { 'm', specifier_machine_id,      NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'W', specifier_os_variant_id,   NULL },
-
                 { 'h', specifier_user_home,       NULL },
 
                 { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE)   },
@@ -3628,6 +3617,7 @@ static int parse_line(
                 { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
                 { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
 
+                COMMON_SYSTEM_SPECIFIERS,
                 COMMON_CREDS_SPECIFIERS(arg_runtime_scope),
                 COMMON_TMP_SPECIFIERS,
                 {}

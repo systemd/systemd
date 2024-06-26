@@ -764,6 +764,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
             <row>
               <entry><literal>%S</literal></entry>
               <entry>System or user state directory</entry>
