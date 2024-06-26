@@ -888,15 +888,15 @@ static void determine_cmdline(
 }
 
 static EFI_STATUS run(EFI_HANDLE image) {
+        int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
+        _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
+        _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons = NULL;
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
+        PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        _cleanup_free_ char *uname = NULL;
         DevicetreeAddon *dt_addons = NULL;
         size_t n_dt_addons = 0;
-        _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
-        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
-        _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons = NULL;
-        int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
-        _cleanup_free_ char *uname = NULL;
         EFI_STATUS err;
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
