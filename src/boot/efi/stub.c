@@ -283,10 +283,10 @@ static EFI_STATUS load_addons_from_dir(
 static void cmdline_append_and_measure_addons(
                 char16_t *cmdline_addon,
                 char16_t **cmdline_append,
-                bool *ret_parameters_measured) {
+                int *parameters_measured) {
 
         assert(cmdline_append);
-        assert(ret_parameters_measured);
+        assert(parameters_measured);
 
         if (isempty(cmdline_addon))
                 return;
@@ -298,7 +298,7 @@ static void cmdline_append_and_measure_addons(
 
         bool m = false;
         (void) tpm_log_load_options(copy, &m);
-        *ret_parameters_measured = m;
+        combine_measured_flag(parameters_measured, m);
 
         _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline_append);
         if (isempty(tmp))
@@ -332,14 +332,13 @@ static void install_addon_devicetrees(
                 struct devicetree_state *dt_state,
                 DevicetreeAddon *addons,
                 size_t n_addons,
-                int *ret_parameters_measured) {
+                int *parameters_measured) {
 
-        int parameters_measured = -1;
         EFI_STATUS err;
 
         assert(dt_state);
         assert(addons || n_addons == 0);
-        assert(ret_parameters_measured);
+        assert(parameters_measured);
 
         FOREACH_ARRAY(a, addons, n_addons) {
                 err = devicetree_install_from_memory(dt_state, a->blob.iov_base, a->blob.iov_len);
@@ -363,10 +362,8 @@ static void install_addon_devicetrees(
                                         TPM2_PCR_KERNEL_CONFIG,
                                         a->filename);
 
-                combine_measured_flag(&parameters_measured, m);
+                combine_measured_flag(parameters_measured, m);
         }
-
-        *ret_parameters_measured = parameters_measured;
 }
 
 static EFI_STATUS load_addons(
@@ -900,7 +897,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons = NULL;
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_free_ char *uname = NULL;
-        bool m;
         EFI_STATUS err;
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
@@ -929,13 +925,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
         load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons);
 
-        /* If we have any extra command line to add via PE addons, load them now and append, and
-         * measure the additions together, after the embedded options, but before the smbios ones,
-         * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
-         * loaded first, and the image-specific ones later, for the same reason. */
-        cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &m);
-        combine_measured_flag(&parameters_measured, m);
-
+        /* If we have any extra command line to add via PE addons, load them now and append, and measure the
+         * additions together, after the embedded options, but before the smbios ones, so that the order is
+         * reversed from "most hardcoded" to "most dynamic". The global addons are loaded first, and the
+         * image-specific ones later, for the same reason. */
+        cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
         export_general_variables(loaded_image);
@@ -945,9 +939,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);
 
-        int dtb_measured;
-        install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &dtb_measured);
-        combine_measured_flag(&parameters_measured, dtb_measured);
+        install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
 
