@@ -881,8 +881,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        refresh_random_seed(loaded_image);
-
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
         if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
                 if (err == EFI_SUCCESS)
@@ -890,17 +888,19 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 return log_error_status(err, "Unable to locate embedded .linux section: %m");
         }
 
+        measure_sections(loaded_image, sections, &sections_measured);
+
+        /* Show splash screen as early as possible, but after measuring it */
+        display_splash(loaded_image, sections);
+
+        refresh_random_seed(loaded_image);
+
         lookup_uname(loaded_image, sections, &uname);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
         CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
         load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons);
-
-        measure_sections(loaded_image, sections, &sections_measured);
-
-        /* Show splash screen as early as possible */
-        display_splash(loaded_image, sections);
 
         if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
