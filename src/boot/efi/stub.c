@@ -44,6 +44,19 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
+static char16_t* pe_section_to_str16(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector *section) {
+
+        assert(loaded_image);
+        assert(section);
+
+        if (!PE_SECTION_VECTOR_IS_SET(section))
+                return NULL;
+
+        return xstrn8_to_16((const char *) loaded_image->ImageBase + section->memory_offset, section->size);
+}
+
 static void combine_measured_flag(int *value, int measured) {
         assert(value);
 
@@ -465,8 +478,8 @@ static EFI_STATUS load_addons(
 
                 if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
-                                                *extra16 = xstrn8_to_16((char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
-                                                                        sections[UNIFIED_SECTION_CMDLINE].size);
+                                *extra16 = pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE);
+
                         *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
 
@@ -879,11 +892,10 @@ static void determine_cmdline(
                 bool m = false;
                 (void) tpm_log_load_options(*ret_cmdline, &m);
                 combine_measured_flag(parameters_measured, m);
-        } else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                *ret_cmdline = xstrn8_to_16(
-                                (char *) loaded_image->ImageBase + sections[UNIFIED_SECTION_CMDLINE].memory_offset,
-                                sections[UNIFIED_SECTION_CMDLINE].size);
-                mangle_stub_cmdline(*ret_cmdline);
+        } else {
+                *ret_cmdline = pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE);
+                if (*ret_cmdline)
+                        mangle_stub_cmdline(*ret_cmdline);
         }
 }
 
