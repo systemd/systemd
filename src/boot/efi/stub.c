@@ -462,7 +462,7 @@ static EFI_STATUS load_addons(
 
                 /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
                 if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
-                        log_error_status(EFI_INVALID_PARAMETER, "%ls is a UKI, not an addon, ignoring: %m", items[i]);
+                        log_error("%ls is a UKI, not an addon, ignoring.", items[i]);
                         continue;
                 }
 
