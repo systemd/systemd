@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/sched.h>
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -4029,6 +4033,21 @@ static int send_handoff_timestamp(
         return 1;
 }
 
+struct sched_attr {
+        uint32_t size;             /* Size of this structure */
+        uint32_t sched_policy;     /* Policy (SCHED_*) */
+        uint64_t sched_flags;      /* Flags */
+        int32_t  sched_nice;       /* Nice value (SCHED_OTHER,
+                                         SCHED_BATCH) */
+        uint32_t sched_priority;   /* Static priority (SCHED_FIFO,
+                                       SCHED_RR) */
+        /* Remaining fields are for SCHED_DEADLINE
+           and potentially soon for SCHED_OTHER/SCHED_BATCH */
+        uint64_t sched_runtime;
+        uint64_t sched_deadline;
+        uint64_t sched_period;
+};
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4411,15 +4430,18 @@ int exec_invoke(
         }
 
         if (context->cpu_sched_set) {
-                struct sched_param param = {
+                struct sched_attr attr = {
+                        .size = sizeof(attr),
+                        .sched_policy = context->cpu_sched_policy,
                         .sched_priority = context->cpu_sched_priority,
+                        .sched_flags = context->cpu_sched_reset_on_fork ? SCHED_FLAG_RESET_ON_FORK : 0,
                 };
 
-                r = sched_setscheduler(0,
-                                       context->cpu_sched_policy |
-                                       (context->cpu_sched_reset_on_fork ?
-                                        SCHED_RESET_ON_FORK : 0),
-                                       &param);
+                r = syscall(SYS_sched_setattr,
+                            0,
+                            &attr,
+                            0);
+
                 if (r < 0) {
                         *exit_status = EXIT_SETSCHEDULER;
                         return log_exec_error_errno(context, params, errno, "Failed to set up CPU scheduling: %m");
