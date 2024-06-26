@@ -851,6 +851,19 @@ static void load_all_addons(
                 log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
 }
 
+static void display_splash(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+
+        assert(loaded_image);
+        assert(sections);
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_SPLASH))
+                return;
+
+        graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         DevicetreeAddon *dt_addons = NULL;
@@ -887,8 +900,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         measure_sections(loaded_image, sections, &sections_measured);
 
         /* Show splash screen as early as possible */
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_SPLASH))
-                graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
+        display_splash(loaded_image, sections);
 
         if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
