@@ -808,6 +808,49 @@ static void install_embedded_devicetree(
                 log_error_status(err, "Error loading embedded devicetree, igoring: %m");
 }
 
+static void load_all_addons(
+                EFI_HANDLE image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char *uname,
+                char16_t **cmdline_addons,
+                DevicetreeAddon **dt_addons,
+                size_t *n_dt_addons) {
+
+        EFI_STATUS err;
+
+        assert(loaded_image);
+        assert(cmdline_addons);
+        assert(dt_addons);
+        assert(n_dt_addons);
+
+        err = load_addons(
+                        image,
+                        loaded_image,
+                        u"\\loader\\addons",
+                        uname,
+                        cmdline_addons,
+                        dt_addons,
+                        n_dt_addons);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading global addons, ignoring: %m");
+
+        /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
+        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+        if (!dropin_dir)
+                return;
+
+        err = load_addons(
+                        image,
+                        loaded_image,
+                        dropin_dir,
+                        uname,
+                        cmdline_addons,
+                        dt_addons,
+                        n_dt_addons);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         DevicetreeAddon *dt_addons = NULL;
@@ -836,35 +879,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         lookup_uname(loaded_image, sections, &uname);
 
-        CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
-
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
-        err = load_addons(
-                        image,
-                        loaded_image,
-                        u"\\loader\\addons",
-                        uname,
-                        &cmdline_addons,
-                        &dt_addons,
-                        &n_dt_addons);
-        if (err != EFI_SUCCESS)
-                log_error_status(err, "Error loading global addons, ignoring: %m");
-
-        /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
-        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-        if (dropin_dir) {
-                err = load_addons(
-                                image,
-                                loaded_image,
-                                dropin_dir,
-                                uname,
-                                &cmdline_addons,
-                                &dt_addons,
-                                &n_dt_addons);
-                if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
-        }
+        CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
+        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons);
 
         measure_sections(loaded_image, sections, &sections_measured);
 
