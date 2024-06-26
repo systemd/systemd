@@ -736,6 +736,50 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(confext_measured, m);
 }
 
+static void generate_embedded_initrds(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                struct iovec initrds[static _INITRD_MAX]) {
+
+        assert(loaded_image);
+        assert(initrds);
+
+        /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
+         * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
+         * is not measured, neither as raw section (see above), nor as cpio (here), because it is the
+         * signature of expected PCR values, i.e. its input are PCR measurements, and hence it shouldn't
+         * itself be input for PCR measurements. */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRSIG))
+                (void) pack_cpio_literal(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRSIG].memory_offset,
+                                sections[UNIFIED_SECTION_PCRSIG].size,
+                                ".extra",
+                                u"tpm2-pcr-signature.json",
+                                /* dir_mode= */ 0555,
+                                /* access_mode= */ 0444,
+                                /* tpm_pcr= */ UINT32_MAX,
+                                /* tpm_description= */ NULL,
+                                initrds + INITRD_PCRSIG,
+                                /* ret_measured= */ NULL);
+
+        /* If the public key used for the PCR signatures was embedded in the PE image, then let's wrap it in
+         * a cpio and also pass it to the kernel, so that it can be read from
+         * /.extra/tpm2-pcr-public-key.pem. This section is already measure above, hence we won't measure the
+         * cpio. */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRPKEY))
+                (void) pack_cpio_literal(
+                                (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRPKEY].memory_offset,
+                                sections[UNIFIED_SECTION_PCRPKEY].size,
+                                ".extra",
+                                u"tpm2-pcr-public-key.pem",
+                                /* dir_mode= */ 0555,
+                                /* access_mode= */ 0444,
+                                /* tpm_pcr= */ UINT32_MAX,
+                                /* tpm_description= */ NULL,
+                                initrds + INITRD_PCRPKEY,
+                                /* ret_measured= */ NULL);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
@@ -880,40 +924,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (confext_measured > 0)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
 
-        /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
-         * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
-         * is not measured, neither as raw section (see above), nor as cpio (here), because it is the
-         * signature of expected PCR values, i.e. its input are PCR measurements, and hence it shouldn't
-         * itself be input for PCR measurements. */
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRSIG))
-                (void) pack_cpio_literal(
-                                (uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRSIG].memory_offset,
-                                sections[UNIFIED_SECTION_PCRSIG].size,
-                                ".extra",
-                                u"tpm2-pcr-signature.json",
-                                /* dir_mode= */ 0555,
-                                /* access_mode= */ 0444,
-                                /* tpm_pcr= */ UINT32_MAX,
-                                /* tpm_description= */ NULL,
-                                initrds + INITRD_PCRSIG,
-                                /* ret_measured= */ NULL);
-
-        /* If the public key used for the PCR signatures was embedded in the PE image, then let's wrap it in
-         * a cpio and also pass it to the kernel, so that it can be read from
-         * /.extra/tpm2-pcr-public-key.pem. This section is already measure above, hence we won't measure the
-         * cpio. */
-        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_PCRPKEY))
-                (void) pack_cpio_literal(
-                                (uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_PCRPKEY].memory_offset,
-                                sections[UNIFIED_SECTION_PCRPKEY].size,
-                                ".extra",
-                                u"tpm2-pcr-public-key.pem",
-                                /* dir_mode= */ 0555,
-                                /* access_mode= */ 0444,
-                                /* tpm_pcr= */ UINT32_MAX,
-                                /* tpm_description= */ NULL,
-                                initrds + INITRD_PCRPKEY,
-                                /* ret_measured= */ NULL);
+        generate_embedded_initrds(loaded_image, sections, initrds);
 
         struct iovec kernel = IOVEC_MAKE(
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
