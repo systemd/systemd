@@ -2084,10 +2084,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
 
-        if (!strv_isempty(p->subvolumes) && arg_offline > 0)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "Subvolumes= cannot be used with --offline=yes.");
-
         if (p->default_subvolume && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                   "DefaultSubvolume= cannot be used with --offline=yes.");
@@ -3837,7 +3833,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
 static bool loop_device_error_is_fatal(const Partition *p, int r) {
         assert(p);
-        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes) || p->default_subvolume;
+        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || p->default_subvolume;
 }
 
 static int partition_target_prepare(
@@ -5153,6 +5149,35 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         return 0;
 }
 
+static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
+        int r;
+        char **sv = NULL;
+
+        assert(ret);
+
+        r = mkfs_options_from_env("REPART", p->format, &sv);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to determine mkfs command line options for '%s': %m",
+                                       p->format);
+
+        if (partition_needs_populate(p) && root && p->subvolumes && streq(p->format, "btrfs"))
+                STRV_FOREACH(subvol, p->subvolumes) {
+                        _cleanup_free_ char *path = NULL;
+
+                        path = path_join(root, *subvol);
+                        if (!path)
+                                return log_oom();
+
+                        r = strv_extend_many(&sv, "--subvol", path);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        *ret = TAKE_PTR(sv);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int r;
 
@@ -5221,11 +5246,9 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = finalize_extra_mkfs_options(p, root, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
+                        return r;
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
@@ -6782,11 +6805,9 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = finalize_extra_mkfs_options(p, root, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
+                        return r;
 
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
