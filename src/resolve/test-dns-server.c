@@ -231,4 +231,48 @@ TEST(dns_server_packet_received_bad_opt) {
         ASSERT_EQ(env.server->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_DO);
 }
 
+/* ================================================================
+ * dns_server_packet_lost()
+ * ================================================================ */
+
+TEST(dns_server_packet_lost) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        DnsServerFeatureLevel level;
+        size_t n;
+
+        server_env_setup(&env);
+
+        level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        env.server->possible_feature_level = level;
+
+        n = 12;
+        for (size_t i = 0; i < n; i++) {
+                dns_server_packet_lost(env.server, IPPROTO_UDP, level);
+        }
+        ASSERT_EQ(env.server->n_failed_udp, n);
+
+        n = 34;
+        for (size_t i = 0; i < n; i++) {
+                dns_server_packet_lost(env.server, IPPROTO_TCP, level);
+        }
+        ASSERT_EQ(env.server->n_failed_tcp, n);
+
+        level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+        env.server->possible_feature_level = level;
+
+        n = 56;
+        for (size_t i = 0; i < n; i++) {
+                dns_server_packet_lost(env.server, IPPROTO_TCP, level);
+        }
+        ASSERT_EQ(env.server->n_failed_tls, n);
+
+        env.server->possible_feature_level--;
+
+        n = 78;
+        for (size_t i = 0; i < n; i++) {
+                dns_server_packet_lost(env.server, IPPROTO_TCP, level);
+        }
+        ASSERT_EQ(env.server->n_failed_tls, 56u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
