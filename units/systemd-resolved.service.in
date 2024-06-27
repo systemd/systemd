@@ -15,7 +15,7 @@ Documentation=https://systemd.io/WRITING_NETWORK_CONFIGURATION_MANAGERS
 Documentation=https://systemd.io/WRITING_RESOLVER_CLIENTS
 
 DefaultDependencies=no
-After=systemd-sysctl.service systemd-sysusers.service
+After=systemd-sysctl.service systemd-sysusers.service dbus.service
 Before=sysinit.target network.target nss-lookup.target shutdown.target initrd-switch-root.target
 Conflicts=shutdown.target initrd-switch-root.target
 Wants=nss-lookup.target
