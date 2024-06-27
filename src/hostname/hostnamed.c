@@ -1636,9 +1636,6 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
          * the product ID which we'll check explicitly. */
         privileged = r > 0;
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_describe_response(c, privileged, &v);
         if (r < 0)
