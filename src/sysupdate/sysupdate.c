@@ -73,12 +73,12 @@ static Context *context_free(Context *c) {
         if (!c)
                 return NULL;
 
-        for (size_t i = 0; i < c->n_transfers; i++)
-                transfer_free(c->transfers[i]);
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
+                transfer_free(*tr);
         free(c->transfers);
 
-        for (size_t i = 0; i < c->n_update_sets; i++)
-                update_set_free(c->update_sets[i]);
+        FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
+                update_set_free(*us);
         free(c->update_sets);
 
         hashmap_free(c->web_cache);
@@ -180,10 +180,12 @@ static int context_load_installed_instances(Context *c) {
 
         log_info("Discovering installed instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        for (size_t i = 0; i < c->n_transfers; i++) {
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                Transfer *t = *tr;
+
                 r = resource_load_instances(
-                                &c->transfers[i]->target,
-                                arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
+                                &t->target,
+                                arg_verify >= 0 ? arg_verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -199,12 +201,13 @@ static int context_load_available_instances(Context *c) {
 
         log_info("Discovering available instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        for (size_t i = 0; i < c->n_transfers; i++) {
-                assert(c->transfers[i]);
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                Transfer *t = *tr;
+                assert(t);
 
                 r = resource_load_instances(
-                                &c->transfers[i]->source,
-                                arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
+                                &t->source,
+                                arg_verify >= 0 ? arg_verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -242,9 +245,8 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 rr = &t->target;
                         }
 
-                        for (size_t j = 0; j < rr->n_instances; j++) {
-                                Instance *i = rr->instances[j];
-
+                        FOREACH_ARRAY(inst, rr->instances, rr->n_instances) {
+                                Instance *i = *inst;
                                 assert(i);
 
                                 /* Is the instance we are looking at equal or newer than the boundary? If so, we
@@ -300,12 +302,13 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         continue;
 
                 /* See if we already have this update set in our table */
-                for (size_t i = 0; i < c->n_update_sets; i++) {
-                        if (strverscmp_improved(c->update_sets[i]->version, cursor) != 0)
+                FOREACH_ARRAY(update_set, c->update_sets, c->n_update_sets) {
+                        UpdateSet *u = *update_set;
+                        if (strverscmp_improved(u->version, cursor) != 0)
                                 continue;
 
                         /* We only store the instances we found first, but we remember we also found it again */
-                        c->update_sets[i]->flags |= flags | extra_flags;
+                        u->flags |= flags | extra_flags;
                         exists = true;
                         newest_found = true;
                         break;
@@ -440,8 +443,8 @@ static int context_show_table(Context *c) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 50);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 50);
 
-        for (size_t i = 0; i < c->n_update_sets; i++) {
-                UpdateSet *us = c->update_sets[i];
+        FOREACH_ARRAY(update_set, c->update_sets, c->n_update_sets) {
+                UpdateSet *us = *update_set;
                 const char *color;
 
                 color = update_set_flags_to_color(us->flags);
@@ -468,9 +471,9 @@ static UpdateSet *context_update_set_by_version(Context *c, const char *version)
         assert(c);
         assert(version);
 
-        for (size_t i = 0; i < c->n_update_sets; i++)
-                if (streq(c->update_sets[i]->version, version))
-                        return c->update_sets[i];
+        FOREACH_ARRAY(update_set, c->update_sets, c->n_update_sets)
+                if (streq((*update_set)->version, version))
+                        return *update_set;
 
         return NULL;
 }
@@ -550,9 +553,8 @@ static int context_show_version(Context *c, const char *version) {
                 }
         }
 
-        for (size_t n = 0; n < us->n_instances; n++) {
-                Instance *i = us->instances[n];
-
+        FOREACH_ARRAY(inst, us->instances, us->n_instances) {
+                Instance *i = *inst;
                 r = table_add_many(t,
                                    TABLE_STRING, resource_type_to_string(i->resource->type),
                                    TABLE_PATH, i->path);
@@ -751,8 +753,10 @@ static int context_vacuum(
         else
                 log_info("Making room for %" PRIu64 " updates%s", space, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_vacuum(c->transfers[i], space, extra_protected_version);
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                Transfer *t = *tr;
+
+                r = transfer_vacuum(t, space, extra_protected_version);
                 if (r < 0)
                         return r;
 
