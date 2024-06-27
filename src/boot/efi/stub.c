@@ -23,6 +23,15 @@
 #include "version.h"
 #include "vmm.h"
 
+/* TODO for Multi-Profile UKIs
+ *
+ *    - also load profile PE sections in sd-boot to synthesize multiple menu entries from a single UKI
+ *    - teach ukify to generate UKIs with such alternatives
+ *    - maybe mesure the chose profile explicitly in a new, separate record, if not zero
+ *    - prep an amendment to the UAPI spec for UKIs
+ *    - later: teach pcrlock to expect UKIs built like this.
+ */
+
 /* The list of initrds we combine into one, in the order we want to merge them */
 enum {
         /* The first two are part of the PE binary */
@@ -161,52 +170,83 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, 0);
 }
 
-static bool use_load_options(
+static void process_arguments(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                bool have_cmdline,
-                char16_t **ret) {
+                unsigned *ret_profile,
+                char16_t **ret_cmdline) {
 
         assert(stub_image);
         assert(loaded_image);
-        assert(ret);
-
-        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was baked into
-         * the stub image.
-         * We also don't allow it if we are in confidential vms and secureboot is on. */
-        if (secure_boot_enabled() && (have_cmdline || is_confidential_vm()))
-                return false;
-
-        /* We also do a superficial check whether first character of passed command line
-         * is printable character (for compat with some Dell systems which fill in garbage?). */
-        if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
-                return false;
+        assert(ret_profile);
+        assert(ret_cmdline);
 
         /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
          * LoadOptions starts with the stub binary path which we want to strip off. */
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
-        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
-            != EFI_SUCCESS) {
+        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell) != EFI_SUCCESS) {
+
+                /* We also do a superficial check whether first character of passed command line
+                 * is printable character (for compat with some Dell systems which fill in garbage?). */
+                if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                        goto nothing;
+
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
-                *ret = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
-                mangle_stub_cmdline(*ret);
-                return true;
+                const uint16_t *p = loaded_image->LoadOptions;
+                size_t pn = loaded_image->LoadOptionsSize / sizeof(char16_t);
+
+                /* Let's see if the load options begin with an '@5' style profile selector. If so, parse it
+                 * out, and remove it from the command line */
+                if (pn >= 2 &&
+                    p[0] == '@' &&
+                    p[1] >= '0' && p[1] <= '9' &&
+                    (pn == 2 || IN_SET(p[2], 0, ' '))) {
+                        *ret_profile = p[1] - '0';
+
+                        size_t skip = pn == 2 || p[2] == 0 ? 2 : 3;
+                        p += skip;
+                        pn -= skip;
+                } else
+                        *ret_profile = 0;
+
+                /* Return the rest */
+                *ret_cmdline = mangle_stub_cmdline(xstrndup16(p, pn));
+                return;
         }
 
-        if (shell->Argc < 2)
-                /* No arguments were provided? Then we fall back to built-in cmdline. */
-                return false;
+        if (shell->Argc <= 1) /* No arguments were provided? Then we fall back to built-in cmdline. */
+                goto nothing;
 
-        /* Assemble the command line ourselves without our stub path. */
-        *ret = xstrdup16(shell->Argv[1]);
-        for (size_t i = 2; i < shell->Argc; i++) {
-                _cleanup_free_ char16_t *old = *ret;
-                *ret = xasprintf("%ls %ls", old, shell->Argv[i]);
-        }
+        /* Let's process shell arguments now. If the first element looks like a '@5' style profile selector
+         * remove the whole element. */
+        size_t i = 1;
+        const char16_t *a = shell->Argv[i];
+        if (a[0] == '@' &&
+            a[1] >= '0' && a[1] <= '9' &&
+            a[2] == 0) {
+                /* This looks like profile specification, parse it out, and ignore the parameter */
+                *ret_profile = a[1] - '0';
+                i++;
+        } else
+                *ret_profile = 0;
 
-        mangle_stub_cmdline(*ret);
-        return true;
+        if (i < shell->Argc) {
+                /* Assemble the command line ourselves without our stub path. */
+                *ret_cmdline = xstrdup16(shell->Argv[i++]);
+                for (; i < shell->Argc; i++) {
+                        _cleanup_free_ char16_t *old = *ret_cmdline;
+                        *ret_cmdline = xasprintf("%ls %ls", old, shell->Argv[i]);
+                }
+        } else
+                *ret_cmdline = NULL;
+
+        return;
+
+nothing:
+        *ret_profile = 0;
+        *ret_cmdline = NULL;
+        return;
 }
 
 static EFI_STATUS load_addons_from_dir(
@@ -284,8 +324,7 @@ static void cmdline_append_and_measure_addons(
         if (isempty(cmdline_addon))
                 return;
 
-        _cleanup_free_ char16_t *copy = xstrdup16(cmdline_addon);
-        mangle_stub_cmdline(copy);
+        _cleanup_free_ char16_t *copy = mangle_stub_cmdline(xstrdup16(cmdline_addon));
         if (isempty(copy))
                 return;
 
@@ -458,7 +497,7 @@ static EFI_STATUS load_addons(
 
                 if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
-                                *extra16 = pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE);
+                                *extra16 = mangle_stub_cmdline(pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE));
 
                         *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
@@ -562,8 +601,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
         if (!extra)
                 return;
 
-        _cleanup_free_ char16_t *extra16 = xstr8_to_16(extra);
-        mangle_stub_cmdline(extra16);
+        _cleanup_free_ char16_t *extra16 = mangle_stub_cmdline(xstr8_to_16(extra));
         if (isempty(extra16))
                 return;
 
@@ -836,29 +874,116 @@ static void display_splash(
         graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
 }
 
-static void determine_cmdline(
-                EFI_HANDLE image,
+static char* suffix_section_name_with_profile(const char *name, unsigned profile) {
+        assert(name);
+        assert(profile > 0);
+
+        /* This maps a PE section name for the profiled version, by suffixing it with the profile number. For
+         * profile @3 this will map ".linux" to ".linux3", but ".cmdline" to ".cmdlin3" (because .cmdline is
+         * already 8 chars, the maximum length for a PE section name). */
+
+        size_t l = strlen8(name);
+        if (l >= 7) /* Use at max 7 chars of the base name, since PE section names are limited to 8
+                     * chars */
+                l = 7;
+
+        char *s = xmalloc(l + 2);
+        memcpy(s, name, l);
+        s[l++] = '0' + profile;   /* suffix with profile nr */
+        s[l] = 0;               /* NUL terminate the string */
+
+        assert(l <= 8);
+
+        return s;
+}
+
+static EFI_STATUS find_sections_of_profile(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
-                char16_t **ret_cmdline,
-                int *parameters_measured) {
+                unsigned profile,
+                PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+        EFI_STATUS err;
+
+        if (profile == 0) /* Profile zero means: apply no profile */
+                return EFI_SUCCESS;
+
+        /* If there are matching sections defined for the specified profile nr, then this will override the
+         * section vectors with them we might already have found in the base. */
+
+        char *suffixed_section_names[_UNIFIED_SECTION_MAX+1];
+
+        for (UnifiedSection i = 0; i < _UNIFIED_SECTION_MAX; i++)
+                suffixed_section_names[i] = suffix_section_name_with_profile(unified_sections[i], profile);
+        suffixed_section_names[_UNIFIED_SECTION_MAX] = NULL;
+
+        err = pe_memory_locate_sections(loaded_image->ImageBase, (const char*const*) suffixed_section_names, sections);
+
+        for (UnifiedSection i = 0; i < _UNIFIED_SECTION_MAX; i++)
+                free(suffixed_section_names[i]);
+
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to locate embedded per-profile PE sections: %m");
+
+        return EFI_SUCCESS;
+}
+
+static EFI_STATUS find_sections(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                unsigned profile,
+                PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+        EFI_STATUS err;
 
         assert(loaded_image);
         assert(sections);
 
-        if (use_load_options(image, loaded_image, /* have_cmdline= */ PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE), ret_cmdline)) {
-                /* Let's measure the passed kernel command line into the TPM. Note that this possibly
-                 * duplicates what we already did in the boot menu, if that was already used. However, since
-                 * we want the boot menu to support an EFI binary, and want to this stub to be usable from
-                 * any boot menu, let's measure things anyway. */
-                bool m = false;
-                (void) tpm_log_load_options(*ret_cmdline, &m);
-                combine_measured_flag(parameters_measured, m);
-        } else {
-                *ret_cmdline = pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE);
-                if (*ret_cmdline)
-                        mangle_stub_cmdline(*ret_cmdline);
+        /* Get the base sections */
+        err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to locate embedded PE sections: %m");
+
+        err = find_sections_of_profile(loaded_image, profile, sections);
+        if (err != 0)
+                return err;
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX))
+                return log_error_status(EFI_NOT_FOUND, "Image lacks .linux section.");
+
+        return EFI_SUCCESS;
+}
+
+static void settle_command_line(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                PeSectionVector sections[static _UNIFIED_SECTION_MAX],
+                char16_t **cmdline,
+                int *parameters_measured) {
+
+        assert(loaded_image);
+        assert(sections);
+        assert(cmdline);
+
+        /* This determines which command line to use. On input *cmdline contains the custom passed in cmdline
+         * if there is any.
+         *
+         * We'll suppress the custom cmdline if we are in Secure Boot mode, and if either there is already
+         * a cmdline baked into the UKI or we are in confidential VM mode. */
+
+        if (*cmdline) {
+                if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
+                        /* Drop the custom cmdline */
+                        *cmdline = mfree(*cmdline);
+                else {
+                        /* Let's measure the passed kernel command line into the TPM. Note that this possibly
+                         * duplicates what we already did in the boot menu, if that was already
+                         * used. However, since we want the boot menu to support an EFI binary, and want to
+                         * this stub to be usable from any boot menu, let's measure things anyway. */
+                        bool m = false;
+                        (void) tpm_log_load_options(*cmdline, &m);
+                        combine_measured_flag(parameters_measured, m);
+                }
         }
+
+        /* No cmdline specified? Or suppressed? Then let's take the one from the UKI, if there is any. */
+        if (!*cmdline)
+                *cmdline = mangle_stub_cmdline(pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE));
 }
 
 static EFI_STATUS run(EFI_HANDLE image) {
@@ -871,17 +996,22 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ char *uname = NULL;
         DevicetreeAddon *dt_addons = NULL;
         size_t n_dt_addons = 0;
+        unsigned profile = 0;
         EFI_STATUS err;
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, sections);
+        /* Pick up the arguments passed to us, split out the prefixing profile parameter, and return the rest
+         * as potential command line to use. */
+        (void) process_arguments(image, loaded_image, &profile, &cmdline);
+
+        /* Find the sections we want to operate on, both the basic ones, and the one appropriate for the
+         * selected profile. */
+        err = find_sections(loaded_image, profile, sections);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Unable to locate embedded PE sections: %m");
-        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX))
-                return log_error_status(EFI_NOT_FOUND, "Image lacks .linux section.");
+                return err;
 
         measure_sections(loaded_image, sections, &sections_measured);
 
@@ -892,7 +1022,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
-        determine_cmdline(image, loaded_image, sections, &cmdline, &parameters_measured);
+        /* Let's now check if we actually want to use the command line, measure it if it was passed in. */
+        settle_command_line(loaded_image, sections, &cmdline, &parameters_measured);
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
