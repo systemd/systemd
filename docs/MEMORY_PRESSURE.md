@@ -227,7 +227,7 @@ handling, it's typically sufficient to add a line such as:
 
 Other programming environments might have native APIs to watch memory
 pressure/low memory events. Most notable is probably GLib's
-[GMemoryMonitor](https://developer-old.gnome.org/gio/stable/GMemoryMonitor.html). It
+[GMemoryMonitor](https://docs.gtk.org/gio/iface.MemoryMonitor.html). It
 currently uses the per-system Linux PSI interface as the backend, but operates
 differently than the above: memory pressure events are picked up by a system
 service, which then propagates this through D-Bus to the applications. This is
