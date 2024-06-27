@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -317,6 +318,35 @@ TEST(fd_is_mount_point) {
         r = fd_is_mount_point(fd, NULL, 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
         assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
+
+        if (!mount_new_api_supported())
+                return;
+
+        /* Symlinks can be mount points with new mount API */
+        _cleanup_close_ int mfd = -EBADF, rfd = -EBADF;
+        _cleanup_free_ char *t = NULL;
+        struct stat st;
+
+        safe_close(fd);
+        ASSERT_OK_ERRNO(fd = open(tmpdir, O_DIRECTORY|O_PATH|O_CLOEXEC));
+
+        ASSERT_OK_ERRNO(symlinkat("/usr", fd, "symlink"));
+
+        mfd = open_tree(fd, "symlink", AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+        if (mfd < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
+        ASSERT_OK_ERRNO(mfd);
+
+        ASSERT_OK_ERRNO(rfd = openat(fd, "regular", O_CLOEXEC|O_CREAT|O_EXCL, 0644));
+
+        ASSERT_OK_ERRNO(move_mount(mfd, "", rfd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
+
+        ASSERT_OK_ERRNO(fstatat(fd, "regular", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_OK(stat_verify_symlink(&st));
+        ASSERT_OK(readlinkat_malloc(fd, "regular", &t));
+        ASSERT_STREQ(t, "/usr");
+
+        ASSERT_OK(fd_is_mount_point(fd, "regular", 0));
 }
 
 TEST(ms_nosymfollow_supported) {
