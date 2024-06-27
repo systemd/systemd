@@ -2562,6 +2562,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseDNR=</varname></term>
+        <listitem>
+          <para>When true, designated resolvers advertised by the DHCP server will be used as encrypted
+          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.</para>
+
+          <para>Defaults to unset, and the value for <varname>UseDNS=</varname> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseMTU=</varname></term>
         <listitem>
           <para>When true, the interface maximum transmission unit from the DHCP server will be used on
@@ -3053,6 +3065,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
       <varlistentry>
         <term><varname>UseDNS=</varname></term>
+        <term><varname>UseDNR=</varname></term>
         <term><varname>UseNTP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
@@ -3337,6 +3350,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v231"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDNR=</varname></term>
+        <listitem>
+          <para> When true, the DNR servers received in the Router Advertisement will be used. Defaults to
+            the value of <option>UseDNS=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
