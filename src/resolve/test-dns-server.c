@@ -600,4 +600,35 @@ TEST(dns_server_string_full) {
         ASSERT_STREQ(str, "192.168.1.128:53#server.local");
 }
 
+/* ================================================================
+ * dns_server_dnssec_supported()
+ * ================================================================ */
+
+TEST(dns_server_dnssec_supported) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        env.manager.dnssec_mode = DNSSEC_YES;
+        ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+
+        env.manager.dnssec_mode = DNSSEC_NO;
+        env.server->packet_bad_opt = true;
+        ASSERT_FALSE(dns_server_dnssec_supported(env.server));
+
+        env.server->packet_bad_opt = false;
+        env.server->packet_rrsig_missing = true;
+        ASSERT_FALSE(dns_server_dnssec_supported(env.server));
+
+        env.server->packet_rrsig_missing = false;
+        env.server->packet_do_off = true;
+        ASSERT_FALSE(dns_server_dnssec_supported(env.server));
+
+        env.server->packet_do_off = false;
+        env.server->n_failed_tcp = 5;
+        ASSERT_FALSE(dns_server_dnssec_supported(env.server));
+
+        env.server->n_failed_tcp = 0;
+        ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
