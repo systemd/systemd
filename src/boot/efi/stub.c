@@ -189,8 +189,7 @@ static bool use_load_options(
             != EFI_SUCCESS) {
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
-                *ret = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
-                mangle_stub_cmdline(*ret);
+                *ret = mangle_stub_cmdline(xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t)));
                 return true;
         }
 
@@ -284,8 +283,7 @@ static void cmdline_append_and_measure_addons(
         if (isempty(cmdline_addon))
                 return;
 
-        _cleanup_free_ char16_t *copy = xstrdup16(cmdline_addon);
-        mangle_stub_cmdline(copy);
+        _cleanup_free_ char16_t *copy = mangle_stub_cmdline(xstrdup16(cmdline_addon));
         if (isempty(copy))
                 return;
 
@@ -458,7 +456,7 @@ static EFI_STATUS load_addons(
 
                 if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
-                                *extra16 = pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE);
+                                *extra16 = mangle_stub_cmdline(pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE));
 
                         *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
@@ -562,8 +560,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
         if (!extra)
                 return;
 
-        _cleanup_free_ char16_t *extra16 = xstr8_to_16(extra);
-        mangle_stub_cmdline(extra16);
+        _cleanup_free_ char16_t *extra16 = mangle_stub_cmdline(xstr8_to_16(extra));
         if (isempty(extra16))
                 return;
 
@@ -854,11 +851,8 @@ static void determine_cmdline(
                 bool m = false;
                 (void) tpm_log_load_options(*ret_cmdline, &m);
                 combine_measured_flag(parameters_measured, m);
-        } else {
-                *ret_cmdline = pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE);
-                if (*ret_cmdline)
-                        mangle_stub_cmdline(*ret_cmdline);
-        }
+        } else
+                *ret_cmdline = mangle_stub_cmdline(pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE));
 }
 
 static EFI_STATUS run(EFI_HANDLE image) {
