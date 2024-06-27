@@ -130,6 +130,8 @@ Deprecations and removals:
 
 Features:
 
+* tmpfiles: add "owning" flag for lines that limits effect of --purge
+
 * signed bpf loading: to address need for signature verification for bpf
   programs when they are loaded, and given the bpf folks don't think this is
   realistic in kernel space, maybe add small daemon that facilitates this
@@ -232,9 +234,6 @@ Features:
   make sure that we can mount them trivially everywhere.
 
 * systemd-nspawn should get the same SSH key support that vmspawn now has.
-
-* insert the new pidfs inode number as a third field into PidRef, so that
-  PidRef are reasonably serializable without having to pass around fds.
 
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
