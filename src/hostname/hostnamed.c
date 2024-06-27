@@ -1619,11 +1619,13 @@ static int vl_method_describe(Varlink *link, JsonVariant *parameters, VarlinkMet
         if (r != 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         c->bus,
                         "org.freedesktop.hostname1.get-hardware-serial",
                         /* details= */ NULL,
+                        UID_INVALID,
+                        POLKIT_DONT_REPLY,
                         &c->polkit_registry);
         if (r == 0)
                 return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */

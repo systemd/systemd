@@ -786,11 +786,13 @@ int varlink_verify_polkit_async_full(
                 if (r != 0)
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                 if (r < 0) {
-                        /* Reply with a nice error */
-                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
-                                (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
-                        else if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        if (!FLAGS_SET(flags, POLKIT_DONT_REPLY)) {
+                                /* Reply with a nice error */
+                                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
+                                        (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
+                                else if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                        (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        }
 
                         return r;
                 }
