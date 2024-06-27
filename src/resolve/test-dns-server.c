@@ -596,4 +596,23 @@ TEST(dns_server_possible_feature_level_tcp_failed_truncated) {
         ASSERT_EQ(env.server->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_UDP);
 }
 
+/* ================================================================
+ * dns_server_string(), dns_server_string_full()
+ * ================================================================ */
+
+TEST(dns_server_string) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        ASSERT_STREQ(dns_server_string(env.server), "192.168.1.128");
+}
+
+TEST(dns_server_string_full) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env);
+
+        const char *str = dns_server_string_full(env.server);
+        ASSERT_STREQ(str, "192.168.1.128:53#server.local");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
