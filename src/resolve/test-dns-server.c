@@ -31,6 +31,49 @@ static void server_env_setup(ServerEnv *env) {
                         &env->server_addr, 53, 0, env->server_name, RESOLVE_CONFIG_SOURCE_FILE));
 }
 
+#define MAX_SERVERS 5
+
+static const char *SERVER_NAMES[] = {
+        "arsenal.local",
+        "bank.local",
+        "camden.local",
+        "dalston.local",
+        "euston.local"
+};
+
+typedef struct MultiServerEnv {
+        Manager manager;
+        size_t n_servers;
+        union in_addr_union addrs[MAX_SERVERS];
+        char *names[MAX_SERVERS];
+        DnsServer *servers[MAX_SERVERS];
+} MultiServerEnv;
+
+static void multi_server_env_teardown(MultiServerEnv *env) {
+        for (size_t i = 0; i < env->n_servers; i++)
+                free(env->names[i]);
+
+        env->n_servers = 0;
+}
+
+static void multi_server_env_setup(MultiServerEnv *env, size_t n) {
+        ASSERT_TRUE(n <= MAX_SERVERS);
+
+        env->manager = (Manager) {};
+        env->n_servers = 0;
+
+        for (size_t i = 0; i < n; i++) {
+                env->addrs[i].in.s_addr = htobe32(0xc0a80180 + i);
+                env->names[i] = strdup(SERVER_NAMES[i]);
+
+                ASSERT_OK(dns_server_new(
+                                &env->manager, &env->servers[i], DNS_SERVER_SYSTEM, NULL, AF_INET,
+                                &env->addrs[i], 53, 0, env->names[i], RESOLVE_CONFIG_SOURCE_FILE));
+
+                env->n_servers++;
+        }
+}
+
 /* ================================================================
  * dns_server_move_back_and_unmark(), dns_server_unlink(),
  * dns_server_unlink_marked(), dns_server_mark_all()
@@ -49,76 +92,55 @@ static void check_dns_servers(Manager *manager, const char **names, size_t n) {
 }
 
 TEST(dns_server_move_back_and_unmark) {
-        Manager manager = {};
-        DnsServer *server1 = NULL, *server2 = NULL, *server3 = NULL, *server4 = NULL;
+        _cleanup_(multi_server_env_teardown) MultiServerEnv env;
+        multi_server_env_setup(&env, 4);
 
-        union in_addr_union addr1 = { .in.s_addr = htobe32(0xc0a80180) };
-        union in_addr_union addr2 = { .in.s_addr = htobe32(0xc0a80181) };
-        union in_addr_union addr3 = { .in.s_addr = htobe32(0xc0a80182) };
-        union in_addr_union addr4 = { .in.s_addr = htobe32(0xc0a80183) };
+        const char *names1[] = { "arsenal.local", "bank.local", "camden.local", "dalston.local" };
+        check_dns_servers(&env.manager, names1, 4);
 
-        ASSERT_OK(dns_server_new(
-                        &manager, &server1, DNS_SERVER_SYSTEM, NULL, AF_INET,
-                        &addr1, 53, 0, "alice.local", RESOLVE_CONFIG_SOURCE_FILE));
+        env.servers[0]->marked = true;
+        env.servers[1]->marked = true;
+        env.servers[2]->marked = true;
+        env.servers[3]->marked = true;
 
-        ASSERT_OK(dns_server_new(
-                        &manager, &server2, DNS_SERVER_SYSTEM, NULL, AF_INET,
-                        &addr2, 53, 0, "bob.local", RESOLVE_CONFIG_SOURCE_FILE));
+        dns_server_move_back_and_unmark(env.servers[1]);
 
-        ASSERT_OK(dns_server_new(
-                        &manager, &server3, DNS_SERVER_SYSTEM, NULL, AF_INET,
-                        &addr3, 53, 0, "carol.local", RESOLVE_CONFIG_SOURCE_FILE));
+        const char *names2[] = { "arsenal.local", "camden.local", "dalston.local", "bank.local" };
+        check_dns_servers(&env.manager, names2, 4);
 
-        ASSERT_OK(dns_server_new(
-                        &manager, &server4, DNS_SERVER_SYSTEM, NULL, AF_INET,
-                        &addr4, 53, 0, "dave.local", RESOLVE_CONFIG_SOURCE_FILE));
+        ASSERT_TRUE(env.servers[0]->marked);
+        ASSERT_FALSE(env.servers[1]->marked);
+        ASSERT_TRUE(env.servers[2]->marked);
+        ASSERT_TRUE(env.servers[3]->marked);
 
-        const char *names1[] = { "alice.local", "bob.local", "carol.local", "dave.local" };
-        check_dns_servers(&manager, names1, 4);
+        ASSERT_TRUE(env.servers[0]->linked);
+        ASSERT_TRUE(env.servers[1]->linked);
+        ASSERT_TRUE(env.servers[2]->linked);
+        ASSERT_TRUE(env.servers[3]->linked);
 
-        server1->marked = true;
-        server2->marked = true;
-        server3->marked = true;
-        server4->marked = true;
+        dns_server_unlink(env.servers[2]);
 
-        dns_server_move_back_and_unmark(server2);
+        const char *names3[] = { "arsenal.local", "dalston.local", "bank.local" };
+        check_dns_servers(&env.manager, names3, 3);
 
-        const char *names2[] = { "alice.local", "carol.local", "dave.local", "bob.local" };
-        check_dns_servers(&manager, names2, 4);
+        ASSERT_TRUE(env.servers[0]->linked);
+        ASSERT_TRUE(env.servers[1]->linked);
+        ASSERT_TRUE(env.servers[3]->linked);
 
-        ASSERT_TRUE(server1->marked);
-        ASSERT_FALSE(server2->marked);
-        ASSERT_TRUE(server3->marked);
-        ASSERT_TRUE(server4->marked);
+        env.servers[0]->marked = false;
+        env.servers[1]->marked = true;
+        env.servers[3]->marked = false;
 
-        ASSERT_TRUE(server1->linked);
-        ASSERT_TRUE(server2->linked);
-        ASSERT_TRUE(server3->linked);
-        ASSERT_TRUE(server4->linked);
+        ASSERT_TRUE(dns_server_unlink_marked(env.servers[0]));
 
-        dns_server_unlink(server3);
+        const char *names4[] = { "arsenal.local", "dalston.local" };
+        check_dns_servers(&env.manager, names4, 2);
 
-        const char *names3[] = { "alice.local", "dave.local", "bob.local" };
-        check_dns_servers(&manager, names3, 3);
-
-        ASSERT_TRUE(server1->linked);
-        ASSERT_TRUE(server2->linked);
-        ASSERT_TRUE(server4->linked);
-
-        server1->marked = false;
-        server2->marked = true;
-        server4->marked = false;
-
-        ASSERT_TRUE(dns_server_unlink_marked(server1));
-
-        const char *names4[] = { "alice.local", "dave.local" };
-        check_dns_servers(&manager, names4, 2);
-
-        dns_server_mark_all(server1);
-        ASSERT_TRUE(dns_server_unlink_marked(server1));
+        dns_server_mark_all(env.servers[0]);
+        ASSERT_TRUE(dns_server_unlink_marked(env.servers[0]));
 
         const char *names5[] = {};
-        check_dns_servers(&manager, names5, 0);
+        check_dns_servers(&env.manager, names5, 0);
 }
 
 /* ================================================================
