@@ -2579,6 +2579,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
                 0;
 
         assert(loaded_image);
