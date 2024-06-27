@@ -6,6 +6,11 @@
 #include "log.h"
 #include "tests.h"
 
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "tmpfile-util.h"
+
 typedef struct ServerEnv {
         Manager manager;
         char *server_name;
@@ -736,6 +741,59 @@ TEST(dns_server_dnssec_supported) {
 
         env.server->n_failed_tcp = 0;
         ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+}
+
+/* ================================================================
+ * dns_server_dump()
+ * ================================================================ */
+
+static void check_dump_contents(FILE *f, const char **expected, size_t n) {
+        char *actual[n];
+        size_t i, r;
+        rewind(f);
+
+        for (i = 0; i < n; i++) {
+                r = read_line(f, 1024, &actual[i]);
+                ASSERT_GT(r, 0u);
+        }
+
+        for (i = 0; i < n; i++) {
+                ASSERT_STREQ(actual[i], expected[i]);
+        }
+}
+
+TEST(dns_server_dump) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        server_env_setup(&env, false);
+
+        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        env.server->received_udp_fragment_max = 1024;
+        env.server->n_failed_tcp = 5;
+        env.server->packet_bad_opt = true;
+        env.server->packet_invalid = true;
+
+        _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-server-dump-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        fmkostemp_safe(p, "r+", &f);
+        dns_server_dump(env.server, f);
+
+        const char *expected[] = {
+                "[Server 192.168.1.128:53#server.local type=system]",
+                "\tVerified feature level: UDP+EDNS0+DO",
+                "\tPossible feature level: TLS+EDNS0+DO",
+                "\tDNSSEC Mode: allow-downgrade",
+                "\tCan do DNSSEC: no",
+                "\tMaximum UDP fragment size received: 1024",
+                "\tFailed UDP attempts: 0",
+                "\tFailed TCP attempts: 5",
+                "\tSeen truncated packet: no",
+                "\tSeen OPT RR getting lost: yes",
+                "\tSeen RRSIG RR missing: no",
+                "\tSeen invalid packet: yes",
+                "\tServer dropped DO flag: no"
+        };
+        check_dump_contents(f, expected, 13);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
