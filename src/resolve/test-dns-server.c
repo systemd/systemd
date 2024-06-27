@@ -63,6 +63,7 @@ static void multi_server_env_teardown(MultiServerEnv *env) {
         for (size_t i = 0; i < env->n_servers; i++)
                 free(env->names[i]);
 
+        dns_server_unlink_all(env->manager.dns_servers);
         env->n_servers = 0;
 }
 
@@ -158,6 +159,49 @@ TEST(dns_server_move_back_and_unmark) {
 
         const char *names5[] = {};
         check_dns_servers(&env.manager, names5, 0);
+}
+
+/* ================================================================
+ * dns_server_find()
+ * ================================================================ */
+
+TEST(dns_server_find) {
+        _cleanup_(multi_server_env_teardown) MultiServerEnv env = {};
+        DnsServer *found = NULL;
+        union in_addr_union addr;
+
+        multi_server_env_setup(&env, 5);
+
+        addr.in.s_addr = htobe32(0xc0a80180);
+        found = dns_server_find(env.manager.dns_servers, AF_INET, &addr, 53, 0, "camden.local");
+        ASSERT_NULL(found);
+
+        addr.in.s_addr = htobe32(0xc0a80182);
+        found = dns_server_find(env.manager.dns_servers, AF_INET, &addr, 53, 0, "camden.local");
+        ASSERT_TRUE(found == env.servers[2]);
+
+        found = dns_server_find(env.manager.dns_servers, AF_INET, &addr, 54, 0, "camden.local");
+        ASSERT_NULL(found);
+
+        found = dns_server_find(env.manager.dns_servers, AF_INET6, &addr, 53, 0, "camden.local");
+        ASSERT_NULL(found);
+
+        found = dns_server_find(env.manager.dns_servers, AF_INET, &addr, 53, 0, "dalston.local");
+        ASSERT_NULL(found);
+}
+
+/* ================================================================
+ * manager_get_first_dns_server()
+ * ================================================================ */
+
+TEST(manager_get_first_dns_server) {
+        _cleanup_(multi_server_env_teardown) MultiServerEnv env = {};
+        DnsServer *found = NULL;
+
+        multi_server_env_setup(&env, 5);
+
+        found = manager_get_first_dns_server(&env.manager, DNS_SERVER_SYSTEM);
+        ASSERT_TRUE(found == env.servers[0]);
 }
 
 /* ================================================================
