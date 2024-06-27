@@ -19,12 +19,14 @@ static void server_env_teardown(ServerEnv *env) {
         dns_server_unref(env->server);
 }
 
-static void server_env_setup(ServerEnv *env) {
+static void server_env_setup(ServerEnv *env, bool is_stub) {
         env->manager = (Manager) {};
         ASSERT_OK(sd_event_new(&env->manager.event));
 
         env->server_name = strdup("server.local");
-        env->server_addr.in.s_addr = htobe32(0xc0a80180);
+
+        uint32_t ip = is_stub ? INADDR_DNS_STUB : 0xc0a80180;
+        env->server_addr.in.s_addr = htobe32(ip);
 
         ASSERT_OK(dns_server_new(
                         &env->manager, &env->server, DNS_SERVER_SYSTEM, NULL, AF_INET,
@@ -64,7 +66,8 @@ static void multi_server_env_setup(MultiServerEnv *env, size_t n) {
         env->n_servers = 0;
 
         for (size_t i = 0; i < n; i++) {
-                env->addrs[i].in.s_addr = htobe32(0xc0a80180 + i);
+                uint32_t ip = (i == 0) ? INADDR_DNS_STUB : 0xc0a80180 + i;
+                env->addrs[i].in.s_addr = htobe32(ip);
                 env->names[i] = strdup(SERVER_NAMES[i]);
 
                 ASSERT_OK(dns_server_new(
@@ -188,12 +191,50 @@ TEST(manager_get_first_dns_server) {
 }
 
 /* ================================================================
+ * manager_get_dns_server()
+ * ================================================================ */
+
+TEST(manager_get_dns_server) {
+        _cleanup_(multi_server_env_teardown) MultiServerEnv env;
+        DnsServer *found = NULL;
+
+        multi_server_env_setup(&env, 5);
+
+        /* first server is a stub */
+        found = manager_get_dns_server(&env.manager);
+        ASSERT_TRUE(found == env.servers[1]);
+}
+
+TEST(manager_get_dns_server_fallback) {
+        _cleanup_(server_env_teardown) ServerEnv env;
+        _cleanup_(dns_server_unrefp) DnsServer *fallback;
+        DnsServer *found = NULL;
+
+        server_env_setup(&env, true);
+
+        found = manager_get_dns_server(&env.manager);
+        ASSERT_NULL(found);
+
+        const char *name = "fallback.local";
+        union in_addr_union addr = { .in.s_addr = htobe32(0xc0a80180) };
+
+        ASSERT_OK(dns_server_new(
+                        &env.manager, &fallback, DNS_SERVER_FALLBACK, NULL, AF_INET,
+                        &addr, 53, 0, name, RESOLVE_CONFIG_SOURCE_FILE));
+
+        found = manager_get_dns_server(&env.manager);
+        ASSERT_TRUE(found == fallback);
+
+        dns_server_unref(fallback);
+}
+
+/* ================================================================
  * dns_server_packet_received()
  * ================================================================ */
 
 TEST(dns_server_packet_received_udp) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
         env.server->n_failed_udp = 100;
@@ -207,7 +248,7 @@ TEST(dns_server_packet_received_udp) {
 
 TEST(dns_server_packet_received_tcp) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
         env.server->n_failed_tcp = 100;
@@ -221,7 +262,7 @@ TEST(dns_server_packet_received_tcp) {
 
 TEST(dns_server_packet_received_tls) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
         env.server->n_failed_tls = 100;
@@ -234,7 +275,7 @@ TEST(dns_server_packet_received_tls) {
 
 TEST(dns_server_packet_received_non_tls) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         dns_server_packet_received(env.server, IPPROTO_TCP, DNS_SERVER_FEATURE_LEVEL_DO, 599);
 
@@ -244,7 +285,7 @@ TEST(dns_server_packet_received_non_tls) {
 TEST(dns_server_packet_received_rrsig_missing) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_rrsig_missing = false;
 
@@ -267,7 +308,7 @@ TEST(dns_server_packet_received_rrsig_missing) {
 TEST(dns_server_packet_received_bad_opt) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_bad_opt = true;
 
@@ -291,7 +332,7 @@ TEST(dns_server_packet_lost) {
         DnsServerFeatureLevel level;
         size_t n, i;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
         env.server->possible_feature_level = level;
@@ -334,7 +375,7 @@ TEST(dns_server_packet_truncated) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_UDP;
         env.server->possible_feature_level = level;
@@ -353,7 +394,7 @@ TEST(dns_server_packet_rrsig_missing) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_TCP;
         env.server->verified_feature_level = level;
@@ -380,7 +421,7 @@ TEST(dns_server_packet_bad_opt) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_TCP;
         env.server->verified_feature_level = level;
@@ -406,7 +447,7 @@ TEST(dns_server_packet_bad_opt) {
 TEST(dns_server_packet_rcode_downgrade) {
         _cleanup_(server_env_teardown) ServerEnv env;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
@@ -425,7 +466,7 @@ TEST(dns_server_packet_invalid) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_UDP;
         env.server->possible_feature_level = level;
@@ -444,7 +485,7 @@ TEST(dns_server_packet_do_off) {
         _cleanup_(server_env_teardown) ServerEnv env;
         DnsServerFeatureLevel level;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         level = DNS_SERVER_FEATURE_LEVEL_UDP;
         env.server->possible_feature_level = level;
@@ -462,7 +503,7 @@ TEST(dns_server_packet_do_off) {
 TEST(dns_server_packet_udp_fragmented) {
         _cleanup_(server_env_teardown) ServerEnv env;
 
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         dns_server_packet_udp_fragmented(env.server, 599);
 
@@ -476,7 +517,7 @@ TEST(dns_server_packet_udp_fragmented) {
 
 TEST(dns_server_possible_feature_level_grace_period_expired) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.manager.dnssec_mode = DNSSEC_NO;
         env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
@@ -490,7 +531,7 @@ TEST(dns_server_possible_feature_level_grace_period_expired) {
 
 TEST(dns_server_possible_feature_level_raise_to_verified) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.manager.dnssec_mode = DNSSEC_NO;
         env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
@@ -504,7 +545,7 @@ TEST(dns_server_possible_feature_level_raise_to_verified) {
 
 TEST(dns_server_possible_feature_level_drop_to_best) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.manager.dnssec_mode = DNSSEC_NO;
         env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
@@ -517,7 +558,7 @@ TEST(dns_server_possible_feature_level_drop_to_best) {
 
 TEST(dns_server_possible_feature_level_tcp_failed) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->n_failed_tcp = 5;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
@@ -529,7 +570,7 @@ TEST(dns_server_possible_feature_level_tcp_failed) {
 
 TEST(dns_server_possible_feature_level_tls_failed) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->n_failed_tls = 5;
         env.server->possible_feature_level = _DNS_SERVER_FEATURE_LEVEL_MAX;
@@ -542,7 +583,7 @@ TEST(dns_server_possible_feature_level_tls_failed) {
 
 TEST(dns_server_possible_feature_level_packet_failed_downgrade_ends0) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_invalid = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
@@ -554,7 +595,7 @@ TEST(dns_server_possible_feature_level_packet_failed_downgrade_ends0) {
 
 TEST(dns_server_possible_feature_level_packet_failed_downgrade_do) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_invalid = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
@@ -568,7 +609,7 @@ TEST(dns_server_possible_feature_level_packet_failed_downgrade_do) {
 
 TEST(dns_server_possible_feature_level_packet_failed_downgrade_tls_do) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_invalid = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_DO;
@@ -582,7 +623,7 @@ TEST(dns_server_possible_feature_level_packet_failed_downgrade_tls_do) {
 
 TEST(dns_server_possible_feature_level_packet_bad_opt) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_bad_opt = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
@@ -596,7 +637,7 @@ TEST(dns_server_possible_feature_level_packet_bad_opt) {
 
 TEST(dns_server_possible_feature_level_packet_do_off) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_do_off = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
@@ -610,7 +651,7 @@ TEST(dns_server_possible_feature_level_packet_do_off) {
 
 TEST(dns_server_possible_feature_level_packet_rrsig_missing) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->packet_rrsig_missing = true;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
@@ -624,7 +665,7 @@ TEST(dns_server_possible_feature_level_packet_rrsig_missing) {
 
 TEST(dns_server_possible_feature_level_udp_failed) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->n_failed_udp = 5;
         env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
@@ -636,7 +677,7 @@ TEST(dns_server_possible_feature_level_udp_failed) {
 
 TEST(dns_server_possible_feature_level_tcp_failed_truncated) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.server->n_failed_tcp = 5;
         env.server->packet_truncated = true;
@@ -653,14 +694,14 @@ TEST(dns_server_possible_feature_level_tcp_failed_truncated) {
 
 TEST(dns_server_string) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         ASSERT_STREQ(dns_server_string(env.server), "192.168.1.128");
 }
 
 TEST(dns_server_string_full) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         const char *str = dns_server_string_full(env.server);
         ASSERT_STREQ(str, "192.168.1.128:53#server.local");
@@ -672,7 +713,7 @@ TEST(dns_server_string_full) {
 
 TEST(dns_server_dnssec_supported) {
         _cleanup_(server_env_teardown) ServerEnv env;
-        server_env_setup(&env);
+        server_env_setup(&env, false);
 
         env.manager.dnssec_mode = DNSSEC_YES;
         ASSERT_TRUE(dns_server_dnssec_supported(env.server));
