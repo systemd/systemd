@@ -204,7 +204,6 @@ static bool use_load_options(
                 *ret = xasprintf("%ls %ls", old, shell->Argv[i]);
         }
 
-        mangle_stub_cmdline(*ret);
         return true;
 }
 
