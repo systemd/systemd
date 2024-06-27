@@ -1009,6 +1009,7 @@ static int condition_test_psi(Condition *c, char **env) {
         loadavg_t *current, limit;
         ResourcePressure pressure;
         int r;
+        bool system_wide = false;
 
         assert(c);
         assert(c->parameter);
@@ -1030,6 +1031,7 @@ static int condition_test_psi(Condition *c, char **env) {
         /* If only one parameter is passed, then we look at the global system pressure rather than a specific cgroup. */
         if (r == 1) {
                 pressure_path = path_join("/proc/pressure", pressure_type);
+                system_wide = true;
                 if (!pressure_path)
                         return log_oom_debug();
 
@@ -1134,7 +1136,9 @@ static int condition_test_psi(Condition *c, char **env) {
                 return log_debug_errno(r, "Failed to parse loadavg: %s", c->parameter);
 
         r = read_resource_pressure(pressure_path, PRESSURE_TYPE_FULL, &pressure);
-        if (r == -ENODATA) /* cpu.pressure 'full' was added recently, fall back to 'some'. */
+        /* cpu.pressure 'full' is undefined at system level since 5.13,
+         * but remains reported and set to 0 for compatibility. Fall back to 'some' */
+        if (r == -ENODATA || (system_wide && streq(pressure_type, "cpu") && pressure.total == 0))
                 r = read_resource_pressure(pressure_path, PRESSURE_TYPE_SOME, &pressure);
         if (r == -ENOENT) {
                 /* We already checked that /proc/pressure exists, so this means we were given a cgroup
