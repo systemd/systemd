@@ -177,16 +177,16 @@ static bool use_load_options(
         if (secure_boot_enabled() && (have_cmdline || is_confidential_vm()))
                 return false;
 
-        /* We also do a superficial check whether first character of passed command line
-         * is printable character (for compat with some Dell systems which fill in garbage?). */
-        if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
-                return false;
-
         /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
          * LoadOptions starts with the stub binary path which we want to strip off. */
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
-        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
-            != EFI_SUCCESS) {
+        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell) != EFI_SUCCESS) {
+
+                /* We also do a superficial check whether first character of passed command line
+                 * is printable character (for compat with some Dell systems which fill in garbage?). */
+                if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                        return false;
+
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
                 *ret = mangle_stub_cmdline(xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t)));
