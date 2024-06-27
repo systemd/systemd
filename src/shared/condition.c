@@ -1138,7 +1138,7 @@ static int condition_test_psi(Condition *c, char **env) {
         r = read_resource_pressure(pressure_path, PRESSURE_TYPE_FULL, &pressure);
         /* cpu.pressure 'full' is undefined at system level since 5.13,
          * but remains reported and set to 0 for compatibility. Fall back to 'some' */
-        if (r == -ENODATA || (system_wide && streq(pressure_type, "cpu") && pressure.total == 0))
+        if (r == -ENODATA || (system_wide && c->type == CONDITION_CPU_PRESSURE && pressure.total == 0))
                 r = read_resource_pressure(pressure_path, PRESSURE_TYPE_SOME, &pressure);
         if (r == -ENOENT) {
                 /* We already checked that /proc/pressure exists, so this means we were given a cgroup
