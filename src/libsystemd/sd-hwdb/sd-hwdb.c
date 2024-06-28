@@ -166,11 +166,7 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
                 }
         }
 
-        r = ordered_hashmap_ensure_allocated(&hwdb->properties, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_replace(hwdb->properties, key, (void *)entry);
+        r = ordered_hashmap_ensure_replace(&hwdb->properties, &string_hash_ops, key, (void *)entry);
         if (r < 0)
                 return r;
 
