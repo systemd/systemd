@@ -13,7 +13,14 @@ The 'LICENSES/' directory contains all the licenses used by the sources included
 the systemd project source tree.
 
 Unless otherwise noted, the systemd project sources are licensed under the terms
-and conditions of the **GNU Lesser General Public License v2.1 or later**.
+and conditions of
+**LGPL-2.1-or-later** (**GNU Lesser General Public License v2.1 or later**).
+
+Unless otherwise noted, compiled programs and all shared or static libraries
+include sources under **LGPL-2.1-or-later** along with more permissive
+licenses, and are effectively licensed **LGPL-2.1-or-later**.
+systemd-udevd and other udev helper programs also include sources under
+**GPL-2.0-or-later**, and are effectively licensed **GPL-2.0-or-later**.
 
 New sources that cannot be distributed under LGPL-2.1-or-later will no longer
 be accepted for inclusion in the systemd project to maintain license uniformity.
@@ -22,8 +29,9 @@ be accepted for inclusion in the systemd project to maintain license uniformity.
 
 The following exceptions apply:
 
- * some udev sources under src/udev/ are licensed under **GPL-2.0-or-later**, so the
-   udev binaries as a whole are also distributed under **GPL-2.0-or-later**.
+ * some sources under src/udev/ are licensed under **GPL-2.0-or-later**,
+   so all udev programs (`systemd-udevd`, `udevadm`, and the udev builtins
+   and test programs) are also distributed under **GPL-2.0-or-later**.
  * the header files contained in src/basic/linux/ and src/shared/linux/ are copied
    verbatim from the Linux kernel source tree and are licensed under **GPL-2.0 WITH
    Linux-syscall-note** and are used within the scope of the Linux-syscall-note
