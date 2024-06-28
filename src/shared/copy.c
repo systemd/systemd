@@ -21,6 +21,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "limits-util.h"
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
@@ -41,9 +42,6 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-/* If we copy via a userspace buffer, size it to 64K */
-#define COPY_BUFFER_SIZE (64U*U64_KB)
-
 /* If a byte progress function is specified during copying, never try to copy more than 1M, so that we can
  * reasonably call the progress function still */
 #define PROGRESS_STEP_SIZE (1U*U64_MB)
@@ -52,6 +50,32 @@
  * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
  * case of bind mount cycles and suchlike. */
 #define COPY_DEPTH_MAX 2048U
+
+static uint64_t copy_buffer_size(void) {
+        /* If we copy via a userspace buffer, try to find a reasonable size for the copy buffer proportional
+           to the total physical memory of the system  */
+
+        static uint64_t size = 0;
+
+        if (size == 0) {
+
+            uint64_t mem = physical_memory();
+
+            if (mem <= 128U*U64_MB)
+                    size = 8U * U64_KB;
+            else if (mem <= 256U*U64_MB)
+                    size = 12U * U64_KB;
+            else if (mem <= 512U*U64_MB)
+                    size = 24U * U64_KB;
+            else if (mem <= 2U*U64_GB)
+                    size = 32U * U64_KB;
+            else
+                    size = 64U * U64_KB;
+
+        }
+
+        return size;
+}
 
 static ssize_t try_copy_file_range(
                 int fd_in, loff_t *off_in,
@@ -460,7 +484,7 @@ int copy_bytes_full(
 
                 /* As a fallback just copy bits by hand */
                 {
-                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)], *p = buf;
+                        uint8_t buf[MIN(m, copy_buffer_size())], *p = buf;
                         ssize_t z;
 
                         n = read(fdf, buf, sizeof buf);
@@ -503,7 +527,7 @@ int copy_bytes_full(
                 copied_total += n;
 
                 /* Disable sendfile() in case we are getting too close to it's SSIZE_MAX-offset limit */
-                if (copied_total > SSIZE_MAX - COPY_BUFFER_SIZE)
+                if (copied_total > SSIZE_MAX - copy_buffer_size())
                         try_sendfile = false;
 
                 if (progress) {
