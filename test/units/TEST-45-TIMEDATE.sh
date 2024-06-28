@@ -218,7 +218,7 @@ assert_ntp() {
 assert_timedated_signal() {
     local timestamp="${1:?}"
     local value="${2:?}"
-    local args=(-q -n 1 --since="$timestamp" -p info _SYSTEMD_UNIT="busctl-monitor.service")
+    local args=(-q -n 1 --since="$timestamp" -p info -t busctl)
 
     journalctl --sync
 
@@ -298,7 +298,7 @@ assert_timesyncd_signal() {
     local timestamp="${1:?}"
     local property="${2:?}"
     local value="${3:?}"
-    local args=(-q --since="$timestamp" -p info _SYSTEMD_UNIT="busctl-monitor.service")
+    local args=(-q --since="$timestamp" -p info -t busctl)
 
     journalctl --sync
 

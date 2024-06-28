@@ -8,5 +8,6 @@ integration_tests += [
                         'after' : '@0@ tpm2.target'.format(integration_test_template['configuration']['after']),
                 },
                 'vm' : true,
+                'firmware' : 'auto',
         },
 ]
