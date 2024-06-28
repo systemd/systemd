@@ -2574,8 +2574,10 @@ static int context_load_partition_table(Context *context) {
                         /* If we found the sector size and we're operating on a block device, use it as the file
                          * system sector size as well, as we know its the sector size of the actual block device and
                          * not just the offset at which we found the GPT header. */
-                        if (r > 0 && S_ISBLK(st.st_mode))
+                        if (r > 0 && S_ISBLK(st.st_mode)) {
+                                log_debug("Probed sector size of %s is %" PRIu32 " bytes.", context->node, ssz);
                                 fs_secsz = ssz;
+                        }
                 }
 
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
@@ -2639,7 +2641,7 @@ static int context_load_partition_table(Context *context) {
          * larger */
         grainsz = secsz < 4096 ? 4096 : secsz;
 
-        log_debug("Sector size of device is %lu bytes. Using grain size of %" PRIu64 ".", secsz, grainsz);
+        log_debug("Sector size of device is %lu bytes. Using filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (arg_empty) {
 
