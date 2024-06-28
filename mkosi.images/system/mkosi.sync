@@ -13,16 +13,16 @@ if [[ -d "$PKG_SUBDIR/.git" ]] && [[ "$(git -C "$PKG_SUBDIR" rev-parse HEAD)" ==
     exit 0
 fi
 
-# The repository on Salsa has the full upstream sources, so it's a waste of space to
-# redownload and duplicate everything, so do a sparse checkout as we only need the
-# packaging directory anyway
-if [[ -n "${GIT_SUBDIR:-}" ]]; then
-    sparse=(--no-checkout --filter=tree:0)
-else
-    sparse=()
-fi
-
 if [[ ! -e "$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "$PKG_SUBDIR")" ]]; then
+    # The repository on Salsa has the full upstream sources, so it's a waste of
+    # space to redownload and duplicate everything, so do a sparse checkout as
+    # we only need the packaging directory anyway.
+    if [[ -n "${GIT_SUBDIR:-}" ]]; then
+        sparse=(--no-checkout --filter=tree:0)
+    else
+        sparse=()
+    fi
+
     git clone "$GIT_URL" --branch "$GIT_BRANCH" "${sparse[@]}" "$PKG_SUBDIR"
     if [[ -n "${GIT_SUBDIR:-}" ]]; then
         # --no-cone is needed to check out only one top-level directory
