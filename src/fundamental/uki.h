@@ -17,6 +17,7 @@ typedef enum UnifiedSection {
         UNIFIED_SECTION_SBAT,
         UNIFIED_SECTION_PCRSIG,
         UNIFIED_SECTION_PCRPKEY,
+        UNIFIED_SECTION_PROFILE,
         _UNIFIED_SECTION_MAX,
 } UnifiedSection;
 
@@ -27,3 +28,6 @@ static inline bool unified_section_measure(UnifiedSection section) {
          * the measurement, and hence shouldn't be input to it. */
         return section >= 0 && section < _UNIFIED_SECTION_MAX && section != UNIFIED_SECTION_PCRSIG;
 }
+
+/* Max number of profiles per UKI */
+#define UNIFIED_PROFILES_MAX 256U
