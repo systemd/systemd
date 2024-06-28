@@ -69,7 +69,7 @@ struct node {
 struct node_callback {
         struct node *node;
 
-        bool is_fallback:1;
+        bool is_fallback;
         unsigned last_iteration;
 
         sd_bus_message_handler_t callback;
@@ -96,7 +96,7 @@ struct node_object_manager {
 struct node_vtable {
         struct node *node;
 
-        bool is_fallback:1;
+        bool is_fallback;
         unsigned last_iteration;
 
         char *interface;
@@ -190,33 +190,33 @@ struct sd_bus {
         int message_version;
         int message_endian;
 
-        bool can_fds:1;
-        bool bus_client:1;
-        bool ucred_valid:1;
-        bool is_server:1;
-        bool anonymous_auth:1;
-        bool prefer_readv:1;
-        bool prefer_writev:1;
-        bool match_callbacks_modified:1;
-        bool filter_callbacks_modified:1;
-        bool nodes_modified:1;
-        bool trusted:1;
-        bool manual_peer_interface:1;
-        bool allow_interactive_authorization:1;
-        bool exit_on_disconnect:1;
-        bool exited:1;
-        bool exit_triggered:1;
-        bool is_local:1;
-        bool watch_bind:1;
-        bool is_monitor:1;
-        bool accept_fd:1;
-        bool attach_timestamp:1;
-        bool connected_signal:1;
-        bool close_on_exit:1;
+        bool can_fds;
+        bool bus_client;
+        bool ucred_valid;
+        bool is_server;
+        bool anonymous_auth;
+        bool prefer_readv;
+        bool prefer_writev;
+        bool match_callbacks_modified;
+        bool filter_callbacks_modified;
+        bool nodes_modified;
+        bool trusted;
+        bool manual_peer_interface;
+        bool allow_interactive_authorization;
+        bool exit_on_disconnect;
+        bool exited;
+        bool exit_triggered;
+        bool is_local;
+        bool watch_bind;
+        bool is_monitor;
+        bool accept_fd;
+        bool attach_timestamp;
+        bool connected_signal;
+        bool close_on_exit;
 
         RuntimeScope runtime_scope;
 
-        signed int use_memfd:2;
+        int use_memfd;
 
         void *rbuffer;
         size_t rbuffer_size;

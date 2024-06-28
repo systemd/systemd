@@ -3666,7 +3666,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        /* Note that this is called both on input_fd, output_fd as well as inotify_fd events */
+        /* Note that this is called both on input_fd, output_fd, as well as inotify_fd events */
 
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
