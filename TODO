@@ -713,9 +713,6 @@ Features:
   security, resource management and cgroup settings can be enforced properly
   for all umh processes.
 
-* systemd-shutdown: keep sending sd_notify() status updates immediately before
-  going down, in particular include the "reboot param" string.
-
 * homed: when resizing an fs don't sync identity beforehand there might simply
   not be enough disk space for that. try to be defensive and sync only after
   resize.
@@ -2100,11 +2097,10 @@ Features:
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
-  - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
 * bootctl
   - recognize the case when not booted on EFI
 
-* bootctl,sd-boot: actually honour the "architecture" key
+* bootctl,sd-boot: actually honour the "architecture" type1 key
 
 * bootctl:
   - show whether UEFI audit mode is available
