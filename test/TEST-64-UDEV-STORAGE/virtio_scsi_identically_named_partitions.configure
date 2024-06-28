@@ -9,8 +9,8 @@ import sys
 
 config = json.load(sys.stdin)
 
-qemu = f"qemu-system-{os.environ["QEMU_ARCHITECTURE"]}"
-result = subprocess.run([qemu, '-device', 'help'], check=True, text=True, stdout=subprocess.PIPE)
+qemu = f"qemu-system-{os.environ['QEMU_ARCHITECTURE']}"
+result = subprocess.run([qemu, "-device", "help"], check=True, text=True, stdout=subprocess.PIPE)
 if 'name "virtio-scsi-pci"' not in result.stdout:
     print("virtio-scsi-pci device driver is not available, skipping test...", file=sys.stderr)
     exit(77)
