@@ -1366,7 +1366,6 @@ static int service_coldplug(Unit *u) {
                     SERVICE_DEAD_RESOURCES_PINNED)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_exec_runtime(u);
-                (void) unit_setup_cgroup_runtime(u);
         }
 
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
