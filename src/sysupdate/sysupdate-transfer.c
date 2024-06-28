@@ -37,13 +37,13 @@
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
 
-Transfer *transfer_free(Transfer *t) {
+static Transfer *transfer_free(Transfer *t) {
         if (!t)
                 return NULL;
 
         t->temporary_path = rm_rf_subvolume_and_free(t->temporary_path);
 
-        free(t->definition_path);
+        free(t->id);
         free(t->min_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
@@ -68,6 +68,8 @@ Transfer *transfer_new(void) {
                 return NULL;
 
         *t = (Transfer) {
+                .n_ref = 1,
+
                 .source.type = _RESOURCE_TYPE_INVALID,
                 .target.type = _RESOURCE_TYPE_INVALID,
                 .remove_temporary = true,
@@ -88,6 +90,25 @@ Transfer *transfer_new(void) {
         };
 
         return t;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Transfer, transfer, transfer_free);
+
+int transfer_cmp(const Transfer *a, const Transfer *b) {
+        int r;
+
+        if (!(a && b))
+                return CMP(a, b);
+
+        if (!(a->id && b->id))
+                return CMP(a->id, b->id);
+
+
+        r = CMP(a != NULL, b != NULL);
+        if (r != 0)
+                return r;
+
+        return strcmp(a->id, b->id);
 }
 
 static const Specifier specifier_table[] = {

@@ -28,6 +28,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
+#include "sysupdate-feature.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
@@ -62,8 +63,7 @@ typedef struct Context {
         size_t n_transfers;
 
         Feature **features;
-        Transfer **disabled_transfers;
-        size_t n_disabled_transfers;
+        size_t n_features;
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -80,12 +80,12 @@ static Context *context_free(Context *c) {
                 return NULL;
 
         for (size_t i = 0; i < c->n_transfers; i++)
-                transfer_free(c->transfers[i]);
+                transfer_unref(c->transfers[i]);
         free(c->transfers);
 
-        for (size_t i = 0; i < c->n_disabled_transfers; i++)
-                transfer_free(c->disabled_transfers[i]);
-        free(c->disabled_transfers);
+        for (size_t i = 0; i < c->n_features; i++)
+                feature_free(c->features[i]);
+        free(c->features);
 
         for (size_t i = 0; i < c->n_update_sets; i++)
                 update_set_free(c->update_sets[i]);
@@ -103,130 +103,115 @@ static Context *context_new(void) {
         return new0(Context, 1);
 }
 
-static void free_definitions(Transfer **definitions, size_t n) {
-        assert(definitions || n == 0);
-
-        FOREACH_ARRAY(t, definitions, n)
-                transfer_free(*t);
-
-        free(definitions);
-}
-
-static int read_definitions(
-                bool enabled,
-                const char *directory,
-                const char *component,
-                const char *root,
-                const char *node,
-                Set **seen,
-                Transfer ***ret_transfers,
-                size_t *ret_n_transfers) {
-
-        _cleanup_strv_free_ char **files = NULL;
-        Transfer **transfers = NULL;
-        size_t n_transfers = 0;
+static int context_read_definitions(Context *c, const char* node) {
+        _cleanup_strv_free_ char **dirs = NULL, **feature_dirs = NULL, **defs = NULL, **feature_defs = NULL;
         int r;
 
-        CLEANUP_ARRAY(transfers, n_transfers, free_definitions);
+        assert(c);
 
-        assert(seen);
-        assert(ret_transfers);
-        assert(ret_n_transfers);
+        /* Figure out what directories we're loading things from */
 
-        if (directory)
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                         (const char**) STRV_MAKE(directory));
-        else if (component) {
-                _cleanup_strv_free_ char **dirs = NULL
+        if (arg_component) {
                 char **l = CONF_PATHS_STRV("");
-                const char *prefix;
-                size_t k = 0;
-
-                if (enabled)
-                        prefix = "sysupdate.";
-                else
-                        prefix = "sysregistry.";
+                size_t i = 0;
 
                 dirs = new0(char*, strv_length(l) + 1);
                 if (!dirs)
                         return log_oom();
 
-                STRV_FOREACH(i, l) {
-                        char *j;
+                feature_dirs = new0(char*, strv_length(l) + 1);
+                if (!dirs)
+                        return log_oom();
 
-                        j = strjoin(*i, prefix, component, ".d");
-                        if (!j)
+                STRV_FOREACH(dir, l) {
+
+                        dirs[i] = strjoin(*dir, "sysupdate", arg_component, ".d");
+                        feature_dirs[i] = strjoin(*dir, "sysfeatures", arg_component, ".d");
+
+                        if (!dirs[i] || !feature_dirs[i])
                                 return log_oom();
 
-                        dirs[k++] = j;
+                        i++;
                 }
+        } else {
+                if (arg_definitions)
+                        dirs = strv_new(arg_definitions);
+                else
+                        dirs = strv_copy(CONF_PATHS_STRV("sysupdate.d"));
+                if (!dirs)
+                        return log_oom();
 
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                         (const char**) dirs);
-        } else if (enabled)
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                         (const char**) CONF_PATHS_STRV("sysupdate.d"));
-        else
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                         (const char**) CONF_PATHS_STRV("sysregistry.d"));
+                if (arg_features)
+                        feature_dirs = strv_new(arg_features);
+                else
+                        feature_dirs = strv_copy(CONF_PATHS_STRV("sysfeatures.d"));
+                if (!feature_dirs)
+                        return log_oom();
+        }
 
+        /* Load the normal transfers */
+
+        r = conf_files_list_strv(&defs,
+                                 ".conf",
+                                 arg_root,
+                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                 (const char**) dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate *.conf files: %m");
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.conf files: %m");
 
-        STRV_FOREACH(f, files) {
-                _cleanup_(transfer_freep) Transfer *t = NULL;
-                char *id = basename(*f);
+        STRV_FOREACH(p, defs) {
+                _cleanup_(transfer_unrefp) Transfer *t = NULL;
 
-                if (set_contains(*seen, id))
-                        continue;
-
-                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
+                if (!GREEDY_REALLOC(c->transfers, c->n_transfers + 1))
                         return log_oom();
 
                 t = transfer_new();
                 if (!t)
                         return log_oom();
 
-                t->definition_path = strdup(*f);
-                if (!t->definition_path)
-                        return log_oom();
-
-                r = transfer_read_definition(t, *f);
+                r = transfer_read_definition(t, *p);
                 if (r < 0)
                         return r;
 
-                r = transfer_resolve_paths(t, root, node);
+                r = transfer_resolve_paths(t, arg_root, node);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(seen, &string_hash_ops_free, strdup(id));
-                if (r < 0)
-                        return r;
-
-                transfers[n_transfers++] = TAKE_PTR(t);
+                c->transfers[c->n_transfers++] = TAKE_PTR(t);
         }
 
-        *ret_transfers = TAKE_PTR(transfers);
-        *ret_n_transfers = n_transfers;
-        return 0;
-}
-
-static int context_read_definitions(
-                Context *c,
-                const char *directory,
-                const char *registry,
-                const char *component,
-                const char *root,
-                const char *node) {
-
-        _cleanup_set_free_ Set *seen = NULL;
-        int r;
-
-        assert(c);
-
-        r = read_definitions(true, directory, component, root, node, &seen, &c->transfers, &c->n_transfers);
+        r = conf_files_list_strv(&feature_defs,
+                         ".feature",
+                         arg_root,
+                         CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                         (const char**) feature_dirs);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to enumerate sysfeatures.d/*.feature files: %m");
+
+        STRV_FOREACH(p, feature_defs) {
+                _cleanup_(feature_freep) Feature *f = NULL;
+
+                if (!GREEDY_REALLOC(c->features, c->n_features + 1))
+                        return log_oom();
+
+                f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, *p, feature_dirs);
+                if (r < 0)
+                        return r;
+
+                if (f->enabled) { /* If the feature is enabled, treat its transfers as part of sysupdate.d */
+                        if (!GREEDY_REALLOC(c->transfers, c->n_transfers + f->n_transfers))
+                                return log_oom();
+
+                        for (size_t i = 0; i < f->n_transfers; i++)
+                                c->transfers[c->n_transfers++] = transfer_ref(f->transfers[i]);
+                }
+
+                c->features[c->n_features++] = TAKE_PTR(f);
+        }
 
         if (c->n_transfers == 0) {
                 if (arg_component)
@@ -236,6 +221,8 @@ static int context_read_definitions(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
         }
+
+        typesafe_qsort(c->transfers, c->n_transfers, transfer_cmp);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = strv_push(&c->changelog, c->transfers[i]->changelog);
@@ -273,13 +260,20 @@ static int context_load_installed_instances(Context *c) {
                         return r;
         }
 
-        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
-                r = resource_load_instances(
-                                &c->disabled_transfers[i]->target,
+        for (size_t i = 0; i < c->n_features; i++) {
+                Feature *f = c->features[i];
+
+                if (f->enabled) /* Enabled features' transfers are included in c->transfers */
+                        continue;
+
+                for (size_t j = 0; j < f->n_transfers; j++) {
+                        r = resource_load_instances(
+                                &f->transfers[j]->target,
                                 arg_verify >= 0 ? arg_verify : c->transfers[i]->verify,
                                 &c->web_cache);
-                if (r < 0)
-                        return r;
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -829,7 +823,7 @@ static int context_vacuum(
                 uint64_t space,
                 const char *extra_protected_version) {
 
-        size_t registry_count = 0;
+        size_t features_count = 0;
         int r, count = 0;
 
         assert(c);
@@ -852,24 +846,32 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        for (size_t i = 0; i < c->n_disabled_transfers; i++) {
-                /* The registry contains only transfers that have been disabled, so let's make sure that we
-                 * delete any instances that might be lying around... */
+        for (size_t i = 0; i < c->n_features; i++) {
+                Feature *f = c->features[i];
+                bool did_anything = false;
 
-                r = transfer_vacuum(c->disabled_transfers[i], UINT64_MAX /* delete all instances */, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        registry_count++;
+                if (f->enabled)
+                        continue;
+
+                for (size_t j = 0; j < f->n_transfers; j++) {
+                        r = transfer_vacuum(f->transfers[i], UINT64_MAX /* delete all instances */, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                did_anything = true;
+                }
+
+                if (did_anything)
+                        features_count++;
         }
 
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                if (count > 0 && registry_count > 0)
-                        log_info("Removed %i instances, and %zu disabled transfers.", count, registry_count);
+                if (count > 0 && features_count > 0)
+                        log_info("Removed %i instances, and %zu disabled features.", count, features_count);
                 else if (count > 0)
                         log_info("Removed %i instances.", count);
-                else if (registry_count > 0)
-                        log_info("Removed %zu disabled transfers.", registry_count);
+                else if (features_count > 0)
+                        log_info("Removed %zu disabled features.", features_count);
                 else
                         log_info("Found nothing to remove.");
         } else {
@@ -877,7 +879,7 @@ static int context_vacuum(
 
                 r = sd_json_build(&json, SD_JSON_BUILD_OBJECT(
                                                SD_JSON_BUILD_PAIR_INTEGER("instances", count),
-                                               SD_JSON_BUILD_PAIR_UNSIGNED("disabled_transfers", registry_count)));
+                                               SD_JSON_BUILD_PAIR_UNSIGNED("features", features_count)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 

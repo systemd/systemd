@@ -14,7 +14,9 @@ typedef struct Transfer Transfer;
 #include "sysupdate-resource.h"
 
 struct Transfer {
-        char *definition_path;
+        unsigned n_ref;
+
+        char *id;
         char *min_version;
         char **protected_versions;
         char *current_symlink;
@@ -53,8 +55,11 @@ typedef int (*TransferProgress)(const Transfer *, const Instance *, unsigned, vo
 
 Transfer *transfer_new(void);
 
-Transfer *transfer_free(Transfer *t);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
+Transfer *transfer_ref(Transfer *t);
+Transfer *transfer_unref(Transfer *t);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_unref);
+
+int transfer_cmp(Transfer *a, Transfer *b);
 
 int transfer_read_definition(Transfer *t, const char *path);
 
