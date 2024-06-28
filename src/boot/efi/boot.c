@@ -24,6 +24,7 @@
 #include "shim.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
+#include "uki.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -52,7 +53,8 @@ typedef enum LoaderType {
 } LoaderType;
 
 typedef struct {
-        char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
+        char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
+        char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
         char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
         char16_t *sort_key;   /* The string to use as primary sort key, usually ID= from os-release, possibly suffixed */
@@ -72,6 +74,7 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
+        unsigned profile;
 } BootEntry;
 
 typedef struct {
@@ -584,7 +587,11 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         (void) device_path_to_str(dp, &dp_str);
 
                 printf("    boot entry: %zu/%zu\n", i + 1, config->n_entries);
-                printf("            id: %ls\n", entry->id);
+                printf("            id: %ls", entry->id);
+                if (entry->id_without_profile && !streq(entry->id_without_profile, entry->id))
+                        printf(" (without profile: %ls)\n", entry->id_without_profile);
+                else
+                        printf("\n");
                 if (entry->title)
                         printf("         title: %ls\n", entry->title);
                 if (entry->title_show && !streq16(entry->title, entry->title_show))
@@ -605,6 +612,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
                         printf("       options: %ls\n", entry->options);
+                if (entry->profile > 0)
+                        printf("       profile: %u\n", entry->profile);
                 printf(" internal call: %ls\n", yes_no(!!entry->call));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
@@ -1182,6 +1191,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
                 return NULL;
 
         free(entry->id);
+        free(entry->id_without_profile);
         free(entry->title_show);
         free(entry->title);
         free(entry->sort_key);
@@ -1722,9 +1732,17 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         /* Now order by ID. The version is likely part of the ID, thus note that this will generatelly put
          * the newer versions earlier. Specifying a sort key explicitly is preferable, because it gives an
          * explicit sort order. */
-        r = -strverscmp_improved(a->id, b->id);
+        r = -strverscmp_improved(a->id_without_profile ?: a->id, b->id_without_profile ?: b->id);
         if (r != 0)
                 return r;
+
+        /* Let's sort profiles by their profile */
+        if (a->id_without_profile && b->id_without_profile &&
+            streq(a->id_without_profile, b->id_without_profile)) {
+                r = CMP(a->profile, b->profile);
+                if (r != 0)
+                        return r;
+        }
 
         if (a->tries_left < 0 || b->tries_left < 0)
                 return 0;
@@ -2121,11 +2139,13 @@ static void boot_entry_add_type2(
         enum {
                 SECTION_CMDLINE,
                 SECTION_OSREL,
+                SECTION_PROFILE,
                 _SECTION_MAX,
         };
         static const char * const section_names[_SECTION_MAX + 1] = {
                 [SECTION_CMDLINE] = ".cmdline",
                 [SECTION_OSREL]   = ".osrel",
+                [SECTION_PROFILE] = ".profile",
                 NULL,
         };
 
@@ -2141,124 +2161,193 @@ static void boot_entry_add_type2(
         if (err != EFI_SUCCESS)
                 return;
 
+        /* Load section table once */
         _cleanup_free_ PeSectionHeader *section_table = NULL;
         size_t n_section_table;
         err = pe_section_table_from_file(handle, &section_table, &n_section_table);
         if (err != EFI_SUCCESS)
                 return;
 
-        /* Look for .osrel and .cmdline sections in the .efi binary */
-        PeSectionVector sections[_SECTION_MAX] = {};
+        /* Find base profile */
+        PeSectionVector base_sections[_SECTION_MAX] = {};
         pe_locate_profile_sections(
                         section_table,
                         n_section_table,
                         section_names,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
-                        sections);
-        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
-                return;
+                        base_sections);
 
-        _cleanup_free_ char *content = NULL;
-        err = file_handle_read(
-                        handle,
-                        sections[SECTION_OSREL].file_offset,
-                        sections[SECTION_OSREL].size,
-                        &content,
-                        /* ret_size= */ NULL);
-        if (err != EFI_SUCCESS)
-                return;
+        /* and now iterate through possible profiles, and create a menu item for each profile we find */
+        for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
+                PeSectionVector sections[_SECTION_MAX];
 
-        _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-        char *line, *key, *value;
-        size_t pos = 0;
+                /* Start out with the base sections */
+                memcpy(sections, base_sections, sizeof(sections));
 
-        /* read properties from the embedded os-release file */
-        while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
-                if (streq8(key, "PRETTY_NAME")) {
-                        free(os_pretty_name);
-                        os_pretty_name = xstr8_to_16(value);
+                err = pe_locate_profile_sections(
+                                section_table,
+                                n_section_table,
+                                section_names,
+                                profile,
+                                /* validate_base= */ 0,
+                                sections);
+                if (err != EFI_SUCCESS && profile > 0) /* It's fine if there's no .profile for the first
+                                                          profile */
+                        break;
 
-                } else if (streq8(key, "IMAGE_ID")) {
-                        free(os_image_id);
-                        os_image_id = xstr8_to_16(value);
+                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
+                        continue;
 
-                } else if (streq8(key, "NAME")) {
-                        free(os_name);
-                        os_name = xstr8_to_16(value);
+                _cleanup_free_ char *content = NULL;
+                err = file_handle_read(
+                                handle,
+                                sections[SECTION_OSREL].file_offset,
+                                sections[SECTION_OSREL].size,
+                                &content,
+                                /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        continue;
 
-                } else if (streq8(key, "ID")) {
-                        free(os_id);
-                        os_id = xstr8_to_16(value);
+                _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+                char *line, *key, *value;
+                size_t pos = 0;
 
-                } else if (streq8(key, "IMAGE_VERSION")) {
-                        free(os_image_version);
-                        os_image_version = xstr8_to_16(value);
+                /* read properties from the embedded os-release file */
+                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                        if (streq8(key, "PRETTY_NAME")) {
+                                free(os_pretty_name);
+                                os_pretty_name = xstr8_to_16(value);
 
-                } else if (streq8(key, "VERSION")) {
-                        free(os_version);
-                        os_version = xstr8_to_16(value);
+                        } else if (streq8(key, "IMAGE_ID")) {
+                                free(os_image_id);
+                                os_image_id = xstr8_to_16(value);
 
-                } else if (streq8(key, "VERSION_ID")) {
-                        free(os_version_id);
-                        os_version_id = xstr8_to_16(value);
+                        } else if (streq8(key, "NAME")) {
+                                free(os_name);
+                                os_name = xstr8_to_16(value);
 
-                } else if (streq8(key, "BUILD_ID")) {
-                        free(os_build_id);
-                        os_build_id = xstr8_to_16(value);
+                        } else if (streq8(key, "ID")) {
+                                free(os_id);
+                                os_id = xstr8_to_16(value);
+
+                        } else if (streq8(key, "IMAGE_VERSION")) {
+                                free(os_image_version);
+                                os_image_version = xstr8_to_16(value);
+
+                        } else if (streq8(key, "VERSION")) {
+                                free(os_version);
+                                os_version = xstr8_to_16(value);
+
+                        } else if (streq8(key, "VERSION_ID")) {
+                                free(os_version_id);
+                                os_version_id = xstr8_to_16(value);
+
+                        } else if (streq8(key, "BUILD_ID")) {
+                                free(os_build_id);
+                                os_build_id = xstr8_to_16(value);
+                        }
+
+                const char16_t *good_name, *good_version, *good_sort_key;
+                if (!bootspec_pick_name_version_sort_key(
+                                    os_pretty_name,
+                                    os_image_id,
+                                    os_name,
+                                    os_id,
+                                    os_image_version,
+                                    os_version,
+                                    os_version_id,
+                                    os_build_id,
+                                    &good_name,
+                                    &good_version,
+                                    &good_sort_key))
+                        continue;
+
+                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL;
+
+                if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
+                        content = mfree(content);
+
+                        /* Read any .profile data from the file, if we have it */
+
+                        err = file_handle_read(
+                                        handle,
+                                        sections[SECTION_PROFILE].file_offset,
+                                        sections[SECTION_PROFILE].size,
+                                        &content,
+                                        /* ret_size= */ NULL);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        /* read properties from the embedded os-release file */
+                        pos = 0;
+                        while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                                if (streq8(key, "ID")) {
+                                        free(profile_id);
+                                        profile_id = xstr8_to_16(value);
+                                } else if (streq8(key, "TITLE")) {
+                                        free(profile_title);
+                                        profile_title = xstr8_to_16(value);
+                                }
                 }
 
-        const char16_t *good_name, *good_version, *good_sort_key;
-        if (!bootspec_pick_name_version_sort_key(
-                            os_pretty_name,
-                            os_image_id,
-                            os_name,
-                            os_id,
-                            os_image_version,
-                            os_version,
-                            os_version_id,
-                            os_build_id,
-                            &good_name,
-                            &good_version,
-                            &good_sort_key))
-                return;
+                _cleanup_free_ char16_t *id = NULL;
+                if (profile > 0) {
+                        if (profile_id)
+                                id = xasprintf("%ls@%ls", filename, profile_id);
+                        else
+                                id = xasprintf("%ls@%u", filename, profile);
+                } else
+                        id = xstrdup16(filename);
 
-        BootEntry *entry = xnew(BootEntry, 1);
-        *entry = (BootEntry) {
-                .id = xstrdup16(filename),
-                .type = LOADER_UNIFIED_LINUX,
-                .title = xstrdup16(good_name),
-                .version = xstrdup16(good_version),
-                .device = device,
-                .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
-                .sort_key = xstrdup16(good_sort_key),
-                .key = 'l',
-                .tries_done = -1,
-                .tries_left = -1,
-        };
+                _cleanup_free_ char16_t *title = NULL;
+                if (profile_title)
+                        title = xasprintf("%ls (%ls)", good_name, profile_title);
+                else if (profile > 0) {
+                        if (profile_id)
+                                title = xasprintf("%ls (%ls)", good_name, profile_id);
+                        else
+                                title = xasprintf("%ls (Profile #%u)", good_name, profile + 1);
+                } else
+                        title = xstrdup16(good_name);
 
-        strtolower16(entry->id);
-        config_add_entry(config, entry);
-        boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = strtolower16(TAKE_PTR(id)),
+                        .id_without_profile = profile > 0 ? strtolower16(xstrdup16(filename)) : NULL,
+                        .type = LOADER_UNIFIED_LINUX,
+                        .title = TAKE_PTR(title),
+                        .version = xstrdup16(good_version),
+                        .device = device,
+                        .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
+                        .sort_key = xstrdup16(good_sort_key),
+                        .key = 'l',
+                        .tries_done = -1,
+                        .tries_left = -1,
+                        .profile = profile,
+                };
 
-        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
-                return;
+                config_add_entry(config, entry);
+                boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
 
-        content = mfree(content);
+                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
+                        return;
 
-        /* read the embedded cmdline file */
-        size_t cmdline_len;
-        err = file_handle_read(
-                        handle,
-                        sections[SECTION_CMDLINE].file_offset,
-                        sections[SECTION_CMDLINE].size,
-                        &content,
-                        &cmdline_len);
-        if (err == EFI_SUCCESS) {
-                entry->options = xstrn8_to_16(content, cmdline_len);
-                mangle_stub_cmdline(entry->options);
-                entry->options_implied = true;
+                content = mfree(content);
+
+                /* Read the embedded cmdline file for display purposes */
+                size_t cmdline_len;
+                err = file_handle_read(
+                                handle,
+                                sections[SECTION_CMDLINE].file_offset,
+                                sections[SECTION_CMDLINE].size,
+                                &content,
+                                &cmdline_len);
+                if (err == EFI_SUCCESS) {
+                        entry->options = mangle_stub_cmdline(xstrn8_to_16(content, cmdline_len));
+                        entry->options_implied = true;
+                }
         }
 }
 
@@ -2458,8 +2547,20 @@ static EFI_STATUS image_start(
                 const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
-                        options = xasprintf("%ls %ls", tmp, extra16);
+                        if (isempty(tmp))
+                                options = TAKE_PTR(extra16);
+                        else
+                                options = xasprintf("%ls %ls", tmp, extra16);
                 }
+        }
+
+        /* Prefix profile if it's non-zero */
+        if (entry->profile > 0) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(options);
+                if (isempty(tmp))
+                        options = xasprintf("@%u", entry->profile);
+                else
+                        options = xasprintf("@%u %ls", entry->profile, tmp);
         }
 
         if (options) {
@@ -2623,6 +2724,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
                 0;
 
         assert(loaded_image);
