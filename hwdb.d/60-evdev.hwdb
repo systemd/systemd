@@ -378,6 +378,8 @@ evdev:input:b0003v0430p0530*
 evdev:input:b0003v256Cp006F*
  EVDEV_ABS_00=::210
  EVDEV_ABS_01=::323
+ EVDEV_ABS_35=::210
+ EVDEV_ABS_36=::323
 
 #########################################
 # Google
