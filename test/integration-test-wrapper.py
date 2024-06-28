@@ -103,6 +103,12 @@ def main():
         journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
     else:
+        dropin += textwrap.dedent(
+            """
+            [Unit]
+            Wants=multi-user.target
+            """
+        )
         journal_file = None
 
     cmd = [
