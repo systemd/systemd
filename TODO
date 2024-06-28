@@ -1986,6 +1986,9 @@ Features:
   - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
     processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
     with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
+  - ExtensionImages= deduplication for services is currently only applied to disk images without GPT envelope.
+    This should be extended to work with proper DDIs too, as well as directory confext/sysext. Moreover,
+    system-wide confex/sysext should support this too.
 
 * unit files:
   - allow port=0 in .socket units
