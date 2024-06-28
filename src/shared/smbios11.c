@@ -33,10 +33,15 @@ int read_smbios11_field(unsigned i, size_t max_size, char **ret_data, size_t *re
 
         assert_cc(offsetof(struct dmi_field_header, contents) == 5);
 
-        r = read_virtual_file(
-                        p,
+        /* We don't use read_virtual_file() because it only reads a single page of bytes from the DMI sysfs
+         * file. Since the SMBIOS data is immutable after boot, it's safe to use read_full_file_full() here. */
+        r = read_full_file_full(
+                        AT_FDCWD, p,
+                        /* offset = */ 0,
                         max_size >= SIZE_MAX - offsetof(struct dmi_field_header, contents) ? SIZE_MAX :
                         sizeof(dmi_field_header) + max_size,
+                        /* flags = */ 0,
+                        NULL,
                         (char**) &data, &size);
         if (r < 0)
                 return r;
