@@ -9,6 +9,9 @@
 #include "version.h"
 #include "efivars.h"
 
+/* Never try to read more than 16G into memory (and on 32bit 1G) */
+#define FILE_READ_MAX MIN(SIZE_MAX/4, UINT64_C(16)*1024U*1024U*1024U)
+
 void convert_efi_path(char16_t *path) {
         assert(path);
 
@@ -107,7 +110,7 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
 EFI_STATUS file_read(
                 EFI_FILE *dir,
                 const char16_t *name,
-                uint64_t off,
+                uint64_t offset,
                 size_t size,
                 char **ret,
                 size_t *ret_size) {
@@ -131,14 +134,17 @@ EFI_STATUS file_read(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                if (info->FileSize > SIZE_MAX)
+                if (info->FileSize > SIZE_MAX) /* overflow check */
                         return EFI_BAD_BUFFER_SIZE;
 
                 size = info->FileSize;
         }
 
-        if (off > 0) {
-                err = handle->SetPosition(handle, off);
+        if (size > FILE_READ_MAX) /* make sure we don't read unbounded data into RAM */
+                return EFI_BAD_BUFFER_SIZE;
+
+        if (offset > 0) {
+                err = handle->SetPosition(handle, offset);
                 if (err != EFI_SUCCESS)
                         return err;
         }

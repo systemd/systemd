@@ -86,7 +86,7 @@ char16_t *xstr8_to_path(const char *stra);
 char16_t *mangle_stub_cmdline(char16_t *cmdline);
 
 EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, uint64_t off, size_t size, char **content, size_t *content_size);
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, uint64_t offset, size_t size, char **content, size_t *content_size);
 
 static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
