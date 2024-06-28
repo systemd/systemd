@@ -117,7 +117,7 @@ static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
         uint16_t rcode;
 
         if (p->opt)
-                rcode = (uint16_t) (p->opt->ttl >> 24);
+                rcode = (uint16_t) ((p->opt->ttl >> 20) & 0xFF0);
         else
                 rcode = 0;
 
