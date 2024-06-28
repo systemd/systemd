@@ -33,11 +33,7 @@ int read_smbios11_field(unsigned i, size_t max_size, char **ret_data, size_t *re
 
         assert_cc(offsetof(struct dmi_field_header, contents) == 5);
 
-        r = read_virtual_file(
-                        p,
-                        max_size >= SIZE_MAX - offsetof(struct dmi_field_header, contents) ? SIZE_MAX :
-                        sizeof(dmi_field_header) + max_size,
-                        (char**) &data, &size);
+        r = read_full_file_full(AT_FDCWD, p, /* offset = */ 0, max_size, /* flags = */ 0, NULL, (char**) &data, &size);
         if (r < 0)
                 return r;
 
