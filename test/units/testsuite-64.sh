@@ -231,8 +231,8 @@ testcase_nvme_subsystem() {
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_16
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_17
         # Shared namespaces
-        /dev/disk/by-path/pci-*-nvme-16
-        /dev/disk/by-path/pci-*-nvme-17
+        /dev/disk/by-path/*pci*-nvme-16
+        /dev/disk/by-path/*pci*-nvme-17
     )
 
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
