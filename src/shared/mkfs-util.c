@@ -461,6 +461,15 @@ int make_filesystem(
                 if (quiet)
                         stdio_fds[1] = -EBADF;
 
+                if (sector_size > 0) {
+                        if (strv_extend(&argv, "--sectorsize") < 0)
+                                return log_oom();
+
+                        /* mkfs.btrfs expects a sector size of at least 4k bytes. */
+                        if (strv_extendf(&argv, "%"PRIu64, MAX(sector_size, 4 * U64_KB)) < 0)
+                                return log_oom();
+                }
+
         } else if (streq(fstype, "f2fs")) {
                 argv = strv_new(mkfs,
                                 "-g",  /* "default options" */
