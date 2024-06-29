@@ -461,6 +461,14 @@ int make_filesystem(
                 if (quiet)
                         stdio_fds[1] = -EBADF;
 
+                if (sector_size > 0) {
+                        if (strv_extend(&argv, "--sectorsize") < 0)
+                                return log_oom();
+
+                        if (strv_extendf(&argv, "%"PRIu64, sector_size) < 0)
+                                return log_oom();
+                }
+
         } else if (streq(fstype, "f2fs")) {
                 argv = strv_new(mkfs,
                                 "-g",  /* "default options" */
