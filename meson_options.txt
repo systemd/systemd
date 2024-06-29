@@ -12,13 +12,13 @@ option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'], deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : '''sbin is not a symlink to bin''')
+       description : 'sbin is not a symlink to bin')
 option('rootlibdir', type : 'string', deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('rootprefix', type : 'string', deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
 option('link-systemctl-shared', type: 'boolean',
@@ -38,7 +38,7 @@ option('first-boot-full-preset', type: 'boolean', value: false,
 
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
-       description : '''install a static library for libsystemd''')
+       description : 'install a static library for libsystemd')
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
@@ -56,7 +56,7 @@ option('initrd', type : 'boolean',
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
 option('nscd', type : 'boolean',
-       description : 'build support for flushing of the nscd caches')
+       description : 'This option is deprecated and will be removed in a future release')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -234,7 +234,7 @@ option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], deprecated : true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('extra-net-naming-schemes', type : 'string',
        description : 'comma-separated list of extra net.naming_scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
