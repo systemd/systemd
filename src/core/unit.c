@@ -2807,13 +2807,8 @@ int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         new_array[n] = u;
         new_array[n+1] = NULL;
 
-        /* Make sure the hashmap is allocated */
-        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops_free);
-        if (r < 0)
-                return r;
-
         /* Add or replace the old array */
-        r = hashmap_replace(u->manager->watch_pids_more, old_pid ?: pid, new_array);
+        r = hashmap_ensure_replace(&u->manager->watch_pids_more, &pidref_hash_ops_free, old_pid ?: pid, new_array);
         if (r < 0)
                 return r;
 
