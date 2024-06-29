@@ -1695,11 +1695,11 @@ static int apply_one_mount(
                         (void) mkdir_parents(mount_entry_path(m), 0755);
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
-                        if (q < 0) {
-                                if (q != -EEXIST) // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
-                                        log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
-                                                          mount_entry_path(m));
-                        } else
+                        if (q < 0 && q != -EEXIST)
+                                // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
+                                log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
+                                                  mount_entry_path(m));
+                        else
                                 try_again = true;
                 }
 
