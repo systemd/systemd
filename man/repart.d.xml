@@ -793,6 +793,145 @@
   </refsect1>
 
   <refsect1>
+    <title>[ErofsOptions] Section Options</title>
+
+    <para>Filesystem creation may be tweaked when <varname>Format=</varname> in the 
+    <varname>[Partition]</varname> section is set to <literal>erofs</literal>.
+    </para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Takes a boolean or an <replaceable>option</replaceable> string following the 
+        <literal><replaceable>algorithm</replaceable></literal> or
+        <literal><replaceable>algorithm</replaceable>,<replaceable>level</replaceable></literal> format
+        accepted by <command>mkfs.erofs -z <replaceable>option</replaceable></command>. 
+        </para>
+
+        <para>Supported <replaceable>algorithms</replaceable> depend on the underlying 
+        <command>mkfs.erofs</command> version. As of v1.7, supported algorithms are
+        <literal>lz4</literal> (no explicit compression level),
+        <literal>lz4hc</literal> (levels <literal>1</literal> to <literal>12</literal>),
+        <literal>lzma</literal> (levels <literal>0</literal> to <literal>9</literal> in normal mode or
+                                 levels <literal>100</literal> to <literal>109</literal> in extreme mode),
+        and <literal>deflate</literal> for zip compression (used when <varname>Compression=</varname> is 
+        set to <literal>on</literal>). Defaults to <literal>off</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxPhysicalClusterSizeBytes=</varname></term>
+
+        <listitem><para>Configures the maximum physical cluster size used by Erofs.
+        This is equivalent to setting the <literal>-C</literal> command-line option
+        to the same value.
+        This option accepts usual systemd units so that e.g. <literal>65K</literal>
+        will be correctly interpreted.</para>
+
+        <para>Higher values will help with compression ratios (if activated) and
+        sequential read speed at the expense of random read speed. The typical range
+        of values for this option is <literal>4K</literal> to <literal>1M</literal>.
+        Setting this option to <literal>0</literal> uses defaults from 
+        <command>mkfs.erofs</command>. Defaults to <literal>0</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CopyExtendedAttributes=</varname></term>
+
+        <listitem><para>Takes a boolean. Whether or not extended attributes 
+        (i.e. <literal>xattrs</literal>) should be copied from the underlying
+        filesystem. Setting it to <literal>off</literal> might help with compatibility
+        and reproducibility issues. Defaults to <literal>on</literal>.
+        </para>
+
+        <para>WARNING: when set to <literal>off</literal>, this option breaks software
+        that rely on <literal>xattrs</literal> to operate. In particular, SELinux, whose 
+        security model depends on extended attributes for file-level access
+        control (facl). If in doubt, leave this option to <literal>on</literal>, its 
+        default value.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DropTimestamp=</varname></term>
+
+        <listitem><para>Takes a boolean. If set to <literal>on</literal>, all file timestamps
+        will be reset to the Linux epoch. The prime usecase for this is as a prerequisite to
+        generating reproducible images. Defaults to <literal>off</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceUid=</varname></term>
+
+        <listitem><para>Changes the user ownership of all the files contained in the filesystem to
+         the given value. Takes a number between 0 and (2^31) - 1 to be active. Negative numbers
+         deactivate the option and leave file ownership to their existing values. Defaults to 
+         <literal>-1</literal>, i.e. disabled.
+         </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceGid=</varname></term>
+
+        <listitem><para>Changes the group ownership of all the files contained in the filesystem to
+         the given value. Takes the same values as <varname>ForceUid=</varname> and defaults to the
+         same value.
+         </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceUseFragment=</varname></term>
+
+        <listitem><para>Activates the <literal>fragments</literal> extended option.
+        Defaults to <literal>off</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceDeduplicate=</varname></term>
+
+        <listitem><para>Activates the <literal>dedupe</literal> extended option.
+        Note that this option is automatically activated when other options like
+        <varname>ForceUseFragment=</varname> is activated. There is no way to disable
+        that behavior, it is a <command>mkfs.erofs</command> choice.
+        Defaults to <literal>off</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForcePackTail=</varname></term>
+
+        <listitem><para>Activates the <literal>ztailpacking</literal> extended option.
+        Defaults to <literal>off</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
