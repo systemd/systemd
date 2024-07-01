@@ -16,6 +16,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "capability-util.h"
 #include "common-signal.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -603,6 +604,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+                .cgroup_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(m);
@@ -614,6 +616,8 @@ Manager* manager_free(Manager *m) {
 
         if (!m)
                 return NULL;
+
+        sysctl_remove_monitor(m);
 
         free(m->state_file);
 
@@ -690,6 +694,8 @@ int manager_start(Manager *m) {
 
         assert(m);
 
+        sysctl_add_monitor(m);
+        drop_capability(CAP_SYS_ADMIN);
         manager_set_sysctl(m);
 
         r = manager_request_static_address_labels(m);
