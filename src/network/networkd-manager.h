@@ -123,6 +123,11 @@ struct Manager {
         /* sysctl */
         int ip_forwarding[2];
         Hashmap *sysctl_shadow;
+        sd_event_source *sysctl_event_source;
+        struct ring_buffer *sysctl_buffer;
+        struct sysctl_monitor_bpf *sysctl_skel;
+        struct bpf_link *sysctl_link;
+        int cgroup_fd;
 };
 
 int manager_new(Manager **ret, bool test_mode);
