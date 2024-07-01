@@ -405,40 +405,6 @@ EFI_STATUS pe_section_table_from_file(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_file_locate_sections(
-                EFI_FILE *dir,
-                const char16_t *path,
-                const char* const section_names[],
-                PeSectionVector sections[]) {
-
-        _cleanup_free_ PeSectionHeader *section_table = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        size_t n_section_table;
-        EFI_STATUS err;
-
-        assert(dir);
-        assert(path);
-        assert(section_names);
-        assert(sections);
-
-        err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        pe_locate_sections(
-                        section_table,
-                        n_section_table,
-                        section_names,
-                        /* validate_base= */ 0, /* don't validate base */
-                        sections);
-
-        return EFI_SUCCESS;
-}
-
 static const PeSectionHeader* pe_section_table_find_profile_start(
                 const PeSectionHeader *section_table,
                 size_t n_section_table,

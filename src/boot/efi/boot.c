@@ -1872,23 +1872,40 @@ static void generate_boot_entry_titles(Config *config) {
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
-        static const char * const sections[] = {
+        static const char * const section_names[] = {
                 ".sdmagic",
                 NULL
         };
         _cleanup_free_ char *content = NULL;
-        PeSectionVector vector = {};
         EFI_STATUS err;
         size_t read;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &vector);
-        if (err != EFI_SUCCESS || vector.size != sizeof(SD_MAGIC))
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = root_dir->Open(root_dir, &handle, (char16_t *) loader_path, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
                 return false;
 
-        err = file_read(root_dir, loader_path, vector.file_offset, vector.size, &content, &read);
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
+        size_t n_section_table;
+        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return false;
+
+        PeSectionVector vector = {};
+        pe_locate_profile_sections(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* profile= */ UINT_MAX,
+                        /* validate_base= */ 0,
+                        &vector);
+        if (vector.size != sizeof(SD_MAGIC))
+                return false;
+
+        err = file_handle_read(handle, vector.file_offset, vector.size, &content, &read);
         if (err != EFI_SUCCESS || vector.size != read)
                 return false;
 
@@ -2119,15 +2136,32 @@ static void boot_entry_add_type2(
         assert(dir);
         assert(filename);
 
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = dir->Open(dir, &handle, (char16_t *) filename, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
+                return;
+
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
+        size_t n_section_table;
+        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return;
+
         /* Look for .osrel and .cmdline sections in the .efi binary */
         PeSectionVector sections[_SECTION_MAX] = {};
-        err = pe_file_locate_sections(dir, filename, section_names, sections);
-        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
+        pe_locate_profile_sections(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* profile= */ UINT_MAX,
+                        /* validate_base= */ 0,
+                        sections);
+        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
                 return;
 
         _cleanup_free_ char *content = NULL;
-        err = file_read(dir,
-                        filename,
+        err = file_handle_read(
+                        handle,
                         sections[SECTION_OSREL].file_offset,
                         sections[SECTION_OSREL].size,
                         &content,
@@ -2215,8 +2249,8 @@ static void boot_entry_add_type2(
 
         /* read the embedded cmdline file */
         size_t cmdline_len;
-        err = file_read(dir,
-                        filename,
+        err = file_handle_read(
+                        handle,
                         sections[SECTION_CMDLINE].file_offset,
                         sections[SECTION_CMDLINE].size,
                         &content,
