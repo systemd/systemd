@@ -985,7 +985,7 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         }
 
         /* Set the reachable time for Neighbor Solicitations. */
-        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "base_reachable_time_ms", (uint32_t) msec, NULL);
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "base_reachable_time_ms", (uint32_t) msec, &link->manager->sysctl_shadow);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply neighbor reachable time (%"PRIu64"), ignoring: %m", msec);
 
@@ -1018,7 +1018,7 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         }
 
         /* Set the retransmission time for Neighbor Solicitations. */
-        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec, NULL);
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec, &link->manager->sysctl_shadow);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
 
@@ -1053,7 +1053,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         if (hop_limit <= 0)
                 return 0;
 
-        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit, NULL);
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit, &link->manager->sysctl_shadow);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
 
