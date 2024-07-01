@@ -18,6 +18,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
@@ -6962,6 +6963,7 @@ static int help(void) {
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
+               "     --list-devices       List candidate block devices to operate on\n"
                "\n%3$sVerity:%4$s\n"
                "     --private-key=PATH|URI\n"
                "                          Private key to use when generating verity roothash\n"
@@ -7062,6 +7064,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAKE_DDI,
                 ARG_GENERATE_FSTAB,
                 ARG_GENERATE_CRYPTTAB,
+                ARG_LIST_DEVICES,
         };
 
         static const struct option options[] = {
@@ -7105,6 +7108,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
                 { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
                 { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
+                { "list-devices",         no_argument,       NULL, ARG_LIST_DEVICES         },
                 {}
         };
 
@@ -7495,6 +7499,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                case ARG_LIST_DEVICES:
+                        blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM);
+                        return 0;
 
                 case '?':
                         return -EINVAL;
