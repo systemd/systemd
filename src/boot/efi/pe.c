@@ -261,7 +261,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         size_t addr = vector.memory_offset, size = vector.size;
 
         while (size >= sizeof(LinuxPeCompat1) && addr % alignof(LinuxPeCompat1) == 0) {
-                LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((uint8_t *) dos + addr);
+                const LinuxPeCompat1 *compat = (const LinuxPeCompat1 *) ((const uint8_t *) dos + addr);
 
                 if (compat->type == 0 || compat->size == 0 || compat->size > size)
                         break;
