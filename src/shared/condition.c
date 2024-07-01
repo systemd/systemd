@@ -1008,8 +1008,8 @@ static int condition_test_psi(Condition *c, char **env) {
         const char *p, *value, *pressure_type;
         loadavg_t *current, limit;
         ResourcePressure pressure;
-        int r;
         PressureType preferred_pressure_type = PRESSURE_TYPE_FULL;
+        int r;
 
         assert(c);
         assert(c->parameter);
@@ -1031,7 +1031,7 @@ static int condition_test_psi(Condition *c, char **env) {
         /* If only one parameter is passed, then we look at the global system pressure rather than a specific cgroup. */
         if (r == 1) {
                 /* cpu.pressure 'full' is reported but undefined at system level */
-                if(c->type == CONDITION_CPU_PRESSURE)
+                if (c->type == CONDITION_CPU_PRESSURE)
                         preferred_pressure_type = PRESSURE_TYPE_SOME;
 
                 pressure_path = path_join("/proc/pressure", pressure_type);
