@@ -619,6 +619,8 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
+        sysctl_remove_monitor(m);
+
         free(m->state_file);
 
         HASHMAP_FOREACH(link, m->links_by_index)
@@ -692,6 +694,7 @@ int manager_start(Manager *m) {
 
         assert(m);
 
+        sysctl_add_monitor(m);
         manager_set_sysctl(m);
 
         r = manager_start_speed_meter(m);
