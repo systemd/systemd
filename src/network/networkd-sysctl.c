@@ -5,6 +5,7 @@
 #include <linux/if_arp.h>
 
 #include "af-list.h"
+#include "fd-util.h"
 #include "missing_network.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -13,6 +14,128 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysctl-util.h"
+
+#if HAVE_VMLINUX_H
+
+#include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
+#include "bpf/sysctl_monitor/sysctl-write-event.h"
+
+#define CGROUP_MOUNT_DFLT "/sys/fs/cgroup"
+
+static int open_rootcg(void) {
+        int fd = open(CGROUP_MOUNT_DFLT, O_PATH | O_DIRECTORY | O_CLOEXEC);
+
+        if (fd < 0)
+                log_error_errno(errno, "Failed to open cgroup mount point %s: %m", CGROUP_MOUNT_DFLT);
+
+        return fd;
+}
+
+static int sysct_write_event(void *ctx, void *data, size_t data_sz) {
+        struct sysctl_write_event *we = ASSERT_PTR(data);
+
+        log_warning("'%s' changed sysctl '%s' from '%s' to '%s'", we->comm, we->name, we->current, we->newvalue);
+
+        return 0;
+}
+
+static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct ring_buffer *rb = ASSERT_PTR(userdata);
+        int r;
+
+        r = ring_buffer__poll(rb, 1000);
+        if (r < 0 && errno != EINTR)
+                log_error_errno(errno, "Error polling ring buffer: %m");
+
+        return 0;
+}
+
+void sysctl_add_monitor(Manager *manager) {
+        _cleanup_close_ int cgroup_fd = -EBADF;
+        struct sysctl_monitor_bpf *skel;
+        int prog_fd;
+        int r;
+
+        assert(manager);
+
+        r = dlopen_bpf();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to load BPF library: %m");
+                return;
+        }
+
+        cgroup_fd = open_rootcg();
+        if (cgroup_fd < 0)
+                return;
+
+        skel = sysctl_monitor_bpf__open_and_load();
+        if (!skel) {
+                log_warning_errno(errno, "Failed to load sysctl monitor BPF program: %m");
+                return;
+        }
+
+        r = sysctl_monitor_bpf__attach(skel);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to attach sysctl monitor BPF program: %m");
+                goto out_skel_close;
+        }
+
+        manager->sysctl_buffer = ring_buffer__new(bpf_map__fd(skel->maps.written_sysctls), sysct_write_event, NULL, NULL);
+        if (!manager->sysctl_buffer) {
+                log_warning_errno(errno, "Failed to create ring buffer: %m");
+                goto out_skel_detach;
+        }
+
+        prog_fd = bpf_program__fd(skel->progs.sysctl_monitor);
+        if (prog_fd < 0) {
+                log_warning_errno(prog_fd, "Failed to get sysctl monitor BPF program FD: %m");
+                goto out_rb;
+        }
+
+        if (bpf_prog_attach(prog_fd, cgroup_fd, BPF_CGROUP_SYSCTL, BPF_F_ALLOW_OVERRIDE) < 0) {
+                log_warning_errno(prog_fd, "Failed to attach sysctl monitor BPF program to cgroup: %m");
+                goto out_rb;
+        }
+
+        r = sd_event_add_io(manager->event, &manager->sysctl_event_source,
+                        ring_buffer__epoll_fd(manager->sysctl_buffer), EPOLLIN, on_ringbuf_io, manager->sysctl_buffer);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to watch sysctl event ringbuffer: %m");
+                goto out_detach;
+        }
+
+        return;
+
+out_detach:
+        bpf_prog_detach(cgroup_fd, BPF_CGROUP_SYSCTL);
+
+out_rb:
+        ring_buffer__free(manager->sysctl_buffer);
+
+out_skel_detach:
+        sysctl_monitor_bpf__detach(skel);
+
+out_skel_close:
+        sysctl_monitor_bpf__destroy(skel);
+}
+
+void sysctl_remove_monitor(Manager *manager) {
+        _cleanup_close_ int cgroup_fd = -EBADF;
+
+        assert(manager);
+
+        sd_event_source_disable_unref(manager->sysctl_event_source);
+
+        cgroup_fd = open_rootcg();
+        if (cgroup_fd < 0)
+                return;
+
+        bpf_prog_detach(cgroup_fd, BPF_CGROUP_SYSCTL);
+
+        ring_buffer__free(manager->sysctl_buffer);
+}
+
+#endif
 
 static void manager_set_ip_forwarding(Manager *manager, int family) {
         int r, t;
