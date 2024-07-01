@@ -5903,7 +5903,7 @@ static int context_write_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
 
-        capable = blockdev_partscan_enabled(fdisk_get_devfd(context->fdisk_context));
+        capable = blockdev_partscan_enabled_fd(fdisk_get_devfd(context->fdisk_context));
         if (capable == -ENOTBLK)
                 log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
         else if (capable < 0)

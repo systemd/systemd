@@ -356,8 +356,7 @@ int lock_whole_block_device(dev_t devt, int operation) {
         return TAKE_FD(lock_fd);
 }
 
-int blockdev_partscan_enabled(int fd) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+int blockdev_partscan_enabled(sd_device *dev) {
         unsigned capability;
         int r, ext_range;
 
@@ -408,11 +407,7 @@ int blockdev_partscan_enabled(int fd) {
          * 4) check 'ext_range' sysfs attribute, and if '1' we can conclude partition scanning is disabled,
          * 5) otherwise check 'capability' sysfs attribute for ancient version. */
 
-        assert(fd >= 0);
-
-        r = block_device_new_from_fd(fd, 0, &dev);
-        if (r < 0)
-                return r;
+        assert(dev);
 
         /* For v6.10 or newer. */
         r = device_get_sysattr_bool(dev, "partscan");
@@ -456,6 +451,19 @@ int blockdev_partscan_enabled(int fd) {
 
         /* Otherwise, assume part scanning is on, we have no further checks available. Assume the best. */
         return true;
+}
+
+int blockdev_partscan_enabled_fd(int fd) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = block_device_new_from_fd(fd, 0, &dev);
+        if (r < 0)
+                return r;
+
+        return blockdev_partscan_enabled(dev);
 }
 
 static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
