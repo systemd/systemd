@@ -5,14 +5,177 @@
 #include <linux/if_arp.h>
 
 #include "af-list.h"
+#include "cgroup-util.h"
+#include "fd-util.h"
 #include "missing_network.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
+#include "path-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysctl-util.h"
+
+#if HAVE_VMLINUX_H
+
+#include "bpf-link.h"
+
+#include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
+#include "bpf/sysctl_monitor/sysctl-write-event.h"
+
+static struct sysctl_monitor_bpf *sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
+        sysctl_monitor_bpf__destroy(obj);
+        return NULL;
+}
+
+static struct ring_buffer *rb_free(struct ring_buffer *rb) {
+        sym_ring_buffer__free(rb);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct sysctl_monitor_bpf *, sysctl_monitor_bpf_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct ring_buffer *, rb_free);
+
+static int sysct_write_event(void *ctx, void *data, size_t data_sz) {
+        struct sysctl_write_event *we = ASSERT_PTR(data);
+        Hashmap **sysctl_shadow = ASSERT_PTR(ctx);
+        _cleanup_free_ char *path = NULL;
+        char *value;
+
+        /* Ignore our own writes */
+        if (we->pid == getpid())
+                return 0;
+
+        path = path_join("/proc/sys", we->name);
+        if (!path)
+                return log_oom();
+
+        /* If we never managed this handle, ignore it. */
+        value = hashmap_get(*sysctl_shadow, path);
+        if (!value)
+                return 0;
+
+        if (!streq(value, we->newvalue))
+                log_warning("'%s' changed sysctl '%s' from '%s' to '%s', we want '%s'", we->comm, we->name, we->current, we->newvalue, value);
+
+        return 0;
+}
+
+static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct ring_buffer *rb = ASSERT_PTR(userdata);
+        int r;
+
+        r = sym_ring_buffer__poll(rb, 1000);
+        if (r < 0 && errno != EINTR)
+                log_error_errno(errno, "Error polling ring buffer: %m");
+
+        return 0;
+}
+
+int sysctl_add_monitor(Manager *manager) {
+        _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
+        _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
+        _cleanup_(rb_freep) struct ring_buffer *sysctl_buffer = NULL;
+        _cleanup_close_ int cgroup_fd = -EBADF;
+        int r;
+
+        assert(manager);
+
+        r = dlopen_bpf();
+        if (r < 0)
+                return log_info_errno(r, "sysctl monitor disabled, as BPF support is not available.");
+
+        cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        if (cgroup_fd < 0)
+                return log_warning_errno(cgroup_fd, "Failed to open cgroup: %m");
+
+        obj = sysctl_monitor_bpf__open_and_load();
+        if (!obj)
+                return log_warning_errno(errno, "Failed to load sysctl monitor BPF program: %m");
+
+        sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, cgroup_fd);
+        r = bpf_get_error_translated(sysctl_link);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to attach sysctl monitor BPF program to cgroup: %m");
+
+        sysctl_buffer = sym_ring_buffer__new(
+                        sym_bpf_map__fd(obj->maps.written_sysctls),
+                        sysct_write_event, &manager->sysctl_shadow, NULL);
+        if (!sysctl_buffer)
+                return log_warning_errno(errno, "Failed to create ring buffer: %m");
+
+        r = sd_event_add_io(manager->event, &manager->sysctl_event_source,
+                        sym_ring_buffer__epoll_fd(sysctl_buffer), EPOLLIN, on_ringbuf_io, sysctl_buffer);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to watch sysctl event ringbuffer: %m");
+
+        manager->sysctl_link = TAKE_PTR(sysctl_link);
+        manager->sysctl_skel = TAKE_PTR(obj);
+        manager->sysctl_buffer = TAKE_PTR(sysctl_buffer);
+
+        return 0;
+}
+
+int sysctl_remove_monitor(Manager *manager) {
+        _cleanup_close_ int cgroup_fd = -EBADF;
+        int r;
+
+        assert(manager);
+
+        r = dlopen_bpf();
+        if (r < 0)
+                return r;
+
+        cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        if (cgroup_fd < 0)
+                return r;
+
+        sym_bpf_prog_detach(cgroup_fd, BPF_CGROUP_SYSCTL);
+
+        if (manager->sysctl_event_source)
+                manager->sysctl_event_source = sd_event_source_disable_unref(manager->sysctl_event_source);
+
+        if (manager->sysctl_buffer) {
+                sym_ring_buffer__free(manager->sysctl_buffer);
+                manager->sysctl_buffer = NULL;
+        }
+
+        if (manager->sysctl_link) {
+                bpf_link_free(manager->sysctl_link);
+                manager->sysctl_link = NULL;
+        }
+
+        if (manager->sysctl_skel) {
+                sysctl_monitor_bpf__destroy(manager->sysctl_skel);
+                manager->sysctl_skel = NULL;
+        }
+
+        return 0;
+}
+
+int sysctl_clear_link_shadows(Link *link) {
+        _cleanup_free_ char *ipv4 = NULL, *ipv6 = NULL;
+        char *key = NULL, *value = NULL;
+
+        ipv4 = path_join("/proc/sys/net/ipv4/conf", link->ifname);
+        if (!ipv4)
+                return log_oom();
+
+        ipv6 = path_join("/proc/sys/net/ipv6/conf", link->ifname);
+        if (!ipv6)
+                return log_oom();
+
+        HASHMAP_FOREACH_KEY(value, key, link->manager->sysctl_shadow)
+                if (path_startswith(key, ipv4) || path_startswith(key, ipv6)) {
+                        hashmap_remove(link->manager->sysctl_shadow, key);
+                        free(key);
+                        free(value);
+                }
+
+        return 0;
+}
+#endif
 
 static void manager_set_ip_forwarding(Manager *manager, int family) {
         int r, t;
