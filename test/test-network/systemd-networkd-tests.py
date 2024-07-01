@@ -7788,6 +7788,37 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network.d/ipv6-mtu-1550.conf')
         self.check_mtu('1600', '1550', reset=False)
 
+class NetworkdSysctlTest(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
+    def check_sysctl_watch(self):
+        copy_network_unit('12-dummy.network', '12-dummy.netdev', '12-dummy.link')
+        start_networkd()
+
+        self.wait_online('dummy98:routable')
+
+        # Change managed sysctls
+        call('sysctl -w net.ipv6.conf.dummy98.accept_ra=1')
+        call('sysctl -w net.ipv6.conf.dummy98.mtu=1360')
+        call('sysctl -w net.ipv4.conf.dummy98.promote_secondaries=0')
+        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
+
+        # And unmanaged ones
+        call('sysctl -w net.ipv6.conf.dummy98.hop_limit=4')
+        call('sysctl -w net.ipv6.conf.dummy98.max_addresses=10')
+
+        log=read_networkd_log()
+        self.assertIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/accept_ra' from '0' to '1', we want '0'", log)
+        self.assertIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/mtu' from '1550' to '1360', we want '1550'", log)
+        self.assertIn("'sysctl' changed sysctl 'net/ipv4/conf/dummy98/promote_secondaries' from '1' to '0', we want '1'", log)
+        self.assertIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', we want '0'", log)
+        self.assertNotIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/hop_limit'", log)
+        self.assertNotIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/max_addresses'", log)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
