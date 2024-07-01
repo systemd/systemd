@@ -149,7 +149,7 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                  * into the block device. Let's hence verify if things work correctly here
                  * before returning. */
 
-                r = blockdev_partscan_enabled(fd);
+                r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
                 if (r == 0) {
