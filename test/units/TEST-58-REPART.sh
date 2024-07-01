@@ -1308,6 +1308,10 @@ testcase_urandom() {
     [[ "$(sfdisk -q -l "$image" | grep -c "$image")" -eq 1 ]]
 }
 
+testcase_list_devices() {
+    systemd-repart --list-devices
+}
+
 OFFLINE="yes"
 run_testcases
 
