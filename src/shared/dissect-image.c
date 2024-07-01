@@ -893,7 +893,7 @@ static int dissect_image(
         if (FLAGS_SET(flags, DISSECT_IMAGE_ADD_PARTITION_DEVICES)) {
                 /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
                  * do partition scanning. */
-                r = blockdev_partscan_enabled(fd);
+                r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
                 if (r == 0)

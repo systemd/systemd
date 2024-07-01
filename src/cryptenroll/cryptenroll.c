@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 
 #include "ask-password-api.h"
+#include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "cryptenroll-fido2.h"
@@ -179,6 +180,7 @@ static int help(void) {
                "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
+               "     --list-devices    List candidate block devices to operate on\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
                "\n%3$sUnlocking:%4$s\n"
@@ -266,6 +268,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
+                ARG_LIST_DEVICES,
         };
 
         static const struct option options[] = {
@@ -294,6 +297,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-pcrlock",                  required_argument, NULL, ARG_TPM2_PCRLOCK               },
                 { "tpm2-with-pin",                 required_argument, NULL, ARG_TPM2_WITH_PIN              },
                 { "wipe-slot",                     required_argument, NULL, ARG_WIPE_SLOT                  },
+                { "list-devices",                  no_argument,       NULL, ARG_LIST_DEVICES               },
                 {}
         };
 
@@ -621,6 +625,10 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
+
+                case ARG_LIST_DEVICES:
+                        blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS);
+                        return 0;
 
                 case '?':
                         return -EINVAL;
