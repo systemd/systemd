@@ -2109,15 +2109,26 @@ static void boot_entry_add_type2(
         assert(dir);
         assert(filename);
 
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = dir->Open(dir, &handle, (char16_t *) filename, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
+                return;
+
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
+        size_t n_section_table;
+        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return;
+
         /* Look for .osrel and .cmdline sections in the .efi binary */
         PeSectionVector sections[_SECTION_MAX] = {};
-        err = pe_file_locate_sections(dir, filename, section_names, sections);
-        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
+        pe_locate_sections(section_table, n_section_table, section_names, /* validate_base= */ 0, sections);
+        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
                 return;
 
         _cleanup_free_ char *content = NULL;
-        err = file_read(dir,
-                        filename,
+        err = file_handle_read(
+                        handle,
                         sections[SECTION_OSREL].file_offset,
                         sections[SECTION_OSREL].size,
                         &content,
@@ -2205,8 +2216,8 @@ static void boot_entry_add_type2(
 
         /* read the embedded cmdline file */
         size_t cmdline_len;
-        err = file_read(dir,
-                        filename,
+        err = file_handle_read(
+                        handle,
                         sections[SECTION_CMDLINE].file_offset,
                         sections[SECTION_CMDLINE].size,
                         &content,
