@@ -7785,6 +7785,27 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network.d/ipv6-mtu-1550.conf')
         self.check_mtu('1600', '1550', reset=False)
 
+class NetworkdSysctlTest(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
+    def check_sysctl_watch(self):
+        copy_network_unit('12-dummy.network', '12-dummy.netdev', '12-dummy.link')
+        start_networkd()
+
+        self.wait_online('dummy98:routable')
+        call('sysctl -w net.ipv6.conf.dummy98.mtu=1360')
+        call('sysctl -w net.ipv6.conf.dummy98.accept_ra=1')
+        call('bash -c "echo 1 > /proc/sys/net/ipv6/conf/dummy98/proxy_ndp"')
+
+        log=read_networkd_log()
+        self.assertIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/mtu' from '1550' to '1360'", log)
+        self.assertIn("'sysctl' changed sysctl 'net/ipv6/conf/dummy98/accept_ra' from '0' to '1'", log)
+        self.assertIn("'bash' changed sysctl 'net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1'", log)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
