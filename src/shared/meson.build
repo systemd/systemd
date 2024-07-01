@@ -12,6 +12,7 @@ shared_sources = files(
         'battery-util.c',
         'binfmt-util.c',
         'bitmap.c',
+        'blockdev-list.c',
         'blockdev-util.c',
         'bond-util.c',
         'boot-entry.c',
