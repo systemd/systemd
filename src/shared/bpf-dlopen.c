@@ -39,6 +39,7 @@ DLSYM_PROTOTYPE(bpf_object__name) = NULL;
 DLSYM_PROTOTYPE(bpf_object__open_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__pin_maps) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
+DLSYM_PROTOTYPE(bpf_prog_detach) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
@@ -163,6 +164,7 @@ int dlopen_bpf(void) {
                         DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
+                        DLSYM_ARG(bpf_prog_detach),
                         DLSYM_ARG(bpf_program__name),
                         DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),

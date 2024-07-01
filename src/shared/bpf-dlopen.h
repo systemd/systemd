@@ -32,6 +32,7 @@ extern DLSYM_PROTOTYPE(bpf_object__name);
 extern DLSYM_PROTOTYPE(bpf_object__open_skeleton);
 extern DLSYM_PROTOTYPE(bpf_object__pin_maps);
 extern DLSYM_PROTOTYPE(bpf_program__attach);
+extern DLSYM_PROTOTYPE(bpf_prog_detach);
 extern DLSYM_PROTOTYPE(bpf_program__attach_cgroup);
 extern DLSYM_PROTOTYPE(bpf_program__attach_lsm);
 extern DLSYM_PROTOTYPE(bpf_program__name);
