@@ -1111,8 +1111,8 @@ static bool menu_run(
                 if (config->console_mode_efivar == CONSOLE_MODE_KEEP)
                         efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", EFI_VARIABLE_NON_VOLATILE);
                 else
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
-                                               config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
+                                                config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 
         if (timeout_efivar_saved != config->timeout_sec_efivar) {
@@ -1130,8 +1130,8 @@ static bool menu_run(
                         break;
                 default:
                         assert(config->timeout_sec_efivar < UINT32_MAX);
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
-                                               config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
                 }
         }
 
@@ -1554,7 +1554,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
-        size_t content_size, value = 0;  /* avoid false maybe-uninitialized warning */
+        size_t content_size;
         EFI_STATUS err;
 
         assert(root_dir);
@@ -1603,8 +1603,9 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         } else if (err != EFI_NOT_FOUND)
                 log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
 
-        err = efivar_get_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
-        if (err == EFI_SUCCESS)
+        uint64_t value;
+        err = efivar_get_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
+        if (err == EFI_SUCCESS && value <= INT64_MAX)
                 config->console_mode_efivar = value;
 
         err = efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", &config->entry_oneshot);

@@ -21,11 +21,11 @@ EFI_STATUS efivar_set_str16(const EFI_GUID *vendor, const char16_t *name, const 
         return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t i, uint32_t flags) {
+EFI_STATUS efivar_set_uint64_str16(const EFI_GUID *vendor, const char16_t *name, uint64_t i, uint32_t flags) {
         assert(vendor);
         assert(name);
 
-        _cleanup_free_ char16_t *str = xasprintf("%zu", i);
+        _cleanup_free_ char16_t *str = xasprintf("%" PRIu64, i);
         return efivar_set_str16(vendor, name, str, flags);
 }
 
@@ -112,19 +112,19 @@ EFI_STATUS efivar_get_str16(const EFI_GUID *vendor, const char16_t *name, char16
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t *ret) {
-        _cleanup_free_ char16_t *val = NULL;
+EFI_STATUS efivar_get_uint64_str16(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
         EFI_STATUS err;
-        uint64_t u;
 
         assert(vendor);
         assert(name);
 
+        _cleanup_free_ char16_t *val = NULL;
         err = efivar_get_str16(vendor, name, &val);
         if (err != EFI_SUCCESS)
                 return err;
 
-        if (!parse_number16(val, &u, NULL) || u > SIZE_MAX)
+        uint64_t u;
+        if (!parse_number16(val, &u, NULL))
                 return EFI_INVALID_PARAMETER;
 
         if (ret)
