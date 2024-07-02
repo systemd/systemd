@@ -92,7 +92,7 @@
         search paths (see below). To reference a file in the current working directory prefix the filename with
         <literal>./</literal> to avoid this search path logic.</para>
 
-        <para>When a portable service is attached four operations are executed:</para>
+        <para>When a portable service is attached five operations are executed:</para>
 
         <orderedlist>
 
@@ -117,6 +117,11 @@
           <listitem><para>If the portable service image file is not already in the search path (see below), a symbolic
           link to it is created in <filename>/etc/portables/</filename> or
           <filename>/run/portables/</filename>, to make sure it is included in it.</para></listitem>
+
+          <listitem><para>Configuration files contained in <filename>/usr/share/polkit-1/actions/</filename>,
+          <filename>/usr/share/dbus-1/system-services/</filename>, and <filename>/usr/share/dbus-1/system.d/</filename>
+          that match the indicated prefix are extracted and copied to the respective directories in
+          <filename>/etc/</filename>, and their respective services are reloaded.</para></listitem>
         </orderedlist>
 
         <para>By default all unit files whose names start with a prefix generated from the image's file name are copied
