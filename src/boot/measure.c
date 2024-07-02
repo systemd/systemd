@@ -1017,14 +1017,6 @@ static int validate_stub(void) {
         if (r < 0)
                 return r;
 
-        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_CONFIG, EFI_LOADER_VARIABLE(StubPcrKernelParameters), "kernel parameters");
-        if (r < 0)
-                return r;
-
-        r = compare_reported_pcr_nr(TPM2_PCR_SYSEXTS, EFI_LOADER_VARIABLE(StubPcrInitRDSysExts), "initrd system extension images");
-        if (r < 0)
-                return r;
-
         STRV_FOREACH(bank, arg_banks) {
                 _cleanup_free_ char *b = NULL, *p = NULL;
 
@@ -1049,12 +1041,6 @@ static int validate_stub(void) {
 }
 
 static int verb_status(int argc, char *argv[], void *userdata) {
-        static const uint32_t relevant_pcrs[] = {
-                TPM2_PCR_KERNEL_BOOT,
-                TPM2_PCR_KERNEL_CONFIG,
-                TPM2_PCR_SYSEXTS,
-        };
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -1062,72 +1048,69 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < ELEMENTSOF(relevant_pcrs); i++) {
+        STRV_FOREACH(bank, arg_banks) {
+                _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
+                _cleanup_free_ void *h = NULL;
+                size_t l;
 
-                STRV_FOREACH(bank, arg_banks) {
-                        _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
-                        _cleanup_free_ void *h = NULL;
-                        size_t l;
+                b = strdup(*bank);
+                if (!b)
+                        return log_oom();
 
-                        b = strdup(*bank);
-                        if (!b)
+                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
+                        return log_oom();
+
+                r = read_virtual_file(p, 4096, &s, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read '%s': %m", p);
+
+                r = unhexmem(strstrip(s), &h, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+                        _cleanup_free_ char *f = NULL;
+
+                        f = hexmem(h, l);
+                        if (!h)
                                 return log_oom();
 
-                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), relevant_pcrs[i]) < 0)
-                                return log_oom();
-
-                        r = read_virtual_file(p, 4096, &s, NULL);
-                        if (r == -ENOENT)
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read '%s': %m", p);
-
-                        r = unhexmem(strstrip(s), &h, &l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
-
-                        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
-                                _cleanup_free_ char *f = NULL;
-
-                                f = hexmem(h, l);
-                                if (!h)
-                                        return log_oom();
-
-                                if (bank == arg_banks) {
-                                        /* before the first line for each PCR, write a short descriptive text to
-                                         * stderr, and leave the primary content on stdout */
-                                        fflush(stdout);
-                                        fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
-                                                ansi_grey(),
-                                                relevant_pcrs[i],
-                                                tpm2_pcr_index_to_string(relevant_pcrs[i]),
-                                                memeqzero(h, l) ? " (NOT SET!)" : "",
-                                                ansi_normal());
-                                        fflush(stderr);
-                                }
-
-                                printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i], b, f);
-
-                        } else {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
-
-                                r = sd_json_buildo(
-                                                &bv,
-                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(relevant_pcrs[i])),
-                                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(h, l)));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build JSON object: %m");
-
-                                a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
-
-                                r = sd_json_variant_append_array(&a, bv);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
-
-                                r = sd_json_variant_set_field(&v, b, a);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to add bank info to object: %m");
+                        if (bank == arg_banks) {
+                                /* before the first line for each PCR, write a short descriptive text to
+                                 * stderr, and leave the primary content on stdout */
+                                fflush(stdout);
+                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
+                                        ansi_grey(),
+                                        (uint32_t) TPM2_PCR_KERNEL_BOOT,
+                                        tpm2_pcr_index_to_string(TPM2_PCR_KERNEL_BOOT),
+                                        memeqzero(h, l) ? " (NOT SET!)" : "",
+                                        ansi_normal());
+                                fflush(stderr);
                         }
+
+                        printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
+
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
+
+                        r = sd_json_buildo(
+                                        &bv,
+                                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
+                                        SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(h, l)));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
+
+                        r = sd_json_variant_append_array(&a, bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
+
+                        r = sd_json_variant_set_field(&v, b, a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add bank info to object: %m");
                 }
         }
 
