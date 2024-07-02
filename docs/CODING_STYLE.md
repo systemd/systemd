@@ -54,6 +54,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   }
   ```
 
+- Function return types should be seen/written as whole, i.e. write this:
+
+  ```c
+  const char* foo(const char *input);
+  ```
+
+  instead of this:
+
+  ```c
+  const char *foo(const char *input);
+  ```
+
 - Single-line `if` blocks should not be enclosed in `{}`. Write this:
 
   ```c
@@ -182,7 +194,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
   ```c
   static int foobar_frobnicate(
-                  Foobar* object,            /* the associated mutable object */
+                  Foobar *object,            /* the associated mutable object */
                   const char *input,         /* immutable input parameter */
                   char **ret_frobnicated,    /* return parameter on success */
                   unsigned *reterr_line,     /* return parameter on failure */
