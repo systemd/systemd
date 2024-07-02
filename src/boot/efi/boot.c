@@ -7,6 +7,7 @@
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
+#include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
@@ -490,7 +491,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         query_screen_resolution(&screen_width, &screen_height);
 
         secure = secure_boot_mode();
-        (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", &device_part_uuid);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", &device_part_uuid);
 
         printf("  systemd-boot version: " GIT_VERSION "\n");
         if (loaded_image_path)
@@ -1104,14 +1105,14 @@ static bool menu_run(
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
         if (default_efivar_saved != config->idx_default_efivar)
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
+                efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
 
         if (console_mode_efivar_saved != config->console_mode_efivar) {
                 if (config->console_mode_efivar == CONSOLE_MODE_KEEP)
                         efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", EFI_VARIABLE_NON_VOLATILE);
                 else
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
-                                               config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
+                                                config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 
         if (timeout_efivar_saved != config->timeout_sec_efivar) {
@@ -1122,15 +1123,15 @@ static bool menu_run(
                 case TIMEOUT_MENU_DISABLED:
                         assert_not_reached();
                 case TIMEOUT_MENU_FORCE:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
                         break;
                 case TIMEOUT_MENU_HIDDEN:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
                         break;
                 default:
                         assert(config->timeout_sec_efivar < UINT32_MAX);
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
-                                               config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
                 }
         }
 
@@ -1396,7 +1397,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
         new_path = xasprintf("%ls\\%ls", entry->path, entry->next_name);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
+        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
         if (streq16(entry->loader, old_path)) {
@@ -1526,7 +1527,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
         assert(var);
         assert(ret_value);
 
-        err = efivar_get(MAKE_GUID_PTR(LOADER), var, &value);
+        err = efivar_get_str16(MAKE_GUID_PTR(LOADER), var, &value);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -1553,7 +1554,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
-        size_t content_size, value = 0;  /* avoid false maybe-uninitialized warning */
+        size_t content_size;
         EFI_STATUS err;
 
         assert(root_dir);
@@ -1602,16 +1603,17 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         } else if (err != EFI_NOT_FOUND)
                 log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
 
-        err = efivar_get_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
-        if (err == EFI_SUCCESS)
+        uint64_t value;
+        err = efivar_get_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
+        if (err == EFI_SUCCESS && value <= INT64_MAX)
                 config->console_mode_efivar = value;
 
-        err = efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", &config->entry_oneshot);
+        err = efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", &config->entry_oneshot);
         if (err == EFI_SUCCESS)
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", EFI_VARIABLE_NON_VOLATILE);
 
-        (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
 
         strtolower16(config->entry_default_config);
         strtolower16(config->entry_default_efivar);
@@ -1621,7 +1623,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         config->use_saved_entry = streq16(config->entry_default_config, u"@saved");
         config->use_saved_entry_efivar = streq16(config->entry_default_efivar, u"@saved");
         if (config->use_saved_entry || config->use_saved_entry_efivar)
-                (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
+                (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
 static void config_load_type1_entries(
@@ -2014,7 +2016,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (char **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (void**) &boot_order, &boot_order_size);
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
@@ -2023,7 +2025,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 size_t buf_size;
 
                 _cleanup_free_ char16_t *name = xasprintf("Boot%04x", boot_order[i]);
-                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, &buf, &buf_size);
+                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, (void**) &buf, &buf_size);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2472,7 +2474,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(entry->loader || !entry->call);
 
         /* Always export the selected boot entry to the system in a volatile var. */
-        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
 
         /* Do not save or delete if this was a oneshot boot. */
         if (streq16(config->entry_oneshot, entry->id))
@@ -2483,7 +2485,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 if (streq16(config->entry_saved, entry->id))
                         return;
 
-                (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
+                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
         } else
                 /* Delete the non-volatile var if not needed. */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", EFI_VARIABLE_NON_VOLATILE);
@@ -2563,7 +2565,7 @@ static void export_loader_variables(
         assert(loaded_image);
 
         (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
-        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
 }
 
