@@ -1693,8 +1693,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Reboot is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Reboot is only supported by system manager.");
 
         m->objective = MANAGER_REBOOT;
 
@@ -1751,8 +1751,8 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Powering off is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Powering off is only supported by system manager.");
 
         m->objective = MANAGER_POWEROFF;
 
@@ -1770,8 +1770,8 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Halt is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Halt is only supported by system manager.");
 
         m->objective = MANAGER_HALT;
 
@@ -1789,8 +1789,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "KExec is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "KExec is only supported by system manager.");
 
         m->objective = MANAGER_KEXEC;
 
@@ -1814,8 +1814,8 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Root switching is only supported by system manager.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
         if (r < 0)
@@ -1827,8 +1827,8 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                 root = "/sysroot";
         else {
                 if (!path_is_valid(root))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "New root directory must be a valid path.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "New root directory must be a valid path.");
 
                 if (!path_is_absolute(root))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
@@ -1840,14 +1840,14 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                                                        "Failed to check if new root directory '%s' is the same as old root: %m",
                                                        root);
                 if (r > 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "New root directory cannot be the old root directory.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "New root directory cannot be the old root directory.");
         }
 
         /* Safety check */
         if (!in_initrd())
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Not in initrd, refusing switch-root operation.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Not in initrd, refusing switch-root operation.");
 
         r = path_is_os_tree(root);
         if (r < 0)
