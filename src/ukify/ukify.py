@@ -1267,10 +1267,31 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        type = pathlib.Path,
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
         '--linux',
         type = pathlib.Path,
         help = 'vmlinuz file [.linux section]',
         config_key = 'UKI/Linux',
+    ),
+
+    ConfigItem(
+        '--os-release',
+        metavar = 'TEXT|@PATH',
+        help = 'path to os-release file [.osrel section]',
+        config_key = 'UKI/OSRelease',
+    ),
+
+    ConfigItem(
+        '--cmdline',
+        metavar = 'TEXT|@PATH',
+        help = 'kernel command line [.cmdline section]',
+        config_key = 'UKI/Cmdline',
     ),
 
     ConfigItem(
@@ -1292,24 +1313,11 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        ('--config', '-c'),
-        metavar = 'PATH',
+        '--splash',
+        metavar = 'BMP',
         type = pathlib.Path,
-        help = 'configuration file',
-    ),
-
-    ConfigItem(
-        '--cmdline',
-        metavar = 'TEXT|@PATH',
-        help = 'kernel command line [.cmdline section]',
-        config_key = 'UKI/Cmdline',
-    ),
-
-    ConfigItem(
-        '--os-release',
-        metavar = 'TEXT|@PATH',
-        help = 'path to os-release file [.osrel section]',
-        config_key = 'UKI/OSRelease',
+        help = 'splash image bitmap file [.splash section]',
+        config_key = 'UKI/Splash',
     ),
 
     ConfigItem(
@@ -1319,20 +1327,7 @@ CONFIG_ITEMS = [
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
     ),
-    ConfigItem(
-        '--splash',
-        metavar = 'BMP',
-        type = pathlib.Path,
-        help = 'splash image bitmap file [.splash section]',
-        config_key = 'UKI/Splash',
-    ),
-    ConfigItem(
-        '--pcrpkey',
-        metavar = 'KEY',
-        type = pathlib.Path,
-        help = 'embedded public key to seal secrets to [.pcrpkey section]',
-        config_key = 'UKI/PCRPKey',
-    ),
+
     ConfigItem(
         '--uname',
         metavar='VERSION',
@@ -1341,10 +1336,36 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        '--sbat',
+        metavar = 'TEXT|@PATH',
+        help = 'SBAT policy [.sbat section]',
+        default = [],
+        action = 'append',
+        config_key = 'UKI/SBAT',
+    ),
+
+    ConfigItem(
+        '--pcrpkey',
+        metavar = 'KEY',
+        type = pathlib.Path,
+        help = 'embedded public key to seal secrets to [.pcrpkey section]',
+        config_key = 'UKI/PCRPKey',
+    ),
+
+    ConfigItem(
         '--profile',
         metavar='TEST|@PATH',
         help='Profile information [.profile section]',
         config_key = 'UKI/Uname',
+    ),
+
+    ConfigItem(
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TEXT|@PATH',
+        action = 'append',
+        default = [],
+        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1360,24 +1381,6 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
-    ),
-
-    ConfigItem(
-        '--sbat',
-        metavar = 'TEXT|@PATH',
-        help = 'SBAT policy [.sbat section]',
-        default = [],
-        action = 'append',
-        config_key = 'UKI/SBAT',
-    ),
-
-    ConfigItem(
-        '--section',
-        dest = 'sections',
-        metavar = 'NAME:TEXT|@PATH',
-        action = 'append',
-        default = [],
-        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
