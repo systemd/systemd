@@ -120,9 +120,15 @@ node /org/freedesktop/sysupdate1/target/host {
              out s new_version,
              out u job_id,
              out o job_path);
-      Vacuum(out u count);
+      Vacuum(out u instances,
+             out u disabled_transfers);
       GetAppStream(out as appstream);
       GetVersion(out s version);
+      ListFeatures(out as features);
+      DescribeFeature(in  s feature,
+                      out s json);
+      SetFeatureEnabled(in  s feature,
+                        in  b enabled);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
@@ -156,6 +162,12 @@ node /org/freedesktop/sysupdate1/target/host {
     <variablelist class="dbus-method" generated="True" extra-ref="GetAppStream()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetVersion()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListFeatures()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DescribeFeature()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetFeatureEnabled()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
 
@@ -217,6 +229,38 @@ node /org/freedesktop/sysupdate1/target/host {
       <para><function>GetVersion()</function> returns the current version of this target, if any. If the
       target has no current version, the function will return an empty string.</para>
 
+      <para><function>ListFeatures()</function> returns a list of this target's optional features, by ID.
+      If the target has no optional features, the method returns an empty array.</para>
+
+      <para><function>DescribeFeature()</function> returns all known information about a given optional
+      feature.
+      This method returns a JSON object with the following known keys:
+      <literal>name</literal> is a string that contains the feature's name,
+      <literal>description</literal> is a string that contains a user-presentable description that identifies
+      this feature,
+      <literal>enabled</literal> is a boolean that indicates whether or not this feature is enabled,
+      <literal>documentation_url</literal> is a string that contains a user-presentable HTTP/HTTPS URL to
+      documentation about this feature,
+      <literal>appstream_url</literal> is a string that contains an HTTP/HTTPS URL to an
+      <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream catalog</ulink>
+      XML file containing reach metadata about this feature,
+      and <literal>transfers</literal> is an array of strings that list which transfer definitions belong to
+      this feature.
+      Only <literal>name</literal> and <literal>enabled</literal> are guaranteed to be present; all other
+      keys are optional.</para>
+
+      <para><function>SetFeatureEnabled()</function> writes an appropriate drop-in file to enable or disable
+      the specified optional feature.
+      The feature does not have to exist; this allows for graceful handling of masked features, and for
+      preemptive decisions to be made about features that are planned to appear in future releases of the OS.
+      The drop-in will have a filename of <literal>50-systemd-sysupdate-enabled.conf</literal>.
+      This method only changes configuration files; to actually apply the changes, clients will need to
+      call <function>Update()</function>.
+      Depending on the exact needs of the client, it can choose to update the system to the latest available
+      version, or it can extend the newest existing installation in-place (by passing in the version returned
+      by <varname>GetVersion()</varname>).
+      For now, this method only works with the <literal>host</literal> target.</para>
+
     </refsect2>
 
     <refsect2>
@@ -270,6 +314,13 @@ node /org/freedesktop/sysupdate1/target/host {
       <para><function>Vacuum()</function> uses the polkit action
       <interfacename>org.freedesktop.sysupdate1.vacuum</interfacename>. By default, this action requires
       administrator authentication.</para>
+
+      <!-- TODO: When Tom documents that GetAppstream() and GetVersion() don't do any auth checks, we can
+                 add ListFeatures() and DescribeFeature(). -->
+
+      <para><function>SetFeatureEnabled()</function> uses the polkit action
+      <interfacename>org.freedesktop.sysupdate1.manage-features</interfacename>. By default, this action
+      requires administrator authentication.</para>
 
       <para>All methods called on this interface expose additional variables to the polkit rules.
       <literal>class</literal> contains the class of the Target being acted upon, and <literal>name</literal>
@@ -345,9 +396,9 @@ node /org/freedesktop/sysupdate1/job/_1 {
 
       <para>The <varname>Id</varname> property exposes the numeric job ID of the job object.</para>
 
-      <para>The <varname>Type</varname> property exposes the type of operation (one of: <literal>list</literal>,
-      <literal>describe</literal>, <literal>check-new</literal>, <literal>update</literal>, or <literal>vacuum</literal>).
-      </para>
+      <para>The <varname>Type</varname> property exposes the type of operation (one of:
+      <literal>list</literal>, <literal>describe</literal>, <literal>check-new</literal>,
+      <literal>update</literal>, <literal>vacuum</literal>, or <literal>describe-feature</literal>).</para>
 
       <para>The <varname>Offline</varname> property exposes whether the job is permitted to access
       the network or not.</para>
@@ -417,6 +468,9 @@ node /org/freedesktop/sysupdate1/job/_1 {
       <function>Vacuum()</function>,
       <function>GetAppStream()</function>,
       <function>GetVersion()</function>,
+      <function>ListFeatures()</function>,
+      <function>DescribeFeature()</function>,
+      <function>SetFeatureEnabled()</function>,
       <varname>Class</varname>,
       <varname>Name</varname>, and
       <varname>Path</varname> were added in version 257.</para>
