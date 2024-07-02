@@ -56,7 +56,7 @@ static EFI_STATUS acquire_system_token(void **ret, size_t *ret_size) {
         assert(ret);
         assert(ret_size);
 
-        err = efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderSystemToken", &data, &size);
+        err = efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderSystemToken", (void**) &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
                         log_error_status(err, "Failed to read LoaderSystemToken EFI variable: %m");
