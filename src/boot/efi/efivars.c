@@ -133,7 +133,7 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
         size_t size;
         EFI_STATUS err;
 
@@ -155,7 +155,7 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, ui
 }
 
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
         size_t size;
         EFI_STATUS err;
 
@@ -202,7 +202,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **r
 }
 
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
-        _cleanup_free_ char *b = NULL;
+        _cleanup_free_ uint8_t *b = NULL;
         size_t size;
         EFI_STATUS err;
 
