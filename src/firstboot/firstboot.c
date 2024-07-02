@@ -215,7 +215,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                 }
 
                 if (streq(p, "list")) {
-                        r = show_menu(l, 3, 22, percentage);
+                        r = show_menu(l, 3, 20, percentage);
                         if (r < 0)
                                 return r;
 
