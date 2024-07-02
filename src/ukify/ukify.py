@@ -1631,7 +1631,7 @@ def finalize_options(opts):
     elif len(opts.positional) == 1 and opts.positional[0] in VERBS:
         opts.verb = opts.positional[0]
     elif opts.linux or opts.initrd:
-        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+        raise ValueError('--linux=/--initrd= options cannot be used with positional arguments')
     else:
         print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
         if opts.positional:
