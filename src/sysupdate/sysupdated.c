@@ -9,6 +9,7 @@
 #include "bus-polkit.h"
 #include "common-signal.h"
 #include "discover-image.h"
+#include "dropin.h"
 #include "env-util.h"
 #include "event-util.h"
 #include "escape.h"
@@ -75,6 +76,7 @@ typedef enum JobType {
         JOB_CHECK_NEW,
         JOB_UPDATE,
         JOB_VACUUM,
+        JOB_DESCRIBE_FEATURE,
         _JOB_TYPE_MAX,
         _JOB_TYPE_INVALID = -EINVAL,
 } JobType;
@@ -93,6 +95,7 @@ struct Job {
         JobType type;
         bool offline;
         char *version; /* Passed into sysupdate for JOB_DESCRIBE and JOB_UPDATE */
+        char *feature; /* Passed into sysupdate for JOB_DESCRIBE_FEATURE */
 
         unsigned progress_percent;
 
@@ -120,11 +123,12 @@ static const char* const target_class_table[_TARGET_CLASS_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
-        [JOB_LIST]      = "list",
-        [JOB_DESCRIBE]  = "describe",
-        [JOB_CHECK_NEW] = "check-new",
-        [JOB_UPDATE]    = "update",
-        [JOB_VACUUM]    = "vacuum",
+        [JOB_LIST]             = "list",
+        [JOB_DESCRIBE]         = "describe",
+        [JOB_CHECK_NEW]        = "check-new",
+        [JOB_UPDATE]           = "update",
+        [JOB_VACUUM]           = "vacuum",
+        [JOB_DESCRIBE_FEATURE] = "describe-feature",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(job_type, JobType);
@@ -138,6 +142,7 @@ static Job *job_free(Job *j) {
 
         free(j->object_path);
         free(j->version);
+        free(j->feature);
 
         sd_json_variant_unref(j->json);
 
@@ -415,8 +420,8 @@ static int job_start(Job *j) {
                         NULL, /* maybe --verify=no */
                         NULL, /* maybe --component=, --root=, or --image= */
                         NULL, /* maybe --offline */
-                        NULL, /* list, check-new, update, vacuum */
-                        NULL, /* maybe version (for list, update) */
+                        NULL, /* list, check-new, update, vacuum, features */
+                        NULL, /* maybe version (for list, update), maybe feature (features) */
                         NULL
                 };
                 size_t k = 2;
@@ -466,6 +471,12 @@ static int job_start(Job *j) {
 
                 case JOB_VACUUM:
                         cmd[k++] = "vacuum";
+                        break;
+
+                case JOB_DESCRIBE_FEATURE:
+                        cmd[k++] = "features";
+                        assert(!isempty(j->feature));
+                        cmd[k++] = j->feature;
                         break;
 
                 default:
@@ -946,6 +957,8 @@ static int target_method_describe_finish(
         _cleanup_free_ char *text = NULL;
         int r;
 
+        /* NOTE: This is also reused by target_method_describe_feature */
+
         assert(json);
 
         r = sd_json_variant_format(json, 0, &text);
@@ -1135,13 +1148,14 @@ static int target_method_vacuum_finish(
                 sd_json_variant *json,
                 sd_bus_error *error) {
 
-        uint64_t instances;
+        uint64_t instances, disabled;
         
         assert(json);
 
         instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "removed"));
-        
-        return sd_bus_reply_method_return(msg, "u", instances);
+        disabled = sd_json_variant_unsigned(sd_json_variant_by_key(json, "disabled_transfers"));
+
+        return sd_bus_reply_method_return(msg, "uu", instances, disabled);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1209,6 +1223,138 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
                 return r;
 
         return sd_bus_send(NULL, reply, NULL);
+}
+
+
+static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_free_ char *target_arg = NULL;
+        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        sd_json_variant *v;
+        int r;
+
+        assert(msg);
+
+        r = target_get_argument(t, &target_arg);
+        if (r < 0)
+                return r;
+
+        r = sysupdate_run_simple(&json, "features", target_arg, NULL);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(json, "features");
+        if (!v)
+                return -EINVAL;
+        r = sd_json_variant_strv(v, &features);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(msg, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, t->appstream);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        Target *t = ASSERT_PTR(userdata);
+        _cleanup_(job_freep) Job *j = NULL;
+        const char *feature;
+        int offline, r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "sb", &feature, &offline);
+        if (r < 0)
+                return r;
+
+        if (isempty(feature))
+                return -EINVAL;
+
+        r = job_new(JOB_DESCRIBE_FEATURE, t, msg, target_method_describe_finish, &j);
+        if (r < 0)
+                return r;
+
+        j->feature = strdup(feature);
+        if (!j->feature)
+                return log_oom();
+
+        j->offline = offline;
+
+        r = job_start(j);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to start job: %m");
+        TAKE_PTR(j); /* Avoid job from being killed & freed */
+
+        return 1;
+}
+
+static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *feature_ext = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        const char *feature;
+        int enabled, r;
+
+        assert(msg);
+
+        if (t->class != TARGET_HOST)
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_NOT_SUPPORTED,
+                                                  "For now, features can only be managed on the host system.");
+
+        r = sd_bus_message_read(msg, "sb", &feature, &enabled);
+        if (r < 0)
+                return r;
+
+        if (!endswith(feature, ".feature")) {
+                feature_ext = strjoin(feature, ".feature");
+                if (!feature_ext)
+                        return -ENOMEM;
+                feature = feature_ext;
+        }
+
+        if (!filename_is_valid(feature))
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_INVALID_ARGS,
+                                                  "The specified feature is invalid");
+
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "feature", feature,
+                "enabled", true_false(enabled),
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                msg,
+                "org.freedesktop.sysupdate1.manage-features",
+                details,
+                &t->manager->polkit_registry,
+                error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        /* We write to a file named 50-systemd-sysupdate-enabled.conf, because it's _very_ unlikely that
+         * a sysadmin would name their own config files that in this context. */
+        r = write_drop_in_format(SYSCONF_DIR "/sysupdate.d", feature, 50, "systemd-sysupdate-enabled",
+                                 "# Generated via org.freedesktop.sysupdate1 D-Bus interface\n\n"
+                                 "[Transfer]\n"
+                                 "Enabled=%s\n",
+                                 true_false(enabled));
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(msg, NULL);
 }
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
@@ -1368,7 +1514,7 @@ static const sd_bus_vtable target_vtable[] = {
 
         SD_BUS_METHOD_WITH_ARGS("Vacuum",
                                 SD_BUS_NO_ARGS,
-                                SD_BUS_RESULT("u", count),
+                                SD_BUS_RESULT("u", instances, "u", disabled_transfers),
                                 target_method_vacuum,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
@@ -1382,6 +1528,24 @@ static const sd_bus_vtable target_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", version),
                                 target_method_get_version,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("ListFeatures",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("as", features),
+                                target_method_list_features,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("DescribeFeature",
+                                SD_BUS_ARGS("s", feature, "b", offline),
+                                SD_BUS_RESULT("s", json),
+                                target_method_describe_feature,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("SetFeatureEnabled",
+                                SD_BUS_ARGS("s", feature, "b", enabled),
+                                SD_BUS_NO_RESULT,
+                                target_method_set_feature_enabled,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END

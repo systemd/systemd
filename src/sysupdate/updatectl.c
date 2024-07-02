@@ -1077,17 +1077,25 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
 
         for (size_t i = 0; i < n; i++) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                uint32_t count;
+                uint32_t count, disabled;
 
                 r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination, target_paths[i], SYSUPDATE_TARGET_INTERFACE, "Vacuum", &error, &reply, NULL);
                 if (r < 0)
                         return log_bus_error(r, &error, targets[i], "call Vacuum");
 
-                r = sd_bus_message_read(reply, "u", &count);
+                r = sd_bus_message_read(reply, "uu", &count, &disabled);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                log_info("Deleted %u instance(s) of %s.\n", count, targets[i]);
+                if (count > 0 && disabled > 0)
+                        log_info("Deleted %u instance(s) and %u disabled transfer(s) of %s.",
+                                 count, disabled, targets[i]);
+                else if (count > 0)
+                        log_info("Deleted %u instance(s) of %s.", count, targets[i]);
+                else if (disabled > 0)
+                        log_info("Deleted %u disabled transfer(s) of %s.", disabled, targets[i]);
+                else
+                        log_info("Found nothing to delete for %s.", targets[i]);
         }
         return 0;
 }
