@@ -7,6 +7,7 @@
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
+#include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
