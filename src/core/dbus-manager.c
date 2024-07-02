@@ -1709,6 +1709,10 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Soft reboot is only supported by system manager.");
+
         r = verify_run_space_permissive("soft reboot may fail", error);
         if (r < 0)
                 return r;
