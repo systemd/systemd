@@ -14,7 +14,7 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const vo
         return RT->SetVariable((char16_t *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
 }
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags) {
+EFI_STATUS efivar_set_str16(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags) {
         assert(vendor);
         assert(name);
 
@@ -26,7 +26,7 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         assert(name);
 
         _cleanup_free_ char16_t *str = xasprintf("%zu", i);
-        return efivar_set(vendor, name, str, flags);
+        return efivar_set_str16(vendor, name, str, flags);
 }
 
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t value, uint32_t flags) {
@@ -76,7 +76,7 @@ EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t f
         return err;
 }
 
-EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
+EFI_STATUS efivar_get_str16(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
         char16_t *val;
@@ -120,7 +120,7 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         assert(vendor);
         assert(name);
 
-        err = efivar_get(vendor, name, &val);
+        err = efivar_get_str16(vendor, name, &val);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -229,7 +229,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
                 return;
 
         _cleanup_free_ char16_t *str = xasprintf("%" PRIu64, usec);
-        efivar_set(vendor, name, str, 0);
+        efivar_set_str16(vendor, name, str, 0);
 }
 
 uint64_t get_os_indications_supported(void) {
