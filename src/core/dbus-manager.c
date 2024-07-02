@@ -1688,13 +1688,13 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(message);
 
-        r = mac_selinux_access_check(message, "reboot", error);
-        if (r < 0)
-                return r;
-
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Reboot is only supported by system manager.");
+
+        r = mac_selinux_access_check(message, "reboot", error);
+        if (r < 0)
+                return r;
 
         m->objective = MANAGER_REBOOT;
 
@@ -1746,13 +1746,13 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
         assert(message);
 
-        r = mac_selinux_access_check(message, "halt", error);
-        if (r < 0)
-                return r;
-
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Powering off is only supported by system manager.");
+
+        r = mac_selinux_access_check(message, "halt", error);
+        if (r < 0)
+                return r;
 
         m->objective = MANAGER_POWEROFF;
 
@@ -1765,13 +1765,13 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 
         assert(message);
 
-        r = mac_selinux_access_check(message, "halt", error);
-        if (r < 0)
-                return r;
-
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Halt is only supported by system manager.");
+
+        r = mac_selinux_access_check(message, "halt", error);
+        if (r < 0)
+                return r;
 
         m->objective = MANAGER_HALT;
 
@@ -1784,13 +1784,13 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
         assert(message);
 
-        r = mac_selinux_access_check(message, "reboot", error);
-        if (r < 0)
-                return r;
-
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "KExec is only supported by system manager.");
+
+        r = mac_selinux_access_check(message, "reboot", error);
+        if (r < 0)
+                return r;
 
         m->objective = MANAGER_KEXEC;
 
@@ -1805,6 +1805,10 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Root switching is only supported by system manager.");
+
         r = verify_run_space_permissive("root switching may fail", error);
         if (r < 0)
                 return r;
@@ -1812,10 +1816,6 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                        "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
         if (r < 0)
