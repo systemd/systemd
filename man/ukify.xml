@@ -401,6 +401,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Profile=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--profile=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>A path to a UKI profile to place in an <literal>.profile</literal> section. This
+          option is useful for creating multi-profile UKIs, and is typically used in combination with
+          <option>--extend=</option>, to extend the specified UKI with an additional profile.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>PCRBanks=<replaceable>PATH</replaceable></varname></term>
           <term><option>--pcr-banks=<replaceable>PATH</replaceable></option></term>
 
