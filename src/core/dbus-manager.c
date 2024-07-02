@@ -1553,26 +1553,27 @@ static int verify_run_space_permissive(const char *message, sd_bus_error *error)
 
 static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *comm = NULL;
-        Unit *caller;
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         assert(message);
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
                 return;
 
-        /* We need at least the PID, otherwise there's nothing to log, the rest is optional */
-        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+        /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
+        if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
+
+        const char *comm = NULL;
+        Unit *caller;
 
         (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pid(manager, pid);
+        caller = manager_get_unit_by_pidref(manager, &pidref);
 
         log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                 method, pid,
+                 method, pidref.pid,
                  comm ? " ('" : "", strempty(comm), comm ? "')" : "",
                  caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
