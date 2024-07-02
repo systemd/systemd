@@ -2960,6 +2960,8 @@ inst_recursive() {
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
+            elif [[ -L "$item" ]]; then
+                inst_symlink "$item"
             elif [[ -f "$item" ]]; then
                 inst_simple "$item"
             fi
