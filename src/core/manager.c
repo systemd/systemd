@@ -3086,41 +3086,43 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
         default: {
 
-                /* Starting SIGRTMIN+0 */
-                static const struct {
-                        const char *target;
-                        JobMode mode;
-                } target_table[] = {
-                        [0] = { SPECIAL_DEFAULT_TARGET,     JOB_ISOLATE              },
-                        [1] = { SPECIAL_RESCUE_TARGET,      JOB_ISOLATE              },
-                        [2] = { SPECIAL_EMERGENCY_TARGET,   JOB_ISOLATE              },
-                        [3] = { SPECIAL_HALT_TARGET,        JOB_REPLACE_IRREVERSIBLY },
-                        [4] = { SPECIAL_POWEROFF_TARGET,    JOB_REPLACE_IRREVERSIBLY },
-                        [5] = { SPECIAL_REBOOT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
-                        [6] = { SPECIAL_KEXEC_TARGET,       JOB_REPLACE_IRREVERSIBLY },
-                        [7] = { SPECIAL_SOFT_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY },
-                };
+                if (MANAGER_IS_SYSTEM(m)) {
+                        /* Starting SIGRTMIN+0 */
+                        static const struct {
+                                const char *target;
+                                JobMode mode;
+                        } target_table[] = {
+                                [0] = { SPECIAL_DEFAULT_TARGET,     JOB_ISOLATE              },
+                                [1] = { SPECIAL_RESCUE_TARGET,      JOB_ISOLATE              },
+                                [2] = { SPECIAL_EMERGENCY_TARGET,   JOB_ISOLATE              },
+                                [3] = { SPECIAL_HALT_TARGET,        JOB_REPLACE_IRREVERSIBLY },
+                                [4] = { SPECIAL_POWEROFF_TARGET,    JOB_REPLACE_IRREVERSIBLY },
+                                [5] = { SPECIAL_REBOOT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
+                                [6] = { SPECIAL_KEXEC_TARGET,       JOB_REPLACE_IRREVERSIBLY },
+                                [7] = { SPECIAL_SOFT_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY },
+                        };
 
-                /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
-                static const ManagerObjective objective_table[] = {
-                        [0] = MANAGER_HALT,
-                        [1] = MANAGER_POWEROFF,
-                        [2] = MANAGER_REBOOT,
-                        [3] = MANAGER_KEXEC,
-                        [4] = MANAGER_SOFT_REBOOT,
-                };
+                        /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
+                        static const ManagerObjective objective_table[] = {
+                                [0] = MANAGER_HALT,
+                                [1] = MANAGER_POWEROFF,
+                                [2] = MANAGER_REBOOT,
+                                [3] = MANAGER_KEXEC,
+                                [4] = MANAGER_SOFT_REBOOT,
+                        };
 
-                if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
-                    (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
-                        int idx = (int) sfsi.ssi_signo - SIGRTMIN;
-                        manager_start_special(m, target_table[idx].target, target_table[idx].mode);
-                        break;
-                }
+                        if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
+                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
+                                int idx = (int) sfsi.ssi_signo - SIGRTMIN;
+                                manager_start_special(m, target_table[idx].target, target_table[idx].mode);
+                                break;
+                        }
 
-                if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
-                    (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(objective_table)) {
-                        m->objective = objective_table[sfsi.ssi_signo - SIGRTMIN - 13];
-                        break;
+                        if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
+                            (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(objective_table)) {
+                                m->objective = objective_table[sfsi.ssi_signo - SIGRTMIN - 13];
+                                break;
+                        }
                 }
 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
