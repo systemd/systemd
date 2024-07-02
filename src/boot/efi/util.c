@@ -8,6 +8,9 @@
 #include "util.h"
 #include "version.h"
 
+/* Never try to read more than 16G into memory (and on 32bit 1G) */
+#define FILE_READ_MAX MIN(SIZE_MAX/4, UINT64_C(16)*1024U*1024U*1024U)
+
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags) {
         assert(vendor);
         assert(name);
@@ -265,19 +268,17 @@ static bool shall_be_whitespace(char16_t c) {
 }
 
 char16_t* mangle_stub_cmdline(char16_t *cmdline) {
-        char16_t *p, *q, *e;
-
         if (!cmdline)
                 return cmdline;
 
-        p = q = cmdline;
-
         /* Skip initial whitespace */
-        while (shall_be_whitespace(*p))
+        const char16_t *p = cmdline;
+        while (*p != 0 && shall_be_whitespace(*p))
                 p++;
 
         /* Turn inner control characters into proper spaces */
-        for (e = p; *p != 0; p++) {
+        char16_t *e = cmdline;
+        for (char16_t *q = cmdline; *p != 0; p++) {
                 if (shall_be_whitespace(*p)) {
                         *(q++) = ' ';
                         continue;
@@ -330,25 +331,18 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS file_read(
-                EFI_FILE *dir,
-                const char16_t *name,
-                uint64_t off,
+EFI_STATUS file_handle_read(
+                EFI_FILE *handle,
+                uint64_t offset,
                 size_t size,
                 char **ret,
                 size_t *ret_size) {
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
 
-        assert(dir);
-        assert(name);
+        assert(handle);
         assert(ret);
-
-        err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return err;
 
         if (size == 0) {
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
@@ -357,14 +351,17 @@ EFI_STATUS file_read(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                if (info->FileSize > SIZE_MAX)
+                if (info->FileSize > SIZE_MAX) /* overflow check */
                         return EFI_BAD_BUFFER_SIZE;
 
                 size = info->FileSize;
         }
 
-        if (off > 0) {
-                err = handle->SetPosition(handle, off);
+        if (size > FILE_READ_MAX) /* make sure we don't read unbounded data into RAM */
+                return EFI_BAD_BUFFER_SIZE;
+
+        if (offset > 0) {
+                err = handle->SetPosition(handle, offset);
                 if (err != EFI_SUCCESS)
                         return err;
         }
@@ -385,6 +382,28 @@ EFI_STATUS file_read(
                 *ret_size = size;
 
         return err;
+}
+
+EFI_STATUS file_read(
+                EFI_FILE *dir,
+                const char16_t *name,
+                uint64_t offset,
+                size_t size,
+                char **ret,
+                size_t *ret_size) {
+
+        EFI_STATUS err;
+
+        assert(dir);
+        assert(name);
+        assert(ret);
+
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return file_handle_read(handle, offset, size, ret, ret_size);
 }
 
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {
