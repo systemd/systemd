@@ -3,6 +3,7 @@
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
+#include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"

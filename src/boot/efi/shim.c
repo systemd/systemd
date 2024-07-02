@@ -9,6 +9,7 @@
  */
 
 #include "device-path-util.h"
+#include "efivars.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "util.h"
