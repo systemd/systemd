@@ -130,6 +130,9 @@ Deprecations and removals:
 
 Features:
 
+* initrd: when transitioning from initrd to host, validate that
+  /lib/modules/`uname -r` exists, refuse otherwise
+
 * tmpfiles: add "owning" flag for lines that limits effect of --purge
 
 * signed bpf loading: to address need for signature verification for bpf
