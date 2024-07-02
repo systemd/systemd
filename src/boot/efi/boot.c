@@ -1656,15 +1656,21 @@ static void config_load_type1_entries(
                         continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-
                 if (!endswith_no_case(f->FileName, u".conf"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
-                if (err == EFI_SUCCESS)
-                        boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                err = file_read(entries_dir,
+                                f->FileName,
+                                /* offset= */ 0,
+                                /* size= */ 0,
+                                &content,
+                                /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -2079,6 +2085,139 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
+static void boot_entry_add_type2(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *dir,
+                const uint16_t *filename) {
+
+        enum {
+                SECTION_CMDLINE,
+                SECTION_OSREL,
+                _SECTION_MAX,
+        };
+        static const char * const section_names[_SECTION_MAX + 1] = {
+                [SECTION_CMDLINE] = ".cmdline",
+                [SECTION_OSREL]   = ".osrel",
+                NULL,
+        };
+
+        EFI_STATUS err;
+
+        assert(config);
+        assert(device);
+        assert(dir);
+        assert(filename);
+
+        /* Look for .osrel and .cmdline sections in the .efi binary */
+        PeSectionVector sections[_SECTION_MAX] = {};
+        err = pe_file_locate_sections(dir, filename, section_names, sections);
+        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
+                return;
+
+        _cleanup_free_ char *content = NULL;
+        err = file_read(dir,
+                        filename,
+                        sections[SECTION_OSREL].file_offset,
+                        sections[SECTION_OSREL].size,
+                        &content,
+                        /* ret_size= */ NULL);
+        if (err != EFI_SUCCESS)
+                return;
+
+        _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+        char *line, *key, *value;
+        size_t pos = 0;
+
+        /* read properties from the embedded os-release file */
+        while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                if (streq8(key, "PRETTY_NAME")) {
+                        free(os_pretty_name);
+                        os_pretty_name = xstr8_to_16(value);
+
+                } else if (streq8(key, "IMAGE_ID")) {
+                        free(os_image_id);
+                        os_image_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "NAME")) {
+                        free(os_name);
+                        os_name = xstr8_to_16(value);
+
+                } else if (streq8(key, "ID")) {
+                        free(os_id);
+                        os_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "IMAGE_VERSION")) {
+                        free(os_image_version);
+                        os_image_version = xstr8_to_16(value);
+
+                } else if (streq8(key, "VERSION")) {
+                        free(os_version);
+                        os_version = xstr8_to_16(value);
+
+                } else if (streq8(key, "VERSION_ID")) {
+                        free(os_version_id);
+                        os_version_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "BUILD_ID")) {
+                        free(os_build_id);
+                        os_build_id = xstr8_to_16(value);
+                }
+
+        const char16_t *good_name, *good_version, *good_sort_key;
+        if (!bootspec_pick_name_version_sort_key(
+                            os_pretty_name,
+                            os_image_id,
+                            os_name,
+                            os_id,
+                            os_image_version,
+                            os_version,
+                            os_version_id,
+                            os_build_id,
+                            &good_name,
+                            &good_version,
+                            &good_sort_key))
+                return;
+
+        BootEntry *entry = xnew(BootEntry, 1);
+        *entry = (BootEntry) {
+                .id = xstrdup16(filename),
+                .type = LOADER_UNIFIED_LINUX,
+                .title = xstrdup16(good_name),
+                .version = xstrdup16(good_version),
+                .device = device,
+                .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
+                .sort_key = xstrdup16(good_sort_key),
+                .key = 'l',
+                .tries_done = -1,
+                .tries_left = -1,
+        };
+
+        strtolower16(entry->id);
+        config_add_entry(config, entry);
+        boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
+                return;
+
+        content = mfree(content);
+
+        /* read the embedded cmdline file */
+        size_t cmdline_len;
+        err = file_read(dir,
+                        filename,
+                        sections[SECTION_CMDLINE].file_offset,
+                        sections[SECTION_CMDLINE].size,
+                        &content,
+                        &cmdline_len);
+        if (err == EFI_SUCCESS) {
+                entry->options = xstrn8_to_16(content, cmdline_len);
+                mangle_stub_cmdline(entry->options);
+                entry->options_implied = true;
+        }
+}
+
 static void config_load_type2_entries(
                 Config *config,
                 EFI_HANDLE *device,
@@ -2100,26 +2239,6 @@ static void config_load_type2_entries(
                 return;
 
         for (;;) {
-                enum {
-                        SECTION_CMDLINE,
-                        SECTION_OSREL,
-                        _SECTION_MAX,
-                };
-
-                static const char * const section_names[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = ".cmdline",
-                        [SECTION_OSREL]   = ".osrel",
-                        NULL,
-                };
-
-                _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-                const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_free_ char *content = NULL;
-                PeSectionVector sections[_SECTION_MAX] = {};
-                char *line, *key, *value;
-                size_t pos = 0;
-
                 err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
@@ -2130,108 +2249,10 @@ static void config_load_type2_entries(
                         continue;
                 if (!endswith_no_case(f->FileName, u".efi"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, section_names, sections);
-                if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
-                        continue;
-
-                err = file_read(linux_dir,
-                                f->FileName,
-                                sections[SECTION_OSREL].file_offset,
-                                sections[SECTION_OSREL].size,
-                                &content,
-                                NULL);
-                if (err != EFI_SUCCESS)
-                        continue;
-
-                /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
-                        if (streq8(key, "PRETTY_NAME")) {
-                                free(os_pretty_name);
-                                os_pretty_name = xstr8_to_16(value);
-
-                        } else if (streq8(key, "IMAGE_ID")) {
-                                free(os_image_id);
-                                os_image_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "NAME")) {
-                                free(os_name);
-                                os_name = xstr8_to_16(value);
-
-                        } else if (streq8(key, "ID")) {
-                                free(os_id);
-                                os_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "IMAGE_VERSION")) {
-                                free(os_image_version);
-                                os_image_version = xstr8_to_16(value);
-
-                        } else if (streq8(key, "VERSION")) {
-                                free(os_version);
-                                os_version = xstr8_to_16(value);
-
-                        } else if (streq8(key, "VERSION_ID")) {
-                                free(os_version_id);
-                                os_version_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "BUILD_ID")) {
-                                free(os_build_id);
-                                os_build_id = xstr8_to_16(value);
-                        }
-
-                if (!bootspec_pick_name_version_sort_key(
-                                    os_pretty_name,
-                                    os_image_id,
-                                    os_name,
-                                    os_id,
-                                    os_image_version,
-                                    os_version,
-                                    os_version_id,
-                                    os_build_id,
-                                    &good_name,
-                                    &good_version,
-                                    &good_sort_key))
-                        continue;
-
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(f->FileName),
-                        .type = LOADER_UNIFIED_LINUX,
-                        .title = xstrdup16(good_name),
-                        .version = xstrdup16(good_version),
-                        .device = device,
-                        .loader = xasprintf("\\EFI\\Linux\\%ls", f->FileName),
-                        .sort_key = xstrdup16(good_sort_key),
-                        .key = 'l',
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-
-                strtolower16(entry->id);
-                config_add_entry(config, entry);
-                boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
-
-                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
-                        continue;
-
-                content = mfree(content);
-
-                /* read the embedded cmdline file */
-                size_t cmdline_len;
-                err = file_read(linux_dir,
-                                f->FileName,
-                                sections[SECTION_CMDLINE].file_offset,
-                                sections[SECTION_CMDLINE].size,
-                                &content,
-                                &cmdline_len);
-                if (err == EFI_SUCCESS) {
-                        entry->options = xstrn8_to_16(content, cmdline_len);
-                        mangle_stub_cmdline(entry->options);
-                        entry->options_implied = true;
-                }
+                boot_entry_add_type2(config, device, linux_dir, f->FileName);
         }
 }
 
