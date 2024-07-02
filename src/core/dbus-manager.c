@@ -1702,8 +1702,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *rt = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_free_ char *rt = NULL;
         const char *root;
         int r;
 
@@ -1729,9 +1729,9 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "New root directory path '%s' is not absolute.", root);
 
-                rt = strdup(root);
-                if (!rt)
-                        return -ENOMEM;
+                r = path_simplify_alloc(root, &rt);
+                if (r < 0)
+                        return r;
         }
 
         free_and_replace(m->switch_root, rt);
@@ -1798,8 +1798,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 }
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *ri = NULL, *rt = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_free_ char *ri = NULL, *rt = NULL;
         const char *root, *init;
         int r;
 
@@ -1877,14 +1877,14 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                                                        "Could not resolve init executable %s: %m", init);
         }
 
-        rt = strdup(root);
-        if (!rt)
-                return -ENOMEM;
+        r = path_simplify_alloc(root, &rt);
+        if (r < 0)
+                return r;
 
         if (!isempty(init)) {
-                ri = strdup(init);
-                if (!ri)
-                        return -ENOMEM;
+                r = path_simplify_alloc(init, &ri);
+                if (r < 0)
+                        return r;
         }
 
         free_and_replace(m->switch_root, rt);
