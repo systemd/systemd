@@ -1637,10 +1637,9 @@ static void config_load_type1_entries(
                         continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-
                 if (!endswith_no_case(f->FileName, u".conf"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
                 err = file_read(entries_dir,
@@ -2116,7 +2115,7 @@ static void config_load_type2_entries(
                         continue;
                 if (!endswith_no_case(f->FileName, u".efi"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
