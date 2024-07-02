@@ -313,6 +313,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
         '.pcrsig'   : 'text',
         '.sbat'     : 'text',
         '.sbom'     : 'binary',
+        '.profile'  : 'text',
 }
 
 @dataclasses.dataclass
@@ -849,6 +850,7 @@ def make_uki(opts):
 
     sections = [
         # name,      content,         measure?
+        ('.profile', opts.profile,    True ),
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         ('.dtb',     opts.devicetree, True ),
@@ -1357,6 +1359,13 @@ CONFIG_ITEMS = [
         action = 'append',
         default = [],
         help = 'section as name and contents [NAME section] or section to print',
+    ),
+
+    ConfigItem(
+        '--profile',
+        metavar='TEST|@PATH',
+        help='Profile information [.profile section]',
+        config_key = 'UKI/Uname',
     ),
 
     ConfigItem(
