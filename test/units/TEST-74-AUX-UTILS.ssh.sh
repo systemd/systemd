@@ -46,7 +46,10 @@ test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/s
 echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
 
-test -f /etc/ssh/ssh_config || echo 'Include /etc/ssh/ssh_config.d/*.conf' > /etc/ssh/ssh_config
+test -f /etc/ssh/ssh_config || {
+    echo 'Include /etc/ssh/ssh_config.d/*.conf'
+    echo 'Include /usr/etc/ssh/ssh_config.d/*.conf'
+} >/etc/ssh/ssh_config
 
 # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
 mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
