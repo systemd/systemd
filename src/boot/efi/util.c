@@ -268,19 +268,17 @@ static bool shall_be_whitespace(char16_t c) {
 }
 
 char16_t* mangle_stub_cmdline(char16_t *cmdline) {
-        char16_t *p, *q, *e;
-
         if (!cmdline)
                 return cmdline;
 
-        p = q = cmdline;
-
         /* Skip initial whitespace */
-        while (shall_be_whitespace(*p))
+        const char16_t *p = cmdline;
+        while (*p != 0 && shall_be_whitespace(*p))
                 p++;
 
         /* Turn inner control characters into proper spaces */
-        for (e = p; *p != 0; p++) {
+        char16_t *e = cmdline;
+        for (char16_t *q = cmdline; *p != 0; p++) {
                 if (shall_be_whitespace(*p)) {
                         *(q++) = ' ';
                         continue;
