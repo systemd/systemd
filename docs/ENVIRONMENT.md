@@ -634,6 +634,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 
 * `$SYSTEMD_REPART_OVERRIDE_FSTYPE` – if set the value will override the file
   system type specified in Format= lines in partition definition files.
+  Additionally, the filesystem for all partitions with a specific designator can
+  be overridden via a correspondingly named environment variable. For example,
+  to override the filesystem type for all partitions with `Type=root`, you can
+  set `SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT=ext4`.
 
 `systemd-nspawn`, `systemd-networkd`:
 
