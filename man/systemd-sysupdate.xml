@@ -233,6 +233,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--features=</option></term>
+
+        <listitem><para>A path to a directory. If specified, optional feature <filename>*.feature</filename>
+        and <filename>*.transfer</filename> files are read from this directory instead of
+        <filename>/usr/lib/sysfeatures.d/*</filename>, <filename>/etc/sysfeatures.d/*</filename>, and
+        <filename>/run/sysfeatures.d/*</filename>.</para>
+
+        <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=</option></term>
 
         <listitem><para>Takes a path to a directory to use as root file system when searching for
@@ -257,9 +270,9 @@
         <term><option>--instances-max=</option></term>
         <term><option>-m</option></term>
 
-        <listitem><para>Takes a decimal integer greater than or equal to 2. Controls how many versions to
-        keep at any time. This option may also be configured inside the transfer files, via the
-        <varname>InstancesMax=</varname> setting, see
+        <listitem><para>Takes a decimal integer greater than or equal to 2 while updating or 1 while vacuuming.
+        Controls how many versions to keep at any time. This option may also be configured inside the transfer
+        files, via the <varname>InstancesMax=</varname> setting, see
         <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details.</para>
 
@@ -295,6 +308,16 @@
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--offline</option></term>
+
+        <listitem><para>Prevents fetching metadata from the network (i.e. <filename>SHA256SUMS</filename>).
+        This is most useful when used in combination with the <command>list</command> command, to query
+        locally installed versions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -312,6 +335,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

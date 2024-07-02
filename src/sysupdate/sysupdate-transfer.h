@@ -14,7 +14,9 @@ typedef struct Transfer Transfer;
 #include "sysupdate-resource.h"
 
 struct Transfer {
-        char *definition_path;
+        unsigned n_ref;
+
+        char *id;
         char *min_version;
         char **protected_versions;
         char *current_symlink;
@@ -24,6 +26,9 @@ struct Transfer {
 
         uint64_t instances_max;
         bool remove_temporary;
+
+        char *changelog;
+        char *appstream;
 
         /* When creating a new partition/file, optionally override these attributes explicitly */
         sd_id128_t partition_uuid;
@@ -46,10 +51,15 @@ struct Transfer {
         PartitionChange partition_change;
 };
 
+typedef int (*TransferProgress)(const Transfer *, const Instance *, unsigned, void *);
+
 Transfer *transfer_new(void);
 
-Transfer *transfer_free(Transfer *t);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
+Transfer *transfer_ref(Transfer *t);
+Transfer *transfer_unref(Transfer *t);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_unref);
+
+int transfer_cmp(Transfer *a, Transfer *b);
 
 int transfer_read_definition(Transfer *t, const char *path);
 
@@ -57,6 +67,6 @@ int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 
 int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version);
 
-int transfer_acquire_instance(Transfer *t, Instance *i);
+int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata);
 
 int transfer_install_instance(Transfer *t, Instance *i, const char *root);

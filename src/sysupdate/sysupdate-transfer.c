@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -17,7 +18,10 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
+#include "signal-util.h"
+#include "socket-util.h"
 #include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -33,17 +37,20 @@
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
 
-Transfer *transfer_free(Transfer *t) {
+static Transfer *transfer_free(Transfer *t) {
         if (!t)
                 return NULL;
 
         t->temporary_path = rm_rf_subvolume_and_free(t->temporary_path);
 
-        free(t->definition_path);
+        free(t->id);
         free(t->min_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
         free(t->final_path);
+
+        free(t->changelog);
+        free(t->appstream);
 
         partition_info_destroy(&t->partition_info);
 
@@ -61,6 +68,8 @@ Transfer *transfer_new(void) {
                 return NULL;
 
         *t = (Transfer) {
+                .n_ref = 1,
+
                 .source.type = _RESOURCE_TYPE_INVALID,
                 .target.type = _RESOURCE_TYPE_INVALID,
                 .remove_temporary = true,
@@ -81,6 +90,25 @@ Transfer *transfer_new(void) {
         };
 
         return t;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Transfer, transfer, transfer_free);
+
+int transfer_cmp(const Transfer *a, const Transfer *b) {
+        int r;
+
+        if (!(a && b))
+                return CMP(a, b);
+
+        if (!(a->id && b->id))
+                return CMP(a->id, b->id);
+
+
+        r = CMP(a != NULL, b != NULL);
+        if (r != 0)
+                return r;
+
+        return strcmp(a->id, b->id);
 }
 
 static const Specifier specifier_table[] = {
@@ -159,6 +187,44 @@ static int config_parse_min_version(
         }
 
         return free_and_replace(*version, resolved);
+}
+
+static int config_parse_url_specifiers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        char **s = ASSERT_PTR(data);
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(resolved)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*s, resolved);
 }
 
 static int config_parse_current_symlink(
@@ -424,6 +490,8 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
+                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
+                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
@@ -642,6 +710,8 @@ int transfer_vacuum(
         assert(instances_max >= 1);
         if (instances_max == UINT64_MAX) /* Keep infinite instances? */
                 limit = UINT64_MAX;
+        else if (space == UINT64_MAX) /* forcibly delete all instances? */
+                limit = 0;
         else if (space > instances_max)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                        "Asked to delete more instances than total maximum allowed number of instances, refusing.");
@@ -651,7 +721,7 @@ int transfer_vacuum(
         else
                 limit = instances_max - space;
 
-        if (t->target.type == RESOURCE_PARTITION) {
+        if (t->target.type == RESOURCE_PARTITION && space != UINT64_MAX) {
                 uint64_t rm, remain;
 
                 /* If we are looking at a partition table, we also have to take into account how many
@@ -705,7 +775,11 @@ int transfer_vacuum(
 
                 assert(oldest->resource);
 
-                log_info("%s Removing old '%s' (%s).", special_glyph(SPECIAL_GLYPH_RECYCLING), oldest->path, resource_type_to_string(oldest->resource->type));
+                log_info("%s Removing %s '%s' (%s).",
+                         special_glyph(SPECIAL_GLYPH_RECYCLING),
+                         space == UINT64_MAX ? "disabled" : "old",
+                         oldest->path,
+                         resource_type_to_string(oldest->resource->type));
 
                 switch (t->target.type) {
 
@@ -784,30 +858,193 @@ static void compile_pattern_fields(
         memcpy(ret->sha256sum, i->metadata.sha256sum, sizeof(ret->sha256sum));
 }
 
+static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        const char *name = userdata;
+        int code;
+
+        assert(s);
+        assert(si);
+        assert(name);
+
+        if (si->si_code == CLD_EXITED) {
+                code = si->si_status;
+                if (code != EXIT_SUCCESS)
+                        log_error("%s failed with exit status %i.", name, code);
+                else
+                        log_debug("%s succeeded.", name);
+        } else {
+                code = -EPROTO;
+                if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
+                        log_error("%s terminated by signal %s.", name, signal_to_string(si->si_status));
+                else
+                        log_error("%s failed due to unknown reason.", name);
+        }
+
+        return sd_event_exit(sd_event_source_get_event(s), code);
+}
+
+struct notify_userdata {
+        const Transfer *transfer;
+        const Instance *instance;
+        const TransferProgress callback;
+        PidRef pid;
+        void* userdata;
+};
+
+static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        char buf[NOTIFY_BUFFER_MAX+1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct ucred *ucred;
+        struct notify_userdata *ctx = ASSERT_PTR(userdata);
+        char* progress_str;
+        unsigned progress;
+        ssize_t n;
+        int r;
+
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
+                return (int) n;
+        }
+
+        cmsg_close_all(&msghdr);
+
+        if (msghdr.msg_flags & MSG_TRUNC) {
+                log_warning("Got overly long notification datagram, ignoring.");
+                return 0;
+        }
+
+        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+        if (!ucred || ucred->pid <= 0) {
+                log_warning("Got notification datagram lacking credential information, ignoring.");
+                return 0;
+        }
+        if (ucred->pid != ctx->pid.pid) {
+                log_warning("Got notification datagram from unexpected peer, ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+
+        progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
+        if (!progress_str)
+                return 0;
+
+        truncate_nl(progress_str);
+        delete_trailing_chars(progress_str, "%");
+
+        r = safe_atou(progress_str, &progress);
+        if (r < 0 || progress > 100) {
+                log_warning("Got invalid percent value '%s', ignoring.", progress_str);
+                return 0;
+        }
+
+        return ctx->callback(ctx->transfer, ctx->instance, progress, ctx->userdata);
+}
+
 static int run_callout(
                 const char *name,
-                char *cmdline[]) {
-
+                char *cmdline[],
+                struct notify_userdata *userdata) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL, *notify_source = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *bind_name = NULL;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        union sockaddr_union bsa;
         int r;
 
         assert(name);
         assert(cmdline);
         assert(cmdline[0]);
 
-        r = safe_fork(name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        /* Kill the helper & return an error if we get interrupted by a signal */
+        r = sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        if (r < 0)
+                return r;
+        r = sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        if (r < 0)
+                return r;
+
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return -errno;
+
+        if (asprintf(&bind_name, "@%" PRIx64 "/sysupdate/" PID_FMT "/notify", random_u64(), getpid_cached()) < 0)
+                return log_oom();
+
+        r = sockaddr_un_set_path(&bsa.un, bind_name);
+        if (r < 0)
+                return r;
+
+        if (bind(fd, &bsa.sa, r) < 0)
+                return -errno;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return r;
+
+        r = pidref_safe_fork(name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
+                if (setenv("NOTIFY_SOCKET", bind_name, 1) < 0) {
+                        log_error_errno(errno, "setenv() failed: %m");
+                        _exit(EXIT_FAILURE);
+                }
                 r = invoke_callout_binary(cmdline[0], (char *const*) cmdline);
                 log_error_errno(r, "Failed to execute %s tool: %m", cmdline[0]);
                 _exit(EXIT_FAILURE);
         }
 
-        return 0;
+        userdata->pid = pid;
+
+        /* Quit the loop w/ when child process exits */
+        r = event_add_child_pidref(event, &exit_source, &pid, WEXITED, helper_on_exit, (void*) name);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_child_process_own(exit_source, true);
+        if (r < 0)
+                return r;
+
+        /* Propagate sd_notify calls */
+        r = sd_event_add_io(event, &notify_source, fd, EPOLLIN, helper_on_notify, userdata);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(notify_source, "notify-socket");
+
+        r = sd_event_source_set_priority(notify_source, SD_EVENT_PRIORITY_NORMAL - 5);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_io_fd_own(notify_source, true);
+        if (r < 0)
+                return r;
+        TAKE_FD(fd);
+
+        /* Process events until the helper quits */
+        return sd_event_loop(event);
 }
 
-int transfer_acquire_instance(Transfer *t, Instance *i) {
+int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *formatted_pattern = NULL, *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
@@ -817,8 +1054,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
         assert(t);
         assert(i);
-        assert(i->resource);
-        assert(t == container_of(i->resource, Transfer, source));
+        assert(i->resource == &t->source);
+        assert(cb);
 
         /* Does this instance already exist in the target? Then we don't need to acquire anything */
         existing = resource_find_instance(&t->target, i->metadata.version);
@@ -894,6 +1131,13 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                         return log_oom();
         }
 
+        struct notify_userdata notify_ctx = {
+                .transfer = t,
+                .instance = i,
+                .callback = cb,
+                .userdata = userdata,
+        };
+
         switch (i->resource->type) { /* Source */
 
         case RESOURCE_REGULAR_FILE:
@@ -914,7 +1158,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->temporary_path));
+                                               t->temporary_path),
+                                        &notify_ctx);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -930,7 +1175,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "--size-max", max_size,
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->target.path));
+                                               t->target.path),
+                                        &notify_ctx);
                         break;
 
                 default:
@@ -953,7 +1199,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
-                                       t->temporary_path));
+                                       t->temporary_path),
+                                &notify_ctx);
                 break;
 
         case RESOURCE_TAR:
@@ -969,7 +1216,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
-                                       t->temporary_path));
+                                       t->temporary_path),
+                                &notify_ctx);
                 break;
 
         case RESOURCE_URL_FILE:
@@ -988,7 +1236,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "--verify", digest,  /* validate by explicit SHA256 sum */
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->temporary_path));
+                                               t->temporary_path),
+                                        &notify_ctx);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -1005,7 +1254,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "--size-max", max_size,
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->target.path));
+                                               t->target.path),
+                                        &notify_ctx);
                         break;
 
                 default:
@@ -1026,7 +1276,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        i->path,
-                                       t->temporary_path));
+                                       t->temporary_path),
+                                &notify_ctx);
                 break;
 
         default:
