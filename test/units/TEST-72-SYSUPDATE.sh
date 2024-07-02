@@ -8,6 +8,7 @@ set -o pipefail
 SYSUPDATE=/lib/systemd/systemd-sysupdate
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
+CONFIGDIR="/run/sysupdate.d"
 BACKING_FILE="$WORKDIR/joined.raw"
 export SYSTEMD_ESP_PATH="$WORKDIR/esp"
 export SYSTEMD_XBOOTLDR_PATH="$WORKDIR/xbootldr"
@@ -27,6 +28,17 @@ if [[ ! -e /dev/loop-control ]]; then
     echo "No loopback device support"
     SECTOR_SIZES=(512)
 fi
+
+# Set up sysupdated drop-in pointing at the correct definitions and setting
+# no verification of images.
+mkdir -p /run/systemd/system/systemd-sysupdated.service.d
+cat >/run/systemd/system/systemd-sysupdated.service.d/override.conf<<EOF
+[Service]
+Environment=SYSTEMD_SYSUPDATE_NO_VERIFY=1
+Environment=SYSTEMD_ESP_PATH=${SYSTEMD_ESP_PATH}
+Environment=SYSTEMD_XBOOTLDR_PATH=${SYSTEMD_XBOOTLDR_PATH}
+EOF
+systemctl daemon-reload
 
 at_exit() {
     set +e
@@ -68,9 +80,9 @@ update_now() {
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
 
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no update
-    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+    "$SYSUPDATE" --verify=no check-new
+    "$SYSUPDATE" --verify=no update
+    (! "$SYSUPDATE" --verify=no check-new)
 }
 
 verify_version() {
@@ -127,12 +139,12 @@ size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 EOF
 
-    for d in "dirs" "defs"; do
-        rm -rf "${WORKDIR:?}/$d"
-        mkdir -p "$WORKDIR/$d"
+    for d in "$WORKDIR/dirs" "$CONFIGDIR"; do
+        rm -rf "$d"
+        mkdir -p "$d"
     done
 
-    cat >"$WORKDIR/defs/01-first.conf" <<EOF
+    cat >"$CONFIGDIR/01-first.conf" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -145,7 +157,7 @@ MatchPattern=part1-@v
 MatchPartitionType=root-x86-64
 EOF
 
-    cat >"$WORKDIR/defs/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.conf" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -158,7 +170,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$WORKDIR/defs/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.conf" <<EOF
 [Source]
 Type=directory
 Path=$WORKDIR/source
@@ -172,7 +184,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    cat >"$WORKDIR/defs/04-fourth.conf" <<EOF
+    cat >"$CONFIGDIR/04-fourth.conf" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -191,7 +203,7 @@ TriesDone=0
 InstancesMax=2
 EOF
 
-    cat >"$WORKDIR/defs/05-fifth.conf" <<EOF
+    cat >"$CONFIGDIR/05-fifth.conf" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -227,15 +239,26 @@ EOF
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
     test ! -d "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
-    # Create fourth version, and update through a file:// URL. This should be
+    # Create fourth version, update using updatectl and verify it replaced the
+    # second version
+    new_version "$sector_size" v4
+    systemctl start systemd-sysupdated
+    updatectl check
+    updatectl update
+    # User-facing updatectl returns 0 if there's no updates, so use the low-level
+    # utility to make sure we did upgrade
+    (! "$SYSUPDATE" --verify=no check-new )
+    verify_version "$blockdev" "$sector_size" v4 2 4
+
+    # Create fifth version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
     # (and not curl) this test should be quite good even if not comprehensive. This
     # will test the SHA256SUMS logic at least (we turn off GPG validation though,
     # see above)
-    new_version "$sector_size" v4
+    new_version "$sector_size" v5
 
-    cat >"$WORKDIR/defs/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.conf" <<EOF
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -248,7 +271,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$WORKDIR/defs/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.conf" <<EOF
 [Source]
 Type=url-tar
 Path=file://$WORKDIR/source
@@ -263,7 +286,7 @@ InstancesMax=3
 EOF
 
     update_now
-    verify_version "$blockdev" "$sector_size" v4 2 4
+    verify_version "$blockdev" "$sector_size" v5 1 3
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
