@@ -13,6 +13,11 @@ if [[ -d "$PKG_SUBDIR/.git" ]] && [[ "$(git -C "$PKG_SUBDIR" rev-parse HEAD)" ==
     exit 0
 fi
 
+# If work is being done on the packaging rules in a separate branch, don't touch the checkout.
+if ! git merge-base --is-ancestor HEAD "origin/$GIT_BRANCH"; then
+    exit 0
+fi
+
 if [[ ! -e "$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "$PKG_SUBDIR")" ]]; then
     # The repository on Salsa has the full upstream sources, so it's a waste of
     # space to redownload and duplicate everything, so do a sparse checkout as
