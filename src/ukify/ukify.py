@@ -505,6 +505,14 @@ def pe_strip_section_name(name):
 
 
 def call_systemd_measure(uki, linux, opts):
+
+    if not opts.measure and not opts.pcr_private_keys:
+        return
+
+    measure_sections = ('.linux', '.osrel', '.cmdline', '.initrd',
+                       '.ucode', '.splash', '.dtb', '.uname',
+                       '.sbat', '.pcrpkey', '.profile')
+
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
                              opts=opts)
@@ -513,16 +521,63 @@ def call_systemd_measure(uki, linux, opts):
 
     # PCR measurement
 
+    to_measure = []
+    tflist = []
+
+    # First, pick up the sections we shall measure now */
+    for s in uki.sections:
+
+        if not s.measure:
+            continue
+
+        if s.name == ".linux":
+            to_measure.append(f'--linux={linux}')
+        elif s.content is not None:
+            to_measure.append(f"--{s.name.removeprefix('.')}={s.content}")
+        else:
+            raise ValueError(f"Don't know how to measure section {s.name}");
+
+    # And now iterate through the base profile and measure what we haven't measured above
+    if opts.measure_base is not None:
+        pe = pefile.PE(opts.measure_base, fast_load=True)
+
+        # Find matching PE section in base image
+        for base_section in pe.sections:
+            name = pe_strip_section_name(base_section.Name)
+
+            # If we reach the first .profile section the base is over
+            if name == ".profile":
+                break
+
+            # Only some sections are measured
+            if name not in measure_sections:
+                continue
+
+            # Check if this is a section we already covered above
+            already_covered = False
+            for s in uki.sections:
+                if s.measure and name == s.name:
+                    already_covered = True
+                    break;
+
+            if already_covered:
+                continue
+
+            # Split out section and use as base
+            tf = tempfile.NamedTemporaryFile()
+            tf.write(base_section.get_data(length=base_section.Misc_VirtualSize))
+            tf.flush()
+            tflist.append(tf)
+
+            to_measure.append(f"--{name.removeprefix('.')}={tf.name}")
+
     if opts.measure:
         pp_groups = opts.phase_path_groups or []
 
         cmd = [
             measure_tool,
             'calculate',
-            f'--linux={linux}',
-            *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+            *to_measure,
             *(f'--bank={bank}'
               for bank in banks),
             # For measurement, the keys are not relevant, so we can lump all the phase paths
@@ -542,10 +597,7 @@ def call_systemd_measure(uki, linux, opts):
         cmd = [
             measure_tool,
             'sign',
-            f'--linux={linux}',
-            *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+            *to_measure,
             *(f'--bank={bank}'
               for bank in banks),
         ]
@@ -1429,6 +1481,14 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to existing UKI file whose relevant sections to insert into the UKI first',
         config_key = 'UKI/Extend',
+    ),
+
+    ConfigItem(
+        '--measure-base',
+        metavar = 'UKI',
+        type = pathlib.Path,
+        help = 'path to existing UKI file whose relevant sections shall be used as base for PCR11 prediction',
+        config_key = 'UKI/MeasureBase',
     ),
 
     ConfigItem(
