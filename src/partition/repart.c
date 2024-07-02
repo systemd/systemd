@@ -1897,6 +1897,37 @@ static int config_parse_encrypted_volume(
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
 
+static int partition_finalize_fstype(Partition *p, const char *path) {
+        int r;
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                _cleanup_free_ char *e = NULL, *upper = NULL;
+
+                if (!gpt_partition_type_has_filesystem(p->type))
+                        continue;
+
+                upper = strdup(partition_designator_to_string(i));
+                if (!upper)
+                        return log_oom();
+
+                e = strjoin("SYSTEMD_REPART_OVERRIDE_", ascii_strupper(upper), "_FSTYPE");
+                if (!e)
+                        return log_oom();
+
+                const char *v = secure_getenv(e);
+                if (v && !streq(p->format, v)) {
+                        log_syntax(NULL, LOG_NOTICE, path, 1, 0,
+                                   "Overriding defined file system type '%s' for '%s' partition with '%s'.",
+                                   p->format, partition_designator_to_string(p->type.designator), v);
+                        r = free_and_strdup(&p->format, v);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        return 0;
+}
+
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
@@ -2085,6 +2116,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 p->split_name_format = s;
         } else if (streq(p->split_name_format, "-"))
                 p->split_name_format = mfree(p->split_name_format);
+
+        r = partition_finalize_fstype(p, path);
+        if (r < 0)
+                return r;
 
         return 1;
 }
