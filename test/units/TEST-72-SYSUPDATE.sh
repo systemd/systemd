@@ -67,6 +67,9 @@ new_version() {
     # Create a random extra payload
     echo $RANDOM >"$WORKDIR/source/uki-extra-$version.efi"
 
+    # Create a random optional payload
+    echo $RANDOM >"$WORKDIR/source/optional-$version.efi"
+
     # Create tarball of a directory
     mkdir -p "$WORKDIR/source/dir-$version"
     echo $RANDOM >"$WORKDIR/source/dir-$version/foo.txt"
@@ -150,7 +153,7 @@ EOF
         mkdir -p "$d"
     done
 
-    cat >"$CONFIGDIR/01-first.conf" <<EOF
+    cat >"$CONFIGDIR/01-first.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -163,7 +166,7 @@ MatchPattern=part1-@v
 MatchPartitionType=root-x86-64
 EOF
 
-    cat >"$CONFIGDIR/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -176,7 +179,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$CONFIGDIR/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.transfer" <<EOF
 [Source]
 Type=directory
 Path=$WORKDIR/source
@@ -190,7 +193,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    cat >"$CONFIGDIR/04-fourth.conf" <<EOF
+    cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -209,7 +212,7 @@ TriesDone=0
 InstancesMax=2
 EOF
 
-    cat >"$CONFIGDIR/05-fifth.conf" <<EOF
+    cat >"$CONFIGDIR/05-fifth.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -220,6 +223,29 @@ Type=regular-file
 Path=/EFI/Linux
 PathRelativeTo=boot
 MatchPattern=uki_@v.efi.extra.d/extra.addon.efi
+Mode=0444
+InstancesMax=2
+EOF
+
+    cat >"$CONFIGDIR/optional.feature" <<EOF
+[Feature]
+Description=Optional Feature
+EOF
+
+    cat >"$CONFIGDIR/optional.transfer" <<EOF
+[Transfer]
+Features=optional
+
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=optional-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=uki_@v.efi.extra.d/optional.efi
 Mode=0444
 InstancesMax=2
 EOF
@@ -271,6 +297,26 @@ EOF
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
+    # Now let's try enabling an optional feature
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+    mkdir "$CONFIGDIR/optional.feature.d"
+    echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
+    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    update_now
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+
+    # And now let's disable it and make sure it gets cleaned up
+    rm -r "$CONFIGDIR/optional.feature.d"
+    (! "$SYSUPDATE" --verify=no check-new)
+    "$SYSUPDATE" vacuum
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+
     # Create sixth version, update using updatectl and verify it replaced the
     # correct version
     new_version "$sector_size" v6
@@ -291,7 +337,7 @@ EOF
     # see above)
     new_version "$sector_size" v7
 
-    cat >"$CONFIGDIR/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -304,7 +350,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$CONFIGDIR/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.transfer" <<EOF
 [Source]
 Type=url-tar
 Path=file://$WORKDIR/source
@@ -321,6 +367,14 @@ EOF
     update_now
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
+
+    # Let's make sure that we don't break our backwards-compat for .conf files
+    # (what .transfer files were called before v257)
+    rename .transfer .conf "$CONFIGDIR/"*.transfer
+    new_version "$sector_size" v8
+    update_now
+    verify_version_current "$blockdev" "$sector_size" v8 1
+    verify_version "$blockdev" "$sector_size" v7 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
