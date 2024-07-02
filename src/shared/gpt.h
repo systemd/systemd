@@ -72,6 +72,7 @@ const char* gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 bool gpt_partition_type_knows_read_only(GptPartitionType type);
 bool gpt_partition_type_knows_growfs(GptPartitionType type);
 bool gpt_partition_type_knows_no_auto(GptPartitionType type);
+bool gpt_partition_type_has_filesystem(GptPartitionType type);
 
 typedef struct {
         uint8_t partition_type_guid[16];
