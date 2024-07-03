@@ -11,11 +11,14 @@ TEST_NO_NSPAWN=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+# psi support might be present but left disabled by default.
+KERNEL_APPEND="${KERNEL_APPEND:-} psi=1"
+
 test_append_files() {
     local workspace="${1:?}"
 
-    image_install mkswap swapon swapoff stress
-    image_install -o btrfs
+    image_install mkswap swapon swapoff
+    image_install -o btrfs stress stress-ng
 
     mkdir -p "${workspace:?}/etc/systemd/system/init.scope.d/"
     cat >"${workspace:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
