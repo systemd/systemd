@@ -168,6 +168,7 @@ REQUIREMENTS:
 
         Required for systemd-oomd:
           CONFIG_PSI
+          CONFIG_MEMCG
 
         Note that kernel auditing is broken when used with systemd's container
         code. When using systemd in conjunction with containers, please make
