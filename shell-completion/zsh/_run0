@@ -1,0 +1,57 @@
+#compdef run0
+
+(( $+functions[_run0_unit_properties] )) ||
+_run0_unit_properties() {
+  local -a props=(
+    BlockIOAccounting  BlockIODeviceWeight   BlockIOReadBandwidth
+    BlockIOWeight      BlockIOWriteBandwidth CPUAccounting
+    CPUShares          DeviceAllow           DevicePolicy
+    Environment        EnvironmentFile       ExitType
+    FinalKillSignal    Group                 InaccessiblePaths
+    KillMode           KillSignal            LimitAS
+    LimitCORE          LimitCPU              LimitDATA
+    LimitFSIZE         LimitLOCKS            LimitMEMLOCK
+    LimitMSGQUEUE      LimitNICE             LimitNOFILE
+    LimitNPROC         LimitRSS              LimitRTPRIO
+    LimitRTTIME        LimitSIGPENDING       LimitSTACK
+    MemoryAccounting   MemoryLimit           Nice
+    NoNewPrivileges    OOMScoreAdjust        PassEnvironment
+    PrivateDevices     PrivateNetwork        PrivateTmp
+    ProtectHome        ProtectSystem         ReadOnlyPaths
+    ReadWritePaths     RestartKillSignal     RootDirectory
+    RuntimeDirectory   SendSIGHUP            SendSIGKILL
+    SyslogFacility     SyslogIdentifier      SyslogLevel
+    SyslogLevelPrefix  TTYPath               TimerSlackNSec
+    User               WorkingDirectory
+  )
+  _values -S= 'properties' ${^props}'::()'
+}
+
+(( $+functions[_run0_slices] )) ||
+_run0_slices() {
+  local -a slices=(
+    ${(@f)"$(_call_program slice-units systemctl --no-pager --legend=no --plain list-units --all -t slice 2>/dev/null)"}
+  )
+  slices=( ${slices%% *} )
+  _describe -t slice-units 'slice unit' slices
+}
+
+local -a args=(
+	'--no-ask-password[Do not query the user for authentication]'
+	'--unit=[Use this unit name instead of an automatically generated one]'
+	{--property=,-p+}'[Sets a property on the service unit created]:property:_run0_unit_properties'
+	'--description=[Provide a description for the service unit]'
+	'--slice=[Make the new .service unit part of the specified slice]:slice unit:_run0_slices'
+	'--slice-inherit[Make the new service unit part of the current slice]'
+	{--user=,-u+}'[Switch to the specified user]:user:_users'
+	{--group=,-g+}'[Switch to the specified group]:group:_groups'
+	'--nice=[Run with specified nice level]:nice value'
+	{--chdir=,-D+}'[Run within the specified working directory]:directory:_files -/'
+	'--setenv=[Set the specified environment variable in the session]:environment variable:_parameters -g "*export*" -S = -q'
+	'--background=[Change the terminal background color to the specified ANSI color]:ansi color'
+	'--machine=[Execute the operation on a local container]:machine:_sd_machines'
+	{-h,--help}'[Show the help text and exit]'
+	'--version[Print a short version string and exit]'
+)
+
+_arguments -S $args '*:: :{_normal -p $service}'
