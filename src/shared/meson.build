@@ -358,7 +358,7 @@ libshared = shared_library(
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
         link_whole : [libshared_static,
-                      libbasic,
+                      libbasic_static,
                       libsystemd_static],
         dependencies : [libshared_deps,
                         userspace],
