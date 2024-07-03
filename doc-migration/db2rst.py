@@ -224,11 +224,18 @@ def _join_children(el, sep):
 
 
 def _block_separated_with_blank_line(el):
-    s = "\n\n" + _concat(el)
+    s = ""
+    id = el.get("id")
+    if id is not None:
+        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
+    else:
+        s += "\n\n" + _concat(el)
     global _buffer
     if _buffer:
         s += "\n\n" + _buffer
         _buffer = ""
+    if id is not None:
+        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
 
 
@@ -466,11 +473,16 @@ def variablelist(el):
 
 def varlistentry(el):
     s = ""
+    id = el.get("id")
+    if id is not None:
+        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
     for i in el:
         if i.tag == 'term':
             s += _conv(i) + '\n\n'
         else:
             s += _indent(i, 3, None, True)
+    if id is not None:
+        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
 
 
