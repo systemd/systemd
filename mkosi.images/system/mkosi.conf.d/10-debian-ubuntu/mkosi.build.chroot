@@ -139,4 +139,5 @@ fi
     shopt -s nullglob
     cp ../*.deb ../*.ddeb "$PACKAGEDIR"
     cp ../*.deb ../*.ddeb "$OUTPUTDIR"
+    cp ../*.deb ../*.ddeb "$BUILDDIR"
 )
