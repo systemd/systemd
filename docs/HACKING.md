@@ -142,6 +142,50 @@ $ meson test -C build
 
 Happy hacking!
 
+## Building distribution packages with mkosi
+
+To build distribution packages for a specific distribution and release without
+building an actual image, the following command can be used:
+
+```sh
+mkosi -d <distribution> -r <release> -t none -f
+```
+
+Afterwards the distribution packages will be located in `build/mkosi.output`. To
+also build debuginfo packages, the following command can be used:
+
+```sh
+mkosi -d <distribution> -r <release> -E WITH_DEBUG=1 -t none -f
+```
+
+To upgrade the systemd packages on the host system to the newer versions built
+by mkosi, run the following:
+
+```sh
+dnf upgrade build/mkosi.output/*.rpm # Fedora/CentOS
+# TODO: Other distributions
+```
+
+To downgrade back to the old version shipped by the distribution, run the
+following:
+
+```sh
+dnf downgrade "systemd*" # Fedora/CentOS
+# TODO: Other distributions
+```
+
+Additionally, for each pull request, the built distribution packages are
+attached as CI artifacts to the pull request CI jobs, which means that users can
+download and install them to test out if a pull request fixes the issue that
+they reported. To download the packages from a pull request, click on the
+`Checks` tab. Then click on the `mkosi` workflow in the list of workflows on the
+left of the `Checks` page. Finally, scroll down to find the list of CI
+artifacts. In this list of artifacts you can find artifacts containing
+distribution packages. To install these, download the artifact which is a zip
+archive, extract the zip archive to access the individual packages, and install
+them with your package manager in the same way as described above for packages
+that were built locally.
+
 ## Templating engines in .in files
 
 Some source files are generated during build. We use two templating engines:

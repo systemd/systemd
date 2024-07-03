@@ -5,7 +5,7 @@ CHANGES WITH 257 in spe:
         Announcements of Future Feature Removals and Incompatible Changes:
 
         * Support for automatic flushing of the nscd user/group database caches
-          will be dropped in a future release.
+          has been dropped.
 
         * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
           considered obsolete and systemd by default will refuse to boot under

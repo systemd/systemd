@@ -505,17 +505,21 @@ static int save_external_coredump(
                                                   bus_error_message(&error, r));
                 }
 
+                /* First, ensure we are not going to go over the cgroup limit */
                 max_size = MIN(cgroup_limit, max_size);
-                max_size = LESS_BY(max_size, 1024U) / 2; /* Account for 1KB metadata overhead for compressing */
-                max_size = MAX(PROCESS_SIZE_MIN, max_size); /* Impose a lower minimum */
-
-                /* tmpfs might get full quickly, so check the available space too.
-                 * But don't worry about errors here, failing to access the storage
-                 * location will be better logged when writing to it. */
+                /* tmpfs might get full quickly, so check the available space too. But don't worry about
+                 * errors here, failing to access the storage location will be better logged when writing to
+                 * it. */
                 if (fstatvfs(fd, &sv) >= 0)
                         max_size = MIN((uint64_t)sv.f_frsize * (uint64_t)sv.f_bfree, max_size);
+                /* Impose a lower minimum, otherwise we will miss the basic headers. */
+                max_size = MAX(PROCESS_SIZE_MIN, max_size);
+                /* Ensure we can always switch to compressing on the fly in case we are running out of space
+                 * by keeping half of the space/memory available, plus 1KB metadata overhead from the
+                 * compression algorithm. */
+                max_size = LESS_BY(max_size, 1024U) / 2;
 
-                log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup memory limits.", max_size);
+                log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
         r = copy_bytes(input_fd, fd, max_size, 0);

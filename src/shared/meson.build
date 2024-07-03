@@ -4,6 +4,7 @@ shared_sources = files(
         'acl-util.c',
         'acpi-fpdt.c',
         'apparmor-util.c',
+        'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
         'barrier.c',
@@ -11,6 +12,7 @@ shared_sources = files(
         'battery-util.c',
         'binfmt-util.c',
         'bitmap.c',
+        'blockdev-list.c',
         'blockdev-util.c',
         'bond-util.c',
         'boot-entry.c',
@@ -141,6 +143,7 @@ shared_sources = files(
         'pe-binary.c',
         'pkcs11-util.c',
         'plymouth-util.c',
+        'polkit-agent.c',
         'pretty-print.c',
         'capsule-util.c',
         'ptyfwd.c',
@@ -160,8 +163,6 @@ shared_sources = files(
         'smbios11.c',
         'socket-label.c',
         'socket-netlink.c',
-        'spawn-ask-password-agent.c',
-        'spawn-polkit-agent.c',
         'specifier.c',
         'switch-root.c',
         'tmpfile-util-label.c',
@@ -245,10 +246,6 @@ endif
 
 if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
-endif
-
-if conf.get('ENABLE_NSCD') == 1
-        shared_sources += files('nscd-flush.c')
 endif
 
 if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1

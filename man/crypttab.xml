@@ -674,6 +674,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>password-cache=yes|no|read-only</option></term>
+
+        <listitem><para>Controls whether to use cache for passwords or security token PINs.
+        Takes a boolean or the special string <literal>read-only</literal>. Defaults to
+        <literal>yes</literal>.</para>
+
+        <para>If set to <literal>read-only</literal>, the kernel keyring is checked for a
+        password/PIN before requesting one interactively. If set to <literal>yes</literal>,
+        in addition to checking the keyring, any password/PIN entered interactively is cached
+        in the keyring with a 2.5-minute timeout before being purged.</para>
+
+        <para>Note that this option is not permitted for PKCS#11 security tokens. The reasoning
+        behind this is that PKCS#11 security tokens are usually configured to lock after being
+        supplied an invalid PIN multiple times, so using the cache might inadvertently lock the
+        token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>pkcs11-uri=</option></term>
 
         <listitem><para>Takes either the special value <literal>auto</literal> or an <ulink
@@ -1010,10 +1030,10 @@
     and use this to determine which key to send, allowing a single listening socket to serve keys for
     multiple volumes. If the PKCS#11 logic is used (see above), the socket source name is picked in similar
     fashion, except that the literal string <literal>/cryptsetup-pkcs11/</literal> is used. And similarly for
-    FIDO2 (<literal>/cryptsetup-fido2/</literal>) and TPM2 (<literal>/cryptsetup-tpm2/</literal>). A different
-    path component is used so that services providing key material know that the secret key was not requested
-    directly, but instead an encrypted key that will be decrypted via the PKCS#11/FIDO2/TPM2 logic to acquire
-    the final secret key.</para>
+    FIDO2 (<literal>/cryptsetup-fido2-salt/</literal>) and TPM2 (<literal>/cryptsetup-tpm2/</literal>).
+    A different path component is used so that services providing key material know that the secret key was
+    not requested directly, but instead an encrypted key that will be decrypted via the PKCS#11/FIDO2/TPM2
+    logic to acquire the final secret key.</para>
   </refsect1>
 
   <refsect1>

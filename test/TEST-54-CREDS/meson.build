@@ -27,5 +27,6 @@ integration_tests += [
                         '-smbios', 'type=11,value=io.systemd.credential.binary:fstab.extra=aW5qZWN0ZWQgL2luamVjdGVkIHRtcGZzIFgtbW91bnQubWtkaXIgMCAwCg==',
                         '-smbios', 'type=11,value=io.systemd.credential:getty.ttys.container=idontexist',
                 ],
+                'firmware' : 'auto',
         },
 ]

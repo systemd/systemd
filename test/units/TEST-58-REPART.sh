@@ -423,7 +423,7 @@ EOF
                             --json=pretty \
                             "$imgs/zzz")
 
-    diff -u <(echo "$output") - <<EOF
+    diff -u - <<EOF <(echo "$output")
 [
 	{
 		"type" : "swap",
@@ -484,7 +484,7 @@ EOF
                             --json=pretty \
                             "$imgs/zzz")
 
-    diff -u <(echo "$output") - <<EOF
+    diff -u - <<EOF <(echo "$output")
 [
 	{
 		"type" : "swap",
@@ -1198,7 +1198,8 @@ EOF
                                               --json=pretty \
                                               "$imgs/zzz")
 
-    diff -u <(echo "$output1" | grep -E "(offset|raw_size|raw_padding)") <(echo "$output2" | grep -E "(offset|raw_size|raw_padding)")
+    diff -u <(echo "$output1" | grep -E "(offset|raw_size|raw_padding)") \
+            <(echo "$output2" | grep -E "(offset|raw_size|raw_padding)")
 }
 
 test_sector() {
@@ -1305,6 +1306,10 @@ testcase_urandom() {
 
     sfdisk -q -l "$image"
     [[ "$(sfdisk -q -l "$image" | grep -c "$image")" -eq 1 ]]
+}
+
+testcase_list_devices() {
+    systemd-repart --list-devices
 }
 
 OFFLINE="yes"

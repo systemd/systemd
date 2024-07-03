@@ -49,6 +49,30 @@ TEST(hashmap_replace) {
         ASSERT_STREQ(r, "val5");
 }
 
+TEST(hashmap_ensure_replace) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free_ char *val1 = NULL, *val2 = NULL;
+
+        val1 = strdup("val1");
+        ASSERT_NOT_NULL(val1);
+        val2 = strdup("val2");
+        ASSERT_NOT_NULL(val2);
+
+        ASSERT_OK(hashmap_ensure_replace(&m, &string_hash_ops, val1, val2));
+
+        ASSERT_OK(hashmap_ensure_replace(&m, &string_hash_ops, "key 1", val1));
+        ASSERT_STREQ(hashmap_get(m, "key 1"), "val1");
+
+        ASSERT_OK(hashmap_ensure_replace(&m, &string_hash_ops, "key 2", val2));
+        ASSERT_STREQ(hashmap_get(m, "key 2"), "val2");
+
+        ASSERT_OK(hashmap_ensure_replace(&m, &string_hash_ops, "key 3", val1));
+        ASSERT_STREQ(hashmap_get(m, "key 3"), "val1");
+
+        ASSERT_OK(hashmap_ensure_replace(&m, &string_hash_ops, "key 3", val2));
+        ASSERT_STREQ(hashmap_get(m, "key 3"), "val2");
+}
+
 TEST(hashmap_copy) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         _cleanup_hashmap_free_free_ Hashmap *copy = NULL;

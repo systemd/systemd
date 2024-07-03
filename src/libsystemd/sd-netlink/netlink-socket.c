@@ -86,15 +86,9 @@ static unsigned broadcast_group_get_ref(sd_netlink *nl, unsigned group) {
 }
 
 static int broadcast_group_set_ref(sd_netlink *nl, unsigned group, unsigned n_ref) {
-        int r;
-
         assert(nl);
 
-        r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
-        if (r < 0)
-                return r;
-
-        return hashmap_replace(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
+        return hashmap_ensure_replace(&nl->broadcast_group_refs, NULL, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
 }
 
 static int broadcast_group_join(sd_netlink *nl, unsigned group) {

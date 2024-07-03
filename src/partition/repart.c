@@ -18,6 +18,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
@@ -2564,7 +2565,7 @@ static int context_load_partition_table(Context *context) {
 
                 if (IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
                         /* Don't probe sector size from partition table if we are supposed to start from an empty disk */
-                        fs_secsz = ssz = 512;
+                        ssz = 512;
                 else {
                         /* Auto-detect sector size if not specified. */
                         r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
@@ -2574,8 +2575,10 @@ static int context_load_partition_table(Context *context) {
                         /* If we found the sector size and we're operating on a block device, use it as the file
                          * system sector size as well, as we know its the sector size of the actual block device and
                          * not just the offset at which we found the GPT header. */
-                        if (r > 0 && S_ISBLK(st.st_mode))
+                        if (r > 0 && S_ISBLK(st.st_mode)) {
+                                log_debug("Probed sector size of %s is %" PRIu32 " bytes.", context->node, ssz);
                                 fs_secsz = ssz;
+                        }
                 }
 
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
@@ -2639,7 +2642,7 @@ static int context_load_partition_table(Context *context) {
          * larger */
         grainsz = secsz < 4096 ? 4096 : secsz;
 
-        log_debug("Sector size of device is %lu bytes. Using grain size of %" PRIu64 ".", secsz, grainsz);
+        log_debug("Sector size of device is %lu bytes. Using filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (arg_empty) {
 
@@ -5901,7 +5904,7 @@ static int context_write_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
 
-        capable = blockdev_partscan_enabled(fdisk_get_devfd(context->fdisk_context));
+        capable = blockdev_partscan_enabled_fd(fdisk_get_devfd(context->fdisk_context));
         if (capable == -ENOTBLK)
                 log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
         else if (capable < 0)
@@ -6929,26 +6932,39 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [DEVICE]\n"
-               "\n%sGrow and add partitions to partition table.%s\n\n"
+        printf("%1$s [OPTIONS...] [DEVICE]\n"
+               "\n%5$sGrow and add partitions to a partition table, and generate disk images (DDIs).%6$s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
+               "\n%3$sOperation:%4$s\n"
                "     --dry-run=BOOL       Whether to run dry-run operation\n"
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
+               "     --offline=BOOL       Whether to build the image offline\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
+               "     --sector-size=SIZE   Set the logical sector size for the image\n"
+               "     --architecture=ARCH  Set the generic architecture for the image\n"
+               "     --size=BYTES         Grow loopback file to specified size\n"
+               "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
+               "     --split=BOOL         Whether to generate split artifacts\n"
+               "\n%3$sOutput:%4$s\n"
                "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate JSON output\n"
+               "\n%3$sFactory Reset:%4$s\n"
                "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
+               "\n%3$sConfiguration & Image Control:%4$s\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --image=PATH         Operate relative to image file\n"
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
-               "     --key-file=PATH      Key to use when encrypting partitions\n"
+               "     --list-devices       List candidate block devices to operate on\n"
+               "\n%3$sVerity:%4$s\n"
                "     --private-key=PATH|URI\n"
                "                          Private key to use when generating verity roothash\n"
                "                          signatures, or an engine or provider specific\n"
@@ -6959,6 +6975,8 @@ static int help(void) {
                "                          verity roothash signatures\n"
                "     --certificate=PATH   PEM certificate to use when generating verity\n"
                "                          roothash signatures\n"
+               "\n%3$sEncryption:%4$s\n"
+               "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
                "     --tpm2-device-key=PATH\n"
                "                          Enroll a TPM2 device using its public key\n"
@@ -6972,11 +6990,7 @@ static int help(void) {
                "                          Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
                "     --tpm2-pcrlock=PATH\n"
                "                          Specify pcrlock policy to lock against\n"
-               "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
-               "     --size=BYTES         Grow loopback file to specified size\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --split=BOOL         Whether to generate split artifacts\n"
+               "\n%3$sPartition Control:%4$s\n"
                "     --include-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Ignore partitions not of the specified types\n"
                "     --exclude-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
@@ -6984,23 +6998,25 @@ static int help(void) {
                "     --defer-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
-               "     --sector-size=SIZE   Set the logical sector size for the image\n"
-               "     --architecture=ARCH  Set the generic architecture for the image\n"
-               "     --offline=BOOL       Whether to build the image offline\n"
+               "\n%3$sCopying:%4$s\n"
                "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
                "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
+               "\n%3$sDDI Profile:%4$s\n"
                "  -S --make-ddi=sysext    Make a system extension DDI\n"
                "  -C --make-ddi=confext   Make a configuration extension DDI\n"
                "  -P --make-ddi=portable  Make a portable service DDI\n"
+               "\n%3$sAuxiliary Resource Generation:%4$s\n"
                "     --generate-fstab=PATH\n"
                "                          Write fstab configuration to the given path\n"
                "     --generate-crypttab=PATH\n"
                "                          Write crypttab configuration to the given path\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -7048,6 +7064,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAKE_DDI,
                 ARG_GENERATE_FSTAB,
                 ARG_GENERATE_CRYPTTAB,
+                ARG_LIST_DEVICES,
         };
 
         static const struct option options[] = {
@@ -7091,6 +7108,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
                 { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
                 { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
+                { "list-devices",         no_argument,       NULL, ARG_LIST_DEVICES         },
                 {}
         };
 
@@ -7481,6 +7499,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                case ARG_LIST_DEVICES:
+                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
 
                 case '?':
                         return -EINVAL;

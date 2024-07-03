@@ -258,6 +258,8 @@ libefi_sources = files(
         'devicetree.c',
         'drivers.c',
         'efi-string.c',
+        'efivars.c',
+        'export-vars.c',
         'graphics.c',
         'initrd.c',
         'log.c',

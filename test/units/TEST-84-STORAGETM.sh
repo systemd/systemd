@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+/usr/lib/systemd/systemd-storagetm --list-devices
+
 modprobe -v nvmet-tcp
 modprobe -v nvme-tcp
 

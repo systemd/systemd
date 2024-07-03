@@ -27,7 +27,6 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "missing_capability.h"
-#include "nscd-flush.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -582,8 +581,6 @@ static int context_update_kernel_hostname(
                 c->hostname_source = hns;
                 r = 1;
         }
-
-        (void) nscd_flush_cache(STRV_MAKE("hosts"));
 
         if (r == 0)
                 log_debug("Hostname was already set to <%s>.", hn);
@@ -1621,11 +1618,13 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         if (r != 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         c->bus,
                         "org.freedesktop.hostname1.get-hardware-serial",
                         /* details= */ NULL,
+                        UID_INVALID,
+                        POLKIT_DONT_REPLY,
                         &c->polkit_registry);
         if (r == 0)
                 return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
@@ -1633,9 +1632,6 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
          * the product ID which we'll check explicitly. */
         privileged = r > 0;
-
-        if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_describe_response(c, privileged, &v);

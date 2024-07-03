@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "iovec-util-fundamental.h"
 #include "proto/loaded-image.h"
 
 EFI_STATUS pack_cpio(
@@ -14,8 +15,7 @@ EFI_STATUS pack_cpio(
                 uint32_t access_mode,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
-                void **ret_buffer,
-                size_t *ret_buffer_size,
+                struct iovec *ret_buffer,
                 bool *ret_measured);
 
 EFI_STATUS pack_cpio_literal(
@@ -27,6 +27,5 @@ EFI_STATUS pack_cpio_literal(
                 uint32_t access_mode,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
-                void **ret_buffer,
-                size_t *ret_buffer_size,
+                struct iovec *ret_buffer,
                 bool *ret_measured);

@@ -44,8 +44,6 @@ int acquire_fido2_key(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
                                         "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
-        askpw_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
-
         assert(cid);
         assert(key_file || key_data);
 
