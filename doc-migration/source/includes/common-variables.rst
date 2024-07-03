@@ -3,8 +3,11 @@
 Environment
 ###########
 
+.. inclusion-marker-do-not-remove log-level
+
 ``$SYSTEMD_LOG_LEVEL``
 ----------------------
+.. inclusion-marker-do-not-remove log-level-body
 
    The maximum log level of emitted messages (messages with a higher
    log level, i.e. less important ones, will be suppressed). Takes a comma-separated list of values. A
@@ -20,8 +23,15 @@ Environment
    logging to the console which should be at info level). Note that the global maximum log level takes
    priority over any per target maximum log levels.
 
+.. inclusion-end-marker-do-not-remove log-level-body
+
+.. inclusion-end-marker-do-not-remove log-level
+
+.. inclusion-marker-do-not-remove log-color
+
 ``$SYSTEMD_LOG_COLOR``
 ----------------------
+.. inclusion-marker-do-not-remove log-color-body
 
    A boolean. If true, messages written to the tty will be colored
    according to priority.
@@ -30,8 +40,15 @@ Environment
    :ref:`journalctl(1)` and
    other tools that display logs will color messages based on the log level on their own.
 
+.. inclusion-end-marker-do-not-remove log-color-body
+
+.. inclusion-end-marker-do-not-remove log-color
+
+.. inclusion-marker-do-not-remove log-time
+
 ``$SYSTEMD_LOG_TIME``
 ---------------------
+.. inclusion-marker-do-not-remove log-time-body
 
    A boolean. If true, console log messages will be prefixed with a
    timestamp.
@@ -39,6 +56,12 @@ Environment
    This setting is only useful when messages are written directly to the terminal or a file, because
    :ref:`journalctl(1)` and
    other tools that display logs will attach timestamps based on the entry metadata on their own.
+
+.. inclusion-end-marker-do-not-remove log-time-body
+
+.. inclusion-end-marker-do-not-remove log-time
+
+.. inclusion-marker-do-not-remove log-location
 
 ``$SYSTEMD_LOG_LOCATION``
 -------------------------
@@ -49,8 +72,15 @@ Environment
    Note that the log location is often attached as metadata to journal entries anyway. Including it
    directly in the message text can nevertheless be convenient when debugging programs.
 
+.. inclusion-end-marker-do-not-remove log-location-body
+
+.. inclusion-end-marker-do-not-remove log-location
+
+.. inclusion-marker-do-not-remove log-tid
+
 ``$SYSTEMD_LOG_TID``
 --------------------
+.. inclusion-marker-do-not-remove log-tid-body
 
    A boolean. If true, messages will be prefixed with the current
    numerical thread ID (TID).
@@ -58,8 +88,15 @@ Environment
    Note that the this information is attached as metadata to journal entries anyway. Including it
    directly in the message text can nevertheless be convenient when debugging programs.
 
+.. inclusion-end-marker-do-not-remove log-tid-body
+
+.. inclusion-end-marker-do-not-remove log-tid
+
+.. inclusion-marker-do-not-remove log-target
+
 ``$SYSTEMD_LOG_TARGET``
 -----------------------
+.. inclusion-marker-do-not-remove log-target-body
 
    The destination for log messages. One of
    ``console`` (log to the attached tty), ``console-prefixed`` (log to
@@ -71,14 +108,28 @@ Environment
 
    .. COMMENT: <constant>syslog</constant>, <constant>syslog-or-kmsg</constant> are deprecated
 
+.. inclusion-end-marker-do-not-remove log-tid-body
+
+.. inclusion-end-marker-do-not-remove log-tid
+
+.. inclusion-marker-do-not-remove log-ratelimit-kmsg
+
 ``$SYSTEMD_LOG_RATELIMIT_KMSG``
 -------------------------------
+.. inclusion-marker-do-not-remove log-ratelimit-kmsg-body
 
    Whether to ratelimit kmsg or not. Takes a boolean.
    Defaults to ``true``. If disabled, systemd will not ratelimit messages written to kmsg.
 
+.. inclusion-end-marker-do-not-remove log-ratelimit-kmsg-body
+
+.. inclusion-end-marker-do-not-remove log-ratelimit-kmsg
+
+.. inclusion-marker-do-not-remove pager
+
 ``$SYSTEMD_PAGER``
 ------------------
+.. inclusion-marker-do-not-remove pager-body
 
    Pager to use when ``--no-pager`` is not given; overrides
    ``$PAGER``. If neither ``$SYSTEMD_PAGER`` nor ``$PAGER`` are set, a
@@ -91,8 +142,15 @@ Environment
    Note: if ``$SYSTEMD_PAGERSECURE`` is not set, ``$SYSTEMD_PAGER``
    (as well as ``$PAGER``) will be silently ignored.
 
+.. inclusion-end-marker-do-not-remove pager-body
+
+.. inclusion-end-marker-do-not-remove pager
+
+.. inclusion-marker-do-not-remove less
+
 ``$SYSTEMD_LESS``
 -----------------
+.. inclusion-marker-do-not-remove less-body
 
    Override the options passed to ``less`` (by default
    ``FRSXMK``).
@@ -125,6 +183,12 @@ Environment
    `less(1) <https://man7.org/linux/man-pages/man1/less.1.html>`_
    for more discussion.
 
+.. inclusion-end-marker-do-not-remove less-body
+
+.. inclusion-end-marker-do-not-remove less
+
+.. inclusion-marker-do-not-remove lesscharset
+
 ``$SYSTEMD_LESSCHARSET``
 ------------------------
 
@@ -133,6 +197,10 @@ Environment
 
    Note that setting the regular ``$LESSCHARSET`` environment variable has no effect
    for ``less`` invocations by systemd tools.
+
+.. inclusion-end-marker-do-not-remove lesscharset
+
+.. inclusion-marker-do-not-remove lesssecure
 
 ``$SYSTEMD_PAGERSECURE``
 ------------------------
@@ -158,6 +226,10 @@ Environment
    honoured, ``$SYSTEMD_PAGERSECURE`` must be set too. It might be reasonable to completely
    disable the pager using ``--no-pager`` instead.
 
+.. inclusion-end-marker-do-not-remove lesssecure
+
+.. inclusion-marker-do-not-remove colors
+
 ``$SYSTEMD_COLORS``
 -------------------
 
@@ -176,6 +248,10 @@ Environment
             </listitem>
             </varlistentry>
 
+.. inclusion-end-marker-do-not-remove colors
+
+.. inclusion-marker-do-not-remove urlify
+
 ``$SYSTEMD_URLIFY``
 -------------------
 
@@ -183,4 +259,4 @@ Environment
    the output for terminal emulators supporting this. This can be specified to override the decision that
    ``systemd`` makes based on ``$TERM`` and other conditions.
 
-
+.. inclusion-end-marker-do-not-remove urlify
