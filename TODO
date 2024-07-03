@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* logind: when logging in use new tmpfs quota support to configure quota on
+  /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
+  is persistent and any persistent settings mean we don#t have to reapply them.
+
 * initrd: when transitioning from initrd to host, validate that
   /lib/modules/`uname -r` exists, refuse otherwise
 
@@ -160,11 +164,6 @@ Features:
   protected.slice or so? Then write docs that suggest that services like this
   set Slice=protected.sice, RefuseManualStart=yes, RefuseManualStop=yes and a
   couple of other things.
-
-* improve inode_same_at() to use AT_HANDLE_FID flag in name_to_handle_at() to
-  compare inode identity, rather than .st_ino – where available. Kernel FS
-  folks gave up on idea that inode numbers are fs-wide unique, and suggest
-  using the file handle/AT_HANDLE_FID instead.
 
 * add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
   open the inode via O_PATH first, then validate its type, and then convert to
