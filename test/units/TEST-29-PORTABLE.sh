@@ -354,6 +354,17 @@ portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
 portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
 
+# The wrong file should be ignored, given the right one has the xattr set
+mkdir -p /tmp/wrongext/usr/lib/extension-release.d /tmp/wrongext/usr/lib/systemd/system/
+echo "[Service]" > /tmp/wrongext/usr/lib/systemd/system/app0.service
+touch /tmp/wrongext/usr/lib/extension-release.d/extension-release.wrongext_somethingwrong.txt
+cp /tmp/rootdir/usr/lib/os-release /tmp/wrongext/usr/lib/extension-release.d/extension-release.app0
+setfattr -n user.extension-release.strict -v "false" /tmp/wrongext/usr/lib/extension-release.d/extension-release.app0
+portablectl "${ARGS[@]}" attach --runtime --extension /tmp/wrongext /tmp/rootdir app0
+status="$(portablectl is-attached --extension wrongext rootdir)"
+[[ "${status}" == "attached-runtime" ]]
+portablectl detach --runtime --extension /tmp/wrongext /tmp/rootdir app0
+
 umount /tmp/rootdir
 umount /tmp/app0
 umount /tmp/app1
