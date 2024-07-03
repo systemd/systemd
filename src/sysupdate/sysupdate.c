@@ -1189,6 +1189,103 @@ static int verb_list(int argc, char **argv, void *userdata) {
         }
 }
 
+static int verb_features(int argc, char **argv, void *userdata) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        const char *feature_id;
+        Feature *f;
+        int r;
+
+        assert(argc <= 2);
+        feature_id = argc >= 2 ? argv[1] : NULL;
+
+        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL);
+        if (r < 0)
+                return r;
+
+        if (feature_id) {
+                _cleanup_strv_free_ char **transfers = NULL;
+
+                f = hashmap_get(context->features, feature_id);
+                if (!f)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Optional feature not found: %s",
+                                               feature_id);
+
+                t = table_new_vertical();
+
+                // TODO: enumerate transfers for this feature
+
+                r = table_add_many(t,
+                                   TABLE_FIELD, "Name",
+                                   TABLE_STRING, f->id,
+
+                                   TABLE_FIELD, "Description",
+                                   TABLE_STRING, f->description,
+
+                                   TABLE_FIELD, "Enabled",
+                                   TABLE_BOOLEAN, f->enabled,
+
+                                   TABLE_FIELD, "Documentation",
+                                   TABLE_STRING, f->documentation,
+                                   TABLE_SET_URL, f->documentation,
+                                   TABLE_SET_JSON_FIELD_NAME, "documentation_url",
+
+                                   TABLE_FIELD, "AppStream",
+                                   TABLE_STRING, f->appstream,
+                                   TABLE_SET_URL, f->appstream,
+                                   TABLE_SET_JSON_FIELD_NAME, "appstream_url",
+
+                                   TABLE_FIELD, "Transfers",
+                                   TABLE_STRV_WRAPPED, transfers);
+
+                return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        } else {
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                        t = table_new("", "feature", "description", "documentation");
+                        if (!t)
+                                return log_oom();
+
+                        HASHMAP_FOREACH(f, context->features) {
+                                r = table_add_many(t,
+                                                   TABLE_BOOLEAN_CHECKMARK, f->enabled,
+                                                   TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled),
+                                                   TABLE_STRING, f->id,
+                                                   TABLE_STRING, f->description,
+                                                   TABLE_STRING, f->documentation,
+                                                   TABLE_SET_URL, f->documentation);
+                        }
+
+                        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                        _cleanup_strv_free_ char **features = NULL;
+
+                        HASHMAP_FOREACH(f, context->features) {
+                                r = strv_extend(&features, f->id);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRV("features", features));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create JSON: %m");
+
+                        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON: %m");
+                }
+        }
+
+        return 0;
+}
+
 static int verb_check_new(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -1505,6 +1602,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "\n%5$sUpdate OS images.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  list [VERSION]          Show installed and available versions\n"
+               "  features [FEATURE]      Show optional features\n"
                "  check-new               Check if there's a new version available\n"
                "  update [VERSION]        Install new version now\n"
                "  vacuum                  Make room, by deleting old versions\n"
@@ -1706,6 +1804,7 @@ static int sysupdate_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list",       VERB_ANY, 2, VERB_DEFAULT, verb_list              },
                 { "components", VERB_ANY, 1, 0,            verb_components        },
+                { "features",   VERB_ANY, 1, 0,            verb_features          },
                 { "check-new",  VERB_ANY, 1, 0,            verb_check_new         },
                 { "update",     VERB_ANY, 2, 0,            verb_update               },
                 { "vacuum",     VERB_ANY, 1, 0,            verb_vacuum            },
