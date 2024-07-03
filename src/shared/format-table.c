@@ -1184,6 +1184,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         goto check;
                 }
 
+                case TABLE_SET_JSON_FIELD_NAME: {
+                        const char *n = va_arg(ap, const char*);
+                        r = table_set_json_field_name(t, TABLE_CELL_TO_INDEX(last_cell), n);
+                        goto check;
+                }
+
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
                         va_end(ap);
@@ -2883,16 +2889,30 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
 static char* string_to_json_field_name(const char *f) {
         /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
-         * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
-         * underscores and leave everything as is. */
+         * field name can be hence this is a bit vague and black magic. Here's what we do:
+         *  - Convert spaces to underscores
+         *  - Convert dashes to underscores (some JSON parsers don't like dealing with dashes)
+         *  - Make the first letter of each words lowercase
+         */
 
-        char *c = strdup(f);
+        bool new_word = true;
+        char *c;
+
+        c = strdup(f);
         if (!c)
                 return NULL;
 
-        for (char *x = c; *x; x++)
-                if (isspace(*x))
+        for (char *x = c; *x; x++) {
+                if (new_word) {
+                        *x = ascii_tolower(*x);
+                        new_word = false;
+                }
+
+                if (isspace(*x) || *x == '-') {
                         *x = '_';
+                        new_word = true;
+                }
+        }
 
         return c;
 }
