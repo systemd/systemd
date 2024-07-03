@@ -178,22 +178,22 @@ static bool pe_section_name_equal(const char *a, const char *b) {
 static void pe_locate_sections(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
-                const char * const sections[],
+                const char *const section_names[],
                 size_t validate_base,
-                PeSectionVector *ret_sections) {
+                PeSectionVector sections[]) {
 
         assert(section_table || n_section_table == 0);
+        assert(section_names);
         assert(sections);
-        assert(ret_sections);
 
         /* Searches for the sections listed in 'sections[]' within the section table. Validates the resulted
          * data. If 'validate_base' is non-zero also takes base offset when loaded into memory into account for
          * qchecking for overflows. */
 
-        for (size_t i = 0; sections[i]; i++)
+        for (size_t i = 0; section_names[i]; i++)
                 FOREACH_ARRAY(j, section_table, n_section_table) {
 
-                        if (!pe_section_name_equal((const char*) j->Name, sections[i]))
+                        if (!pe_section_name_equal((const char*) j->Name, section_names[i]))
                                 continue;
 
                         /* Overflow check: ignore sections that are impossibly large, relative to the file
@@ -220,7 +220,7 @@ static void pe_locate_sections(
                         }
 
                         /* At this time, the sizes and offsets have been validated. Store them away */
-                        ret_sections[i] = (PeSectionVector) {
+                        sections[i] = (PeSectionVector) {
                                 .size = j->VirtualSize,
                                 .file_offset = j->PointerToRawData,
                                 .memory_offset = j->VirtualAddress,
@@ -232,17 +232,19 @@ static void pe_locate_sections(
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
-        static const char *sections[] = { ".compat", NULL };
-        PeSectionVector vector = {};
-
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
          * booting a 64-bit kernel on 32-bit EFI that is otherwise running on a 64-bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
 
+        assert(dos);
+        assert(pe);
+
+        static const char *const section_names[] = { ".compat", NULL };
+        PeSectionVector vector = {};
         pe_locate_sections(
                         (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
-                        sections,
+                        section_names,
                         PTR_TO_SIZE(dos),
                         &vector);
 
@@ -259,7 +261,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         size_t addr = vector.memory_offset, size = vector.size;
 
         while (size >= sizeof(LinuxPeCompat1) && addr % alignof(LinuxPeCompat1) == 0) {
-                LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((uint8_t *) dos + addr);
+                const LinuxPeCompat1 *compat = (const LinuxPeCompat1 *) ((const uint8_t *) dos + addr);
 
                 if (compat->type == 0 || compat->size == 0 || compat->size > size)
                         break;
@@ -308,16 +310,16 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
 
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,
-                const char* const sections[],
-                PeSectionVector *ret_sections) {
+                const char *const section_names[],
+                PeSectionVector sections[]) {
 
         const DosFileHeader *dos;
         const PeFileHeader *pe;
         size_t offset;
 
         assert(base);
+        assert(section_names);
         assert(sections);
-        assert(ret_sections);
 
         dos = (const DosFileHeader *) base;
         if (!verify_dos(dos))
@@ -331,9 +333,9 @@ EFI_STATUS pe_memory_locate_sections(
         pe_locate_sections(
                         (const PeSectionHeader *) ((const uint8_t *) base + offset),
                         pe->FileHeader.NumberOfSections,
-                        sections,
+                        section_names,
                         PTR_TO_SIZE(base),
-                        ret_sections);
+                        sections);
 
         return EFI_SUCCESS;
 }
@@ -341,8 +343,8 @@ EFI_STATUS pe_memory_locate_sections(
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
-                const char * const sections[],
-                PeSectionVector *ret_sections) {
+                const char *const section_names[],
+                PeSectionVector sections[]) {
         _cleanup_free_ PeSectionHeader *section_table = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         DosFileHeader dos;
@@ -352,8 +354,8 @@ EFI_STATUS pe_file_locate_sections(
 
         assert(dir);
         assert(path);
+        assert(section_names);
         assert(sections);
-        assert(ret_sections);
 
         err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
@@ -402,9 +404,9 @@ EFI_STATUS pe_file_locate_sections(
         pe_locate_sections(
                         section_table,
                         pe.FileHeader.NumberOfSections,
-                        sections,
+                        section_names,
                         /* validate_base= */ 0, /* don't validate base */
-                        ret_sections);
+                        sections);
 
         return EFI_SUCCESS;
 }
