@@ -132,5 +132,10 @@ if ! build; then
     build --noprep --nocheck
 fi
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR/*.rpm"
+)
+
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
 cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
