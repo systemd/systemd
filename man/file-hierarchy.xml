@@ -212,7 +212,12 @@
         <term><filename>/usr/share/</filename></term>
         <listitem><para>Resources shared between multiple packages, such as documentation, man pages, time
         zone information, fonts and other resources. Usually, the precise location and format of files stored
-        below this directory is subject to specifications that ensure interoperability.</para></listitem>
+        below this directory is subject to specifications that ensure interoperability.</para>
+
+        <para>Note that resources placed in this directory typically are under shared ownership,
+        i.e. multiple different packages have provide and consume these resources, on equal footing, without
+        any obvious primary owner. This makes makes things systematically different from
+        <filename>/usr/lib/</filename>, where ownership is generally not shared.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -618,9 +623,9 @@
       </tgroup>
     </table>
 
-    <para>Additional static vendor files may be installed in the
-    <filename>/usr/share/</filename> hierarchy to the locations
-    defined by the various relevant specifications.</para>
+    <para>Additional static vendor files with shared ownership may be installed in the
+    <filename>/usr/share/</filename> hierarchy to the locations defined by the various relevant
+    specifications.</para>
 
     <para>The following directories shall be used by the package for local configuration and files created
     during runtime:</para>
@@ -710,9 +715,9 @@
       </tgroup>
     </table>
 
-    <para>Additional static vendor files may be installed in the <filename>~/.local/share/</filename>
-    hierarchy, mirroring the subdirectories specified in the section "Vendor-supplied operating system
-    resources" above.</para>
+    <para>Additional static vendor files with shared ownership may be installed in the
+    <filename>~/.local/share/</filename> hierarchy, mirroring the subdirectories specified in the section
+    "Vendor-supplied operating system resources" above.</para>
 
     <para>The following directories shall be used by the package for per-user local configuration and files
     created during runtime:</para>
