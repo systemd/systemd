@@ -462,7 +462,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
 
           <para>Takes a swap size in bytes. If the value is suffixed with K, M, G or T, the specified swap size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the specified swap size on the system. If assigned the
           special value <literal>infinity</literal>, no swap limit is applied. These settings control the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
