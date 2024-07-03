@@ -262,6 +262,51 @@ cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
+        mkdir -p "$initdir/usr/share/dbus-1/system.d/" \
+            "$initdir/usr/share/dbus-1/system-services/" \
+            "$initdir/usr/share/polkit-1/actions/"
+        cat <<EOF >"$initdir/usr/share/dbus-1/system.d/app0.conf"
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+        <policy user="root">
+                <allow own="org.freedesktop.app0"/>
+                <allow send_destination="org.freedesktop.app0"/>
+                <allow receive_sender="org.freedesktop.app0"/>
+        </policy>
+        <policy context="default">
+                <allow send_destination="org.freedesktop.app0"/>
+                <allow receive_sender="org.freedesktop.app0"/>
+        </policy>
+</busconfig>
+EOF
+        cat <<EOF >"$initdir/usr/share/dbus-1/system-services/app0.service"
+[D-BUS Service]
+Name=org.freedesktop.app0
+Exec=/bin/false
+User=root
+SystemdService=dbus-org.freedesktop.app0.service
+EOF
+        cat <<EOF >"$initdir/usr/share/polkit-1/actions/app0.policy"
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="org.freedesktop.app0">
+                <description gettext-domain="systemd">app0</description>
+                <message gettext-domain="systemd">Authentication is required for app0</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+</policyconfig>
+EOF
         mksquashfs "$initdir" /tmp/app0.raw -noappend
 
         initdir="/var/tmp/conf0"
