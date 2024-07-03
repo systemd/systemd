@@ -3909,7 +3909,7 @@ int config_parse_tasks_max(
                 void *userdata) {
 
         CGroupTasksMax *tasks_max = ASSERT_PTR(data);
-        const Unit *u = ASSERT_PTR(userdata);
+        const Unit *u = userdata;
         uint64_t v;
         int r;
 
