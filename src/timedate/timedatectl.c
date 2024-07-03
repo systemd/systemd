@@ -261,6 +261,15 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse local RTC setting '%s': %m", argv[1]);
 
+        if (b == 1)
+		printf("\n%s"
+                       "Warning: The system is configured to read the RTC time in the local time zone.\n"
+                       "         This mode cannot be fully supported. It will create various problems\n"
+                       "         with time zone changes and daylight saving time adjustments. The RTC\n"
+                       "         time is never updated, it relies on external facilities to maintain it.\n"
+                       "         If at all possible, use RTC in UTC by calling\n"
+                       "         'timedatectl set-local-rtc 0'.%s\n", ansi_highlight(), ansi_normal());
+
         r = bus_call_method(
                         bus,
                         bus_timedate,
