@@ -259,13 +259,7 @@ int open_extension_release_at(
                 }
 
                 if (!relax_extension_release_check) {
-                        _cleanup_free_ char *base_image_name = NULL, *base_extension = NULL;
-
-                        r = path_extract_image_name(image_name, &base_image_name);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to extract image name from %s/%s, ignoring: %m", dir_path, de->d_name);
-                                continue;
-                        }
+                        _cleanup_free_ char *base_extension = NULL;
 
                         r = path_extract_image_name(extension, &base_extension);
                         if (r < 0) {
@@ -273,7 +267,7 @@ int open_extension_release_at(
                                 continue;
                         }
 
-                        if (!streq(base_image_name, base_extension) &&
+                        if (!streq(image_name, base_extension) &&
                             extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
                                 continue;
                 }
