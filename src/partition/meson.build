@@ -32,7 +32,7 @@ executables += [
                 'sources' : files('repart.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
-                        libbasic,
+                        libbasic_static,
                         libshared_fdisk,
                         libshared_static,
                         libsystemd_static,
