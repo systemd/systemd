@@ -6,14 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
  . "$(dirname "$0")"/util.sh
 
-. /etc/os-release
-# OpenSUSE does not have the stress tool packaged. It does have stress-ng but the stress-ng does not support
-# --vm-stride which this test uses.
-if [[ "$ID" =~ "opensuse" ]]; then
-    echo "Skipping due to missing stress package in OpenSUSE" >>/skipped
-    exit 77
-fi
-
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot
@@ -26,6 +18,24 @@ test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 if [[ -s /skipped ]]; then
     exit 77
 fi
+
+# Some distros provide stress(1) and some others stress-ng(1). Use the
+# available tool and pass the appropriate set of options accordingly.
+if [[ -x /usr/bin/stress-ng ]]; then
+    cat >/usr/bin/stress-wrapper<<EOF
+#!/bin/bash
+exec stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
+EOF
+elif [[ -x /usr/bin/stress ]]; then
+    cat >/usr/bin/stress-wrapper<<EOF
+#!/bin/bash
+exec stress --timeout 3m --vm 10 --vm-bytes 200M --vm-keep --vm-stride 1
+EOF
+else
+    echo "stress(1) or stress-ng(1) is missing" >>/skipped
+    exit 77
+fi
+chmod +x /usr/bin/stress-wrapper
 
 rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
 
