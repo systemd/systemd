@@ -116,6 +116,7 @@ global_substitutions = {
   'v254': '254',
   'v255': '255',
   'v256': '256',
+  'v257': '257',
   # Custom Entities
   'MOUNT_PATH': '{{MOUNT_PATH}}',
   'UMOUNT_PATH': '{{UMOUNT_PATH}}',
