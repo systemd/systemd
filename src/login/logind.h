@@ -109,6 +109,7 @@ struct Manager {
         HandleAction handle_suspend_key_long_press;
         HandleAction handle_hibernate_key;
         HandleAction handle_hibernate_key_long_press;
+        HandleAction handle_secure_attention_key;
 
         HandleAction handle_lid_switch;
         HandleAction handle_lid_switch_ep;

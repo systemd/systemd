@@ -15,6 +15,9 @@ if [ ! -f "pkg/$ID/systemd.spec" ]; then
     exit 1
 fi
 
+# TODO: Drop when the spec is fixed (either the patch is adapted or not applied when building for upstream).
+sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$ID/systemd.spec"
+
 for DEPS in --requires --buildrequires; do
     mkosi-chroot \
         rpmspec \

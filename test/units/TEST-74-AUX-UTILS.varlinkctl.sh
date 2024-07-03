@@ -75,7 +75,7 @@ rm_rf_sshbindir() {
 
 trap rm_rf_sshbindir EXIT
 
-# Create a fake "ssh" binary that validates everything works as expected
+# Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
 cat > "$SSHBINDIR"/ssh <<'EOF'
 #!/bin/sh
 
@@ -87,10 +87,29 @@ test "$3" = "foobar"
 
 exec socat - UNIX-CONNECT:/run/systemd/journal/io.systemd.journal
 EOF
-
 chmod +x "$SSHBINDIR"/ssh
 
-SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh:foobar:/run/systemd/journal/io.systemd.journal
+SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh-unix:foobar:/run/systemd/journal/io.systemd.journal
+
+# Now build another fake "ssh" binary that does the same for "ssh-exec:"
+cat > "$SSHBINDIR"/ssh <<'EOF'
+#!/bin/sh
+
+set -xe
+
+test "$1" = "-e"
+test "$2" = "none"
+test "$3" = "-T"
+test "$4" = "foobar"
+test "$5" = "env"
+test "$6" = "SYSTEMD_VARLINK_LISTEN=-"
+test "$7" = "systemd-sysext"
+
+SYSTEMD_VARLINK_LISTEN=- exec systemd-sysext
+EOF
+chmod +x "$SSHBINDIR"/ssh
+
+SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh-exec:foobar:systemd-sysext
 
 # Go through all varlink sockets we can find under /run/systemd/ for some extra coverage
 find /run/systemd/ -name "io.systemd*" -type s | while read -r socket; do

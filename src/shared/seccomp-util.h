@@ -70,6 +70,7 @@ extern const SyscallFilterSet syscall_filter_sets[];
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
+int seccomp_filter_set_add_by_name(Hashmap *s, bool b, const char *name);
 int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
 
 int seccomp_add_syscall_filter_item(

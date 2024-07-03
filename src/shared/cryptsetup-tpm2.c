@@ -178,6 +178,8 @@ int acquire_tpm2_key(
                 if (r < 0)
                         return r;
 
+                askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+
                 if (iovec_is_set(salt)) {
                         uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                         CLEANUP_ERASE(salted_pin);

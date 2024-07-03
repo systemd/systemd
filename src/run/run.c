@@ -30,11 +30,11 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
-#include "spawn-polkit-agent.h"
 #include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1634,7 +1634,11 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
 
 static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+
         assert(f);
+
+        if (!shall_set_terminal_title())
+                return;
 
         if (!arg_host)
                 (void) gethostname_strict(&hn);

@@ -4,6 +4,7 @@
 
 static VARLINK_DEFINE_METHOD(
                 Describe,
+                VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, VARLINK_BOOL, VARLINK_NULLABLE),
                 VARLINK_DEFINE_OUTPUT(Hostname, VARLINK_STRING, 0),
                 VARLINK_DEFINE_OUTPUT(StaticHostname, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_OUTPUT(PrettyHostname, VARLINK_STRING, VARLINK_NULLABLE),

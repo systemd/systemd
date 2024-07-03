@@ -1266,6 +1266,9 @@ static void set_window_title(PTYForward *f) {
 
         assert(f);
 
+        if (!shall_set_terminal_title())
+                return;
+
         (void) gethostname_strict(&hn);
 
         if (emoji_enabled())

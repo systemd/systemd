@@ -3699,6 +3699,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("HandleLidSwitch", "s", property_get_handle_action, offsetof(Manager, handle_lid_switch), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HandleLidSwitchExternalPower", "s", property_get_handle_action, offsetof(Manager, handle_lid_switch_ep), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HandleLidSwitchDocked", "s", property_get_handle_action, offsetof(Manager, handle_lid_switch_docked), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HandleSecureAttentionKey", "s", property_get_handle_action, offsetof(Manager, handle_secure_attention_key), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HoldoffTimeoutUSec", "t", NULL, offsetof(Manager, holdoff_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleAction", "s", property_get_handle_action, offsetof(Manager, idle_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -4071,6 +4072,9 @@ static const sd_bus_vtable manager_vtable[] = {
                                 method_set_wall_message,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
+        SD_BUS_SIGNAL_WITH_ARGS("SecureAttentionKey",
+                                SD_BUS_ARGS("s", seat_id, "o", object_path),
+                                0),
         SD_BUS_SIGNAL_WITH_ARGS("SessionNew",
                                 SD_BUS_ARGS("s", session_id, "o", object_path),
                                 0),
