@@ -1184,6 +1184,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         goto check;
                 }
 
+                case TABLE_SET_JSON_FIELD_NAME: {
+                        const char *n = va_arg(ap, const char*);
+                        r = table_set_json_field_name(t, TABLE_CELL_TO_INDEX(last_cell), n);
+                        goto check;
+                }
+
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
                         va_end(ap);
