@@ -158,6 +158,7 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags json_flags);
 
 int table_print_with_pager(Table *t, JsonFormatFlags json_format_flags, PagerFlags pager_flags, bool show_header);
 
+char* table_mangle_to_json_field_name(const char *str);
 int table_set_json_field_name(Table *t, size_t idx, const char *name);
 
 #define table_log_add_error(r) \
