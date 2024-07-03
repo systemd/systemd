@@ -127,6 +127,10 @@ def _includes(el):
         return f""".. literalinclude:: ./includes/{el.get('href')}
                     :language: python
                 """
+    elif file_extension == '.sh':
+        return f""".. literalinclude:: ./includes/{el.get('href')}
+                    :language: shell
+                """
 
 
 def _conv(el):
@@ -141,6 +145,7 @@ def _conv(el):
         if el.tag not in _not_handled_tags:
             # Convert version references to `versionAdded` directives
             if el.tag == "{http://www.w3.org/2001/XInclude}include":
+                _warn(_includes(el))
                 return _includes(el)
             else:
                 _warn("Don't know how to handle <%s>" % el.tag)
@@ -589,7 +594,11 @@ def videodata(el):
 
 
 def programlisting(el):
-    return f"\n\n.. code-block:: sh \n\n{_indent(el, 3)}\n\n"
+    xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
+    if xi_include is not None:
+        return _includes(xi_include)
+    else:
+        return f"\n\n.. code-block:: sh \n\n{_indent(el, 3)}\n\n"
 
 
 def screen(el):
