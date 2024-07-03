@@ -620,16 +620,21 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 }
 
 static EFI_STATUS set_reboot_into_firmware(void) {
-        uint64_t osind = 0;
         EFI_STATUS err;
 
+        uint64_t osind = 0;
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
+
+        if (FLAGS_SET(osind, EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                return EFI_SUCCESS;
+
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                log_error_status(err, "Error setting OsIndications: %m");
-        return err;
+                return log_error_status(err, "Error setting OsIndications, ignoring: %m");
+
+        return EFI_SUCCESS;
 }
 
 _noreturn_ static EFI_STATUS poweroff_system(void) {
