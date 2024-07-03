@@ -75,12 +75,13 @@ def checkout_distro(args, distro: str, config: dict):
     args.fetch = False  # no need to fetch if we just cloned
 
 def update_distro(args, distro: str, config: dict):
-    cmd = ['git', '-C', f'pkg/{distro}', 'fetch']
-    print(f"+ {shlex.join(cmd)}")
-    subprocess.check_call(cmd)
-
     branch = config['Environment']['GIT_BRANCH']
     old_commit = config['Environment']['GIT_COMMIT']
+
+    cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
+           f'{branch}:remotes/origin/{branch}']
+    print(f"+ {shlex.join(cmd)}")
+    subprocess.check_call(cmd)
 
     cmd = ['git', '-C', f'pkg/{distro}', 'rev-parse', f'refs/remotes/origin/{branch}']
     print(f"+ {shlex.join(cmd)}")
