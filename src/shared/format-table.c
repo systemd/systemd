@@ -2889,16 +2889,33 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
 static char* string_to_json_field_name(const char *f) {
         /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
-         * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
-         * underscores and leave everything as is. */
+         * field name can be hence this is a bit vague and black magic. Here's what we do:
+         *  - Convert spaces to underscores
+         *  - Convert dashes to underscores (some JSON parsers don't like dealing with dashes)
+         *  - Make the first letter of each words lowercase
+         */
 
-        char *c = strdup(f);
+        bool new_word = true;
+        char *c;
+
+        assert(f);
+
+        c = strdup(f);
         if (!c)
                 return NULL;
 
-        for (char *x = c; *x; x++)
-                if (isspace(*x))
+        for (char *x = c; *x; x++) {
+                if (isspace(*x) || *x == '-') {
                         *x = '_';
+                        new_word = true;
+                        continue;
+                }
+
+                if (new_word) {
+                        *x = ascii_tolower(*x);
+                        new_word = false;
+                }
+        }
 
         return c;
 }
