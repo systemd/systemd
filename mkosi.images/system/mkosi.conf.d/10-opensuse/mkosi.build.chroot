@@ -133,3 +133,4 @@ if ! build; then
 fi
 
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
+cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
