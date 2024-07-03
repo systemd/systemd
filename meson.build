@@ -2082,7 +2082,7 @@ libsystemd = shared_library(
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2248,7 +2248,7 @@ nss_template = {
         'link_with' : [
                 libsystemd_static,
                 libshared_static,
-                libbasic,
+                libbasic_static,
         ],
         'dependencies' : [
                 librt,
