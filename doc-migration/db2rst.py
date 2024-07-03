@@ -111,13 +111,13 @@ def _includes(el):
             versionString = conf.global_substitutions.get(
                 el.get("xpointer"))
             return f".. versionadded:: {versionString}"
+        elif not el.get("xpointer"):
+            return f".. include:: ./includes/{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
             return f""".. include:: ./includes/{el.get('href').replace('xml', 'rst')}
                     :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
                     :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
                     """
-        elif not el.get("xpointer"):
-            return f".. include:: ./includes/{el.get('href').replace('xml', 'rst')}"
 
     elif file_extension == '.c':
         return f""".. literalinclude:: ./includes/{el.get('href')}
@@ -145,7 +145,6 @@ def _conv(el):
         if el.tag not in _not_handled_tags:
             # Convert version references to `versionAdded` directives
             if el.tag == "{http://www.w3.org/2001/XInclude}include":
-                _warn(_includes(el))
                 return _includes(el)
             else:
                 _warn("Don't know how to handle <%s>" % el.tag)
