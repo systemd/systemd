@@ -79,6 +79,10 @@ def update_distro(args, distro: str, config: dict):
     branch = config['Environment']['GIT_BRANCH']
     old_commit = config['Environment']['GIT_COMMIT']
 
+    cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
+    print(f"+ {shlex.join(cmd)}")
+    subprocess.check_call(cmd)
+
     cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
            f'{branch}:remotes/origin/{branch}']
     print(f"+ {shlex.join(cmd)}")
