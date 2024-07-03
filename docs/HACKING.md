@@ -57,31 +57,21 @@ RuntimeBuildSources=yes
 
 After enabling this setting, the source and build directories will be mounted to
 `/work/src` and `/work/build` respectively when booting the image as a container
-or virtual machine. To build the latest changes and re-install, run
-`meson install -C /work/build --only-changed` in the container or virtual machine
-and optionally restart the daemon(s) you're working on using
-`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1
-or `systemctl soft-reboot` to restart everything.
-
-Aside from the image, the `mkosi.output` directory will also be populated with a
-set of distribution packages. Assuming you're running the same distribution and
-release as the mkosi image, you can install these rpms on your host or test
-system as well for any testing or debugging that cannot easily be performed in a
-VM or container.
-
-By default, no debuginfo packages are produced. To produce debuginfo packages,
-run mkosi with the `WITH_DEBUG` environment variable set to `1`:
+or virtual machine. To build the latest changes and re-install after booting the
+image, run `mkosi -t none` in another terminal on the host and run one of the
+following commands in the container or virtual machine depending on the
+distribution:
 
 ```sh
-$ mkosi -E WITH_DEBUG=1 -f
+dnf upgrade --disablerepo="*" /work/build/*.rpm # CentOS/Fedora
+apt install --reinstall /work/build/*.deb # Debian/Ubuntu
+pacman -U /work/build/*.pkg.tar # Arch Linux
+zypper install --allow-unsigned-rpm /work/build/*.rpm # OpenSUSE
 ```
 
-or configure it in `mkosi.local.conf`:
-
-```conf
-[Content]
-Environment=WITH_DEBUG=1
-```
+and optionally restart the daemon(s) you're working on using
+`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on
+pid1 or `systemctl soft-reboot` to restart everything.
 
 Putting this all together, here's a series of commands for preparing a patch for systemd:
 
@@ -93,6 +83,7 @@ $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
 $ vim src/core/main.c             # or wherever you'd like to make your changes
 $ mkosi -f qemu                   # (re-)build and boot up the test image in qemu
+$ mkosi -t none                   # Build new packages without rebuilding the image
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
 $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
