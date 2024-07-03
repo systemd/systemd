@@ -66,6 +66,8 @@ Environment
 ``$SYSTEMD_LOG_LOCATION``
 -------------------------
 
+.. inclusion-marker-do-not-remove log-location-body
+
    A boolean. If true, messages will be prefixed with a filename
    and line number in the source code where the message originates.
 
@@ -108,9 +110,9 @@ Environment
 
    .. COMMENT: <constant>syslog</constant>, <constant>syslog-or-kmsg</constant> are deprecated
 
-.. inclusion-end-marker-do-not-remove log-tid-body
+.. inclusion-end-marker-do-not-remove log-target-body
 
-.. inclusion-end-marker-do-not-remove log-tid
+.. inclusion-end-marker-do-not-remove log-target
 
 .. inclusion-marker-do-not-remove log-ratelimit-kmsg
 
