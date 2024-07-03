@@ -879,6 +879,7 @@ static bool menu_run(
 
                 switch (key) {
                 case KEYPRESS(0, SCAN_UP, 0):
+                case KEYPRESS(0, SCAN_VOLUME_UP, 0):  /* Handle phones/tablets that only have a volume up/down rocker + power key (and otherwise just touchscreen input) */
                 case KEYPRESS(0, 0, 'k'):
                 case KEYPRESS(0, 0, 'K'):
                         if (idx_highlight > 0)
@@ -886,6 +887,7 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, SCAN_DOWN, 0):
+                case KEYPRESS(0, SCAN_VOLUME_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
                         if (idx_highlight < config->n_entries-1)
@@ -923,9 +925,10 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '\n'):
                 case KEYPRESS(0, 0, '\r'):
-                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, 0):      /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
+                case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
                         action = ACTION_RUN;
                         break;
 
