@@ -393,6 +393,38 @@ TEST(json) {
         assert_se(sd_json_variant_equal(v, w));
 }
 
+TEST(json_mangling) {
+        struct {
+                const char *arg;
+                const char *exp;
+        } cases[] = {
+                /* Not Mangled */
+                { "foo", "foo" },
+                { "foo_bar", "foo_bar" },
+                { "fooBar", "fooBar" },
+                { "fooBar123", "fooBar123" },
+                { "foo_bar123", "foo_bar123" },
+                { ALPHANUMERICAL, ALPHANUMERICAL },
+                { "_123", "_123" },
+
+                /* Mangled */
+                { "Foo Bar", "foo_bar" },
+                { "Foo-Bar", "foo_bar" },
+                { "Foo@Bar", "foo_bar" },
+                { "Foo (Bar)", "foo__bar_"},
+                { "MixedCase ALLCAPS", "mixedCase_ALLCAPS" },
+                { "_X", "_x" },
+                { "_Foo", "_foo" },
+        };
+
+        FOREACH_ELEMENT(i, cases) {
+                _cleanup_free_ char *ret = NULL;
+                assert_se(ret = table_mangle_to_json_field_name(i->arg));
+                printf("\"%s\" -> \"%s\"", i->arg, ret);
+                assert_se(streq(ret, i->exp));
+        }
+}
+
 TEST(table) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
