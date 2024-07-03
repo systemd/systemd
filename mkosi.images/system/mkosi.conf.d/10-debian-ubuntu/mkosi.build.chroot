@@ -135,6 +135,8 @@ if ! build; then
     build
 fi
 
+find "$BUILDDIR" -mindepth 1 -maxdepth 1 -name "*.deb" -o -name "*.ddeb" -exec rm {} +
+
 (
     shopt -s nullglob
     cp ../*.deb ../*.ddeb "$PACKAGEDIR"

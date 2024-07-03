@@ -113,5 +113,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --noclean \
     "pkg/$ID/systemd.spec"
 
+find "$BUILDDIR" -mindepth 1 -maxdepth 1 -name "*.rpm" -exec rm {} +
+
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
 cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
