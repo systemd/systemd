@@ -3648,8 +3648,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-set-credentials="))) {
-                        _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
-                        _cleanup_free_ char *id = NULL, *encrypted = NULL, *data = NULL;
+                        _cleanup_free_ char *id = NULL, *data = NULL, *encrypted = NULL;
 
                         r = extract_many_words(&val, " ", EXTRACT_DONT_COALESCE_SEPARATORS, &id, &data, &encrypted);
                         if (r < 0)
@@ -3660,28 +3659,20 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = parse_boolean(encrypted);
                         if (r < 0)
                                 return r;
+                        bool e = r;
 
-                        sc = new(ExecSetCredential, 1);
-                        if (!sc)
-                                return -ENOMEM;
+                        _cleanup_free_ void *d = NULL;
+                        size_t size;
 
-                        *sc = (ExecSetCredential) {
-                                .id =  TAKE_PTR(id),
-                                .encrypted = r,
-                        };
-
-                        r = unbase64mem(data, &sc->data, &sc->size);
+                        r = unbase64mem_full(data, SIZE_MAX, /* secure = */ true, &d, &size);
                         if (r < 0)
                                 return r;
 
-                        r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
+                        r = exec_context_put_set_credential(c, id, TAKE_PTR(d), size, e);
                         if (r < 0)
                                 return r;
-
-                        TAKE_PTR(sc);
                 } else if ((val = startswith(l, "exec-context-load-credentials="))) {
-                        _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
-                        _cleanup_free_ char *id = NULL, *encrypted = NULL, *path = NULL;
+                        _cleanup_free_ char *id = NULL, *path = NULL, *encrypted = NULL;
 
                         r = extract_many_words(&val, " ", EXTRACT_DONT_COALESCE_SEPARATORS, &id, &path, &encrypted);
                         if (r < 0)
@@ -3693,21 +3684,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        lc = new(ExecLoadCredential, 1);
-                        if (!lc)
-                                return -ENOMEM;
-
-                        *lc = (ExecLoadCredential) {
-                                .id =  TAKE_PTR(id),
-                                .path = TAKE_PTR(path),
-                                .encrypted = r,
-                        };
-
-                        r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
+                        r = exec_context_put_load_credential(c, id, path, r > 0);
                         if (r < 0)
                                 return r;
-
-                        TAKE_PTR(lc);
                 } else if ((val = startswith(l, "exec-context-import-credentials="))) {
                         r = set_ensure_allocated(&c->import_credentials, &string_hash_ops);
                         if (r < 0)

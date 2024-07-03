@@ -2061,42 +2061,13 @@ int bus_exec_context_set_transient_property(
                         isempty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                bool encrypted = endswith(name, "Encrypted");
                                 _cleanup_free_ char *a = NULL, *b = NULL;
                                 _cleanup_free_ void *copy = NULL;
-                                ExecSetCredential *old;
 
                                 copy = memdup(p, sz);
                                 if (!copy)
                                         return -ENOMEM;
-
-                                old = hashmap_get(c->set_credentials, id);
-                                if (old) {
-                                        free_and_replace(old->data, copy);
-                                        old->size = sz;
-                                        old->encrypted = streq(name, "SetCredentialEncrypted");
-                                } else {
-                                        _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
-
-                                        sc = new(ExecSetCredential, 1);
-                                        if (!sc)
-                                                return -ENOMEM;
-
-                                        *sc = (ExecSetCredential) {
-                                                .id = strdup(id),
-                                                .data = TAKE_PTR(copy),
-                                                .size = sz,
-                                                .encrypted = streq(name, "SetCredentialEncrypted"),
-                                        };
-
-                                        if (!sc->id)
-                                                return -ENOMEM;
-
-                                        r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
-                                        if (r < 0)
-                                                return r;
-
-                                        TAKE_PTR(sc);
-                                }
 
                                 a = specifier_escape(id);
                                 if (!a)
@@ -2105,6 +2076,10 @@ int bus_exec_context_set_transient_property(
                                 b = cescape_length(p, sz);
                                 if (!b)
                                         return -ENOMEM;
+
+                                r = exec_context_put_set_credential(c, id, TAKE_PTR(copy), sz, encrypted);
+                                if (r < 0)
+                                        return r;
 
                                 (void) unit_write_settingf(u, flags, name, "%s=%s:%s", name, a, b);
                         }
@@ -2146,9 +2121,9 @@ int bus_exec_context_set_transient_property(
                         isempty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                bool encrypted = streq(name, "LoadCredentialEncrypted");
+                                bool encrypted = endswith(name, "Encrypted");
 
-                                r = hashmap_put_credential(&c->load_credentials, id, source, encrypted);
+                                r = exec_context_put_load_credential(c, id, source, encrypted);
                                 if (r < 0)
                                         return r;
 
