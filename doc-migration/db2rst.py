@@ -556,7 +556,21 @@ def citerefentry(el):
 
 
 def refmeta(el):
-    return ".. _%s:" % _join_children(el, '') + '\n\n' + _make_title(_join_children(el, ''), 1)
+    refentrytitle = el.find('refentrytitle').text
+    manvolnum = el.find('manvolnum').text
+
+    meta_title = f"""..meta::
+    :title: {refentrytitle}
+            """
+
+    meta_manvolnum = f"""..meta::
+    :manvolnum: {manvolnum}
+            """
+
+    doc_title = ".. _%s:" % _join_children(
+        el, '') + '\n\n' + _make_title(_join_children(el, ''), 1)
+
+    return '\n\n'.join([meta_title, meta_manvolnum, doc_title])
 
 
 def refentrytitle(el):
