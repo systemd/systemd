@@ -1184,6 +1184,20 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         goto check;
                 }
 
+                case TABLE_SET_JSON_FIELD_NAME: {
+                        const char *n = va_arg(ap, const char*);
+                        size_t idx;
+                        if (t->vertical) {
+                                assert(TABLE_CELL_TO_INDEX(last_cell) >= t->n_columns);
+                                idx = TABLE_CELL_TO_INDEX(last_cell) / t->n_columns - 1;
+                        } else {
+                                idx = TABLE_CELL_TO_INDEX(last_cell);
+                                assert(idx < t->n_columns);
+                        }
+                        r = table_set_json_field_name(t, idx, n);
+                        goto check;
+                }
+
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
                         va_end(ap);
