@@ -55,7 +55,7 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         _cleanup_close_ int fsfd = -EBADF;
 
         if (cgroupfs_fd < 0) {
-                fsfd = open("/sys/fs/cgroup", O_CLOEXEC|O_DIRECTORY);
+                fsfd = open("/sys/fs/cgroup", O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (fsfd < 0)
                         return -errno;
 
@@ -65,7 +65,7 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         cg_file_handle fh = CG_FILE_HANDLE_INIT;
         CG_FILE_HANDLE_CGROUPID(fh) = id;
 
-        int fd = open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC);
+        int fd = open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return -errno;
 
