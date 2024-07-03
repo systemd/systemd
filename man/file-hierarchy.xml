@@ -804,7 +804,7 @@
         <tbody>
           <row>
       <entry><filename>~/.config/<replaceable>package</replaceable>/</filename></entry>
-      <entry>User-specific configuration and state for the package. It is required to default to safe fallbacks if this configuration is missing.</entry>
+      <entry>User-specific configuration for the package. It is required to default to safe fallbacks if this configuration is missing.</entry>
           </row>
           <row>
       <entry><filename><varname>$XDG_RUNTIME_DIR</varname>/<replaceable>package</replaceable>/</filename></entry>
@@ -813,6 +813,10 @@
           <row>
       <entry><filename>~/.cache/<replaceable>package</replaceable>/</filename></entry>
       <entry>Persistent cache data of the package. If this directory is flushed, the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
+          </row>
+          <row>
+      <entry><filename>~/.local/state/<replaceable>package</replaceable>/</filename></entry>
+      <entry>Persistent state data of the package.</entry>
           </row>
         </tbody>
       </tgroup>
