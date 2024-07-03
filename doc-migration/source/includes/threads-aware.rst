@@ -1,4 +1,4 @@
-
+:orphan:
 
 All functions listed here are thread-agnostic and only a single specific thread may operate on a
 given object during its entire lifetime. It's safe to allocate multiple independent objects and use each from a

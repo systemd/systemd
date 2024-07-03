@@ -1,4 +1,6 @@
+:orphan:
 
+.. inclusion-marker-do-not-remove user
 
 ``--user``
 ----------
@@ -6,11 +8,19 @@
    Talk to the service manager of the calling user,
    rather than the service manager of the system.
 
+.. inclusion-end-marker-do-not-remove user
+
+.. inclusion-marker-do-not-remove system
+
 ``--system``
 ------------
 
    Talk to the service manager of the system. This is the
    implied default.
+
+.. inclusion-end-marker-do-not-remove system
+
+.. inclusion-marker-do-not-remove host
 
 ``-H, --host``
 --------------
@@ -28,6 +38,10 @@
    ``machinectl -H
    <HOST>``. Put IPv6 addresses in brackets.
 
+.. inclusion-end-marker-do-not-remove host
+
+.. inclusion-marker-do-not-remove machine
+
 ``-M, --machine``
 -----------------
 
@@ -42,6 +56,10 @@
    side may be omitted (but not both) in which case the local user name and ``.host`` are
    implied.
 
+.. inclusion-end-marker-do-not-remove machine
+
+.. inclusion-marker-do-not-remove capsule
+
 ``-C, --capsule``
 -----------------
 
@@ -52,3 +70,5 @@
    details about capsules.
 
    .. versionadded:: 256
+
+.. inclusion-end-marker-do-not-remove capsule
