@@ -14,11 +14,14 @@ typedef struct Transfer Transfer;
 #include "sysupdate-resource.h"
 
 struct Transfer {
+        char *id;
+
         char *min_version;
         char **protected_versions;
         char *current_symlink;
         bool verify;
 
+        char **member_of_features;
         bool enabled;
 
         Resource source, target;

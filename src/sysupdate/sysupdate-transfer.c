@@ -44,10 +44,14 @@ Transfer *transfer_free(Transfer *t) {
 
         t->temporary_path = rm_rf_subvolume_and_free(t->temporary_path);
 
+        free(t->id);
+
         free(t->min_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
         free(t->final_path);
+
+        strv_free(t->member_of_features);
 
         strv_free(t->changelog);
         strv_free(t->appstream);
@@ -513,6 +517,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         };
 
         _cleanup_free_ char *filename = NULL;
+        char *e;
         int r;
 
         assert(path);
@@ -538,7 +543,16 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         if (r < 0)
                 return r;
 
+        e = ASSERT_PTR(endswith(filename, ".transfer") ?: endswith(filename, ".conf"));
+        *e = 0; /* Remove the file extension */
+        t->id = TAKE_PTR(filename);
+
         t->enabled = decide_if_enabled(known_features, features, req_features);
+
+        t->member_of_features = TAKE_PTR(features);
+        r = strv_extend_strv(&t->member_of_features, req_features, /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom();
 
         if (!RESOURCE_IS_SOURCE(t->source.type))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
