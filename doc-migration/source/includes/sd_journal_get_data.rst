@@ -1,4 +1,4 @@
-
+:orphan:
 
 .. _sd_journal_get_data(3):
 
