@@ -1537,6 +1537,11 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
 
+# MSI Claw
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
+ KEYBOARD_KEY_b9=f15                                   # Right Face Button
+ KEYBOARD_KEY_ba=f16                                   # Left Face Button
+
 ##########################################
 # NEC
 ##########################################
