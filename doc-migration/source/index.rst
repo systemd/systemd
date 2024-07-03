@@ -22,6 +22,7 @@ Welcome to systemd's documentation!
    busctl
    journalctl
    systemd
+   os-release
 
 Indices and tables
 ==================
