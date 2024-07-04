@@ -65,6 +65,7 @@ endforeach
 
 if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
+        efi_conf.set_quoted('VERSION_TAG', version_tag)
 elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
         efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
