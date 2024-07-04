@@ -64,15 +64,15 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
                 }
                 errors.append(result)
 
-    # Save the results to three separate JSON files
-    errors_file_path = os.path.join(output_dir, "errors.json")
-    with open(errors_file_path, 'w') as json_file:
-        json.dump(errors, json_file, indent=4)
+        if not specific_file:
+            errors_file_path = os.path.join(output_dir, "errors.json")
+            with open(errors_file_path, 'w') as json_file:
+                json.dump(errors, json_file, indent=4)
 
-    successes_with_unhandled_tags_file_path = os.path.join(
-        output_dir, "successes_with_unhandled_tags.json")
-    with open(successes_with_unhandled_tags_file_path, 'w') as json_file:
-        json.dump(successes_with_unhandled_tags, json_file, indent=4)
+            successes_with_unhandled_tags_file_path = os.path.join(
+                output_dir, "successes_with_unhandled_tags.json")
+            with open(successes_with_unhandled_tags_file_path, 'w') as json_file:
+                json.dump(successes_with_unhandled_tags, json_file, indent=4)
 
 
 def main():
