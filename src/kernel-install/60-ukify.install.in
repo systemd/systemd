@@ -27,7 +27,7 @@ from shutil import which
 from pathlib import Path
 from typing import Optional
 
-__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
+__version__ = '{{PROJECT_VERSION}} ({{VERSION_TAG}})'
 
 try:
     VERBOSE = int(os.environ['KERNEL_INSTALL_VERBOSE']) > 0
