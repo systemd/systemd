@@ -1,9 +1,9 @@
 
 
-..meta::
+.. meta::
     :title: systemd
 
-..meta::
+.. meta::
     :manvolnum: 1
 
 .. _systemd(1):
