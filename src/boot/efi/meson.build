@@ -63,13 +63,14 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 'EFI_' + c[1].strip().underscorify().to_upper()))
 endforeach
 
+efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
+efi_conf.set_quoted('VERSION_TAG', version_tag)
+efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
+
 if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
 elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
-        efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
-        efi_conf.set_quoted('VERSION_TAG', version_tag)
-        efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
         if get_option('sbat-distro-generation') < 1
                 error('SBAT Distro Generation must be a positive integer')
         endif
