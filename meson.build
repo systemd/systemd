@@ -18,7 +18,7 @@ libudev_version = '1.7.9'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
+conf.set('PROJECT_VERSION', meson.project_version().split('.')[0].split('~')[0],
          description : 'Numerical project version (used where a simple number is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
@@ -1996,7 +1996,7 @@ version_h = vcs_tag(
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version().split('~')[0]
+        shared_lib_tag = meson.project_version().split('.')[0].split('~')[0]
 endif
 
 #####################################################################

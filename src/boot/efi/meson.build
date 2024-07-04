@@ -63,7 +63,7 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 'EFI_' + c[1].strip().underscorify().to_upper()))
 endforeach
 
-efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
+efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('.').split('~')[0])
 efi_conf.set_quoted('VERSION_TAG', version_tag)
 efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
 
