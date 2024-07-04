@@ -9,6 +9,13 @@ import pexpect
 
 
 def main():
+    # TODO: drop once https://bugs.debian.org/1075733 is fixed
+    with open("/usr/lib/os-release") as f:
+        for line in f:
+            if line.startswith("ID="):
+                if "debian" in line:
+                    sys.exit(77)
+
     logger = logging.getLogger("test-shutdown")
 
     consoles = []
