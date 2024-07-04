@@ -51,7 +51,7 @@ from typing import (Any,
 
 import pefile  # type: ignore
 
-__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
+__version__ = '{{PROJECT_VERSION}} ({{VERSION_TAG}})'
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
