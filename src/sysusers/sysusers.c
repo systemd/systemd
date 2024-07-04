@@ -1041,7 +1041,9 @@ static int uid_is_ok(
                 r = getpwuid_malloc(uid, /* ret= */ NULL);
                 if (r >= 0)
                         return 0;
-                if (r != -ESRCH)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        log_warning_errno(r, "Unexpected failure while looking up uid '" UID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
+                else if (r != -ESRCH)
                         return r;
 
                 if (check_with_gid) {
@@ -1049,7 +1051,9 @@ static int uid_is_ok(
                         if (r >= 0) {
                                 if (!streq(g->gr_name, name))
                                         return 0;
-                        } else if (r != -ESRCH)
+                        } else if (ERRNO_IS_NEG_DISCONNECT(r))
+                                log_warning_errno(r, "Unexpected failure while looking up gid '" UID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
+                        else if (r != -ESRCH)
                                 return r;
                 }
         }
@@ -1154,7 +1158,9 @@ static int add_user(Context *c, Item *i) {
 
                         return 0;
                 }
-                if (r != -ESRCH)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        log_warning_errno(r, "Unexpected failure while looking up user '%s' via NSS, assuming it doesn't exist: %m", i->name);
+                else if (r != -ESRCH)
                         return log_error_errno(r, "Failed to check if user %s already exists: %m", i->name);
         }
 
@@ -1274,14 +1280,18 @@ static int gid_is_ok(
                 r = getgrgid_malloc(gid, /* ret= */ NULL);
                 if (r >= 0)
                         return 0;
-                if (r != -ESRCH)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        log_warning_errno(r, "Unexpected failure while looking up gid '" UID_FMT "' via NSS, assuming it doesn't exist: %m", gid);
+                else if (r != -ESRCH)
                         return r;
 
                 if (check_with_uid) {
                         r = getpwuid_malloc(gid, /* ret= */ NULL);
                         if (r >= 0)
                                 return 0;
-                        if (r != -ESRCH)
+                        if (ERRNO_IS_NEG_DISCONNECT(r))
+                                log_warning_errno(r, "Unexpected failure while looking up gid '" UID_FMT "' via NSS, assuming it doesn't exist: %m", gid);
+                        else if (r != -ESRCH)
                                 return r;
                 }
         }
@@ -1316,7 +1326,9 @@ static int get_gid_by_name(
                         *ret_gid = g->gr_gid;
                         return 0;
                 }
-                if (r != -ESRCH)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        log_warning_errno(r, "Unexpected failure while looking up user '%s' via NSS, assuming it doesn't exist: %m", name);
+                else if (r != -ESRCH)
                         return log_error_errno(r, "Failed to check if group %s already exists: %m", name);
         }
 
