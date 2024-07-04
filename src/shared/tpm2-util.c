@@ -5797,9 +5797,9 @@ int tpm2_unseal(Tpm2Context *c,
         return 0;
 }
 
-static TPM2_HANDLE generate_random_nv_index(void) {
-        return TPM2_NV_INDEX_UNASSIGNED_FIRST +
-                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_UNASSIGNED_LAST - TPM2_NV_INDEX_UNASSIGNED_FIRST + 1);
+static TPM2_HANDLE generate_random_pcrlock_nv_index(void) {
+        return TPM2_NV_INDEX_PCRLOCK_FIRST +
+                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_PCRLOCK_LAST - TPM2_NV_INDEX_PCRLOCK_FIRST + 1);
 }
 
 int tpm2_define_policy_nv_index(
@@ -5833,7 +5833,7 @@ int tpm2_define_policy_nv_index(
                 if (requested_nv_index != 0)
                         nv_index = requested_nv_index;
                 else
-                        nv_index = generate_random_nv_index();
+                        nv_index = generate_random_pcrlock_nv_index();
 
                 TPM2B_NV_PUBLIC public_info = {
                         .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
