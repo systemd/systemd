@@ -388,8 +388,8 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + meson.project_version().split('~')[0],
-                        '--version-minor=0',
+                        '--version-major=' + meson.project_version().split('.')[0].split('~')[0],
+                        '--version-minor=' + meson.project_version().split('.')[-1].split('~')[0],
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
