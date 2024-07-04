@@ -90,4 +90,10 @@ env --chdir="pkg/$ID" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.pkg.tar
+)
+
 cp "$OUTPUTDIR"/*.pkg.tar "$PACKAGEDIR"
+cp "$OUTPUTDIR"/*.pkg.tar "$BUILDDIR"

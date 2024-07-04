@@ -113,4 +113,10 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --noclean \
     "pkg/$ID/systemd.spec"
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.rpm
+)
+
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
+cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
