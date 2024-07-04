@@ -15,7 +15,7 @@ btrfs:
     - any-glob-to-any-file: '**/*btrfs*'
 build-system:
   - changed-files:
-    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build', 'Makefile', 'configure']
+    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 busctl:
   - changed-files:
     - any-glob-to-any-file: '**/*busctl*'
@@ -78,7 +78,7 @@ mkosi:
     - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
 mountfsd:
   - changed-files:
-    - any-glob-to-any-file: ['src/mountfsd/*']
+    - any-glob-to-any-file: 'src/mountfsd/*'
 network:
   - changed-files:
     - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']
