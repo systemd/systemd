@@ -2,7 +2,6 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "locale-util.h"
 #include "path-util.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
@@ -11,46 +10,53 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-static int normalize_filenames(char **names) {
+static int normalize_link_paths(char **paths) {
         int r;
 
-        STRV_FOREACH(u, names)
-                if (!path_is_absolute(*u)) {
-                        char* normalized_path;
+        STRV_FOREACH(u, paths) {
+                if (path_is_absolute(*u))
+                        continue;
 
-                        if (!isempty(arg_root))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Non-absolute paths are not allowed when --root is used: %s",
-                                                       *u);
+                if (!isempty(arg_root))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Non-absolute paths are not allowed when --root= is used: %s",
+                                               *u);
 
-                        if (!strchr(*u, '/'))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Link argument must contain at least one directory separator.\n"
-                                                       "If you intended to link a file in the current directory, try ./%s instead.",
-                                                       *u);
+                if (!is_path(*u))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Link argument must contain at least one directory separator.\n"
+                                               "If you intended to link a file in the current directory, try './%s' instead.",
+                                               *u);
 
-                        r = path_make_absolute_cwd(*u, &normalized_path);
-                        if (r < 0)
-                                return r;
+                char *normalized_path;
 
-                        free_and_replace(*u, normalized_path);
-                }
+                r = path_make_absolute_cwd(*u, &normalized_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to normalize path '%s': %m", *u);
+
+                path_simplify(normalized_path);
+
+                free_and_replace(*u, normalized_path);
+        }
 
         return 0;
 }
 
 static int normalize_names(char **names) {
         bool was_path = false;
+        int r;
 
         STRV_FOREACH(u, names) {
-                int r;
-
                 if (!is_path(*u))
                         continue;
 
-                r = free_and_strdup(u, basename(*u));
+                char *fn;
+
+                r = path_extract_filename(*u, &fn);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to normalize unit file path: %m");
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", *u);
+
+                free_and_replace(*u, fn);
 
                 was_path = true;
         }
@@ -62,18 +68,15 @@ static int normalize_names(char **names) {
 }
 
 int verb_enable(int argc, char *argv[], void *userdata) {
+        const char *verb = ASSERT_PTR(argv[0]);
         _cleanup_strv_free_ char **names = NULL;
-        const char *verb = argv[0];
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         sd_bus *bus = NULL;
         int r;
 
-        if (!argv[1])
-                return 0;
-
         const char *operation = strjoina("to ", verb);
-        r = mangle_names(operation, strv_skip(argv, 1), &names);
+        r = mangle_names(operation, ASSERT_PTR(strv_skip(argv, 1)), &names);
         if (r < 0)
                 return r;
 
@@ -90,17 +93,14 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 return r > 0 ? 0 : r;
         }
 
-        if (streq(verb, "disable")) {
+        if (streq(verb, "disable"))
                 r = normalize_names(names);
-                if (r < 0)
-                        return r;
-        }
-
-        if (streq(verb, "link")) {
-                r = normalize_filenames(names);
-                if (r < 0)
-                        return r;
-        }
+        else if (streq(verb, "link"))
+                r = normalize_link_paths(names);
+        else
+                r = 0;
+        if (r < 0)
+                return r;
 
         if (install_client_side()) {
                 UnitFileFlags flags;
@@ -110,6 +110,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
                 flags = unit_file_flags_from_args();
+
                 if (streq(verb, "enable")) {
                         r = unit_file_enable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
