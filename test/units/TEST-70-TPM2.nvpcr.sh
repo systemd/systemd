@@ -150,10 +150,10 @@ test "$PRIORITY_EXPLICIT" = "42"
 # value), while 'zzz' is lexically last but more important (lower priority value), so 'zzz' must be set
 # up before 'aaa'.
 cat >/run/nvpcr/aaa.nvpcr <<EOF
-{"name":"aaa","algorithm":"sha256","nvIndex":30474772,"priority":900}
+{"name":"aaa","algorithm":"sha256","nvIndex":30474756,"priority":900}
 EOF
 cat >/run/nvpcr/zzz.nvpcr <<EOF
-{"name":"zzz","algorithm":"sha256","nvIndex":30474773,"priority":100}
+{"name":"zzz","algorithm":"sha256","nvIndex":30474757,"priority":100}
 EOF
 SETUP_LOG="$(run_tpm2_setup 2>&1)"
 AAA_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'aaa'" | cut -d: -f1)"
@@ -164,10 +164,10 @@ test "$ZZZ_LINE" -lt "$AAA_LINE"
 # with the "initrd" reference: in the initrd, the NvPCRs are initialized with a PolicyPCR init policy
 # bound to the current value of PCR 11 instead.
 cat >/run/nvpcr/unauth.nvpcr <<EOF
-{"name":"unauth","algorithm":"sha256","nvIndex":30474774}
+{"name":"unauth","algorithm":"sha256","nvIndex":30474758}
 EOF
 cat >/run/nvpcr/unauth2.nvpcr <<EOF
-{"name":"unauth2","algorithm":"sha256","nvIndex":30474775,"priority":1001}
+{"name":"unauth2","algorithm":"sha256","nvIndex":30474759,"priority":1001}
 EOF
 cp /run/systemd/tpm2-pcr-signature.json /tmp/tpm2-pcr-signature.json.valid
 
@@ -207,25 +207,25 @@ check_nvpcr_unauth() {
     grep -F "$expected" <<<"$log" >/dev/null
     grep -F "No signed init policy for NvPCR 'unauth', falling back to PCR policy." <<<"$log" >/dev/null
     test -f /run/systemd/nvpcr/unauth.auth
-    check_nvpcr_pcr_policy 0x01d10216
+    check_nvpcr_pcr_policy 0x01d10206
     log="$(jq --seq --slurp -r '[.[] | select(.content.eventType=="nvpcr-init") | .content.string] | last' </run/log/systemd/tpm2-measure.log)"
-    [[ "$log" == "nvpcr-init:unauth:0x1d10216:$(tpm2_nvreadpublic 0x01d10216 | awk '/name:/{print $2; exit}')" ]]
+    [[ "$log" == "nvpcr-init:unauth:0x1d10206:$(tpm2_nvreadpublic 0x01d10206 | awk '/name:/{print $2; exit}')" ]]
     # Subsequent extends use the PolicyNvWritten branch, hence work outside the initrd too.
     "$SD_PCREXTEND" --nvpcr=unauth foo
     rm -f /run/systemd/nvpcr/unauth.auth
-    tpm2_nvundefine -C o 0x01d10216
+    tpm2_nvundefine -C o 0x01d10206
 
     # Same for systemd-tpm2-setup in the initrd, which initializes both NvPCRs.
     run_tpm2_setup
     test -f /run/systemd/nvpcr/unauth.auth
     test -f /run/systemd/nvpcr/unauth2.auth
-    check_nvpcr_pcr_policy 0x01d10216
-    check_nvpcr_pcr_policy 0x01d10217
+    check_nvpcr_pcr_policy 0x01d10206
+    check_nvpcr_pcr_policy 0x01d10207
     "$SD_PCREXTEND" --nvpcr=unauth foo
     "$SD_PCREXTEND" --nvpcr=unauth2 foo
     rm -f /run/systemd/nvpcr/unauth.auth /run/systemd/nvpcr/unauth2.auth
-    tpm2_nvundefine -C o 0x01d10216
-    tpm2_nvundefine -C o 0x01d10217
+    tpm2_nvundefine -C o 0x01d10206
+    tpm2_nvundefine -C o 0x01d10207
 }
 
 # Outside the initrd NvPCRs can't be initialized at all, whatever the booted kernel image carries.
@@ -239,8 +239,8 @@ SETUP_LOG="$(SYSTEMD_IN_INITRD=0 "$SD_TPM2SETUP" --early=yes 2>&1)" || rc=$?
 grep -F "Not running in the initrd, not initializing NvPCR 'unauth2'." <<<"$SETUP_LOG" >/dev/null
 test ! -f /run/systemd/nvpcr/unauth.auth
 test ! -f /run/systemd/nvpcr/unauth2.auth
-(! tpm2_nvreadpublic 0x01d10216)
-(! tpm2_nvreadpublic 0x01d10217)
+(! tpm2_nvreadpublic 0x01d10206)
+(! tpm2_nvreadpublic 0x01d10207)
 (! SYSTEMD_IN_INITRD=0 "$SD_PCREXTEND" --nvpcr=unauth foo)
 (! SYSTEMD_IN_INITRD=0 "$SD_PCREXTEND" --graceful --nvpcr=unauth foo)
 LOG="$(SYSTEMD_IN_INITRD=0 varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"nvpcr":"unauth","text":"foo"}' 2>&1 || :)"
@@ -273,27 +273,27 @@ SETUP_LOG="$(rc=0; SYSTEMD_IN_INITRD=1 $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; 
 grep -F "Failed to initialize NvPCR index: State not recoverable" <<<"$SETUP_LOG" >/dev/null
 test ! -f /run/systemd/nvpcr/unauth.auth
 test ! -f /run/systemd/nvpcr/unauth2.auth
-tpm2_nvundefine -C o 0x01d10216
-tpm2_nvundefine -C o 0x01d10217
+tpm2_nvundefine -C o 0x01d10206
+tpm2_nvundefine -C o 0x01d10207
 
 # Leave behind an NV index initialized with the PolicyPCR init policy in a previous boot (i.e. without
 # its .auth file), which must be redefined once a signed init policy is available.
 rm -f /run/systemd/tpm2-pcr-signature.json
 SYSTEMD_IN_INITRD=1 "$SD_PCREXTEND" --nvpcr=unauth foo
-check_nvpcr_pcr_policy 0x01d10216
+check_nvpcr_pcr_policy 0x01d10206
 rm -f /run/systemd/nvpcr/unauth.auth
 
 # And with the valid signature restored, the NvPCRs get initialized
 cp /tmp/tpm2-pcr-signature.json.valid /run/systemd/tpm2-pcr-signature.json
 run_tpm2_setup
 test -f /run/systemd/nvpcr/unauth.auth
-(! check_nvpcr_pcr_policy 0x01d10216)
+(! check_nvpcr_pcr_policy 0x01d10206)
 test -f /run/systemd/nvpcr/unauth2.auth
 "$SD_PCREXTEND" --nvpcr=unauth foo
 "$SD_PCREXTEND" --nvpcr=unauth2 foo
 rm -f /run/nvpcr/unauth.nvpcr /run/nvpcr/unauth2.nvpcr /run/systemd/nvpcr/unauth.auth /run/systemd/nvpcr/unauth2.auth
-tpm2_nvundefine -C o 0x01d10216
-tpm2_nvundefine -C o 0x01d10217
+tpm2_nvundefine -C o 0x01d10206
+tpm2_nvundefine -C o 0x01d10207
 
 # Verify that we can't redefine an NvPCR once we've exitted early boot by extending PCR11.
 rm -f /run/systemd/nvpcr/test.auth
@@ -304,19 +304,19 @@ grep -F "Failed to initialize NvPCR index: Device not a stream" <<<"$SETUP_LOG" 
 
 # The PolicyPCR init policy is bound to the value of PCR 11 at initialization. Once PCR 11 changed, a new
 # initialization redefines the NV index with a policy for the new value.
-echo '{"name":"unauth","algorithm":"sha256","nvIndex":30474774}' >/run/nvpcr/unauth.nvpcr
+echo '{"name":"unauth","algorithm":"sha256","nvIndex":30474758}' >/run/nvpcr/unauth.nvpcr
 rm -f /run/systemd/tpm2-pcr-signature.json
 SYSTEMD_IN_INITRD=1 "$SD_PCREXTEND" --nvpcr=unauth foo
-check_nvpcr_pcr_policy 0x01d10216
-OLD_POLICY="$(nv_index_policy 0x01d10216)"
+check_nvpcr_pcr_policy 0x01d10206
+OLD_POLICY="$(nv_index_policy 0x01d10206)"
 "$SD_PCREXTEND" --pcr 11 "foo"
 rm -f /run/systemd/nvpcr/unauth.auth
 SYSTEMD_IN_INITRD=1 "$SD_PCREXTEND" --nvpcr=unauth foo
-check_nvpcr_pcr_policy 0x01d10216
-[[ "$(nv_index_policy 0x01d10216)" != "$OLD_POLICY" ]]
+check_nvpcr_pcr_policy 0x01d10206
+[[ "$(nv_index_policy 0x01d10206)" != "$OLD_POLICY" ]]
 cp /tmp/tpm2-pcr-signature.json.valid /run/systemd/tpm2-pcr-signature.json
 rm -f /run/nvpcr/unauth.nvpcr /run/systemd/nvpcr/unauth.auth
-tpm2_nvundefine -C o 0x01d10216
+tpm2_nvundefine -C o 0x01d10206
 
 # Test the --login= mode and the 'login' NvPCR, used in production by systemd-pcrlogin@.service.
 if [[ -f /usr/lib/nvpcr/login.nvpcr ]]; then
