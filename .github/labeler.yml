@@ -75,7 +75,7 @@ meson:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 mkosi:
   - changed-files:
-    - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
+    - any-glob-to-any-file: '**/*mkosi*'
 mountfsd:
   - changed-files:
     - any-glob-to-any-file: 'src/mountfsd/*'
