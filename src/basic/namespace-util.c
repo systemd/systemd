@@ -95,7 +95,7 @@ int namespace_open(
                 const char *root;
 
                 root = procfs_file_alloca(pid, "root");
-                root_fd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                root_fd = open(root, O_PATH|O_CLOEXEC|O_DIRECTORY);
                 if (root_fd < 0)
                         return -errno;
         }
