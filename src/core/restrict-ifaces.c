@@ -123,7 +123,7 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
         if (r < 0)
                 return r;
 
-        cgroup_fd = open(cgroup_path, O_RDONLY | O_CLOEXEC | O_DIRECTORY, 0);
+        cgroup_fd = open(cgroup_path, O_PATH | O_CLOEXEC | O_DIRECTORY, 0);
         if (cgroup_fd < 0)
                 return -errno;
 
