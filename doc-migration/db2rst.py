@@ -112,23 +112,23 @@ def _includes(el):
                 el.get("xpointer"))
             return f".. versionadded:: {versionString}"
         elif not el.get("xpointer"):
-            return f".. include:: ./includes/{el.get('href').replace('xml', 'rst')}"
+            return f".. include:: ./{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
-            return f""".. include:: ./includes/{el.get('href').replace('xml', 'rst')}
+            return f""".. include:: ./{el.get('href').replace('xml', 'rst')}
                     :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
                     :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
                     """
 
     elif file_extension == '.c':
-        return f""".. literalinclude:: ./includes/{el.get('href')}
+        return f""".. literalinclude:: ./{el.get('href')}
                     :language: c
                 """
     elif file_extension == '.py':
-        return f""".. literalinclude:: ./includes/{el.get('href')}
+        return f""".. literalinclude:: ./{el.get('href')}
                     :language: python
                 """
     elif file_extension == '.sh':
-        return f""".. literalinclude:: ./includes/{el.get('href')}
+        return f""".. literalinclude:: ./{el.get('href')}
                     :language: shell
                 """
 

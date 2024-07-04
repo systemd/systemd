@@ -1,5 +1,11 @@
 
 
+..meta::
+    :title: journalctl
+
+..meta::
+    :manvolnum: 1
+
 .. _journalctl(1):
 
 =============
@@ -181,7 +187,7 @@ The following options control where to read journal records from:
 
    .. versionadded:: 247
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove image-policy-open
                     :end-before: .. inclusion-end-marker-do-not-remove image-policy-open
 
@@ -681,7 +687,7 @@ Pager Control Options
 
 The following options control page support:
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-pager
                     :end-before: .. inclusion-end-marker-do-not-remove no-pager
 
@@ -941,11 +947,11 @@ The following commands are understood. If none is specified the default is to di
 
    .. versionadded:: 189
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 
@@ -954,9 +960,7 @@ Exit status
 
 On success, 0 is returned; otherwise, a non-zero failure code is returned.
 
-.. include:: ./includes/common-variables.rst
-                    :start-after: .. inclusion-marker-do-not-remove None
-                    :end-before: .. inclusion-end-marker-do-not-remove None
+.. include:: ./common-variables.rst
 
 Examples
 ========
