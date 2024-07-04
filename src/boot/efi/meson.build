@@ -63,7 +63,7 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 'EFI_' + c[1].strip().underscorify().to_upper()))
 endforeach
 
-efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
+efi_conf.set_quoted('PROJECT_VERSION', project_major_version)
 efi_conf.set_quoted('VERSION_TAG', version_tag)
 efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
 
@@ -389,8 +389,8 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + meson.project_version().split('.')[0].split('~')[0],
-                        '--version-minor=' + meson.project_version().split('.')[-1].split('~')[0],
+                        '--version-major=' + project_major_version,
+                        '--version-minor=' + project_minor_version,
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
