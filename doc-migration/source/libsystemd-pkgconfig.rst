@@ -11,4 +11,3 @@ file.
 .. include:: ./includes/threads-aware.rst
                     :start-after: .. inclusion-marker-do-not-remove getenv
                     :end-before: .. inclusion-end-marker-do-not-remove getenv
-                    

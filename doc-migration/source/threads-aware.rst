@@ -14,5 +14,3 @@ here must not call
 `setenv(3) <https://man7.org/linux/man-pages/man3/setenv.3.html>`_
 from a parallel thread. It is recommended to only do calls to ``setenv()``
 from an early phase of the program when no other threads have been started.
-
-
