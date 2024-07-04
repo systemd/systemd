@@ -242,13 +242,21 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
                 size -= header->length;
                 p += header->length;
 
-                /* Skip over string table. */
+                /* Special case: if there are no strings appended, we'll see two NUL bytes, skip over them */
+                if (size >= 2 && p[0] == 0 && p[1] == 0) {
+                        size -= 2;
+                        p += 2;
+                        continue;
+                }
+
+                /* Skip over a populated string table. */
+                bool first = true;
                 for (;;) {
                         const uint8_t *e = memchr(p, 0, size);
                         if (!e)
                                 return NULL;
 
-                        if (e == p) {/* Double NUL byte means we've reached the end of the string table. */
+                        if (!first && e == p) {/* Double NUL byte means we've reached the end of the string table. */
                                 p++;
                                 size--;
                                 break;
@@ -256,6 +264,7 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
 
                         size -= e + 1 - p;
                         p = e + 1;
+                        first = false;
                 }
         }
 
