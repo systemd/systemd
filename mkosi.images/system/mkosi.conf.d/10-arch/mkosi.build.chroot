@@ -16,7 +16,7 @@ fi
 
 # We can't configure the source or build directory so we use symlinks instead to make sure they are in the
 # expected locations.
-ln --symbolic "$SRCDIR" "pkg/$ID/systemd-stable"
+ln --symbolic "$SRCDIR" "pkg/$ID/systemd"
 ln --symbolic "$BUILDDIR" "pkg/$ID/build"
 # Because we run with --noextract we are responsible for making sure the source files appear in src/.
 ln --symbolic . "pkg/$ID/src"
@@ -90,4 +90,10 @@ env --chdir="pkg/$ID" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.pkg.tar
+)
+
 cp "$OUTPUTDIR"/*.pkg.tar "$PACKAGEDIR"
+cp "$OUTPUTDIR"/*.pkg.tar "$BUILDDIR"

@@ -137,6 +137,11 @@ fi
 
 (
     shopt -s nullglob
+    rm -f "$BUILDDIR"/*.deb "$BUILDDIR"/*.ddeb
+
     cp ../*.deb ../*.ddeb "$PACKAGEDIR"
     cp ../*.deb ../*.ddeb "$OUTPUTDIR"
+    cp ../*.deb ../*.ddeb "$BUILDDIR"
+    # These conflict with the packages that we actually want to install, so remove them
+    rm -f "$BUILDDIR"/systemd-standalone-*.deb "$BUILDDIR"/systemd-standalone-*.ddeb
 )
