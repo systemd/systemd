@@ -313,6 +313,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
         '.pcrsig'   : 'text',
         '.sbat'     : 'text',
         '.sbom'     : 'binary',
+        '.profile'  : 'text',
 }
 
 @dataclasses.dataclass
@@ -380,7 +381,14 @@ class UKI:
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
-        if section.name in [s.name for s in self.sections]:
+        start = 0
+
+        # Start search at last .profile section, if there is one
+        for i in range(len(self.sections)):
+            if self.sections[i].name == ".profile":
+                start = i+1
+
+        if section.name in [s.name for s in self.sections[start:]]:
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -493,6 +501,10 @@ def key_path_groups(opts):
 
 
 def call_systemd_measure(uki, linux, opts):
+
+    if not opts.measure and not opts.pcr_private_keys:
+        return
+
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
                              opts=opts)
@@ -501,16 +513,54 @@ def call_systemd_measure(uki, linux, opts):
 
     # PCR measurement
 
+    to_measure = []
+    tflist = []
+
+    for s in uki.sections:
+        if not s.measure:
+            continue
+
+        if s.name == ".linux":
+            to_measure.append(f'--linux={linux}')
+
+        if s.content is not None:
+            to_measure.append(f"--{s.name.removeprefix('.')}={s.content}")
+            continue
+
+        if opts.measure_base is None:
+            continue
+
+        # Load measurement base image if we haven't yet, to extract any matching section from it
+        if pe is None:
+            pe = pefile.PE(opts.measure_base, fast_load=True)
+
+        # Find matching PE section in base image
+        b = None
+        for base_section in pe.sections:
+            # If we reach the first .profile section the base is over
+            if base_section.name == ".profile":
+                break
+            if base_section.name == s.name:
+                b = base_section
+                break
+
+        if b is None:
+            continue
+
+        # Split out section and use as base
+        tf = tempfile.NamedTemporaryFile()
+        tf.write(b.get_data(length=section.Misc_VirtualSize))
+        tflist.append(tf)
+
+        to_measure.append(f"--{s.name.removeprefix('.')}={tf.name}")
+
     if opts.measure:
         pp_groups = opts.phase_path_groups or []
 
         cmd = [
             measure_tool,
             'calculate',
-            f'--linux={linux}',
-            *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+            *to_measure,
             *(f'--bank={bank}'
               for bank in banks),
             # For measurement, the keys are not relevant, so we can lump all the phase paths
@@ -530,10 +580,7 @@ def call_systemd_measure(uki, linux, opts):
         cmd = [
             measure_tool,
             'sign',
-            f'--linux={linux}',
-            *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+            *to_measure,
             *(f'--bank={bank}'
               for bank in banks),
         ]
@@ -631,6 +678,9 @@ def pe_add_sections(uki: UKI, output: str):
         # We could strip the signatures, but why would anyone sign the stub?
         raise PEError('Stub image is signed, refusing.')
 
+    # Remember how many sections originate from systemd-stub
+    n_original_sections = len(pe.sections)
+
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
         new_section.__unpack__(b'\0' * new_section.sizeof())
@@ -664,7 +714,7 @@ def pe_add_sections(uki: UKI, output: str):
         # Special case, mostly for .sbat: the stub will already have a .sbat section, but we want to append
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
-        for i, s in enumerate(pe.sections):
+        for i, s in enumerate(pe.sections[:n_original_sections]):
             if s.Name.rstrip(b"\x00").decode() == section.name:
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
@@ -783,6 +833,32 @@ def verify(tool, opts):
 
     return tool['output'] in info
 
+
+def pe_strip_section_name(name):
+    return name.rstrip(b"\x00").decode()
+
+
+def import_to_extend(uki, opts):
+
+    if opts.extend is None:
+        return
+
+    import_sections = ('.linux', '.osrel', '.cmdline', '.initrd',
+                       '.ucode', '.splash', '.dtb', '.uname',
+                       '.sbat', '.pcrsig', '.pcrpkey', '.profile')
+
+    pe = pefile.PE(opts.extend, fast_load=True)
+
+    for section in pe.sections:
+        n = pe_strip_section_name(section.Name)
+
+        if n not in import_sections:
+            continue
+
+        print(f"Copying section '{n}' from '{opts.extend}': {section.Misc_VirtualSize} bytes")
+        uki.add_section(Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=False))
+
+
 def make_uki(opts):
     # kernel payload signing
 
@@ -847,8 +923,12 @@ def make_uki(opts):
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
+    # Import an existing UKI for extension
+    import_to_extend(uki, opts)
+
     sections = [
         # name,      content,         measure?
+        ('.profile', opts.profile,    True ),
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         ('.dtb',     opts.devicetree, True ),
@@ -870,21 +950,22 @@ def make_uki(opts):
     for section in opts.sections:
         uki.add_section(section)
 
-    if linux is not None:
-        # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        input_pes = [opts.stub, linux]
-        if not opts.sbat:
-            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+    if opts.extend is None:
+        if linux is not None:
+            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
+            input_pes = [opts.stub, linux]
+            if not opts.sbat:
+                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-    else:
-        # Addons don't use the stub so we add SBAT manually
-        input_pes = []
-        if not opts.sbat:
-            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+        else:
+            # Addons don't use the stub so we add SBAT manually
+            input_pes = []
+            if not opts.sbat:
+                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
 """]
-    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # PCR measurement and signing
 
@@ -1360,6 +1441,13 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        '--profile',
+        metavar='TEST|@PATH',
+        help='Profile information [.profile section]',
+        config_key = 'UKI/Uname',
+    ),
+
+    ConfigItem(
         '--efi-arch',
         metavar = 'ARCH',
         choices = ('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
@@ -1372,6 +1460,22 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
+    ),
+
+    ConfigItem(
+        '--extend',
+        metavar = 'UKI',
+        type = pathlib.Path,
+        help = 'path to existing UKI file whose relevant sections to insert into the UKI first',
+        config_key = 'UKI/Extend',
+    ),
+
+    ConfigItem(
+        '--measure-base',
+        metavar = 'UKI',
+        type = pathlib.Path,
+        help = 'path to existing UKI file whose relevant sections shall be used as base for PCR11 prediction',
+        config_key = 'UKI/MeasureBase',
     ),
 
     ConfigItem(
@@ -1678,7 +1782,7 @@ def finalize_options(opts):
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        if opts.linux is not None:
+        if opts.linux is not None or opts.extend is not None:
             opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
         else:
             opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
