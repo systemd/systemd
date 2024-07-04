@@ -1,4 +1,10 @@
-:orphan:
+
+
+..meta::
+    :title: sd_journal_get_data
+
+..meta::
+    :manvolnum: 3
 
 .. _sd_journal_get_data(3):
 
@@ -127,6 +133,8 @@ Errors
 
 Returned errors may indicate the following problems:
 
+.. inclusion-marker-do-not-remove EINVAL
+
 -EINVAL
 -------
 
@@ -134,12 +142,20 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove EINVAL
+
+.. inclusion-marker-do-not-remove ECHILD
+
 -ECHILD
 -------
 
    The journal object was created in a different process, library or module instance.
 
    .. versionadded:: 246
+
+.. inclusion-end-marker-do-not-remove ECHILD
+
+.. inclusion-marker-do-not-remove EADDRNOTAVAIL
 
 -EADDRNOTAVAIL
 --------------
@@ -150,12 +166,20 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove EADDRNOTAVAIL
+
+.. inclusion-marker-do-not-remove ENOENT
+
 -ENOENT
 -------
 
    The current entry does not include the specified field.
 
    .. versionadded:: 246
+
+.. inclusion-end-marker-do-not-remove ENOENT
+
+.. inclusion-marker-do-not-remove ENOMEM
 
 -ENOMEM
 -------
@@ -164,12 +188,20 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove ENOMEM
+
+.. inclusion-marker-do-not-remove ENOBUFS
+
 -ENOBUFS
 --------
 
    A compressed entry is too large.
 
    .. versionadded:: 246
+
+.. inclusion-end-marker-do-not-remove ENOBUFS
+
+.. inclusion-marker-do-not-remove E2BIG
 
 -E2BIG
 ------
@@ -179,6 +211,10 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove E2BIG
+
+.. inclusion-marker-do-not-remove EPROTONOSUPPORT
+
 -EPROTONOSUPPORT
 ----------------
 
@@ -187,12 +223,20 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove EPROTONOSUPPORT
+
+.. inclusion-marker-do-not-remove EBADMSG
+
 -EBADMSG
 --------
 
    The journal is corrupted (possibly just the entry being iterated over).
 
    .. versionadded:: 246
+
+.. inclusion-end-marker-do-not-remove EBADMSG
+
+.. inclusion-marker-do-not-remove EIO
 
 -EIO
 ----
@@ -201,14 +245,16 @@ Returned errors may indicate the following problems:
 
    .. versionadded:: 246
 
+.. inclusion-end-marker-do-not-remove EIO
+
 Notes
 =====
 
-.. include:: ./includes/threads-aware.rst
+.. include:: ./threads-aware.rst
                     :start-after: .. inclusion-marker-do-not-remove strict
                     :end-before: .. inclusion-end-marker-do-not-remove strict
 
-.. include:: ./includes/libsystemd-pkgconfig.rst
+.. include:: ./libsystemd-pkgconfig.rst
                     :start-after: .. inclusion-marker-do-not-remove pkgconfig-text
                     :end-before: .. inclusion-end-marker-do-not-remove pkgconfig-text
 
@@ -253,5 +299,3 @@ See Also
 ========
 
 :ref:`systemd(1)`, :ref:`systemd.journal-fields(7)`, :ref:`sd-journal(3)`, :ref:`sd_journal_open(3)`, :ref:`sd_journal_next(3)`, :ref:`sd_journal_get_realtime_usec(3)`, :ref:`sd_journal_query_unique(3)`
-
-

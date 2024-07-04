@@ -1,5 +1,11 @@
 
 
+..meta::
+    :title: systemd
+
+..meta::
+    :manvolnum: 1
+
 .. _systemd(1):
 
 ==========
@@ -600,7 +606,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_LEVEL``
 ----------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-level-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-level-body
 
@@ -609,7 +615,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_COLOR``
 ----------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-color-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-color-body
 
@@ -618,7 +624,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_TIME``
 ---------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-time-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-time-body
 
@@ -629,7 +635,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_LOCATION``
 -------------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-location-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-location-body
 
@@ -638,7 +644,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_TID``
 --------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-tid-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-tid-body
 
@@ -647,7 +653,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_TARGET``
 -----------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-target-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-target-body
 
@@ -656,7 +662,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_RATELIMIT_KMSG``
 -------------------------------
 
-   .. include:: ./includes/common-variables.rst
+   .. include:: ./common-variables.rst
                        :start-after: .. inclusion-marker-do-not-remove log-ratelimit-kmsg-body
                        :end-before: .. inclusion-end-marker-do-not-remove log-ratelimit-kmsg-body
 
@@ -682,27 +688,27 @@ Some of the variables understood by ``systemd``:
    usual set of paths. Otherwise, the specified list replaces the usual
    set of paths.
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove pager
                     :end-before: .. inclusion-end-marker-do-not-remove pager
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove less
                     :end-before: .. inclusion-end-marker-do-not-remove less
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove lesscharset
                     :end-before: .. inclusion-end-marker-do-not-remove lesscharset
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove lesssecure
                     :end-before: .. inclusion-end-marker-do-not-remove lesssecure
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove colors
                     :end-before: .. inclusion-end-marker-do-not-remove colors
 
-.. include:: ./includes/common-variables.rst
+.. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove urlify
                     :end-before: .. inclusion-end-marker-do-not-remove urlify
 
@@ -1209,11 +1215,11 @@ be invoked with them at any time:
    or not. Note that it is not supported booting and maintaining a system with the service manager
    running in ``--system`` mode but with a PID other than 1.
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 
@@ -1420,7 +1426,7 @@ Files
    :ref:`systemd-timesyncd.service(8)`.
    If present, the modification time of file is used for the epoch, see previous section.
 
-   .. versionadded:: None
+   .. versionadded:: 257
 
 History
 =======

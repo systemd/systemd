@@ -1,5 +1,11 @@
 
 
+..meta::
+    :title: busctl
+
+..meta::
+    :manvolnum: 1
+
 .. _busctl(1):
 
 =========
@@ -401,23 +407,23 @@ The following options are understood:
 
    .. versionadded:: 242
 
-.. include:: ./includes/user-system-options.rst
+.. include:: ./user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove user
                     :end-before: .. inclusion-end-marker-do-not-remove user
 
-.. include:: ./includes/user-system-options.rst
+.. include:: ./user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove system
                     :end-before: .. inclusion-end-marker-do-not-remove system
 
-.. include:: ./includes/user-system-options.rst
+.. include:: ./user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove host
                     :end-before: .. inclusion-end-marker-do-not-remove host
 
-.. include:: ./includes/user-system-options.rst
+.. include:: ./user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove machine
                     :end-before: .. inclusion-end-marker-do-not-remove machine
 
-.. include:: ./includes/user-system-options.rst
+.. include:: ./user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove capsule
                     :end-before: .. inclusion-end-marker-do-not-remove capsule
 
@@ -428,19 +434,19 @@ The following options are understood:
 
    .. versionadded:: 245
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-pager
                     :end-before: .. inclusion-end-marker-do-not-remove no-pager
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-legend
                     :end-before: .. inclusion-end-marker-do-not-remove no-legend
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./includes/standard-options.rst
+.. include:: ./standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 
