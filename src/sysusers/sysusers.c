@@ -1042,7 +1042,7 @@ static int uid_is_ok(
                 if (r >= 0)
                         return 0;
                 if (r != -ESRCH)
-                        return r;
+                        log_warning_errno(r, "Unexpected failure while looking up UID '" UID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
 
                 if (check_with_gid) {
                         r = getgrgid_malloc((gid_t) uid, &g);
@@ -1050,7 +1050,7 @@ static int uid_is_ok(
                                 if (!streq(g->gr_name, name))
                                         return 0;
                         } else if (r != -ESRCH)
-                                return r;
+                                log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
                 }
         }
 
@@ -1155,7 +1155,7 @@ static int add_user(Context *c, Item *i) {
                         return 0;
                 }
                 if (r != -ESRCH)
-                        return log_error_errno(r, "Failed to check if user %s already exists: %m", i->name);
+                        log_warning_errno(r, "Unexpected failure while looking up user '%s' via NSS, assuming it doesn't exist: %m", i->name);
         }
 
         /* Try to use the suggested numeric UID */
@@ -1275,14 +1275,14 @@ static int gid_is_ok(
                 if (r >= 0)
                         return 0;
                 if (r != -ESRCH)
-                        return r;
+                        log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via NSS, assuming it doesn't exist: %m", gid);
 
                 if (check_with_uid) {
                         r = getpwuid_malloc(gid, /* ret= */ NULL);
                         if (r >= 0)
                                 return 0;
                         if (r != -ESRCH)
-                                return r;
+                                log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via NSS, assuming it doesn't exist: %m", gid);
                 }
         }
 
@@ -1317,7 +1317,7 @@ static int get_gid_by_name(
                         return 0;
                 }
                 if (r != -ESRCH)
-                        return log_error_errno(r, "Failed to check if group %s already exists: %m", name);
+                        log_warning_errno(r, "Unexpected failure while looking up group '%s' via NSS, assuming it doesn't exist: %m", name);
         }
 
         return -ENOENT;
