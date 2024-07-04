@@ -1661,7 +1661,9 @@ static void config_load_type1_entries(
 
         /* Adds Boot Loader Type #1 entries (i.e. /loader/entries/….conf) */
 
-        err = open_directory(root_dir, u"\\loader\\entries", &entries_dir);
+        const uint16_t dropin_path[] = u"\\loader\\entries";
+
+        err = open_directory(root_dir, dropin_path, &entries_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1690,7 +1692,7 @@ static void config_load_type1_entries(
                 if (err != EFI_SUCCESS)
                         continue;
 
-                boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                boot_entry_add_type1(config, device, root_dir, dropin_path, f->FileName, content, loaded_image_path);
         }
 }
 
@@ -2134,6 +2136,7 @@ static void boot_entry_add_type2(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *dir,
+                const uint16_t *path,
                 const uint16_t *filename) {
 
         enum {
@@ -2154,6 +2157,7 @@ static void boot_entry_add_type2(
         assert(config);
         assert(device);
         assert(dir);
+        assert(path);
         assert(filename);
 
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
@@ -2320,7 +2324,7 @@ static void boot_entry_add_type2(
                         .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
                         .device = device,
-                        .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
+                        .loader = xasprintf("%ls\\%ls", path, filename),
                         .sort_key = xstrdup16(good_sort_key),
                         .key = 'l',
                         .tries_done = -1,
@@ -2329,7 +2333,7 @@ static void boot_entry_add_type2(
                 };
 
                 config_add_entry(config, entry);
-                boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
+                boot_entry_parse_tries(entry, path, filename, u".efi");
 
                 if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
                         return;
@@ -2367,7 +2371,9 @@ static void config_load_type2_entries(
         assert(device);
         assert(root_dir);
 
-        err = open_directory(root_dir, u"\\EFI\\Linux", &linux_dir);
+        const uint16_t dropin_path[] = u"\\EFI\\Linux";
+
+        err = open_directory(root_dir, dropin_path, &linux_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -2385,7 +2391,7 @@ static void config_load_type2_entries(
                 if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                boot_entry_add_type2(config, device, linux_dir, f->FileName);
+                boot_entry_add_type2(config, device, linux_dir, dropin_path, f->FileName);
         }
 }
 
