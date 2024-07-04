@@ -464,7 +464,7 @@ static EFI_STATUS load_addons(
                 if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                         *devicetree_addons = xrealloc(*devicetree_addons,
                                                       *n_devicetree_addons * sizeof(DevicetreeAddon),
-                                                      (*n_devicetree_addons + 1)  * sizeof(DevicetreeAddon));
+                                                      (*n_devicetree_addons + 1) * sizeof(DevicetreeAddon));
 
                         (*devicetree_addons)[(*n_devicetree_addons)++] = (DevicetreeAddon) {
                                 .blob = {
