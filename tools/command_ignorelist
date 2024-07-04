@@ -525,3 +525,4 @@ udevadm.xml /refsect1[title="Options"]/refsect2[title="udevadm monitor\n      op
 udevadm.xml /refsect1[title="Options"]/refsect2[title="udevadm test\n      options\n      devpath|file|unit\n    "]/variablelist/varlistentry[term="-a"]
 vconsole.conf.xml /refsect1[title="Options"]/variablelist/varlistentry[term="KEYMAP="]
 vconsole.conf.xml /refsect1[title="Options"]/variablelist/varlistentry[term="FONT="]
+systemd-measure.xml /refsect1[title="Options"]/variablelist/varlistentry[term="--linux=PATH"]

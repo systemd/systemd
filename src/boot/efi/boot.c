@@ -24,6 +24,7 @@
 #include "shim.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
+#include "uki.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -72,6 +73,7 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
+        unsigned profile;
 } BootEntry;
 
 typedef struct {
@@ -605,6 +607,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
                         printf("       options: %ls\n", entry->options);
+                if (entry->profile > 0)
+                        printf("       profile: %u\n", entry->profile);
                 printf(" internal call: %ls\n", yes_no(!!entry->call));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
@@ -620,16 +624,21 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 }
 
 static EFI_STATUS set_reboot_into_firmware(void) {
-        uint64_t osind = 0;
         EFI_STATUS err;
 
+        uint64_t osind = 0;
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
+
+        if (FLAGS_SET(osind, EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                return EFI_SUCCESS;
+
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                log_error_status(err, "Error setting OsIndications: %m");
-        return err;
+                return log_error_status(err, "Error setting OsIndications, ignoring: %m");
+
+        return EFI_SUCCESS;
 }
 
 _noreturn_ static EFI_STATUS poweroff_system(void) {
@@ -881,6 +890,7 @@ static bool menu_run(
 
                 switch (key) {
                 case KEYPRESS(0, SCAN_UP, 0):
+                case KEYPRESS(0, SCAN_VOLUME_UP, 0):  /* Handle phones/tablets that only have a volume up/down rocker + power key (and otherwise just touchscreen input) */
                 case KEYPRESS(0, 0, 'k'):
                 case KEYPRESS(0, 0, 'K'):
                         if (idx_highlight > 0)
@@ -888,6 +898,7 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, SCAN_DOWN, 0):
+                case KEYPRESS(0, SCAN_VOLUME_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
                         if (idx_highlight < config->n_entries-1)
@@ -925,9 +936,10 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '\n'):
                 case KEYPRESS(0, 0, '\r'):
-                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, 0):      /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
+                case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
                         action = ACTION_RUN;
                         break;
 
@@ -1658,15 +1670,21 @@ static void config_load_type1_entries(
                         continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-
                 if (!endswith_no_case(f->FileName, u".conf"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
-                if (err == EFI_SUCCESS)
-                        boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                err = file_read(entries_dir,
+                                f->FileName,
+                                /* offset= */ 0,
+                                /* size= */ 0,
+                                &content,
+                                /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -1701,6 +1719,11 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
 
                 /* If the sort key was defined, then order by version now (downwards, putting the newest first) */
                 r = -strverscmp_improved(a->version, b->version);
+                if (r != 0)
+                        return r;
+
+                /* Let's always keep profiles of the same UKI together, and show them ordered */
+                r = CMP(a->profile, b->profile);
                 if (r != 0)
                         return r;
         }
@@ -1858,23 +1881,40 @@ static void generate_boot_entry_titles(Config *config) {
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
-        static const char * const sections[] = {
+        static const char * const section_names[] = {
                 ".sdmagic",
                 NULL
         };
         _cleanup_free_ char *content = NULL;
-        PeSectionVector vector = {};
         EFI_STATUS err;
         size_t read;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &vector);
-        if (err != EFI_SUCCESS || vector.size != sizeof(SD_MAGIC))
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = root_dir->Open(root_dir, &handle, (char16_t *) loader_path, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
                 return false;
 
-        err = file_read(root_dir, loader_path, vector.file_offset, vector.size, &content, &read);
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
+        size_t n_section_table;
+        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return false;
+
+        PeSectionVector vector = {};
+        pe_locate_profile_sections(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* profile= */ UINT_MAX,
+                        /* validate_base= */ 0,
+                        &vector);
+        if (vector.size != sizeof(SD_MAGIC))
+                return false;
+
+        err = file_handle_read(handle, vector.file_offset, vector.size, &content, &read);
         if (err != EFI_SUCCESS || vector.size != read)
                 return false;
 
@@ -2081,73 +2121,89 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
-static void config_load_type2_entries(
+static void boot_entry_add_type2(
                 Config *config,
                 EFI_HANDLE *device,
-                EFI_FILE *root_dir) {
+                EFI_FILE *dir,
+                const uint16_t *filename) {
 
-        _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
-        _cleanup_free_ EFI_FILE_INFO *f = NULL;
-        size_t f_size = 0;
+        enum {
+                SECTION_CMDLINE,
+                SECTION_OSREL,
+                SECTION_PROFILE,
+                _SECTION_MAX,
+        };
+        static const char * const section_names[_SECTION_MAX + 1] = {
+                [SECTION_CMDLINE] = ".cmdline",
+                [SECTION_OSREL]   = ".osrel",
+                [SECTION_PROFILE] = ".profile",
+                NULL,
+        };
+
         EFI_STATUS err;
-
-        /* Adds Boot Loader Type #2 entries (i.e. /EFI/Linux/….efi) */
 
         assert(config);
         assert(device);
-        assert(root_dir);
+        assert(dir);
+        assert(filename);
 
-        err = open_directory(root_dir, u"\\EFI\\Linux", &linux_dir);
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = dir->Open(dir, &handle, (char16_t *) filename, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return;
 
-        for (;;) {
-                enum {
-                        SECTION_CMDLINE,
-                        SECTION_OSREL,
-                        _SECTION_MAX,
-                };
+        /* Load section table once */
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
+        size_t n_section_table;
+        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return;
 
-                static const char * const section_names[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = ".cmdline",
-                        [SECTION_OSREL]   = ".osrel",
-                        NULL,
-                };
+        /* Find base profile */
+        PeSectionVector base_sections[_SECTION_MAX] = {};
+        pe_locate_profile_sections(
+                        section_table,
+                        n_section_table,
+                        section_names,
+                        /* profile= */ UINT_MAX,
+                        /* validate_base= */ 0,
+                        base_sections);
 
-                _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-                const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_free_ char *content = NULL;
-                PeSectionVector sections[_SECTION_MAX] = {};
-                char *line, *key, *value;
-                size_t pos = 0;
+        /* and now iterate through possible profiles, and create a menu item for each profile we find */
+        for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
+                PeSectionVector sections[_SECTION_MAX];
 
-                err = readdir(linux_dir, &f, &f_size);
-                if (err != EFI_SUCCESS || !f)
+                /* Start out with the base sections */
+                memcpy(sections, base_sections, sizeof(sections));
+
+                err = pe_locate_profile_sections(
+                                section_table,
+                                n_section_table,
+                                section_names,
+                                profile,
+                                /* validate_base= */ 0,
+                                sections);
+                if (err != EFI_SUCCESS && profile > 0) /* It's fine if there's no .profile for the first
+                                                          profile */
                         break;
 
-                if (f->FileName[0] == '.')
-                        continue;
-                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
-                        continue;
-                if (!endswith_no_case(f->FileName, u".efi"))
-                        continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
                         continue;
 
-                /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, section_names, sections);
-                if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
-                        continue;
-
-                err = file_read(linux_dir,
-                                f->FileName,
+                _cleanup_free_ char *content = NULL;
+                err = file_handle_read(
+                                handle,
                                 sections[SECTION_OSREL].file_offset,
                                 sections[SECTION_OSREL].size,
                                 &content,
-                                NULL);
+                                /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         continue;
+
+                _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+                char *line, *key, *value;
+                size_t pos = 0;
 
                 /* read properties from the embedded os-release file */
                 while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
@@ -2184,6 +2240,7 @@ static void config_load_type2_entries(
                                 os_build_id = xstr8_to_16(value);
                         }
 
+                const char16_t *good_name, *good_version, *good_sort_key;
                 if (!bootspec_pick_name_version_sort_key(
                                     os_pretty_name,
                                     os_image_id,
@@ -2198,42 +2255,128 @@ static void config_load_type2_entries(
                                     &good_sort_key))
                         continue;
 
+                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL;
+
+                if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
+                        content = mfree(content);
+
+                        /* Read any .profile data from the file, if we have it */
+
+                        err = file_handle_read(
+                                        handle,
+                                        sections[SECTION_PROFILE].file_offset,
+                                        sections[SECTION_PROFILE].size,
+                                        &content,
+                                        /* ret_size= */ NULL);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        /* read properties from the embedded os-release file */
+                        pos = 0;
+                        while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                                if (streq8(key, "ID")) {
+                                        free(profile_id);
+                                        profile_id = xstr8_to_16(value);
+                                } else if (streq8(key, "TITLE")) {
+                                        free(profile_title);
+                                        profile_title = xstr8_to_16(value);
+                                }
+                }
+
+                _cleanup_free_ char16_t *id = NULL;
+                if (profile > 0) {
+                        if (profile_id)
+                                id = xasprintf("%ls@%ls", filename, profile_id);
+                        else
+                                id = xasprintf("%ls@%u", filename, profile);
+                } else
+                        id = xstrdup16(filename);
+
+                _cleanup_free_ char16_t *title = NULL;
+                if (profile_title)
+                        title = xasprintf("%ls (%ls)", good_name, profile_title);
+                else if (profile > 0) {
+                        if (profile_id)
+                                title = xasprintf("%ls (%ls)", good_name, profile_id);
+                        else
+                                title = xasprintf("%ls (Profile #%u)", good_name, profile + 1);
+                } else
+                        title = xstrdup16(good_name);
+
                 BootEntry *entry = xnew(BootEntry, 1);
                 *entry = (BootEntry) {
-                        .id = xstrdup16(f->FileName),
+                        .id = TAKE_PTR(id),
                         .type = LOADER_UNIFIED_LINUX,
-                        .title = xstrdup16(good_name),
+                        .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
                         .device = device,
-                        .loader = xasprintf("\\EFI\\Linux\\%ls", f->FileName),
+                        .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
                         .sort_key = xstrdup16(good_sort_key),
                         .key = 'l',
                         .tries_done = -1,
                         .tries_left = -1,
+                        .profile = profile,
                 };
 
                 strtolower16(entry->id);
                 config_add_entry(config, entry);
-                boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
+                boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
 
                 if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
-                        continue;
+                        return;
 
                 content = mfree(content);
 
-                /* read the embedded cmdline file */
+                /* Read the embedded cmdline file for display purposes */
                 size_t cmdline_len;
-                err = file_read(linux_dir,
-                                f->FileName,
+                err = file_handle_read(
+                                handle,
                                 sections[SECTION_CMDLINE].file_offset,
                                 sections[SECTION_CMDLINE].size,
                                 &content,
                                 &cmdline_len);
                 if (err == EFI_SUCCESS) {
-                        entry->options = xstrn8_to_16(content, cmdline_len);
-                        mangle_stub_cmdline(entry->options);
+                        entry->options = mangle_stub_cmdline(xstrn8_to_16(content, cmdline_len));
                         entry->options_implied = true;
                 }
+        }
+}
+
+static void config_load_type2_entries(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir) {
+
+        _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
+        _cleanup_free_ EFI_FILE_INFO *f = NULL;
+        size_t f_size = 0;
+        EFI_STATUS err;
+
+        /* Adds Boot Loader Type #2 entries (i.e. /EFI/Linux/….efi) */
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+
+        err = open_directory(root_dir, u"\\EFI\\Linux", &linux_dir);
+        if (err != EFI_SUCCESS)
+                return;
+
+        for (;;) {
+                err = readdir(linux_dir, &f, &f_size);
+                if (err != EFI_SUCCESS || !f)
+                        break;
+
+                if (f->FileName[0] == '.')
+                        continue;
+                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
+                        continue;
+                if (!endswith_no_case(f->FileName, u".efi"))
+                        continue;
+                if (startswith_no_case(f->FileName, u"auto-"))
+                        continue;
+
+                boot_entry_add_type2(config, device, linux_dir, f->FileName);
         }
 }
 
@@ -2395,8 +2538,20 @@ static EFI_STATUS image_start(
                 const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
-                        options = xasprintf("%ls %ls", tmp, extra16);
+                        if (isempty(tmp))
+                                options = TAKE_PTR(extra16);
+                        else
+                                options = xasprintf("%ls %ls", tmp, extra16);
                 }
+        }
+
+        /* Prefix profile if it's non-zero */
+        if (entry->profile > 0) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(options);
+                if (isempty(tmp))
+                        options = xasprintf("@%u", entry->profile);
+                else
+                        options = xasprintf("@%u %ls", entry->profile, tmp);
         }
 
         if (options) {
@@ -2560,6 +2715,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
                 0;
 
         assert(loaded_image);
