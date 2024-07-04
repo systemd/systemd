@@ -570,11 +570,11 @@ def refmeta(el):
     refentrytitle = el.find('refentrytitle').text
     manvolnum = el.find('manvolnum').text
 
-    meta_title = f"""..meta::
+    meta_title = f""".. meta::
     :title: {refentrytitle}
             """
 
-    meta_manvolnum = f"""..meta::
+    meta_manvolnum = f""".. meta::
     :manvolnum: {manvolnum}
             """
 

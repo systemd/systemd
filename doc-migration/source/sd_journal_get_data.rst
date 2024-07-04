@@ -1,9 +1,9 @@
 
 
-..meta::
+.. meta::
     :title: sd_journal_get_data
 
-..meta::
+.. meta::
     :manvolnum: 3
 
 .. _sd_journal_get_data(3):
