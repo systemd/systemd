@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Array of XML filenames
-files=("busctl" "systemd" "journalctl")
+files=("busctl" "systemd" "journalctl" "os-release")
 
 # Directory paths
 input_dir="../man"
@@ -13,7 +13,7 @@ echo ""
 # Iterate over the filenames
 for file in "${files[@]}"; do
     echo "------------------"
-    python3 db2rst.py "${input_dir}/${file}.xml" > "${output_dir}/${file}.rst"
+    python3 main.py --dir ${input_dir} --output ${output_dir} --file "${file}.xml"
 done
 
 # Clean and build
