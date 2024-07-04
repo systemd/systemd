@@ -1,9 +1,9 @@
 
 
-..meta::
+.. meta::
     :title: busctl
 
-..meta::
+.. meta::
     :manvolnum: 1
 
 .. _busctl(1):
