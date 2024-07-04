@@ -31,6 +31,7 @@ from source import conf
 import lxml.etree as ET
 import re
 import sys
+import os
 from pathlib import Path
 REMOVE_COMMENTS = False
 
@@ -50,18 +51,21 @@ _linked_ids = set()
 _buffer = ""
 
 
-def _main():
-    if len(sys.argv) != 2 or sys.argv[1] == '-h' or sys.argv[1] == '--help':
-        sys.stderr.write(__doc__)
-        sys.exit()
-    input_file = sys.argv[1]
+def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
+
     parser = ET.XMLParser(remove_comments=REMOVE_COMMENTS, no_network=False)
     tree = ET.parse(input_file, parser=parser)
+
     for elem in tree.iter():
         if elem.tag in ("xref", "link"):
             _linked_ids.add(elem.get("linkend"))
-    print(TreeRoot(tree.getroot()).encode('utf-8').decode('utf-8'))
+
+    output_file = os.path.join(output_dir, os.path.basename(
+        input_file).replace('.xml', '.rst'))
+
+    with open(output_file, 'w') as file:
+        file.write(TreeRoot(tree.getroot()).encode('utf-8').decode('utf-8'))
 
 
 def _warn(s):
@@ -105,7 +109,7 @@ def _includes(el):
     file_path_pathlib = Path(el.get('href'))
     file_extension = file_path_pathlib.suffix
     include_files = ['standard-options.xml', 'user-system-options.xml',
-                     'sd_journal_get_data.xml', 'threads-aware.xml', 'libsystemd-pkgconfig.xml', 'common-variables.xml']
+                     'sd_journal_get_data.xml', 'threads-aware.xml', 'libsystemd-pkgconfig.xml', 'common-variables.xml', 'standard-conf.xml']
     if file_extension == '.xml':
         if el.get('href') == 'version-info.xml':
             versionString = conf.global_substitutions.get(
@@ -148,8 +152,8 @@ def _conv(el):
                 return _includes(el)
             else:
                 _warn("Don't know how to handle <%s>" % el.tag)
-                # _warn(" ... from path: %s" % _get_path(el))
-                # _not_handled_tags.add(el.tag)
+                _warn(" ... from path: %s" % _get_path(el))
+                _not_handled_tags.add(el.tag)
         return _concat(el)
 
 
@@ -651,6 +655,10 @@ def keycap(el):
     return ":kbd:`%s`" % el.text
 
 
+def warning(el):
+    return ".. warning::`%s`" % el.text
+
+
 def para(el):
     return _block_separated_with_blank_line(el) + '\n\n \n\n'
 
@@ -691,5 +699,10 @@ def refsect5(el):
     return _block_separated_with_blank_line(el)
 
 
-if __name__ == "__main__":
-    _main()
+def convert_xml_to_rst(xml_file_path, output_dir):
+    try:
+        _run(xml_file_path, output_dir)
+        return list(_not_handled_tags), ''
+    except Exception as e:
+        _warn('Failed to convert file %s' % xml_file_path)
+        return "", [], str(e)
