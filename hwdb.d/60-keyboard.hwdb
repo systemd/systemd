@@ -2215,6 +2215,13 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
  KEYBOARD_KEY_7006e=prog4                               # Programmable button
 
 ###########################################################
+# Multilaser
+###########################################################
+# Multilaser Ultra (UL154)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
+ KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+
+###########################################################
 # Other
 ###########################################################
 
