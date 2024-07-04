@@ -463,10 +463,10 @@ static EFI_STATUS load_addons(
 
                 if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                         *devicetree_addons = xrealloc(*devicetree_addons,
-                                                      *n_devicetree_addons * sizeof(size_t),
-                                                      (*n_devicetree_addons + 1)  * sizeof(size_t));
+                                                      *n_devicetree_addons * sizeof(DevicetreeAddon),
+                                                      (*n_devicetree_addons + 1)  * sizeof(DevicetreeAddon));
 
-                        *devicetree_addons[(*n_devicetree_addons)++] = (DevicetreeAddon) {
+                        (*devicetree_addons)[(*n_devicetree_addons)++] = (DevicetreeAddon) {
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].size),
                                         .iov_len = sections[UNIFIED_SECTION_DTB].size,
