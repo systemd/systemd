@@ -760,11 +760,11 @@ static int find_sections(
 
         r = pe_load_headers(fd, &dos_header, &pe_header);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse PE file '%s': %m", path);
+                return log_error_errno(r, "Failed to parse PE file '%s': %m", path);
 
         r = pe_load_sections(fd, dos_header, pe_header, &sections);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse PE sections of '%s': %m", path);
+                return log_error_errno(r, "Failed to parse PE sections of '%s': %m", path);
 
         if (ret_pe_header)
                 *ret_pe_header = TAKE_PTR(pe_header);
@@ -826,7 +826,7 @@ static int find_osrel_section(
 
         r = pe_read_section_data_by_name(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+                return log_error_errno(r, "Failed to read .osrel section of '%s': %m", path);
 
         return 0;
 }
@@ -846,7 +846,7 @@ static int find_uki_sections(
                 return r;
 
         if (!pe_is_uki(pe_header, sections))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
 
         r = find_osrel_section(fd, path, sections, pe_header, ret_osrelease);
         if (r < 0)
