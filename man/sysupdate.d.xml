@@ -558,6 +558,22 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Alias=</varname></term>
+
+        <listitem><para>Specifies a user-facing alias for this transfer.
+        This is used by the <command>enable</command> and <command>disable</command> verbs of
+        <citerefentry><refentrytitle>updatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, so
+        it is relevant only to transfers that are defined in <filename>sysregistry.d/</filename>.
+        If multiple transfers share the same alias, <command>updatectl</command> will treat these transfers
+        as a group and enable/disable them together.
+        If unset, the transfer's file name without the <literal>.conf</literal> suffix will be used as the
+        default alias.</para>
+
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
