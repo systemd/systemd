@@ -23,14 +23,14 @@ $ meson compile -C build mkosi
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
 See `meson introspect build --tests` for a list of tests.
@@ -40,7 +40,7 @@ To interactively debug a failing integration test, the `--interactive` option
 newer:
 
 ```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -i TEST-01-BASIC
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -49,7 +49,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
+$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
