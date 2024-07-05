@@ -37,27 +37,36 @@ const IMAGE_DATA_DIRECTORY *pe_header_get_data_directory(
         return PE_HEADER_OPTIONAL_FIELD(h, DataDirectory) + i;
 }
 
-const IMAGE_SECTION_HEADER *pe_header_find_section(
-                const PeHeader *pe_header,
+const IMAGE_SECTION_HEADER *pe_section_table_find(
                 const IMAGE_SECTION_HEADER *sections,
+                size_t n_sections,
                 const char *name) {
 
         size_t n;
 
-        assert(pe_header);
         assert(name);
-        assert(sections || le16toh(pe_header->pe.NumberOfSections) == 0);
+        assert(sections || n_sections == 0);
 
         n = strlen(name);
         if (n > sizeof(sections[0].Name)) /* Too long? */
                 return NULL;
 
-        FOREACH_ARRAY(section, sections, le16toh(pe_header->pe.NumberOfSections))
+        FOREACH_ARRAY(section, sections, n_sections)
                 if (memcmp(section->Name, name, n) == 0 &&
                     memeqzero(section->Name + n, sizeof(section->Name) - n))
                         return section;
 
         return NULL;
+}
+
+const IMAGE_SECTION_HEADER* pe_header_find_section(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                const char *name) {
+
+        assert(pe_header);
+
+        return pe_section_table_find(sections, le16toh(pe_header->pe.NumberOfSections), name);
 }
 
 int pe_load_headers(
