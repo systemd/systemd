@@ -6,14 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
  . "$(dirname "$0")"/util.sh
 
-. /etc/os-release
-# OpenSUSE does not have the stress tool packaged. It does have stress-ng but the stress-ng does not support
-# --vm-stride which this test uses.
-if [[ "$ID" =~ "opensuse" ]]; then
-    echo "Skipping due to missing stress package in OpenSUSE" >>/skipped
-    exit 77
-fi
-
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot

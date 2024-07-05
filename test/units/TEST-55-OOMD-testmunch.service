@@ -5,4 +5,4 @@ Description=Create some memory pressure
 [Service]
 MemoryHigh=12M
 Slice=TEST-55-OOMD-workload.slice
-ExecStart=stress --timeout 3m --vm 10 --vm-bytes 200M --vm-keep --vm-stride 1
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
