@@ -8,6 +8,7 @@ set -o pipefail
 SYSUPDATE=/lib/systemd/systemd-sysupdate
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
+CONFIGDIR="/run/sysupdate.d"
 BACKING_FILE="$WORKDIR/joined.raw"
 export SYSTEMD_ESP_PATH="$WORKDIR/esp"
 export SYSTEMD_XBOOTLDR_PATH="$WORKDIR/xbootldr"
@@ -27,6 +28,17 @@ if [[ ! -e /dev/loop-control ]]; then
     echo "No loopback device support"
     SECTOR_SIZES=(512)
 fi
+
+# Set up sysupdated drop-in pointing at the correct definitions and setting
+# no verification of images.
+mkdir -p /run/systemd/system/systemd-sysupdated.service.d
+cat >/run/systemd/system/systemd-sysupdated.service.d/override.conf<<EOF
+[Service]
+Environment=SYSTEMD_SYSUPDATE_NO_VERIFY=1
+Environment=SYSTEMD_ESP_PATH=${SYSTEMD_ESP_PATH}
+Environment=SYSTEMD_XBOOTLDR_PATH=${SYSTEMD_XBOOTLDR_PATH}
+EOF
+systemctl daemon-reload
 
 at_exit() {
     set +e
@@ -55,6 +67,9 @@ new_version() {
     # Create a random extra payload
     echo $RANDOM >"$WORKDIR/source/uki-extra-$version.efi"
 
+    # Create a random optional payload
+    echo $RANDOM >"$WORKDIR/source/optional-$version.efi"
+
     # Create tarball of a directory
     mkdir -p "$WORKDIR/source/dir-$version"
     echo $RANDOM >"$WORKDIR/source/dir-$version/foo.txt"
@@ -68,9 +83,9 @@ update_now() {
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
 
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
-    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no update
-    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
+    "$SYSUPDATE" --verify=no check-new
+    "$SYSUPDATE" --verify=no update
+    (! "$SYSUPDATE" --verify=no check-new)
 }
 
 verify_version() {
@@ -78,9 +93,9 @@ verify_version() {
     local sector_size="${2:?}"
     local version="${3:?}"
     local part1_number="${4:?}"
-    local part2_number="${5:?}"
-    local gpt_reserved_sectors part1_offset part2_offset
+    local gpt_reserved_sectors part2_number part1_offset part2_offset
 
+    part2_number=$(( part1_number + 2 ))
     gpt_reserved_sectors=$((1024 * 1024 / sector_size))
     part1_offset=$(((part1_number - 1) * 2048 + gpt_reserved_sectors))
     part2_offset=$(((part2_number - 1) * 2048 + gpt_reserved_sectors))
@@ -95,6 +110,12 @@ verify_version() {
 
     # Check the extra efi
     cmp "$WORKDIR/source/uki-extra-$version.efi" "$WORKDIR/xbootldr/EFI/Linux/uki_$version.efi.extra.d/extra.addon.efi"
+}
+
+verify_version_current() {
+    local version="${3:?}"
+
+    verify_version "$@"
 
     # Check the directories
     cmp "$WORKDIR/source/dir-$version/foo.txt" "$WORKDIR/dirs/current/foo.txt"
@@ -127,12 +148,12 @@ size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 EOF
 
-    for d in "dirs" "defs"; do
-        rm -rf "${WORKDIR:?}/$d"
-        mkdir -p "$WORKDIR/$d"
+    for d in "$WORKDIR/dirs" "$CONFIGDIR"; do
+        rm -rf "$d"
+        mkdir -p "$d"
     done
 
-    cat >"$WORKDIR/defs/01-first.conf" <<EOF
+    cat >"$CONFIGDIR/01-first.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -145,7 +166,7 @@ MatchPattern=part1-@v
 MatchPartitionType=root-x86-64
 EOF
 
-    cat >"$WORKDIR/defs/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -158,7 +179,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$WORKDIR/defs/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.transfer" <<EOF
 [Source]
 Type=directory
 Path=$WORKDIR/source
@@ -172,7 +193,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    cat >"$WORKDIR/defs/04-fourth.conf" <<EOF
+    cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -191,7 +212,7 @@ TriesDone=0
 InstancesMax=2
 EOF
 
-    cat >"$WORKDIR/defs/05-fifth.conf" <<EOF
+    cat >"$CONFIGDIR/05-fifth.transfer" <<EOF
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -206,36 +227,119 @@ Mode=0444
 InstancesMax=2
 EOF
 
+    cat >"$CONFIGDIR/optional.feature" <<EOF
+[Feature]
+Description=Optional Feature
+EOF
+
+    cat >"$CONFIGDIR/99-optional.transfer" <<EOF
+[Transfer]
+Features=optional
+
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=optional-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=uki_@v.efi.extra.d/optional.efi
+Mode=0444
+InstancesMax=2
+EOF
+
     rm -rf "${WORKDIR:?}"/{esp,xbootldr,source}
     mkdir -p "$WORKDIR"/{source,esp/EFI/Linux,xbootldr/EFI/Linux}
 
     # Install initial version and verify
     new_version "$sector_size" v1
     update_now
-    verify_version "$blockdev" "$sector_size" v1 1 3
+    verify_version_current "$blockdev" "$sector_size" v1 1
 
     # Create second version, update and verify that it is added
     new_version "$sector_size" v2
     update_now
-    verify_version "$blockdev" "$sector_size" v2 2 4
+    verify_version "$blockdev" "$sector_size" v1 1
+    verify_version_current "$blockdev" "$sector_size" v2 2
 
     # Create third version, update and verify it replaced the first version
     new_version "$sector_size" v3
     update_now
-    verify_version "$blockdev" "$sector_size" v3 1 3
+    verify_version_current "$blockdev" "$sector_size" v3 1
+    verify_version "$blockdev" "$sector_size" v2 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1+3-0.efi"
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
     test ! -d "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
-    # Create fourth version, and update through a file:// URL. This should be
+    # Create fourth version, but make it be incomplete (i.e. missing some files)
+    # on the server-side. Verify that it's not offered as an update.
+    new_version "$sector_size" v4
+    rm "$WORKDIR/source/uki-extra-v4.efi"
+    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (! "$SYSUPDATE" --verify=no check-new)
+
+    # Create a fifth version, that's complete on the server side. We should
+    # completely skip the incomplete v4 and install v5 instead.
+    new_version "$sector_size" v5
+    update_now
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+
+    # Make the local installation of v5 incomplete by deleting a file, then make
+    # sure that sysupdate still recognizes the installation and can complete it
+    # in place
+    rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
+    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    update_now
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+
+    # Now let's try enabling an optional feature
+    "$SYSUPDATE" features | grep "optional"
+    "$SYSUPDATE" features optional | grep "99-optional"
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+    mkdir "$CONFIGDIR/optional.feature.d"
+    echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
+    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    update_now
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+
+    # And now let's disable it and make sure it gets cleaned up
+    rm -r "$CONFIGDIR/optional.feature.d"
+    (! "$SYSUPDATE" --verify=no check-new)
+    "$SYSUPDATE" vacuum
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
+
+    # Create sixth version, update using updatectl and verify it replaced the
+    # correct version
+    new_version "$sector_size" v6
+    systemctl start systemd-sysupdated
+    updatectl check
+    updatectl update
+    # User-facing updatectl returns 0 if there's no updates, so use the low-level
+    # utility to make sure we did upgrade
+    (! "$SYSUPDATE" --verify=no check-new )
+    verify_version_current "$blockdev" "$sector_size" v6 1
+    verify_version "$blockdev" "$sector_size" v5 2
+
+    # Create seventh version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
     # (and not curl) this test should be quite good even if not comprehensive. This
     # will test the SHA256SUMS logic at least (we turn off GPG validation though,
     # see above)
-    new_version "$sector_size" v4
+    new_version "$sector_size" v7
 
-    cat >"$WORKDIR/defs/02-second.conf" <<EOF
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
 [Source]
 Type=url-file
 Path=file://$WORKDIR/source
@@ -248,7 +352,7 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >"$WORKDIR/defs/03-third.conf" <<EOF
+    cat >"$CONFIGDIR/03-third.transfer" <<EOF
 [Source]
 Type=url-tar
 Path=file://$WORKDIR/source
@@ -263,7 +367,16 @@ InstancesMax=3
 EOF
 
     update_now
-    verify_version "$blockdev" "$sector_size" v4 2 4
+    verify_version "$blockdev" "$sector_size" v6 1
+    verify_version_current "$blockdev" "$sector_size" v7 2
+
+    # Let's make sure that we don't break our backwards-compat for .conf files
+    # (what .transfer files were called before v257)
+    rename .transfer .conf "$CONFIGDIR/"*.transfer
+    new_version "$sector_size" v8
+    update_now
+    verify_version_current "$blockdev" "$sector_size" v8 1
+    verify_version "$blockdev" "$sector_size" v7 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
