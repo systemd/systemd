@@ -34,7 +34,7 @@
 
 #if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
-#elif defined(__arm__) || defined(__aarch64__)
+#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64)
 #  define QEMU_MACHINE_TYPE "virt"
 #elif defined(__s390__) || defined(__s390x__)
 #  define QEMU_MACHINE_TYPE "s390-ccw-virtio"
