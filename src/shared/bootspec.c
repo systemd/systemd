@@ -505,6 +505,12 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         assert(a);
         assert(b);
 
+        /* This mimics a funciton of the same name in src/boot/efi/sd-boot.c */
+
+        r = CMP(a->tries_left == 0, b->tries_left == 0);
+        if (r != 0)
+                return r;
+
         r = CMP(!a->sort_key, !b->sort_key);
         if (r != 0)
                 return r;
@@ -523,7 +529,18 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                         return r;
         }
 
-        return -strverscmp_improved(a->id, b->id);
+        r = -strverscmp_improved(a->id, b->id);
+        if (r != 0)
+                return r;
+
+        if (a->tries_left != UINT_MAX || b->tries_left != UINT_MAX)
+                return 0;
+
+        r = -CMP(a->tries_left, b->tries_left);
+        if (r != 0)
+                return r;
+
+        return CMP(a->tries_done, b->tries_done);
 }
 
 static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
