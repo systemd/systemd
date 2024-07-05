@@ -3025,22 +3025,3 @@ int unit_freezer_freeze(UnitFreezer *f) {
 int unit_freezer_thaw(UnitFreezer *f) {
         return unit_freezer_action(f, false);
 }
-
-int unit_freezer_new_freeze(const char *name, UnitFreezer **ret) {
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
-        int r;
-
-        assert(name);
-        assert(ret);
-
-        r = unit_freezer_new(name, &f);
-        if (r < 0)
-                return r;
-
-        r = unit_freezer_freeze(f);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(f);
-        return 0;
-}
