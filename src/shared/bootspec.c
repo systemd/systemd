@@ -773,7 +773,7 @@ static int find_cmdline_section(
         if (!ret_cmdline)
                 return 0;
 
-        r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
+        r = pe_read_section_data_by_name(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
         if (r == -ENXIO) { /* cmdline is optional */
                 *ret_cmdline = NULL;
                 return 0;
@@ -807,7 +807,7 @@ static int find_osrel_section(
         if (!ret_osrelease)
                 return 0;
 
-        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
+        r = pe_read_section_data_by_name(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
 
