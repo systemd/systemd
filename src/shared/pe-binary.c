@@ -273,3 +273,13 @@ bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections
                  pe_header_find_section(pe_header, sections, ".dtb") ||
                  pe_header_find_section(pe_header, sections, ".ucode"));
 }
+
+bool pe_is_native(const PeHeader *pe_header) {
+        assert(pe_header);
+
+#ifdef _IMAGE_FILE_MACHINE_NATIVE
+        return le16toh(pe_header->pe.Machine) == _IMAGE_FILE_MACHINE_NATIVE;
+#else
+        return false;
+#endif
+}
