@@ -173,42 +173,27 @@ int pe_load_sections(
 
 int pe_read_section_data(
                 int fd,
-                const PeHeader *pe_header,
-                const IMAGE_SECTION_HEADER *sections,
-                const char *name,
+                const IMAGE_SECTION_HEADER *section,
                 size_t max_size,
                 void **ret,
                 size_t *ret_size) {
 
-        const IMAGE_SECTION_HEADER *section;
-        _cleanup_free_ void *data = NULL;
-        size_t n;
-        ssize_t ss;
-
         assert(fd >= 0);
-        assert(pe_header);
-        assert(sections || pe_header->pe.NumberOfSections == 0);
-        assert(name);
+        assert(section);
 
-        section = pe_header_find_section(pe_header, sections, name);
-        if (!section)
-                return -ENXIO;
-
-        n = le32toh(section->VirtualSize);
+        size_t n = le32toh(section->VirtualSize);
         if (n > MIN(max_size, (size_t) SSIZE_MAX))
                 return -E2BIG;
 
-        data = malloc(n+1);
+        _cleanup_free_ void *data = malloc(n+1);
         if (!data)
                 return -ENOMEM;
 
-        ss = pread(fd, data, n, le32toh(section->PointerToRawData));
+        ssize_t ss = pread(fd, data, n, le32toh(section->PointerToRawData));
         if (ss < 0)
                 return -errno;
         if ((size_t) ss != n)
                 return -EIO;
-
-        ((uint8_t*) data)[n] = 0; /* NUL terminate, no matter what */
 
         if (ret_size)
                 *ret_size = n;
@@ -221,10 +206,35 @@ int pe_read_section_data(
                 if (nul && !memeqzero(nul, n - (nul - (const char*) data))) /* If there's a NUL it must only be NULs from there on */
                         return -EBADMSG;
         }
-        if (ret)
+        if (ret) {
+                ((uint8_t*) data)[n] = 0; /* NUL terminate, no matter what */
                 *ret = TAKE_PTR(data);
+        }
 
         return 0;
+}
+
+int pe_read_section_data_by_name(
+                int fd,
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                const char *name,
+                size_t max_size,
+                void **ret,
+                size_t *ret_size) {
+
+        const IMAGE_SECTION_HEADER *section;
+
+        assert(fd >= 0);
+        assert(pe_header);
+        assert(sections || pe_header->pe.NumberOfSections == 0);
+        assert(name);
+
+        section = pe_header_find_section(pe_header, sections, name);
+        if (!section)
+                return -ENXIO;
+
+        return pe_read_section_data(fd, section, max_size, ret, ret_size);
 }
 
 bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections) {
