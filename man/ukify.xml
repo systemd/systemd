@@ -648,7 +648,7 @@ $ ukify -c ukify.conf build \
     </example>
 
     <example>
-      <title>Kernel command line auxiliary PE</title>
+      <title>Kernel command line PE addon</title>
 
       <programlisting>ukify build \
       --secureboot-private-key=sb.key \
@@ -656,7 +656,7 @@ $ ukify -c ukify.conf build \
       --cmdline='debug' \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
-      --output=debug.cmdline
+      --output=debug.addon.efi
       </programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
@@ -664,9 +664,9 @@ $ ukify -c ukify.conf build \
     </example>
 
     <example>
-      <title>Decide signing policy and create certificate and keys</title>
+      <title>Decide signing policy, and create certificate and keys</title>
 
-      <para>First, let's create an config file that specifies what signatures shall be made:</para>
+      <para>First, let's create a configuration file that specifies what signatures shall be made:</para>
 
       <programlisting># cat >/etc/kernel/uki.conf &lt;&lt;EOF
 <xi:include href="uki.conf.example" parse="text" />EOF</programlisting>
