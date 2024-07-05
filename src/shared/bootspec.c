@@ -930,6 +930,9 @@ static int pe_find_uki_sections(
         if (!pe_is_uki(pe_header, sections))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
 
+        if (!pe_is_native(pe_header)) /* Don't process non-native UKIs */
+                goto nothing;
+
         /* Find part of the section table for this profile */
         size_t n_psections = 0;
         const IMAGE_SECTION_HEADER *psections = pe_find_profile_section_table(pe_header, sections, profile, &n_psections);
@@ -1004,8 +1007,11 @@ static int pe_find_addon_sections(
         if (pe_is_addon(pe_header, sections))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parse PE file '%s' is not an add-on.", path);
 
-        /* Define early, before the goto below */
+        /* Define early, before the gotos below */
         _cleanup_free_ char *cmdline_text = NULL;
+
+        if (!pe_is_native(pe_header))
+                goto nothing;
 
         const IMAGE_SECTION_HEADER *found = pe_section_table_find(sections, le16toh(pe_header->pe.NumberOfSections), ".cmdline");
         if (!found)
