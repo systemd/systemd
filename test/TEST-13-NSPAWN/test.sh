@@ -32,7 +32,7 @@ test_append_files() {
         ls \
         md5sum \
         mountpoint \
-        nc \
+        ncat \
         ps \
         seq \
         sleep \
