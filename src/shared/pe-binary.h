@@ -142,3 +142,4 @@ int pe_load_sections(int fd, const IMAGE_DOS_HEADER *dos_header, const PeHeader 
 int pe_read_section_data(int fd, const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name, size_t max_size, void **ret, size_t *ret_size);
 
 bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
+bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
