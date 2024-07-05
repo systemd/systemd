@@ -6,6 +6,7 @@
 #include "log.h"
 #include "pe-binary.h"
 #include "string-util.h"
+#include "uki.h"
 
 bool pe_header_is_64bit(const PeHeader *h) {
         assert(h);
@@ -272,4 +273,14 @@ bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections
                 (pe_header_find_section(pe_header, sections, ".cmdline") ||
                  pe_header_find_section(pe_header, sections, ".dtb") ||
                  pe_header_find_section(pe_header, sections, ".ucode"));
+}
+
+bool pe_is_native(const PeHeader *pe_header) {
+        assert(pe_header);
+
+#ifdef _IMAGE_FILE_MACHINE_NATIVE
+        return le16toh(pe_header->pe.Machine) == _IMAGE_FILE_MACHINE_NATIVE;
+#else
+        return false;
+#endif
 }
