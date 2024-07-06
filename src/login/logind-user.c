@@ -825,8 +825,7 @@ UserState user_get_state(User *u) {
         LIST_FOREACH(sessions_by_user, i, u->sessions) {
                 SessionState state;
 
-                /* Ignore sessions that don't pin the user, i.e. are not supposed to have an effect on user state */
-                if (!SESSION_CLASS_PIN_USER(i->class))
+                if (u->gc_mode == USER_GC_BY_PIN && !SESSION_CLASS_PIN_USER(i->class))
                         continue;
 
                 state = session_get_state(i);
