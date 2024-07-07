@@ -298,7 +298,7 @@ static int run_editor(const EditFileContext *context) {
 
         assert(context);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) { /* Child */
