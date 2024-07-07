@@ -236,23 +236,22 @@ static int run_editor_child(const EditFileContext *context) {
         const char *editor;
         int r;
 
+        assert(context);
+        assert(context->n_files >= 1);
+
         /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.
          * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute
          * well known editors. */
-        editor = getenv("SYSTEMD_EDITOR");
-        if (!editor)
-                editor = getenv("EDITOR");
-        if (!editor)
-                editor = getenv("VISUAL");
+        FOREACH_STRING(e, "SYSTEMD_EDITOR", "EDITOR", "VISUAL") {
+                editor = empty_to_null(getenv(e));
+                if (editor)
+                        break;
+        }
 
-        if (!isempty(editor)) {
-                _cleanup_strv_free_ char **editor_args = NULL;
-
-                editor_args = strv_split(editor, WHITESPACE);
-                if (!editor_args)
+        if (editor) {
+                args = strv_split(editor, WHITESPACE);
+                if (!args)
                         return log_oom();
-
-                args = TAKE_PTR(editor_args);
         }
 
         if (context->n_files == 1 && context->files[0].line > 1) {
@@ -268,7 +267,7 @@ static int run_editor_child(const EditFileContext *context) {
                         return log_oom();
         }
 
-        if (!isempty(editor))
+        if (editor)
                 execvp(args[0], (char* const*) args);
 
         bool prepended = false;
@@ -298,7 +297,7 @@ static int run_editor(const EditFileContext *context) {
 
         assert(context);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) { /* Child */
