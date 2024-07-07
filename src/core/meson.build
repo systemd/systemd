@@ -178,7 +178,7 @@ executables += [
                         libshared,
                 ],
                 'dependencies' : [
-                        libapparmor,
+                        libapparmor_cflags,
                         libkmod_cflags,
                         libseccomp,
                         libselinux,
@@ -191,7 +191,7 @@ executables += [
                 'include_directories' : core_includes,
                 'link_with' : executor_libs,
                 'dependencies' : [
-                        libapparmor,
+                        libapparmor_cflags,
                         libpam,
                         libseccomp,
                         libselinux,
