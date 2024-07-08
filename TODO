@@ -130,6 +130,22 @@ Deprecations and removals:
 
 Features:
 
+* go through all uses of table_new() in our codebase, and make sure we support
+  all three of:
+  1. --no-legend properly
+  2. --json= properly
+  3. --no-pager properly
+
+* go through all --help texts in our codebases, and make sure:
+  1. the one sentence description of the tool is highlighted via ANSI how we
+     usually do it
+  2. If more than one or two commands are supported (as opposed to switches),
+     separate commands + switches from each other, using underlined --help sections.
+  3. If there are many switches, consider adding additional --help sections.
+
+* go through our codebase, and convert "vertical tables" (i.e. things such as
+  "systemctl status") to use table_new_vertical() for output
+
 * logind: when logging in use new tmpfs quota support to configure quota on
   /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
   is persistent and any persistent settings mean we don#t have to reapply them.
