@@ -1927,6 +1927,9 @@ static int event_log_map_components(EventLog *el) {
                         continue;
                 }
 
+                if (c->n_variants == 0)
+                        log_notice("Component '%s' has no defined variants.", c->id);
+
                 FOREACH_ARRAY(ii, c->variants, c->n_variants) {
                         EventLogComponentVariant *i = *ii;
 
@@ -4053,6 +4056,15 @@ static int event_log_predict_pcrs(
 
         component = ASSERT_PTR(el->components[component_index]);
 
+        if (component->n_variants == 0)
+                return event_log_predict_pcrs(
+                        el,
+                        context,
+                        parent_result,
+                        component_index + 1, /* Next component */
+                        pcr,
+                        path);
+
         FOREACH_ARRAY(ii, component->variants, component->n_variants) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
                 EventLogComponentVariant *variant = *ii;
@@ -4111,7 +4123,9 @@ static ssize_t event_log_calculate_component_combinations(EventLog *el) {
                 /* Overflow check */
                 if (c->n_variants > (size_t) (SSIZE_MAX/count))
                         return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many component combinations.");
-
+                /* If no variant, this will lead to count being 0 and sigfpe */
+                if (c->n_variants == 0)
+                        continue;
                 count *= c->n_variants;
         }
 
