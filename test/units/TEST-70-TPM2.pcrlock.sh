@@ -89,6 +89,11 @@ systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
+# Ensure systemd-pcrlock not crashing on empty variant directory
+mkdir -p /var/lib/pcrlock.d/123-empty.pcrlock.d
+"$SD_PCRLOCK" predict --pcr="$PCRS"
+rm -rf /var/lib/pcrlock.d/123-empty.pcrlock.d
+
 # Measure something into PCR 16 (the "debug" PCR), which should make the activation fail
 "$SD_PCREXTEND" --pcr=16 test70
 
