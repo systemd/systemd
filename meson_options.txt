@@ -21,6 +21,8 @@ option('rootprefix', type : 'string', deprecated: true,
        description : 'This option is deprecated and will be removed in a future release')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
+option('link-executor-shared', type : 'boolean',
+       description : 'link systemd-executor to libsystemd-shared.so and libsystemd-core.so')
 option('link-systemctl-shared', type: 'boolean',
        description : 'link systemctl against libsystemd-shared.so')
 option('link-networkd-shared', type: 'boolean',
