@@ -386,7 +386,7 @@ static void home_pin(Home *h) {
                 return;
         }
 
-        h->pin_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        h->pin_fd = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (h->pin_fd < 0) {
                 log_warning_errno(errno, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
                 return;
@@ -2759,7 +2759,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (mkfifo(fn, 0600) < 0 && errno != EEXIST)
                         return log_error_errno(errno, "Failed to create FIFO %s: %m", fn);
 
-                ref_fd = open(fn, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                ref_fd = open(fn, O_PATH|O_CLOEXEC|O_NONBLOCK);
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
