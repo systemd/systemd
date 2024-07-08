@@ -1748,10 +1748,6 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         if (!id)
                 return log_oom();
 
-        r = event_log_add_component(el, id, &component);
-        if (r < 0)
-                return r;
-
         _cleanup_strv_free_ char **search = NULL;
 
         STRV_FOREACH(b, base_search) {
@@ -1769,6 +1765,15 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         r = conf_files_list_strv(&files, ".pcrlock", /* root= */ NULL, CONF_FILES_REGULAR, (const char*const*) search);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .pcrlock files for component '%s': %m", id);
+
+        if (!*files) {
+                log_debug("Ignoring empty directory %s", path);
+                return 0;
+        }
+
+        r = event_log_add_component(el, id, &component);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(f, files) {
                 r = event_log_add_component_file(el, component, *f);
