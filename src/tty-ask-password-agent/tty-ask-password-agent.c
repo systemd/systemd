@@ -294,7 +294,7 @@ static int wall_tty_block(void) {
         (void) mkdir_parents_label(p, 0700);
         (void) mkfifo(p, 0600);
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = open(p, O_PATH|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open %s: %m", p);
 
