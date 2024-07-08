@@ -11,7 +11,8 @@
 Description=File System Check on Root Device
 Documentation=man:systemd-fsck-root.service(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
+IgnoreOnIsolate=yes
+Conflicts=reboot.target kexec.target poweroff.target halt.target
 Before=local-fs.target shutdown.target
 ConditionPathIsReadWrite=!/
 OnFailure=emergency.target
