@@ -23,6 +23,7 @@ systemd-mount --list --full
 systemd-mount --list --no-legend
 systemd-mount --list --no-pager
 systemd-mount --list --quiet
+systemd-mount --list --json=pretty
 
 # tmpfs
 mkdir -p "$WORK_DIR/mnt/foo/bar"
