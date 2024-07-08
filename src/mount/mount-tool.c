@@ -1412,6 +1412,7 @@ static int discover_device(void) {
 static int list_devices(void) {
         enum {
                 COLUMN_NODE,
+                COLUMN_DISKSEQ,
                 COLUMN_PATH,
                 COLUMN_MODEL,
                 COLUMN_WWN,
@@ -1437,7 +1438,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        table = table_new("node", "path", "model", "wwn", "fstype", "label", "uuid");
+        table = table_new("node", "diskseq", "path", "model", "wwn", "fstype", "label", "uuid");
         if (!table)
                 return log_oom();
 
@@ -1459,6 +1460,21 @@ static int list_devices(void) {
                         case COLUMN_NODE:
                                 (void) sd_device_get_devname(d, &x);
                                 break;
+
+                        case COLUMN_DISKSEQ: {
+                                uint64_t ds;
+
+                                r = sd_device_get_diskseq(d, &ds);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to get diskseq off block device, ignoring: %m");
+                                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                } else
+                                        r = table_add_cell(table, NULL, TABLE_UINT64, &ds);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+
+                                continue;
+                        }
 
                         case COLUMN_PATH:
                                 (void) sd_device_get_property_value(d, "ID_PATH", &x);
