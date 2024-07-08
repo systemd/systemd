@@ -58,7 +58,7 @@ int switch_root(const char *new_root,
         if (old_root_fd < 0)
                 return log_error_errno(errno, "Failed to open root directory: %m");
 
-        new_root_fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+        new_root_fd = open(new_root, O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
