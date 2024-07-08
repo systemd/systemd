@@ -134,7 +134,6 @@ def main():
         '--runtime-network=none',
         '--runtime-scratch=no',
         *args.mkosi_args,
-        '--append',
         '--qemu-firmware', args.firmware,
         '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
         '--kernel-command-line-extra',
@@ -184,9 +183,8 @@ def main():
                     text=True,
                 ).stdout
             )
-            images = {image["Image"]: image for image in j["Images"]}
-            distribution = images["system"]["Distribution"]
-            release = images["system"]["Release"]
+            distribution = j["Images"][-1]["Distribution"]
+            release = j["Images"][-1]["Release"]
             artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
             ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
             journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
