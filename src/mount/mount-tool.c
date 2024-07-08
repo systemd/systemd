@@ -120,7 +120,7 @@ static int help(void) {
                "systemd-mount [OPTIONS...] --tmpfs [NAME] WHERE\n"
                "systemd-mount [OPTIONS...] --list\n"
                "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
-               "Establish a mount or auto-mount point transiently.\n\n"
+               "%sEstablish a mount or auto-mount point transiently.%s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-block                   Do not wait until operation finished\n"
@@ -152,6 +152,8 @@ static int help(void) {
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ",
+               ansi_highlight(),
+               ansi_normal(),
                link);
 
         return 0;
