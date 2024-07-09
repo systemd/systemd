@@ -525,6 +525,14 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v257</constant></term>
+
+          <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
@@ -597,7 +605,7 @@ ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
     </example>
 
     <example>
-      <title>PCI Ethernet card in hotplug slot with firmware index number</title>
+      <title>PCI Ethernet card in slot with firmware index number</title>
 
       <programlisting># /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
 ID_NET_NAME_MAC=enx000000000466
