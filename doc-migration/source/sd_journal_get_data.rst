@@ -21,39 +21,39 @@ sd_journal_get_data — sd_journal_enumerate_data — sd_journal_enumerate_avail
 
 #include <systemd/sd-journal.h>
 
-int ``sd_journal_get_data``
-sd_journal *j
-const char *field
-const void \**data
-size_t *length
+.. code-block::sh
 
-int ``sd_journal_enumerate_data``
-sd_journal *j
-const void \**data
-size_t *length
+   int ``sd_journal_get_data``
+   sd_journal *j
+   const char *field
+   const void \**data
+   size_t *length
 
-int ``sd_journal_enumerate_available_data``
-sd_journal *j
-const void \**data
-size_t *length
+   int ``sd_journal_enumerate_data``
+   sd_journal *j
+   const void \**data
+   size_t *length
 
-void ``sd_journal_restart_data``
-sd_journal *j
+   int ``sd_journal_enumerate_available_data``
+   sd_journal *j
+   const void \**data
+   size_t *length
 
-``SD_JOURNAL_FOREACH_DATA``
-sd_journal *j
-const void *data
-size_t length
+   void ``sd_journal_restart_data``
+   sd_journal *j
 
-int ``sd_journal_set_data_threshold``
-sd_journal *j
-size_t sz
+   ``SD_JOURNAL_FOREACH_DATA``
+   sd_journal *j
+   const void *data
+   size_t length
 
-int ``sd_journal_get_data_threshold``
-sd_journal *j
-size_t *sz
+   int ``sd_journal_set_data_threshold``
+   sd_journal *j
+   size_t sz
 
-=======================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================
+   int ``sd_journal_get_data_threshold``
+   sd_journal *j
+   size_t *sz
 
 Description
 ===========
