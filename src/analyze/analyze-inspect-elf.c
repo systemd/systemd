@@ -19,20 +19,25 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
         STRV_FOREACH(filename, filenames) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
                 _cleanup_(table_unrefp) Table *t = NULL;
-                _cleanup_free_ char *abspath = NULL;
+                _cleanup_free_ char *abspath = NULL, *path = NULL, *stacktrace = NULL;
                 _cleanup_close_ int fd = -EBADF;
+                bool coredump = false;
 
                 r = path_make_absolute_cwd(*filename, &abspath);
                 if (r < 0)
                         return log_error_errno(r, "Could not make an absolute path out of \"%s\": %m", *filename);
 
-                path_simplify(abspath);
+                path = path_join(empty_to_root(arg_root), abspath);
+                if (!path)
+                        return log_oom();
 
-                fd = RET_NERRNO(open(abspath, O_RDONLY|O_CLOEXEC));
+                path_simplify(path);
+
+                fd = RET_NERRNO(open(path, O_RDONLY|O_CLOEXEC));
                 if (fd < 0)
-                        return log_error_errno(fd, "Could not open \"%s\": %m", abspath);
+                        return log_error_errno(fd, "Could not open \"%s\": %m", path);
 
-                r = parse_elf_object(fd, abspath, /* fork_disable_dump= */false, NULL, &package_metadata);
+                r = parse_elf_object(fd, abspath, arg_root, /* fork_disable_dump= */false, &stacktrace, &package_metadata);
                 if (r < 0)
                         return log_error_errno(r, "Parsing \"%s\" as ELF object failed: %m", abspath);
 
@@ -60,6 +65,9 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                  * metadata is parsed recursively in core files, so there might be
                                  * multiple modules. */
                                 if (STR_IN_SET(module_name, "elfType", "elfArchitecture")) {
+                                        if (streq(module_name, "elfType") && streq("coredump", sd_json_variant_string(module_json)))
+                                                coredump = true;
+
                                         r = table_add_many(
                                                         t,
                                                         TABLE_FIELD, module_name,
@@ -100,6 +108,16 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                         }
                         }
                 }
+
+                if (coredump) {
+                        r = table_add_many(t,
+                                        TABLE_EMPTY, TABLE_EMPTY,
+                                        TABLE_FIELD, "stacktrace",
+                                        TABLE_STRING, stacktrace);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
                 if (json_flags & SD_JSON_FORMAT_OFF) {
                         r = table_print(t, NULL);
                         if (r < 0)
