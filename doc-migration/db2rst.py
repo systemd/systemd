@@ -50,6 +50,7 @@ _linked_ids = set()
 # used for ReST substitutions
 _buffer = ""
 
+_indent_next_listItem_by = 0
 
 def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
@@ -116,7 +117,7 @@ def _includes(el):
                 el.get("xpointer"))
             # `\n\n   \n\n   ` forces a newline and subsequent indent.
             # The empty spaces are stripped later
-            return f".. only:: html\n\n   \n\n   .. versionadded:: {versionString}"
+            return f".. only:: html\n\n   \n\n   .. versionadded:: {versionString}\n\n   "
         elif not el.get("xpointer"):
             return f".. include:: ./{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
@@ -217,11 +218,13 @@ def _get_path(el):
     return "/".join(str(i.tag) for i in reversed(t))
 
 
-def _make_title(t, level):
+def _make_title(t, level, indentLevel = 0):
     if level == 1:
         return "\n\n" + "=" * len(t) + "\n" + t + "\n" + "=" * len(t)
     char = ["#", "=", "-", "~", "^", "."]
-    return "\n\n" + t + "\n" + char[level-2] * len(t)
+    underline = char[level-2] * len(t)
+    indentation = " "*indentLevel
+    return f"\n\n{indentation}{t}\n{indentation}{underline}"
 
 
 def _join_children(el, sep):
@@ -297,11 +300,19 @@ def refentryinfo(el):
 
 
 def refnamediv(el):
-    return '**Name** \n\n' + _make_title(_join_children(el, ' — '), 2)
+    # return '**Name** \n\n' + _make_title(_join_children(el, ' — '), 2)
+    return '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 2, 3)
 
 
 def refsynopsisdiv(el):
-    return '**Synopsis** \n\n' + _make_title(_join_children(el, ' '), 3)
+    # return '**Synopsis** \n\n' + _make_title(_join_children(el, ' '), 3)
+    s = ""
+    s +=  '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 3, 3)
+    s += '\n\n'
+    s += '.. only:: man\n\n' + _make_title('Synopsis', 3, 3)
+    s += '\n\n'
+    s += _join_children(el, ' — ')
+    return s
 
 
 def refname(el):
@@ -345,16 +356,17 @@ phrase = emphasis
 citetitle = emphasis
 
 
-def firstterm(el):
-    _has_only_text(el)
-    return ":dfn:`%s`" % el.text
-
-
 acronym = _no_special_markup
 
 
 def command(el):
-    if el.getparent().tag == 'term':
+    # Only enclose in backticks if it’s not part of a term
+    # (which is already enclosed in backticks)
+    isInsideTerm = False
+    for term in el.iterancestors(tag='term'):
+        isInsideTerm = True
+
+    if isInsideTerm:
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -379,46 +391,29 @@ def term(el):
     if el.getparent().index(el) != 0:
         return ' '
 
-    # Helper to extract the core of a term (eg. a command without all the options) for use as a title in the sidebar
-    def getCommand(el):
-        command = ''
-        for child in el:
-            # varname too?
-            if child.tag in ['command', 'option', 'varname']:
-                command = child.text.rstrip('=')
-                break
-        return command
-
+    level = _get_level(el)
+    if level > 5:
+        level = 5
     # Sometimes, there are multiple terms for one entry. We want those displayed in a single line, so we gather them all up and parse them together
     hasMultipleTerms = False
-    titleStrings = [getCommand(el)]
-    usageStrings = [_concat(el).strip()]
+    titleStrings = [_concat(el).strip()]
+    title = ''
     for term in el.itersiblings(tag='term'):
         # We only arrive here if there is more than one `<term>` in the `el`
         hasMultipleTerms = True
-        titleStrings.append(getCommand(term))
-        usageStrings.append(_concat(term).strip())
+        titleStrings.append(_concat(term).strip())
 
     if hasMultipleTerms:
-        titleString = ', '.join(titleStrings)
-        usageString = ', '.join(usageStrings)
-        s = ''
-        s += _make_title(f"``{titleString}``", 4) + '\n\n'
-        if titleString != usageString:
-            s += f"*Usage:* ``{usageString}``"
-        return s
-
-    # If this contains a <command> or <option>, split that out as the title in a new line, then repeat it with the entire term in the next line
-    command = getCommand(el)
-    if command:
-        usageString = _concat(el).strip()
-        s = ''
-        s += _make_title(f"``{command}``", 4) + '\n\n'
-        if command != usageString:
-            s += f"*Usage:* ``{usageString}``"
-        return s
+        title = ', '.join(titleStrings)
+        # return _make_title(f"``{titleString}``", 4)
     else:
-        return _make_title(_concat(el).strip(), 4)
+        title = _concat(el).strip()
+
+    if level >= 5:
+        global _indent_next_listItem_by
+        _indent_next_listItem_by += 3
+        return f".. option:: {title}\n\n   \n\n   "
+    return _make_title(f"``{title}``", level) + '\n\n'
 
 # links
 
@@ -486,7 +481,14 @@ def varlistentry(el):
         if i.tag == 'term':
             s += _conv(i) + '\n\n'
         else:
-            s += _indent(i, 3, None, True)
+            # Handle nested list items, this is mainly for
+            # options that have options
+            if i.tag == 'listitem':
+                global _indent_next_listItem_by
+                s += _indent(i, _indent_next_listItem_by, None, True)
+                _indent_next_listItem_by = 0
+            else:
+                s += _indent(i, 0, None, True)
     if id is not None:
         s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
@@ -629,7 +631,7 @@ def programlisting(el):
     if xi_include is not None:
         return _includes(xi_include)
     else:
-        return f"\n\n.. code-block:: sh \n\n{_indent(el, 3)}\n\n"
+        return f"\n\n.. code-block:: sh\n\n   \n\n{_indent(el, 3)}\n\n"
 
 
 def screen(el):
