@@ -37,10 +37,8 @@
 
 .. inclusion-marker-do-not-remove legend
 
-``--legend``
-------------
-
-*Usage:* ``--legend=<BOOL>``
+``--legend=<BOOL>``
+-------------------
 
    Enable or disable printing of the legend, i.e. column headers and the footer with hints. The
    legend is printed by default, unless disabled with ``--quiet`` or similar.
@@ -80,10 +78,8 @@
 
 .. inclusion-marker-do-not-remove json
 
-``--json``
-----------
-
-*Usage:* ``--json=<MODE>``
+``--json=<MODE>``
+-----------------
 
    Shows output formatted as JSON. Expects one of ``short`` (for the
    shortest possible output without any redundant whitespace or line breaks), ``pretty``
@@ -104,10 +100,8 @@
 
 .. inclusion-marker-do-not-remove signal
 
-``-s, --signal``
-----------------
-
-*Usage:* ``-s, --signal=``
+``-s, --signal=``
+-----------------
 
    When used with ``kill``, choose which signal to send to selected processes. Must
    be one of the well-known signal specifiers such as ``SIGTERM``,
@@ -122,10 +116,8 @@
 
 .. inclusion-marker-do-not-remove image-policy-open
 
-``--image-policy``
-------------------
-
-*Usage:* ``--image-policy=<policy>``
+``--image-policy=<policy>``
+---------------------------
 
    Takes an image policy string as argument, as per
    :ref:`systemd.image-policy(7)`. The
@@ -137,10 +129,8 @@
 
 .. inclusion-marker-do-not-remove esp-path
 
-``--esp-path``
---------------
-
-*Usage:* ``--esp-path=``
+``--esp-path=``
+---------------
 
    Path to the EFI System Partition (ESP). If not specified, ``/efi/``,
    ``/boot/``, and ``/boot/efi/`` are checked in turn. It is
@@ -150,10 +140,8 @@
 
 .. inclusion-marker-do-not-remove boot-path
 
-``--boot-path``
----------------
-
-*Usage:* ``--boot-path=``
+``--boot-path=``
+----------------
 
    Path to the Extended Boot Loader partition, as defined in the
    `Boot Loader Specification <https://uapi-group.org/specifications/specs/boot_loader_specification>`_.

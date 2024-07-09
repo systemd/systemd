@@ -22,10 +22,8 @@
 
 .. inclusion-marker-do-not-remove host
 
-``-H, --host``
---------------
-
-*Usage:* ``-H, --host=``
+``-H, --host=``
+---------------
 
    Execute the operation remotely. Specify a hostname, or a
    username and hostname separated by ``@``, to
@@ -42,10 +40,8 @@
 
 .. inclusion-marker-do-not-remove machine
 
-``-M, --machine``
------------------
-
-*Usage:* ``-M, --machine=``
+``-M, --machine=``
+------------------
 
    Execute operation on a local container. Specify a container name to connect to, optionally
    prefixed by a user name to connect as and a separating ``@`` character. If the special
@@ -60,10 +56,8 @@
 
 .. inclusion-marker-do-not-remove capsule
 
-``-C, --capsule``
------------------
-
-*Usage:* ``-C, --capsule=``
+``-C, --capsule=``
+------------------
 
    Execute operation on a capsule. Specify a capsule name to connect to. See
    :ref:`capsule@.service(5)` for
