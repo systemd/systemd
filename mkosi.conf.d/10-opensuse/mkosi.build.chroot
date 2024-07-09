@@ -63,7 +63,7 @@ if [[ -z "${MKOSI_LDFLAGS// }" ]]; then
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
-if ((WIPE)); then
+if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
 fi
 
