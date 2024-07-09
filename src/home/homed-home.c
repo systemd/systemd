@@ -386,7 +386,7 @@ static void home_pin(Home *h) {
                 return;
         }
 
-        h->pin_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        h->pin_fd = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (h->pin_fd < 0) {
                 log_warning_errno(errno, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
                 return;
