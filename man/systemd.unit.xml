@@ -176,8 +176,8 @@
     <filename>/etc/systemd/system/ctrl-alt-del.target</filename> pointing to the
     <filename>reboot.target</filename> file will be created, and when
     <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> is invoked,
-    <command>systemd</command> will look for <filename>ctrl-alt-del.target</filename>, find
-    <filename>reboot.target</filename> instead, and execute <filename>reboot.service</filename>.
+    <command>systemd</command> will look for <filename>ctrl-alt-del.target</filename>, follow the symlink to
+    <filename>reboot.target</filename>, and execute <filename>reboot.service</filename> as part of that target.
     <command>systemd</command> does not look at the [Install] section at all during normal operation, so any
     directives in that section only have an effect through the symlinks created during enablement.</para>
 
