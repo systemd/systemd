@@ -110,6 +110,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProcessContainerCoredump=</varname></term>
+
+        <listitem><para>Controls whether <command>systemd-coredump</command> will attempt to use a mount tree of
+        a process that crashed within the container. Access to the container filesystem might be necessary to generate
+        fully symbolized backtrace. If set to <literal>yes</literal>, then <command>systemd-coredump</command> will
+        obtain mount tree from corresponding mount namespace and will try to generate stack trace using binary
+        and libraries from the mount namespace. Defaults to <literal>no</literal>. Note that coredump might still
+        be saved to file on disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ExternalSizeMax=</varname></term>
         <term><varname>JournalSizeMax=</varname></term>
 
