@@ -59,36 +59,43 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
+            relabel: no
           - distro: debian
             release: testing
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: ubuntu
             release: noble
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: fedora
             release: "40"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: yes
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
+            relabel: yes
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: centos
             release: "9"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: yes
 
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
@@ -141,6 +148,8 @@ jobs:
                 MESON_OPTIONS=--werror
                 LLVM=${{ matrix.llvm }}
 
+        SELinuxRelabel=${{ matrix.relabel }}
+
         [Host]
         QemuMem=4G
         # We build with debuginfo so there's no point in mounting the sources into the machine.
@@ -187,7 +196,7 @@ jobs:
             -Dvmspawn=enabled
 
     - name: Build image
-      run: meson compile -C build mkosi
+      run: sudo meson compile -C build mkosi
 
     - name: Run integration tests
       run: sudo --preserve-env meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
