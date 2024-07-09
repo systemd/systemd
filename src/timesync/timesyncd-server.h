@@ -47,4 +47,6 @@ static inline int server_address_pretty(ServerAddress *a, char **pretty) {
 
 int server_name_new(Manager *m, ServerName **ret, ServerType type,const char *string);
 ServerName *server_name_free(ServerName *n);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ServerName*, server_name_free);
+
 void server_name_flush_addresses(ServerName *n);

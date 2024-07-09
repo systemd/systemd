@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "string-table.h"
 #include "timesyncd-server.h"
 
@@ -127,7 +128,7 @@ int server_name_new(
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new %s server %s.", server_type_to_string(type), string);
+        log_debug("Added new %s server %s.", server_type_to_string(type), n->string);
 
         if (ret)
                 *ret = n;

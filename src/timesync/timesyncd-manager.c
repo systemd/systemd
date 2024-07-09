@@ -19,6 +19,7 @@
 #include "common-signal.h"
 #include "dns-domain.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -87,7 +88,7 @@ static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata)
         assert(m->current_server_name);
         assert(m->current_server_address);
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
         log_info("Timed out waiting for reply from %s (%s).", strna(pretty), m->current_server_name->string);
 
         return manager_connect(m);
@@ -128,7 +129,7 @@ static int manager_send_request(Manager *m) {
         random_bytes(&m->request_nonce, sizeof(m->request_nonce));
         ntpmsg.trans_time = m->request_nonce;
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
 
         /*
          * Record the transmit timestamp. This should be as close as possible to
@@ -679,7 +680,7 @@ static int manager_begin(Manager *m) {
         if (m->poll_interval_usec == 0)
                 m->poll_interval_usec = m->poll_interval_min_usec;
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
         (void) sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
 
@@ -721,7 +722,7 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
 
         if (a) {
                 _cleanup_free_ char *pretty = NULL;
-                server_address_pretty(a, &pretty);
+                (void) server_address_pretty(a, &pretty);
                 log_debug("Selected address %s of server %s.", strna(pretty), a->name->string);
         }
 }
@@ -758,7 +759,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 if (r < 0)
                         return log_error_errno(r, "Failed to add server address: %m");
 
-                server_address_pretty(a, &pretty);
+                (void) server_address_pretty(a, &pretty);
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
         }
 
@@ -877,7 +878,13 @@ int manager_connect(Manager *m) {
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                _cleanup_free_ char *addr = NULL, *port = NULL;
+                r = process_server_name_for_address(m->current_server_name->string, &addr, &port);
+                if (r < 0)
+                        return r;
+
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, addr, port, &hints, manager_resolve_handler, NULL, m);
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -931,6 +938,58 @@ void manager_flush_runtime_servers(Manager *m) {
 
         while (m->runtime_servers)
                 server_name_free(m->runtime_servers);
+}
+
+int process_server_name_for_address(const char *name, char **addr, char **port) {
+        const char *sq = "]", *co = ":";
+        char *close_sq, *first_co, *last_co;
+        int r;
+
+        assert(name);
+
+        close_sq = strrchr(name, *sq);
+        first_co = strchr(name, *co);
+        last_co = strrchr(name, *co);
+
+        if (!close_sq && !last_co) { /* neither single ':' nor substring ']:' */
+                r = free_and_strdup(addr, name);
+                if (r < 0)
+                        return r;
+                r = free_and_strdup(port, NTP_SERVICE_PORT_NUMBER);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else if (!close_sq && first_co && last_co && strlen(first_co) == strlen(last_co)) {
+                /* no ']' and single ':' for server.domain:port and I.P.v.4:port */
+                _cleanup_free_ const char *mut_name = strdupa_safe(name);
+                r = extract_first_word(&mut_name, addr, co, 0);
+                if (r < 0)
+                        return r;
+                r = extract_first_word(&mut_name, port, co, 0);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else if (close_sq && (strlen(close_sq) == strlen(last_co)+1)) { /* substring ']:' for [IP::v:6]:port */
+                _cleanup_free_ const char *mut_name = strdupa_safe(name);
+                r = extract_first_word(&mut_name, &close_sq, sq, 0);
+                if (r < 0)
+                        return r;
+                *addr = delete_chars(close_sq, "[]");
+                r = extract_first_word(&mut_name, port, co, 0);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else { /* cannot resolve [IP::v:6] with braces, so remove any supplied */
+                char *t3;
+                r = free_and_strdup(&t3, name);
+                if (r < 0)
+                        return r;
+                *addr = delete_chars(t3, "[]");
+                r = free_and_strdup(port, NTP_SERVICE_PORT_NUMBER);
+                if (r < 0)
+                        return r;
+                return 0;
+        }
 }
 
 Manager* manager_free(Manager *m) {

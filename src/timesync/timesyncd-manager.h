@@ -32,6 +32,8 @@ typedef struct Manager Manager;
 
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
+#define NTP_SERVICE_PORT_NUMBER "123"
+
 struct Manager {
         sd_bus *bus;
         sd_event *event;
@@ -132,6 +134,8 @@ void manager_flush_runtime_servers(Manager *m);
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
 bool manager_is_connected(Manager *m);
+
+int process_server_name_for_address(const char *name, char **addr, char **port);
 
 int manager_setup_save_time_event(Manager *m);
 
