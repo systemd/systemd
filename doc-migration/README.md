@@ -55,10 +55,11 @@ This file parses Docbook elements, does some string transformation to the conten
 # in the `/doc-migration` folder
 $ rm -rf build
 # ☝️ if you already have a build
-$ make html
+$ make html man
 ```
 
-The built `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
+- The `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
+- The `man` files end up in `/doc-migration/build/man`. Preview an individual file with `$ mandoc -l build/man/busctl.1`
 
 #### Sphinx Extensions
 
@@ -70,6 +71,13 @@ Allows referencing variables in the `global_substitutions` object in `/doc-migra
 
 ## Todo:
 
+An incomplete list.
+
 - [ ] Custom Link transformations:
   - [ ] `custom-man.xsl`
   - [x] `custom-html.xsl`
+- [ ] See whether `tools/tools/xml_helper.py` does anything we don’t do, this also contains useful code for:
+  - [ ] Build a man index, as in `tools/make-man-index.py`
+  - [ ] Build a directives index, as in `tools/make-directive-index.py`
+- [ ] See whether `tools/update-man-rules.py` does anything we don’t do
+- [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
