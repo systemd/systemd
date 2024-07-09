@@ -1,24 +1,40 @@
 
 
+.. meta::
+    :title: os-release
+
+.. meta::
+    :manvolnum: 5
+
 .. _os-release(5):
 
 =============
 os-release(5)
 =============
 
-**Name**
+.. only:: html
 
-os-release — initrd-release — extension-release — Operating system identification
-#################################################################################
+   os-release — initrd-release — extension-release — Operating system identification
+   #################################################################################
 
-**Synopsis**
+.. only:: html
 
 ``/etc/os-release``
 ``/usr/lib/os-release``
 ``/etc/initrd-release``
 ``/usr/lib/extension-release.d/extension-release.<IMAGE>``
 
-=======================================================================================================================================
+   =======================================================================================================================================
+
+.. only:: man
+
+   Synopsis
+   ========
+
+``/etc/os-release``
+``/usr/lib/os-release``
+``/etc/initrd-release``
+``/usr/lib/extension-release.d/extension-release.<IMAGE>``
 
 Description
 ===========
@@ -125,10 +141,7 @@ The following OS identifications parameters may be set using
 General information identifying the operating system
 ----------------------------------------------------
 
-``NAME``
---------
-
-*Usage:* ``NAME=``
+.. option:: NAME=
 
    A string identifying the operating system, without a version component, and
    suitable for presentation to the user. If not set, a default of ``NAME=Linux`` may
@@ -136,10 +149,7 @@ General information identifying the operating system
 
    Examples: ``NAME=Fedora``, ``NAME="Debian GNU/Linux"``.
 
-``ID``
-------
-
-*Usage:* ``ID=``
+.. option:: ID=
 
    A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
    and "-") identifying the operating system, excluding any version information and suitable for
@@ -149,10 +159,7 @@ General information identifying the operating system
 
    Examples: ``ID=fedora``, ``ID=debian``.
 
-``ID_LIKE``
------------
-
-*Usage:* ``ID_LIKE=``
+.. option:: ID_LIKE=
 
    A space-separated list of operating system identifiers in the same syntax as the
    ``ID=`` setting. It should list identifiers of operating systems that are closely
@@ -169,10 +176,7 @@ General information identifying the operating system
    ``ID_LIKE="rhel fedora"`` would be appropriate. For an operating system with
    ``ID=ubuntu``, an assignment of ``ID_LIKE=debian`` is appropriate.
 
-``PRETTY_NAME``
----------------
-
-*Usage:* ``PRETTY_NAME=``
+.. option:: PRETTY_NAME=
 
    A pretty operating system name in a format suitable for presentation to the
    user. May or may not contain a release code name or OS version of some kind, as suitable. If not
@@ -180,20 +184,14 @@ General information identifying the operating system
 
    Example: ``PRETTY_NAME="Fedora 17 (Beefy Miracle)"``.
 
-``CPE_NAME``
-------------
-
-*Usage:* ``CPE_NAME=``
+.. option:: CPE_NAME=
 
    A CPE name for the operating system, in URI binding syntax, following the `Common Platform Enumeration Specification <http://scap.nist.gov/specifications/cpe/>`_ as
    proposed by the NIST. This field is optional.
 
    Example: ``CPE_NAME="cpe:/o:fedoraproject:fedora:17"``
 
-``VARIANT``
------------
-
-*Usage:* ``VARIANT=``
+.. option:: VARIANT=
 
    A string identifying a specific variant or edition of the operating system suitable
    for presentation to the user. This field may be used to inform the user that the configuration of
@@ -206,12 +204,11 @@ General information identifying the operating system
    Note: this field is for display purposes only. The ``VARIANT_ID`` field should
    be used for making programmatic decisions.
 
-   .. versionadded:: 220
+   .. only:: html
 
-``VARIANT_ID``
---------------
+      .. versionadded:: 220
 
-*Usage:* ``VARIANT_ID=``
+.. option:: VARIANT_ID=
 
    A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_" and
    "-"), identifying a specific variant or edition of the operating system. This may be interpreted by
@@ -220,15 +217,14 @@ General information identifying the operating system
 
    Examples: ``VARIANT_ID=server``, ``VARIANT_ID=embedded``.
 
-   .. versionadded:: 220
+   .. only:: html
+
+      .. versionadded:: 220
 
 Information about the version of the operating system
 -----------------------------------------------------
 
-``VERSION``
------------
-
-*Usage:* ``VERSION=``
+.. option:: VERSION=
 
    A string identifying the operating system version, excluding any OS name
    information, possibly including a release code name, and suitable for presentation to the
@@ -236,10 +232,7 @@ Information about the version of the operating system
 
    Examples: ``VERSION=17``, ``VERSION="17 (Beefy Miracle)"``.
 
-``VERSION_ID``
---------------
-
-*Usage:* ``VERSION_ID=``
+.. option:: VERSION_ID=
 
    A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
    a–z, ".", "_" and "-") identifying the operating system version, excluding any OS name information
@@ -248,10 +241,7 @@ Information about the version of the operating system
 
    Examples: ``VERSION_ID=17``, ``VERSION_ID=11.04``.
 
-``VERSION_CODENAME``
---------------------
-
-*Usage:* ``VERSION_CODENAME=``
+.. option:: VERSION_CODENAME=
 
    A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
    and "-") identifying the operating system release code name, excluding any OS name information or
@@ -261,12 +251,11 @@ Information about the version of the operating system
    Examples: ``VERSION_CODENAME=buster``,
    ``VERSION_CODENAME=xenial``.
 
-   .. versionadded:: 231
+   .. only:: html
 
-``BUILD_ID``
-------------
+      .. versionadded:: 231
 
-*Usage:* ``BUILD_ID=``
+.. option:: BUILD_ID=
 
    A string uniquely identifying the system image originally used as the installation
    base. In most cases, ``VERSION_ID`` or
@@ -278,12 +267,11 @@ Information about the version of the operating system
 
    Examples: ``BUILD_ID="2013-03-20.3"``, ``BUILD_ID=201303203``.
 
-   .. versionadded:: 200
+   .. only:: html
 
-``IMAGE_ID``
-------------
+      .. versionadded:: 200
 
-*Usage:* ``IMAGE_ID=``
+.. option:: IMAGE_ID=
 
    A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
    and "-"), identifying a specific image of the operating system. This is supposed to be used for
@@ -295,12 +283,11 @@ Information about the version of the operating system
    Examples: ``IMAGE_ID=vendorx-cashier-system``,
    ``IMAGE_ID=netbook-image``.
 
-   .. versionadded:: 249
+   .. only:: html
 
-``IMAGE_VERSION``
------------------
+      .. versionadded:: 249
 
-*Usage:* ``IMAGE_VERSION=``
+.. option:: IMAGE_VERSION=
 
    A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
    a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
@@ -308,7 +295,9 @@ Information about the version of the operating system
 
    Examples: ``IMAGE_VERSION=33``, ``IMAGE_VERSION=47.1rc1``.
 
-   .. versionadded:: 249
+   .. only:: html
+
+      .. versionadded:: 249
 
 To summarize: if the image updates are built and shipped as comprehensive units,
 ``IMAGE_ID``+``IMAGE_VERSION`` is the best fit. Otherwise, if updates
@@ -320,10 +309,7 @@ the original system image version is important.
 Presentation information and links
 ----------------------------------
 
-``HOME_URL, DOCUMENTATION_URL, SUPPORT_URL, BUG_REPORT_URL, PRIVACY_POLICY_URL``
---------------------------------------------------------------------------------
-
-*Usage:* ``HOME_URL=, DOCUMENTATION_URL=, SUPPORT_URL=, BUG_REPORT_URL=, PRIVACY_POLICY_URL=``
+.. option:: HOME_URL=, DOCUMENTATION_URL=, SUPPORT_URL=, BUG_REPORT_URL=, PRIVACY_POLICY_URL=
 
    Links to resources on the Internet related to the operating system.
    ``HOME_URL=`` should refer to the homepage of the operating system, or alternatively
@@ -346,10 +332,7 @@ Presentation information and links
    Examples: ``HOME_URL="https://fedoraproject.org/"``,
    ``BUG_REPORT_URL="https://bugzilla.redhat.com/"``.
 
-``SUPPORT_END``
----------------
-
-*Usage:* ``SUPPORT_END=``
+.. option:: SUPPORT_END=
 
    The date at which support for this version of the OS ends. (What exactly "lack of
    support" means varies between vendors, but generally users should assume that updates, including
@@ -360,12 +343,11 @@ Presentation information and links
    For example, ``SUPPORT_END=2001-01-01`` means that the system was supported
    until the end of the last day of the previous millennium.
 
-   .. versionadded:: 252
+   .. only:: html
 
-``LOGO``
---------
+      .. versionadded:: 252
 
-*Usage:* ``LOGO=``
+.. option:: LOGO=
 
    A string, specifying the name of an icon as defined by `freedesktop.org Icon Theme
    Specification <https://standards.freedesktop.org/icon-theme-spec/latest>`_. This can be used by graphical applications to display an operating system's
@@ -374,12 +356,11 @@ Presentation information and links
 
    Examples: ``LOGO=fedora-logo``, ``LOGO=distributor-logo-opensuse``
 
-   .. versionadded:: 240
+   .. only:: html
 
-``ANSI_COLOR``
---------------
+      .. versionadded:: 240
 
-*Usage:* ``ANSI_COLOR=``
+.. option:: ANSI_COLOR=
 
    A suggested presentation color when showing the OS name on the console. This should
    be specified as string suitable for inclusion in the ESC [ m ANSI/ECMA-48 escape code for setting
@@ -388,10 +369,7 @@ Presentation information and links
    Examples: ``ANSI_COLOR="0;31"`` for red, ``ANSI_COLOR="1;34"``
    for light blue, or ``ANSI_COLOR="0;38;2;60;110;180"`` for Fedora blue.
 
-``VENDOR_NAME``
----------------
-
-*Usage:* ``VENDOR_NAME=``
+.. option:: VENDOR_NAME=
 
    The name of the OS vendor. This is the name of the organization or company which
    produces the OS. This field is optional.
@@ -402,12 +380,11 @@ Presentation information and links
    Examples: ``VENDOR_NAME="Fedora Project"`` for Fedora Linux,
    ``VENDOR_NAME="Canonical"`` for Ubuntu.
 
-   .. versionadded:: 254
+   .. only:: html
 
-``VENDOR_URL``
---------------
+      .. versionadded:: 254
 
-*Usage:* ``VENDOR_URL=``
+.. option:: VENDOR_URL=
 
    The homepage of the OS vendor. This field is optional. The
    ``VENDOR_NAME=`` field should be set if this one is, although clients must be
@@ -420,15 +397,14 @@ Presentation information and links
    Examples: ``VENDOR_URL="https://fedoraproject.org/"``,
    ``VENDOR_URL="https://canonical.com/"``.
 
-   .. versionadded:: 254
+   .. only:: html
+
+      .. versionadded:: 254
 
 Distribution-level defaults and metadata
 ----------------------------------------
 
-``DEFAULT_HOSTNAME``
---------------------
-
-*Usage:* ``DEFAULT_HOSTNAME=``
+.. option:: DEFAULT_HOSTNAME=
 
    A string specifying the hostname if
    :ref:`hostname(5)` is not
@@ -443,12 +419,11 @@ Distribution-level defaults and metadata
    :ref:`systemd-hostnamed.service(8)`
    determines the fallback hostname.
 
-   .. versionadded:: 248
+   .. only:: html
 
-``ARCHITECTURE``
-----------------
+      .. versionadded:: 248
 
-*Usage:* ``ARCHITECTURE=``
+.. option:: ARCHITECTURE=
 
    A string that specifies which CPU architecture the userspace binaries require.
    The architecture identifiers are the same as for ``ConditionArchitecture=``
@@ -458,12 +433,11 @@ Distribution-level defaults and metadata
    encodes the architecture. If this is not the case, the architecture should be specified in
    e.g., an extension image, to prevent an incompatible host from loading it.
 
-   .. versionadded:: 252
+   .. only:: html
 
-``SYSEXT_LEVEL``
-----------------
+      .. versionadded:: 252
 
-*Usage:* ``SYSEXT_LEVEL=``
+.. option:: SYSEXT_LEVEL=
 
    A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
    a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
@@ -474,12 +448,11 @@ Distribution-level defaults and metadata
 
    Examples: ``SYSEXT_LEVEL=2``, ``SYSEXT_LEVEL=15.14``.
 
-   .. versionadded:: 248
+   .. only:: html
 
-``CONFEXT_LEVEL``
------------------
+      .. versionadded:: 248
 
-*Usage:* ``CONFEXT_LEVEL=``
+.. option:: CONFEXT_LEVEL=
 
    Semantically the same as ``SYSEXT_LEVEL=`` but for confext images.
    See ``/etc/extension-release.d/extension-release.<IMAGE>``
@@ -487,12 +460,11 @@ Distribution-level defaults and metadata
 
    Examples: ``CONFEXT_LEVEL=2``, ``CONFEXT_LEVEL=15.14``.
 
-   .. versionadded:: 254
+   .. only:: html
 
-``SYSEXT_SCOPE``
-----------------
+      .. versionadded:: 254
 
-*Usage:* ``SYSEXT_SCOPE=``
+.. option:: SYSEXT_SCOPE=
 
    Takes a space-separated list of one or more of the strings
    ``system``, ``initrd`` and ``portable``. This field is
@@ -502,21 +474,19 @@ Distribution-level defaults and metadata
    extension without this field is applicable to regular systems and to portable service environments,
    but not to initrd environments.
 
-   .. versionadded:: 250
+   .. only:: html
 
-``CONFEXT_SCOPE``
------------------
+      .. versionadded:: 250
 
-*Usage:* ``CONFEXT_SCOPE=``
+.. option:: CONFEXT_SCOPE=
 
    Semantically the same as ``SYSEXT_SCOPE=`` but for confext images.
 
-   .. versionadded:: 254
+   .. only:: html
 
-``PORTABLE_PREFIXES``
----------------------
+      .. versionadded:: 254
 
-*Usage:* ``PORTABLE_PREFIXES=``
+.. option:: PORTABLE_PREFIXES=
 
    Takes a space-separated list of one or more valid prefix match strings for the
    `Portable Services <https://systemd.io/PORTABLE_SERVICES>`_ logic.
@@ -526,7 +496,9 @@ Distribution-level defaults and metadata
    service prefix is checked against the list specified here, to enforce restrictions how images may
    be attached to a system.
 
-   .. versionadded:: 250
+   .. only:: html
+
+      .. versionadded:: 250
 
 Notes
 -----
@@ -592,14 +564,14 @@ Reading ``os-release`` in
 `sh(1) <https://man7.org/linux/man-pages/man1/sh.1.html>`_
 ====================================================================================
 
-.. literalinclude:: ./includes/check-os-release.sh
+.. literalinclude:: ./check-os-release.sh
                     :language: shell
 
 Reading ``os-release`` in
 `python(1) <http://linux.die.net/man/ 1/python>`_ (versions >= 3.10)
 ==============================================================================================
 
-.. literalinclude:: ./includes/check-os-release-simple.py
+.. literalinclude:: ./check-os-release-simple.py
                     :language: python
 
 See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
@@ -608,7 +580,7 @@ Reading ``os-release`` in
 `python(1) <http://linux.die.net/man/ 1/python>`_ (any version)
 =========================================================================================
 
-.. literalinclude:: ./includes/check-os-release.py
+.. literalinclude:: ./check-os-release.py
                     :language: python
 
 Note that the above version that uses the built-in implementation is preferred
@@ -618,5 +590,4 @@ See Also
 ========
 
 :ref:`systemd(1)`, `lsb_release(1) <http://linux.die.net/man/ 1/lsb_release>`_, :ref:`hostname(5)`, :ref:`machine-id(5)`, :ref:`machine-info(5)`
-
 

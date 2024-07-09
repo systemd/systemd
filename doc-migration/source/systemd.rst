@@ -12,15 +12,22 @@
 systemd(1)
 ==========
 
-**Name**
+.. only:: html
 
-systemd — init — systemd system and service manager
-###################################################
+   systemd — init — systemd system and service manager
+   ###################################################
 
-**Synopsis**
+.. only:: html
 
-``/usr/lib/systemd/systemd`` [OPTIONS...] ``init`` [OPTIONS...] {COMMAND}
-=========================================================================
+   ``/usr/lib/systemd/systemd`` [OPTIONS...] — ``init`` [OPTIONS...] {COMMAND}
+   ===========================================================================
+
+.. only:: man
+
+   Synopsis
+   ========
+
+``/usr/lib/systemd/systemd`` [OPTIONS...] — ``init`` [OPTIONS...] {COMMAND}
 
 Description
 ===========
@@ -272,65 +279,65 @@ files or parameters passed on the kernel command line. For details, see
 Directories
 ===========
 
-System unit directories
------------------------
-
-   The systemd system manager reads unit
-   configuration from various directories. Packages that want to
-   install unit files shall place them in the directory returned
-   by ``pkg-config systemd
-   --variable=systemdsystemunitdir``. Other directories
-   checked are ``/usr/local/lib/systemd/system``
-   and ``/usr/lib/systemd/system``. User
-   configuration always takes precedence. ``pkg-config
-   systemd --variable=systemdsystemconfdir`` returns the
-   path of the system configuration directory. Packages should
-   alter the content of these directories only with the
-   ``enable`` and ``disable``
-   commands of the
-   :ref:`systemctl(1)`
-   tool. Full list of directories is provided in
-   :ref:`systemd.unit(5)`.
-
-User unit directories
----------------------
-
-   Similar rules apply for the user unit
-   directories. However, here the
-   `XDG
-   Base Directory specification <https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html>`_ is followed to find
-   units. Applications should place their unit files in the
-   directory returned by ``pkg-config systemd
-   --variable=systemduserunitdir``. Global configuration
-   is done in the directory reported by ``pkg-config
-   systemd --variable=systemduserconfdir``. The
-   ``enable`` and ``disable``
-   commands of the
-   :ref:`systemctl(1)`
-   tool can handle both global (i.e. for all users) and private
-   (for one user) enabling/disabling of units. Full list of
-   directories is provided in
-   :ref:`systemd.unit(5)`.
-
-SysV init scripts directory
+``System unit directories``
 ---------------------------
 
-   The location of the SysV init script directory
-   varies between distributions. If systemd cannot find a native
-   unit file for a requested service, it will look for a SysV
-   init script of the same name (with the
-   ``.service`` suffix
-   removed).
+The systemd system manager reads unit
+configuration from various directories. Packages that want to
+install unit files shall place them in the directory returned
+by ``pkg-config systemd
+--variable=systemdsystemunitdir``. Other directories
+checked are ``/usr/local/lib/systemd/system``
+and ``/usr/lib/systemd/system``. User
+configuration always takes precedence. ``pkg-config
+systemd --variable=systemdsystemconfdir`` returns the
+path of the system configuration directory. Packages should
+alter the content of these directories only with the
+``enable`` and ``disable``
+commands of the
+:ref:`systemctl(1)`
+tool. Full list of directories is provided in
+:ref:`systemd.unit(5)`.
 
-SysV runlevel link farm directory
----------------------------------
+``User unit directories``
+-------------------------
 
-   The location of the SysV runlevel link farm
-   directory varies between distributions. systemd will take the
-   link farm into account when figuring out whether a service
-   shall be enabled. Note that a service unit with a native unit
-   configuration file cannot be started by activating it in the
-   SysV runlevel link farm.
+Similar rules apply for the user unit
+directories. However, here the
+`XDG
+Base Directory specification <https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html>`_ is followed to find
+units. Applications should place their unit files in the
+directory returned by ``pkg-config systemd
+--variable=systemduserunitdir``. Global configuration
+is done in the directory reported by ``pkg-config
+systemd --variable=systemduserconfdir``. The
+``enable`` and ``disable``
+commands of the
+:ref:`systemctl(1)`
+tool can handle both global (i.e. for all users) and private
+(for one user) enabling/disabling of units. Full list of
+directories is provided in
+:ref:`systemd.unit(5)`.
+
+``SysV init scripts directory``
+-------------------------------
+
+The location of the SysV init script directory
+varies between distributions. If systemd cannot find a native
+unit file for a requested service, it will look for a SysV
+init script of the same name (with the
+``.service`` suffix
+removed).
+
+``SysV runlevel link farm directory``
+-------------------------------------
+
+The location of the SysV runlevel link farm
+directory varies between distributions. systemd will take the
+link farm into account when figuring out whether a service
+shall be enabled. Note that a service unit with a native unit
+configuration file cannot be started by activating it in the
+SysV runlevel link farm.
 
 Signals
 =======
@@ -343,243 +350,255 @@ initialization phase. An ``sd_notify()`` notification message carrying the
 ``X_SYSTEMD_SIGNALS_LEVEL=2`` field is emitted once the signal handlers are enabled, see
 below. This may be used to schedule submission of these signals correctly.
 
-SIGTERM
--------
+``SIGTERM``
+-----------
 
-   Upon receiving this signal the systemd system
-   manager serializes its state, reexecutes itself and
-   deserializes the saved state again. This is mostly equivalent
-   to ``systemctl daemon-reexec``.
+Upon receiving this signal the systemd system
+manager serializes its state, reexecutes itself and
+deserializes the saved state again. This is mostly equivalent
+to ``systemctl daemon-reexec``.
 
-   systemd user managers will start the
-   ``exit.target`` unit when this signal is
-   received. This is mostly equivalent to ``systemctl
-   --user start exit.target
-   --job-mode=replace-irreversibly``.
+systemd user managers will start the
+``exit.target`` unit when this signal is
+received. This is mostly equivalent to ``systemctl
+--user start exit.target
+--job-mode=replace-irreversibly``.
 
-SIGINT
-------
-
-   Upon receiving this signal the systemd system manager will start the
-   ``ctrl-alt-del.target`` unit. This is mostly equivalent to
-   ``systemctl start ctrl-alt-del.target --job-mode=replace-irreversibly``. If
-   this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
-   that pressing
-   :kbd:`Ctrl` + :kbd:`Alt` + :kbd:`Del` on the
-   console will trigger this signal. Hence, if a reboot is hanging, pressing
-   :kbd:`Ctrl` + :kbd:`Alt` + :kbd:`Del` more than
-   7 times in 2 seconds is a relatively safe way to trigger an immediate reboot.
-
-   systemd user managers treat this signal the same way as
-   ``SIGTERM``.
-
-SIGWINCH
---------
-
-   When this signal is received the systemd
-   system manager will start the
-   ``kbrequest.target`` unit. This is mostly
-   equivalent to ``systemctl start
-   kbrequest.target``.
-
-   This signal is ignored by systemd user
-   managers.
-
-SIGPWR
-------
-
-   When this signal is received the systemd
-   manager will start the ``sigpwr.target``
-   unit. This is mostly equivalent to ``systemctl start
-   sigpwr.target``.
-
-SIGUSR1
--------
-
-   When this signal is received the systemd
-   manager will try to reconnect to the D-Bus
-   bus.
-
-SIGUSR2
--------
-
-   When this signal is received the systemd
-   manager will log its complete state in human-readable form.
-   The data logged is the same as printed by
-   ``systemd-analyze dump``.
-
-SIGHUP
-------
-
-   Reloads the complete daemon configuration.
-   This is mostly equivalent to ``systemctl
-   daemon-reload``.
-
-SIGRTMIN+0
+``SIGINT``
 ----------
 
-   Enters default mode, starts the
-   ``default.target`` unit. This is mostly
-   equivalent to ``systemctl isolate
-   default.target``.
+Upon receiving this signal the systemd system manager will start the
+``ctrl-alt-del.target`` unit. This is mostly equivalent to
+``systemctl start ctrl-alt-del.target --job-mode=replace-irreversibly``. If
+this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
+that pressing
+:kbd:`Ctrl` + :kbd:`Alt` + :kbd:`Del` on the
+console will trigger this signal. Hence, if a reboot is hanging, pressing
+:kbd:`Ctrl` + :kbd:`Alt` + :kbd:`Del` more than
+7 times in 2 seconds is a relatively safe way to trigger an immediate reboot.
 
-SIGRTMIN+1
+systemd user managers treat this signal the same way as
+``SIGTERM``.
+
+``SIGWINCH``
+------------
+
+When this signal is received the systemd
+system manager will start the
+``kbrequest.target`` unit. This is mostly
+equivalent to ``systemctl start
+kbrequest.target``.
+
+This signal is ignored by systemd user
+managers.
+
+``SIGPWR``
 ----------
 
-   Enters rescue mode, starts the
-   ``rescue.target`` unit. This is mostly
-   equivalent to ``systemctl isolate
-   rescue.target``.
+When this signal is received the systemd
+manager will start the ``sigpwr.target``
+unit. This is mostly equivalent to ``systemctl start
+sigpwr.target``.
 
-SIGRTMIN+2
+``SIGUSR1``
+-----------
+
+When this signal is received the systemd
+manager will try to reconnect to the D-Bus
+bus.
+
+``SIGUSR2``
+-----------
+
+When this signal is received the systemd
+manager will log its complete state in human-readable form.
+The data logged is the same as printed by
+``systemd-analyze dump``.
+
+``SIGHUP``
 ----------
 
-   Enters emergency mode, starts the
-   ``emergency.service`` unit. This is mostly
-   equivalent to ``systemctl isolate
-   emergency.service``.
+Reloads the complete daemon configuration.
+This is mostly equivalent to ``systemctl
+daemon-reload``.
 
-SIGRTMIN+3
-----------
+``SIGRTMIN+0``
+--------------
 
-   Halts the machine, starts the
-   ``halt.target`` unit. This is mostly
-   equivalent to ``systemctl start halt.target
-   --job-mode=replace-irreversibly``.
+Enters default mode, starts the
+``default.target`` unit. This is mostly
+equivalent to ``systemctl isolate
+default.target``.
 
-SIGRTMIN+4
-----------
+``SIGRTMIN+1``
+--------------
 
-   Powers off the machine, starts the
-   ``poweroff.target`` unit. This is mostly
-   equivalent to ``systemctl start poweroff.target
-   --job-mode=replace-irreversibly``.
+Enters rescue mode, starts the
+``rescue.target`` unit. This is mostly
+equivalent to ``systemctl isolate
+rescue.target``.
 
-SIGRTMIN+5
-----------
+``SIGRTMIN+2``
+--------------
 
-   Reboots the machine, starts the
-   ``reboot.target`` unit. This is mostly
-   equivalent to ``systemctl start reboot.target
-   --job-mode=replace-irreversibly``.
+Enters emergency mode, starts the
+``emergency.service`` unit. This is mostly
+equivalent to ``systemctl isolate
+emergency.service``.
 
-SIGRTMIN+6
-----------
+``SIGRTMIN+3``
+--------------
 
-   Reboots the machine via kexec, starts the
-   ``kexec.target`` unit. This is mostly
-   equivalent to ``systemctl start kexec.target
-   --job-mode=replace-irreversibly``.
+Halts the machine, starts the
+``halt.target`` unit. This is mostly
+equivalent to ``systemctl start halt.target
+--job-mode=replace-irreversibly``.
 
-SIGRTMIN+7
-----------
+``SIGRTMIN+4``
+--------------
 
-   Reboots userspace, starts the ``soft-reboot.target`` unit. This is
-   mostly equivalent to ``systemctl start soft-reboot.target
-   --job-mode=replace-irreversibly``.
+Powers off the machine, starts the
+``poweroff.target`` unit. This is mostly
+equivalent to ``systemctl start poweroff.target
+--job-mode=replace-irreversibly``.
+
+``SIGRTMIN+5``
+--------------
+
+Reboots the machine, starts the
+``reboot.target`` unit. This is mostly
+equivalent to ``systemctl start reboot.target
+--job-mode=replace-irreversibly``.
+
+``SIGRTMIN+6``
+--------------
+
+Reboots the machine via kexec, starts the
+``kexec.target`` unit. This is mostly
+equivalent to ``systemctl start kexec.target
+--job-mode=replace-irreversibly``.
+
+``SIGRTMIN+7``
+--------------
+
+Reboots userspace, starts the ``soft-reboot.target`` unit. This is
+mostly equivalent to ``systemctl start soft-reboot.target
+--job-mode=replace-irreversibly``.
+
+.. only:: html
 
    .. versionadded:: 254
 
-SIGRTMIN+13
------------
+``SIGRTMIN+13``
+---------------
 
-   Immediately halts the machine.
+Immediately halts the machine.
 
-SIGRTMIN+14
------------
+``SIGRTMIN+14``
+---------------
 
-   Immediately powers off the machine.
+Immediately powers off the machine.
 
-SIGRTMIN+15
------------
+``SIGRTMIN+15``
+---------------
 
-   Immediately reboots the machine.
+Immediately reboots the machine.
 
-SIGRTMIN+16
------------
+``SIGRTMIN+16``
+---------------
 
-   Immediately reboots the machine with kexec.
+Immediately reboots the machine with kexec.
 
-SIGRTMIN+17
------------
+``SIGRTMIN+17``
+---------------
 
-   Immediately reboots the userspace.
+Immediately reboots the userspace.
+
+.. only:: html
 
    .. versionadded:: 254
 
-SIGRTMIN+20
------------
+``SIGRTMIN+20``
+---------------
 
-   Enables display of status messages on the
-   console, as controlled via
-   ``systemd.show_status=1`` on the kernel command
-   line.
+Enables display of status messages on the
+console, as controlled via
+``systemd.show_status=1`` on the kernel command
+line.
 
-SIGRTMIN+21
------------
+``SIGRTMIN+21``
+---------------
 
-   Disables display of
-   status messages on the console, as
-   controlled via
-   ``systemd.show_status=0``
-   on the kernel command
-   line.
+Disables display of
+status messages on the console, as
+controlled via
+``systemd.show_status=0``
+on the kernel command
+line.
 
-SIGRTMIN+22
------------
+``SIGRTMIN+22``
+---------------
 
-   Sets the service manager's log level to ``debug``, in a fashion equivalent to
-   ``systemd.log_level=debug`` on the kernel command line.
+Sets the service manager's log level to ``debug``, in a fashion equivalent to
+``systemd.log_level=debug`` on the kernel command line.
 
-SIGRTMIN+23
------------
+``SIGRTMIN+23``
+---------------
 
-   Restores the log level to its configured value. The configured value is derived from – in order
-   of priority – the value specified with ``systemd.log-level=`` on the kernel command line, or the
-   value specified with ``LogLevel=`` in the configuration file, or the built-in default of
-   ``info``.
+Restores the log level to its configured value. The configured value is derived from – in order
+of priority – the value specified with ``systemd.log-level=`` on the kernel command line, or the
+value specified with ``LogLevel=`` in the configuration file, or the built-in default of
+``info``.
+
+.. only:: html
 
    .. versionadded:: 239
 
-SIGRTMIN+24
------------
+``SIGRTMIN+24``
+---------------
 
-   Immediately exits the manager (only available
-   for --user instances).
+Immediately exits the manager (only available
+for --user instances).
+
+.. only:: html
 
    .. versionadded:: 195
 
-SIGRTMIN+25
------------
+``SIGRTMIN+25``
+---------------
 
-   Upon receiving this signal the systemd manager will reexecute itself. This
-   is mostly equivalent to ``systemctl daemon-reexec`` except that it will be
-   done asynchronously.
+Upon receiving this signal the systemd manager will reexecute itself. This
+is mostly equivalent to ``systemctl daemon-reexec`` except that it will be
+done asynchronously.
 
-   The systemd system manager treats this signal the same way as
-   ``SIGTERM``.
+The systemd system manager treats this signal the same way as
+``SIGTERM``.
+
+.. only:: html
 
    .. versionadded:: 250
 
-SIGRTMIN+26
------------
+``SIGRTMIN+26``
+---------------
 
-   Restores the log target to its configured value. The configured value is derived from – in
-   order of priority – the value specified with ``systemd.log-target=`` on the kernel command line,
-   or the value specified with ``LogTarget=`` in the configuration file, or the built-in
-   default.
+Restores the log target to its configured value. The configured value is derived from – in
+order of priority – the value specified with ``systemd.log-target=`` on the kernel command line,
+or the value specified with ``LogTarget=`` in the configuration file, or the built-in
+default.
+
+.. only:: html
 
    .. versionadded:: 239
 
-``, ``
-------
+``SIGRTMIN+27, SIGRTMIN+28``
+----------------------------
 
-*Usage:* ``SIGRTMIN+27, SIGRTMIN+28``
+Sets the log target to ``console`` on ``SIGRTMIN+27`` (or
+``kmsg`` on ``SIGRTMIN+28``), in a fashion equivalent to
+``systemd.log_target=console`` (or ``systemd.log_target=kmsg`` on
+``SIGRTMIN+28``) on the kernel command line.
 
-   Sets the log target to ``console`` on ``SIGRTMIN+27`` (or
-   ``kmsg`` on ``SIGRTMIN+28``), in a fashion equivalent to
-   ``systemd.log_target=console`` (or ``systemd.log_target=kmsg`` on
-   ``SIGRTMIN+28``) on the kernel command line.
+.. only:: html
 
    .. versionadded:: 239
 
@@ -606,87 +625,93 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_LEVEL``
 ----------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-level-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-level-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-level-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-level-body
 
-   This can be overridden with ``--log-level=``.
+This can be overridden with ``--log-level=``.
 
 ``$SYSTEMD_LOG_COLOR``
 ----------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-color-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-color-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-color-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-color-body
 
-   This can be overridden with ``--log-color=``.
+This can be overridden with ``--log-color=``.
 
 ``$SYSTEMD_LOG_TIME``
 ---------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-time-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-time-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-time-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-time-body
 
-   This can be overridden with ``--log-time=``.
+This can be overridden with ``--log-time=``.
+
+.. only:: html
 
    .. versionadded:: 246
 
 ``$SYSTEMD_LOG_LOCATION``
 -------------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-location-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-location-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-location-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-location-body
 
-   This can be overridden with ``--log-location=``.
+This can be overridden with ``--log-location=``.
 
 ``$SYSTEMD_LOG_TID``
 --------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-tid-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-tid-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-tid-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-tid-body
+
+.. only:: html
 
    .. versionadded:: 247
 
 ``$SYSTEMD_LOG_TARGET``
 -----------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-target-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-target-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-target-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-target-body
 
-   This can be overridden with ``--log-target=``.
+This can be overridden with ``--log-target=``.
 
 ``$SYSTEMD_LOG_RATELIMIT_KMSG``
 -------------------------------
 
-   .. include:: ./common-variables.rst
-                       :start-after: .. inclusion-marker-do-not-remove log-ratelimit-kmsg-body
-                       :end-before: .. inclusion-end-marker-do-not-remove log-ratelimit-kmsg-body
+.. include:: ./common-variables.rst
+                    :start-after: .. inclusion-marker-do-not-remove log-ratelimit-kmsg-body
+                    :end-before: .. inclusion-end-marker-do-not-remove log-ratelimit-kmsg-body
+
+.. only:: html
 
    .. versionadded:: 254
 
 ``$XDG_CONFIG_HOME, $XDG_CONFIG_DIRS, $XDG_DATA_HOME, $XDG_DATA_DIRS``
 ----------------------------------------------------------------------
 
-   The systemd user manager uses these variables
-   in accordance to the `XDG
-   Base Directory specification <https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html>`_ to find its
-   configuration.
+The systemd user manager uses these variables
+in accordance to the `XDG
+Base Directory specification <https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html>`_ to find its
+configuration.
 
 ``$SYSTEMD_UNIT_PATH, $SYSTEMD_GENERATOR_PATH, $SYSTEMD_ENVIRONMENT_GENERATOR_PATH``
 ------------------------------------------------------------------------------------
 
-   Controls where systemd looks for unit files and
-   generators.
+Controls where systemd looks for unit files and
+generators.
 
-   These variables may contain a list of paths, separated by colons
-   (``:``). When set, if the list ends with an empty
-   component (``...:``), this list is prepended to the
-   usual set of paths. Otherwise, the specified list replaces the usual
-   set of paths.
+These variables may contain a list of paths, separated by colons
+(``:``). When set, if the list ends with an empty
+component (``...:``), this list is prepended to the
+usual set of paths. Otherwise, the specified list replaces the usual
+set of paths.
 
 .. include:: ./common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove pager
@@ -715,19 +740,19 @@ Some of the variables understood by ``systemd``:
 ``$LISTEN_PID, $LISTEN_FDS, $LISTEN_FDNAMES``
 ---------------------------------------------
 
-   Set by systemd for supervised processes during
-   socket-based activation. See
-   :ref:`sd_listen_fds(3)`
-   for more information.
+Set by systemd for supervised processes during
+socket-based activation. See
+:ref:`sd_listen_fds(3)`
+for more information.
 
 ``$NOTIFY_SOCKET``
 ------------------
 
-   Set by service manager for its services for status and readiness notifications. Also
-   consumed by service manager for notifying supervising container managers or service managers up the
-   stack about its own progress. See
-   :ref:`sd_notify(3)` and the
-   relevant section below for more information.
+Set by service manager for its services for status and readiness notifications. Also
+consumed by service manager for notifying supervising container managers or service managers up the
+stack about its own progress. See
+:ref:`sd_notify(3)` and the
+relevant section below for more information.
 
 For further environment variables understood by systemd and its various components, see `Known Environment Variables <https://systemd.io/ENVIRONMENT>`_.
 
@@ -746,274 +771,286 @@ Note: use of ``SystemdOptions`` is deprecated.
 
 The following variables are understood:
 
-``systemd.unit, rd.systemd.unit``
----------------------------------
+``systemd.unit=, rd.systemd.unit=``
+-----------------------------------
 
-*Usage:* ``systemd.unit=, rd.systemd.unit=``
-
-   Overrides the unit to activate on boot.  Defaults to
-   ``default.target``. This may be used to temporarily boot into a different boot unit,
-   for example ``rescue.target`` or ``emergency.service``. See
-   :ref:`systemd.special(7)`
-   for details about these units. The option prefixed with ``rd.`` is honored only in the
-   initrd, while the one that is not prefixed only in the main system.
+Overrides the unit to activate on boot.  Defaults to
+``default.target``. This may be used to temporarily boot into a different boot unit,
+for example ``rescue.target`` or ``emergency.service``. See
+:ref:`systemd.special(7)`
+for details about these units. The option prefixed with ``rd.`` is honored only in the
+initrd, while the one that is not prefixed only in the main system.
 
 ``systemd.dump_core``
 ---------------------
 
-   Takes a boolean argument or enables the option if specified
-   without an argument. If enabled, the systemd manager (PID 1) dumps core when
-   it crashes. Otherwise, no core dump is created. Defaults to enabled.
+Takes a boolean argument or enables the option if specified
+without an argument. If enabled, the systemd manager (PID 1) dumps core when
+it crashes. Otherwise, no core dump is created. Defaults to enabled.
+
+.. only:: html
 
    .. versionadded:: 233
 
 ``systemd.crash_chvt``
 ----------------------
 
-   Takes a positive integer, or a boolean argument. Can be also specified without an
-   argument, with the same effect as a positive boolean. If a positive integer (in the range 1–63) is
-   specified, the system manager (PID 1) will activate the specified virtual terminal when it crashes.
-   Defaults to disabled, meaning that no such switch is attempted. If set to enabled, the virtual
-   terminal the kernel messages are written to is used instead.
+Takes a positive integer, or a boolean argument. Can be also specified without an
+argument, with the same effect as a positive boolean. If a positive integer (in the range 1–63) is
+specified, the system manager (PID 1) will activate the specified virtual terminal when it crashes.
+Defaults to disabled, meaning that no such switch is attempted. If set to enabled, the virtual
+terminal the kernel messages are written to is used instead.
+
+.. only:: html
 
    .. versionadded:: 233
 
 ``systemd.crash_shell``
 -----------------------
 
-   Takes a boolean argument or enables the option if specified
-   without an argument. If enabled, the system manager (PID 1) spawns a shell
-   when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
-   to disabled, for security reasons, as the shell is not protected by password
-   authentication.
+Takes a boolean argument or enables the option if specified
+without an argument. If enabled, the system manager (PID 1) spawns a shell
+when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
+to disabled, for security reasons, as the shell is not protected by password
+authentication.
+
+.. only:: html
 
    .. versionadded:: 233
 
-``systemd.crash_action``
-------------------------
+``systemd.crash_action=``
+-------------------------
 
-*Usage:* ``systemd.crash_action=``
+Takes one of ``freeze``, ``reboot`` or
+``poweroff``. Defaults to ``freeze``. If set to
+``freeze``, the system will hang indefinitely when the system manager (PID 1) crashes.
+If set to ``reboot``, the system manager (PID 1) will reboot the machine automatically
+when it crashes, after a 10s delay. If set to ``poweroff``, the system manager (PID 1)
+will power off the machine immediately when it crashes. If combined with
+``systemd.crash_shell``, the configured crash action is executed after the shell
+exits.
 
-   Takes one of ``freeze``, ``reboot`` or
-   ``poweroff``. Defaults to ``freeze``. If set to
-   ``freeze``, the system will hang indefinitely when the system manager (PID 1) crashes.
-   If set to ``reboot``, the system manager (PID 1) will reboot the machine automatically
-   when it crashes, after a 10s delay. If set to ``poweroff``, the system manager (PID 1)
-   will power off the machine immediately when it crashes. If combined with
-   ``systemd.crash_shell``, the configured crash action is executed after the shell
-   exits.
+.. only:: html
 
    .. versionadded:: 256
 
 ``systemd.confirm_spawn``
 -------------------------
 
-   Takes a boolean argument or a path to the virtual console
-   where the confirmation messages should be emitted. Can be also specified
-   without an argument, with the same effect as a positive boolean. If enabled,
-   the system manager (PID 1) asks for confirmation when spawning processes
-   using ``/dev/console``. If a path or a console name (such as
-   ``ttyS0``) is provided, the virtual console pointed to by this
-   path or described by the give name will be used instead. Defaults to disabled.
+Takes a boolean argument or a path to the virtual console
+where the confirmation messages should be emitted. Can be also specified
+without an argument, with the same effect as a positive boolean. If enabled,
+the system manager (PID 1) asks for confirmation when spawning processes
+using ``/dev/console``. If a path or a console name (such as
+``ttyS0``) is provided, the virtual console pointed to by this
+path or described by the give name will be used instead. Defaults to disabled.
+
+.. only:: html
 
    .. versionadded:: 233
 
-``systemd.service_watchdogs``
------------------------------
+``systemd.service_watchdogs=``
+------------------------------
 
-*Usage:* ``systemd.service_watchdogs=``
+Takes a boolean argument. If disabled, all service runtime
+watchdogs (``WatchdogSec=``) and emergency actions (e.g.
+``OnFailure=`` or ``StartLimitAction=``) are
+ignored by the system manager (PID 1); see
+:ref:`systemd.service(5)`.
+Defaults to enabled, i.e. watchdogs and failure actions are processed
+normally. The hardware watchdog is not affected by this
+option.
 
-   Takes a boolean argument. If disabled, all service runtime
-   watchdogs (``WatchdogSec=``) and emergency actions (e.g.
-   ``OnFailure=`` or ``StartLimitAction=``) are
-   ignored by the system manager (PID 1); see
-   :ref:`systemd.service(5)`.
-   Defaults to enabled, i.e. watchdogs and failure actions are processed
-   normally. The hardware watchdog is not affected by this
-   option.
+.. only:: html
 
    .. versionadded:: 237
 
 ``systemd.show_status``
 -----------------------
 
-   Takes a boolean argument or the constants ``error`` and
-   ``auto``. Can be also specified without an argument, with the same effect as a
-   positive boolean. If enabled, the systemd manager (PID 1) shows terse service status updates on the
-   console during bootup. With ``error``, only messages about failures are shown, but
-   boot is otherwise quiet. ``auto`` behaves like ``false`` until there is
-   a significant delay in boot. Defaults to enabled, unless ``quiet`` is passed as kernel
-   command line option, in which case it defaults to ``error``. If specified overrides
-   the system manager configuration file option ``ShowStatus=``, see
-   :ref:`systemd-system.conf(5)`.
+Takes a boolean argument or the constants ``error`` and
+``auto``. Can be also specified without an argument, with the same effect as a
+positive boolean. If enabled, the systemd manager (PID 1) shows terse service status updates on the
+console during bootup. With ``error``, only messages about failures are shown, but
+boot is otherwise quiet. ``auto`` behaves like ``false`` until there is
+a significant delay in boot. Defaults to enabled, unless ``quiet`` is passed as kernel
+command line option, in which case it defaults to ``error``. If specified overrides
+the system manager configuration file option ``ShowStatus=``, see
+:ref:`systemd-system.conf(5)`.
+
+.. only:: html
 
    .. versionadded:: 233
 
-``systemd.status_unit_format``
-------------------------------
+``systemd.status_unit_format=``
+-------------------------------
 
-*Usage:* ``systemd.status_unit_format=``
+Takes ``name``, ``description`` or
+``combined`` as the value. If ``name``, the system manager will use unit
+names in status messages. If ``combined``, the system manager will use unit names and
+description in status messages. When specified, overrides the system manager configuration file
+option ``StatusUnitFormat=``, see
+:ref:`systemd-system.conf(5)`.
 
-   Takes ``name``, ``description`` or
-   ``combined`` as the value. If ``name``, the system manager will use unit
-   names in status messages. If ``combined``, the system manager will use unit names and
-   description in status messages. When specified, overrides the system manager configuration file
-   option ``StatusUnitFormat=``, see
-   :ref:`systemd-system.conf(5)`.
+.. only:: html
 
    .. versionadded:: 243
 
-``systemd.log_color, systemd.log_level, systemd.log_location, systemd.log_target, systemd.log_time, systemd.log_tid, systemd.log_ratelimit_kmsg``
--------------------------------------------------------------------------------------------------------------------------------------------------
+``systemd.log_color, systemd.log_level=, systemd.log_location, systemd.log_target=, systemd.log_time, systemd.log_tid, systemd.log_ratelimit_kmsg``
+---------------------------------------------------------------------------------------------------------------------------------------------------
 
-*Usage:* ``systemd.log_color, systemd.log_level=, systemd.log_location, systemd.log_target=, systemd.log_time, systemd.log_tid, systemd.log_ratelimit_kmsg``
+Controls log output, with the same effect as the
+``$SYSTEMD_LOG_COLOR``, ``$SYSTEMD_LOG_LEVEL``,
+``$SYSTEMD_LOG_LOCATION``, ``$SYSTEMD_LOG_TARGET``,
+``$SYSTEMD_LOG_TIME``, ``$SYSTEMD_LOG_TID`` and
+``$SYSTEMD_LOG_RATELIMIT_KMSG`` environment variables described above.
+``systemd.log_color``, ``systemd.log_location``,
+``systemd.log_time``, ``systemd.log_tid`` and
+``systemd.log_ratelimit_kmsg`` can be specified without
+an argument, with the same effect as a positive boolean.
 
-   Controls log output, with the same effect as the
-   ``$SYSTEMD_LOG_COLOR``, ``$SYSTEMD_LOG_LEVEL``,
-   ``$SYSTEMD_LOG_LOCATION``, ``$SYSTEMD_LOG_TARGET``,
-   ``$SYSTEMD_LOG_TIME``, ``$SYSTEMD_LOG_TID`` and
-   ``$SYSTEMD_LOG_RATELIMIT_KMSG`` environment variables described above.
-   ``systemd.log_color``, ``systemd.log_location``,
-   ``systemd.log_time``, ``systemd.log_tid`` and
-   ``systemd.log_ratelimit_kmsg`` can be specified without
-   an argument, with the same effect as a positive boolean.
+``systemd.default_standard_output=, systemd.default_standard_error=``
+---------------------------------------------------------------------
 
-``systemd.default_standard_output, systemd.default_standard_error``
--------------------------------------------------------------------
+Controls default standard output and error output for services and sockets. That is,
+controls the default for ``StandardOutput=`` and ``StandardError=`` (see
+:ref:`systemd.exec(5)` for
+details). Takes one of ``inherit``, ``null``, ``tty``,
+``journal``, ``journal+console``, ``kmsg``,
+``kmsg+console``. If the argument is omitted
+``systemd.default-standard-output=`` defaults to ``journal`` and
+``systemd.default-standard-error=`` to ``inherit``.
 
-*Usage:* ``systemd.default_standard_output=, systemd.default_standard_error=``
+``systemd.setenv=``
+-------------------
 
-   Controls default standard output and error output for services and sockets. That is,
-   controls the default for ``StandardOutput=`` and ``StandardError=`` (see
-   :ref:`systemd.exec(5)` for
-   details). Takes one of ``inherit``, ``null``, ``tty``,
-   ``journal``, ``journal+console``, ``kmsg``,
-   ``kmsg+console``. If the argument is omitted
-   ``systemd.default-standard-output=`` defaults to ``journal`` and
-   ``systemd.default-standard-error=`` to ``inherit``.
+Takes a string argument in the form
+VARIABLE=VALUE. May be used to set default environment
+variables to add to forked child processes. May be used more
+than once to set multiple variables.
 
-``systemd.setenv``
-------------------
+``systemd.machine_id=``
+-----------------------
 
-*Usage:* ``systemd.setenv=``
+Takes a 32 character hex value to be
+used for setting the machine-id. Intended mostly for
+network booting where the same machine-id is desired
+for every boot.
 
-   Takes a string argument in the form
-   VARIABLE=VALUE. May be used to set default environment
-   variables to add to forked child processes. May be used more
-   than once to set multiple variables.
-
-``systemd.machine_id``
-----------------------
-
-*Usage:* ``systemd.machine_id=``
-
-   Takes a 32 character hex value to be
-   used for setting the machine-id. Intended mostly for
-   network booting where the same machine-id is desired
-   for every boot.
+.. only:: html
 
    .. versionadded:: 229
 
-``systemd.set_credential, systemd.set_credential_binary``
----------------------------------------------------------
+``systemd.set_credential=, systemd.set_credential_binary=``
+-----------------------------------------------------------
 
-*Usage:* ``systemd.set_credential=, systemd.set_credential_binary=``
+Sets a system credential, which can then be propagated to system services using the
+``ImportCredential=`` or ``LoadCredential=`` setting, see
+:ref:`systemd.exec(5)` for
+details. Takes a pair of credential name and value, separated by a colon. The
+``systemd.set_credential=`` parameter expects the credential value in literal text
+form, the ``systemd.set_credential_binary=`` parameter takes binary data encoded in
+Base64. Note that the kernel command line is typically accessible by unprivileged programs in
+``/proc/cmdline``. Thus, this mechanism is not suitable for transferring sensitive
+data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
+keys), or in testing/debugging environments.
 
-   Sets a system credential, which can then be propagated to system services using the
-   ``ImportCredential=`` or ``LoadCredential=`` setting, see
-   :ref:`systemd.exec(5)` for
-   details. Takes a pair of credential name and value, separated by a colon. The
-   ``systemd.set_credential=`` parameter expects the credential value in literal text
-   form, the ``systemd.set_credential_binary=`` parameter takes binary data encoded in
-   Base64. Note that the kernel command line is typically accessible by unprivileged programs in
-   ``/proc/cmdline``. Thus, this mechanism is not suitable for transferring sensitive
-   data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
-   keys), or in testing/debugging environments.
+For further information see `System and Service
+Credentials <https://systemd.io/CREDENTIALS>`_ documentation.
 
-   For further information see `System and Service
-   Credentials <https://systemd.io/CREDENTIALS>`_ documentation.
+.. only:: html
 
    .. versionadded:: 251
 
-``systemd.import_credentials``
-------------------------------
+``systemd.import_credentials=``
+-------------------------------
 
-*Usage:* ``systemd.import_credentials=``
+Takes a boolean argument. If false disables importing credentials from the kernel
+command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
+stub.
 
-   Takes a boolean argument. If false disables importing credentials from the kernel
-   command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
-   stub.
+.. only:: html
 
    .. versionadded:: 251
 
 ``quiet``
 ---------
 
-   Turn off status output at boot, much like
-   ``systemd.show_status=no`` would. Note that
-   this option is also read by the kernel itself and disables
-   kernel log output. Passing this option hence turns off the
-   usual output from both the system manager and the kernel.
+Turn off status output at boot, much like
+``systemd.show_status=no`` would. Note that
+this option is also read by the kernel itself and disables
+kernel log output. Passing this option hence turns off the
+usual output from both the system manager and the kernel.
+
+.. only:: html
 
    .. versionadded:: 186
 
 ``debug``
 ---------
 
-   Turn on debugging output. This is equivalent
-   to ``systemd.log_level=debug``. Note that this
-   option is also read by the kernel itself and enables kernel
-   debug output. Passing this option hence turns on the debug
-   output from both the system manager and the
-   kernel.
+Turn on debugging output. This is equivalent
+to ``systemd.log_level=debug``. Note that this
+option is also read by the kernel itself and enables kernel
+debug output. Passing this option hence turns on the debug
+output from both the system manager and the
+kernel.
+
+.. only:: html
 
    .. versionadded:: 205
 
 ``emergency, rd.emergency, -b``
 -------------------------------
 
-   Boot into emergency mode. This is equivalent
-   to ``systemd.unit=emergency.target`` or
-   ``rd.systemd.unit=emergency.target``, respectively, and
-   provided for compatibility reasons and to be easier to type.
+Boot into emergency mode. This is equivalent
+to ``systemd.unit=emergency.target`` or
+``rd.systemd.unit=emergency.target``, respectively, and
+provided for compatibility reasons and to be easier to type.
+
+.. only:: html
 
    .. versionadded:: 186
 
 ``rescue, rd.rescue, single, s, S, 1``
 --------------------------------------
 
-   Boot into rescue mode. This is equivalent to
-   ``systemd.unit=rescue.target`` or
-   ``rd.systemd.unit=rescue.target``, respectively, and
-   provided for compatibility reasons and to be easier to type.
+Boot into rescue mode. This is equivalent to
+``systemd.unit=rescue.target`` or
+``rd.systemd.unit=rescue.target``, respectively, and
+provided for compatibility reasons and to be easier to type.
+
+.. only:: html
 
    .. versionadded:: 186
 
 ``2, 3, 4, 5``
 --------------
 
-   Boot into the specified legacy SysV runlevel.
-   These are equivalent to
-   ``systemd.unit=runlevel2.target``,
-   ``systemd.unit=runlevel3.target``,
-   ``systemd.unit=runlevel4.target``, and
-   ``systemd.unit=runlevel5.target``,
-   respectively, and provided for compatibility reasons and to be
-   easier to type.
+Boot into the specified legacy SysV runlevel.
+These are equivalent to
+``systemd.unit=runlevel2.target``,
+``systemd.unit=runlevel3.target``,
+``systemd.unit=runlevel4.target``, and
+``systemd.unit=runlevel5.target``,
+respectively, and provided for compatibility reasons and to be
+easier to type.
+
+.. only:: html
 
    .. versionadded:: 186
 
-``locale.LANG, locale.LANGUAGE, locale.LC_CTYPE, locale.LC_NUMERIC, locale.LC_TIME, locale.LC_COLLATE, locale.LC_MONETARY, locale.LC_MESSAGES, locale.LC_PAPER, locale.LC_NAME, locale.LC_ADDRESS, locale.LC_TELEPHONE, locale.LC_MEASUREMENT, locale.LC_IDENTIFICATION``
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+``locale.LANG=, locale.LANGUAGE=, locale.LC_CTYPE=, locale.LC_NUMERIC=, locale.LC_TIME=, locale.LC_COLLATE=, locale.LC_MONETARY=, locale.LC_MESSAGES=, locale.LC_PAPER=, locale.LC_NAME=, locale.LC_ADDRESS=, locale.LC_TELEPHONE=, locale.LC_MEASUREMENT=, locale.LC_IDENTIFICATION=``
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-*Usage:* ``locale.LANG=, locale.LANGUAGE=, locale.LC_CTYPE=, locale.LC_NUMERIC=, locale.LC_TIME=, locale.LC_COLLATE=, locale.LC_MONETARY=, locale.LC_MESSAGES=, locale.LC_PAPER=, locale.LC_NAME=, locale.LC_ADDRESS=, locale.LC_TELEPHONE=, locale.LC_MEASUREMENT=, locale.LC_IDENTIFICATION=``
+Set the system locale to use. This overrides
+the settings in ``/etc/locale.conf``. For
+more information, see
+`locale.conf(5) <https://man7.org/linux/man-pages/man5/locale.conf.5.html>`_
+and
+`locale(7) <https://man7.org/linux/man-pages/man7/locale.7.html>`_.
 
-   Set the system locale to use. This overrides
-   the settings in ``/etc/locale.conf``. For
-   more information, see
-   `locale.conf(5) <https://man7.org/linux/man-pages/man5/locale.conf.5.html>`_
-   and
-   `locale(7) <https://man7.org/linux/man-pages/man7/locale.7.html>`_.
+.. only:: html
 
    .. versionadded:: 186
 
@@ -1062,30 +1099,34 @@ The service manager when run as PID 1 consumes the following system credentials:
 ``vmm.notify_socket``
 ---------------------
 
-   Contains a ``AF_VSOCK`` or ``AF_UNIX`` address where to
-   send a ``READY=1`` notification message when the service manager has completed
-   booting. See
-   :ref:`sd_notify(3)` and
-   the next section for more information. Note that in case the hypervisor does not support
-   ``SOCK_DGRAM`` over ``AF_VSOCK``,
-   ``SOCK_SEQPACKET`` will be tried instead. The credential payload for
-   ``AF_VSOCK`` should be a string in the form
-   ``vsock:CID:PORT``. ``vsock-stream``, ``vsock-dgram``
-   and ``vsock-seqpacket`` can be used instead of ``vsock`` to force
-   usage of the corresponding socket type.
+Contains a ``AF_VSOCK`` or ``AF_UNIX`` address where to
+send a ``READY=1`` notification message when the service manager has completed
+booting. See
+:ref:`sd_notify(3)` and
+the next section for more information. Note that in case the hypervisor does not support
+``SOCK_DGRAM`` over ``AF_VSOCK``,
+``SOCK_SEQPACKET`` will be tried instead. The credential payload for
+``AF_VSOCK`` should be a string in the form
+``vsock:CID:PORT``. ``vsock-stream``, ``vsock-dgram``
+and ``vsock-seqpacket`` can be used instead of ``vsock`` to force
+usage of the corresponding socket type.
 
-   This feature is useful for machine managers or other processes on the host to receive a
-   notification via VSOCK when a virtual machine has finished booting.
+This feature is useful for machine managers or other processes on the host to receive a
+notification via VSOCK when a virtual machine has finished booting.
+
+.. only:: html
 
    .. versionadded:: 254
 
 ``system.machine_id``
 ---------------------
 
-   Takes a 128bit hexadecimal ID to initialize ``/etc/machine-id`` from, if the
-   file is not set up yet. See
-   :ref:`machine-id(5)` for
-   details.
+Takes a 128bit hexadecimal ID to initialize ``/etc/machine-id`` from, if the
+file is not set up yet. See
+:ref:`machine-id(5)` for
+details.
+
+.. only:: html
 
    .. versionadded:: 254
 
@@ -1117,13 +1158,19 @@ track its boot progress. Specifically the following fields are sent:
   hostname for the system has been determined. Note that during later runtime the hostname might be
   changed again programmatically, and (currently) no further notifications are sent out in that case.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
+
   An ``X_SYSTEMD_MACHINE_ID=…`` message will be sent out once the machine
   ID of the system has been determined. See
   :ref:`machine-id(5)` for
   details.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
+
   An ``X_SYSTEMD_SIGNALS_LEVEL=…`` message will be sent out once the
   service manager installed the various UNIX process signal handlers described above. The field's value
   is an unsigned integer formatted as decimal string, and indicates the supported UNIX process signal
@@ -1138,7 +1185,10 @@ track its boot progress. Specifically the following fields are sent:
   now only the mentioned level 2 is defined, but later on additional levels might be defined with higher
   integers, that will implement a superset of the currently defined behaviour.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
+
   ``X_SYSTEMD_UNIT_ACTIVE=…`` and
   ``X_SYSTEMD_UNIT_INACTIVE=…`` messages will be sent out for each target unit as it
   becomes active or stops being active. This is useful to track boot progress and functionality. For
@@ -1147,18 +1197,26 @@ track its boot progress. Specifically the following fields are sent:
   :ref:`systemd.special(7)` for
   details.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
+
   An ``X_SYSTEMD_SHUTDOWN=…`` message will be sent out very shortly before
   the system shuts down. The value is one of the strings ``reboot``,
   ``halt``, ``poweroff``, ``kexec`` and indicates which kind
   of shutdown is being executed.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
+
   An ``X_SYSTEMD_REBOOT_PARAMETER=…`` message will also be sent out very
   shortly before the system shuts down. Its value is the reboot argument as configured with
   ``systemctl --reboot-argument=…``.
 
-  .. versionadded:: 256
+  .. only:: html
+
+     .. versionadded:: 256
 
 Note that these extension fields are sent in addition to the regular ``READY=1`` and
 ``RELOADING=1`` notifications.
@@ -1178,22 +1236,21 @@ Introspection and debugging options
 Those options are used for testing and introspection, and ``systemd`` may
 be invoked with them at any time:
 
-``--dump-configuration-items``
-------------------------------
+.. option:: --dump-configuration-items
 
    Dump understood unit configuration items. This outputs a terse but complete list of
    configuration items understood in unit definition files.
 
-``--dump-bus-properties``
--------------------------
+.. option:: --dump-bus-properties
 
    Dump exposed bus properties. This outputs a terse but complete list of properties
    exposed on D-Bus.
 
-   .. versionadded:: 239
+   .. only:: html
 
-``--test``
-----------
+      .. versionadded:: 239
+
+.. option:: --test
 
    Determine the initial start-up transaction (i.e. the list of jobs enqueued at
    start-up), dump it and exit — without actually executing any of the determined jobs. This option is
@@ -1204,8 +1261,7 @@ be invoked with them at any time:
    with ``--user`` to request the initial transaction of the per-user service manager
    instead.
 
-``--system, --user``
---------------------
+.. option:: --system, --user
 
    When used in conjunction with ``--test``, selects whether to calculate
    the initial transaction for the system instance or for a per-user instance. These options have no
@@ -1241,122 +1297,107 @@ modify settings (see
 or environment variables. See the "Environment" section above for a discussion of how the environment
 block is set.
 
-``--unit``
-----------
-
-*Usage:* ``--unit=``
+.. option:: --unit=
 
    Set default unit to activate on startup. If not specified, defaults to
    ``default.target``. See ``systemd.unit=`` above.
 
-``--dump-core``
----------------
+.. option:: --dump-core
 
    Enable core dumping on crash. This switch has no effect when running as user
    instance. Same as ``systemd.dump_core=`` above.
 
-``--crash-vt``
---------------
-
-*Usage:* ``--crash-vt=<VT>``
+.. option:: --crash-vt=<VT>
 
    Switch to a specific virtual console (VT) on crash. This switch has no effect when
    running as user instance. Same as ``systemd.crash_chvt=`` above (but not the
    different spelling!).
 
-   .. versionadded:: 227
+   .. only:: html
 
-``--crash-shell``
------------------
+      .. versionadded:: 227
+
+.. option:: --crash-shell
 
    Run a shell on crash. This switch has no effect when running as user instance. See
    ``systemd.crash_shell=`` above.
 
-``--crash-action``
-------------------
-
-*Usage:* ``--crash-action=``
+.. option:: --crash-action=
 
    Specify what to do when the system manager (PID 1) crashes. This switch has no
    effect when systemd is running as user instance. See ``systemd.crash_action=``
    above.
 
-   .. versionadded:: 256
+   .. only:: html
 
-``--confirm-spawn``
--------------------
+      .. versionadded:: 256
+
+.. option:: --confirm-spawn
 
    Ask for confirmation when spawning processes. This switch has no effect when run as
    user instance. See ``systemd.confirm_spawn`` above.
 
-``--show-status``
------------------
+.. option:: --show-status
 
    Show terse unit status information on the console during boot-up and shutdown. See
    ``systemd.show_status`` above.
 
-   .. versionadded:: 244
+   .. only:: html
 
-``--log-color``
----------------
+      .. versionadded:: 244
+
+.. option:: --log-color
 
    Highlight important log messages. See ``systemd.log_color`` above.
 
-   .. versionadded:: 244
+   .. only:: html
 
-``--log-level``
----------------
+      .. versionadded:: 244
 
-*Usage:* ``--log-level=``
+.. option:: --log-level=
 
    Set log level. See ``systemd.log_level`` above.
 
-``--log-location``
-------------------
+.. option:: --log-location
 
    Include code location in log messages. See ``systemd.log_location``
    above.
 
-   .. versionadded:: 244
+   .. only:: html
 
-``--log-target``
-----------------
+      .. versionadded:: 244
 
-*Usage:* ``--log-target=``
+.. option:: --log-target=
 
    Set log target. See ``systemd.log_target`` above.
 
-``--log-time``
---------------
-
-*Usage:* ``--log-time=``
+.. option:: --log-time=
 
    Prefix console messages with timestamp. See ``systemd.log_time`` above.
 
-   .. versionadded:: 246
+   .. only:: html
 
-``--machine-id``
-----------------
+      .. versionadded:: 246
 
-*Usage:* ``--machine-id=``
+.. option:: --machine-id=
 
    Override the machine-id set on the hard drive. See
    ``systemd.machine_id=`` above.
 
-   .. versionadded:: 229
+   .. only:: html
 
-``--service-watchdogs``
------------------------
+      .. versionadded:: 229
+
+.. option:: --service-watchdogs
 
    Globally enable/disable all service watchdog timeouts and emergency actions. See
    ``systemd.service_watchdogs`` above.
 
-   .. versionadded:: 237
+   .. only:: html
 
-``--default-standard-output, --default-standard-error``
--------------------------------------------------------
+      .. versionadded:: 237
 
-*Usage:* ``--default-standard-output=, --default-standard-error=``
+.. option:: --default-standard-output=, --default-standard-error=
 
    Sets the default output or error output for all services and sockets,
    respectively. See ``systemd.default_standard_output=`` and
@@ -1383,60 +1424,66 @@ modification time ("mtime") of ``/usr/lib/clock-epoch``, and the modification ti
 Files
 =====
 
-/run/systemd/notify
--------------------
+``/run/systemd/notify``
+-----------------------
 
-   Daemon status notification socket. This is an
-   ``AF_UNIX`` datagram socket and is used to
-   implement the daemon notification logic as implemented by
-   :ref:`sd_notify(3)`.
+Daemon status notification socket. This is an
+``AF_UNIX`` datagram socket and is used to
+implement the daemon notification logic as implemented by
+:ref:`sd_notify(3)`.
 
-/run/systemd/private
---------------------
+``/run/systemd/private``
+------------------------
 
-   Used internally as communication channel
-   between
-   :ref:`systemctl(1)`
-   and the systemd process. This is an
-   ``AF_UNIX`` stream socket. This interface is
-   private to systemd and should not be used in external
-   projects.
+Used internally as communication channel
+between
+:ref:`systemctl(1)`
+and the systemd process. This is an
+``AF_UNIX`` stream socket. This interface is
+private to systemd and should not be used in external
+projects.
 
-/dev/initctl
-------------
+``/dev/initctl``
+----------------
 
-   Limited compatibility support for the SysV
-   client interface, as implemented by the
-   ``systemd-initctl.service`` unit. This is a
-   named pipe in the file system. This interface is obsolete and
-   should not be used in new applications.
+Limited compatibility support for the SysV
+client interface, as implemented by the
+``systemd-initctl.service`` unit. This is a
+named pipe in the file system. This interface is obsolete and
+should not be used in new applications.
 
-/usr/lib/clock-epoch
---------------------
+``/usr/lib/clock-epoch``
+------------------------
 
-   The modification time ("mtime") of this file is used for the time epoch, see previous
-   section.
+The modification time ("mtime") of this file is used for the time epoch, see previous
+section.
+
+.. only:: html
 
    .. versionadded:: 247
 
-/var/lib/systemd/timesync/clock
--------------------------------
+``/var/lib/systemd/timesync/clock``
+-----------------------------------
 
-   The modification time ("mtime") of this file is updated by
-   :ref:`systemd-timesyncd.service(8)`.
-   If present, the modification time of file is used for the epoch, see previous section.
+The modification time ("mtime") of this file is updated by
+:ref:`systemd-timesyncd.service(8)`.
+If present, the modification time of file is used for the epoch, see previous section.
+
+.. only:: html
 
    .. versionadded:: 257
 
 History
 =======
 
-systemd 252
------------
+``systemd 252``
+---------------
 
-   Kernel command-line arguments ``systemd.unified_cgroup_hierarchy``
-   and ``systemd.legacy_systemd_cgroup_controller`` were deprecated. Please switch to
-   the unified cgroup hierarchy.
+Kernel command-line arguments ``systemd.unified_cgroup_hierarchy``
+and ``systemd.legacy_systemd_cgroup_controller`` were deprecated. Please switch to
+the unified cgroup hierarchy.
+
+.. only:: html
 
    .. versionadded:: 252
 
@@ -1448,5 +1495,4 @@ The `systemd Homepage <https://systemd.io/>`_, :ref:`systemd-system.conf(5)`, `l
 For more information about the concepts and
 ideas behind systemd, please refer to the
 `Original Design Document <https://0pointer.de/blog/projects/systemd.html>`_.
-
 
