@@ -19,6 +19,7 @@
 #include "common-signal.h"
 #include "dns-domain.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -87,7 +88,7 @@ static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata)
         assert(m->current_server_name);
         assert(m->current_server_address);
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
         log_info("Timed out waiting for reply from %s (%s).", strna(pretty), m->current_server_name->string);
 
         return manager_connect(m);
@@ -128,7 +129,7 @@ static int manager_send_request(Manager *m) {
         random_bytes(&m->request_nonce, sizeof(m->request_nonce));
         ntpmsg.trans_time = m->request_nonce;
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
 
         /*
          * Record the transmit timestamp. This should be as close as possible to
@@ -679,7 +680,7 @@ static int manager_begin(Manager *m) {
         if (m->poll_interval_usec == 0)
                 m->poll_interval_usec = m->poll_interval_min_usec;
 
-        server_address_pretty(m->current_server_address, &pretty);
+        (void) server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
         (void) sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
 
@@ -721,7 +722,7 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
 
         if (a) {
                 _cleanup_free_ char *pretty = NULL;
-                server_address_pretty(a, &pretty);
+                (void) server_address_pretty(a, &pretty);
                 log_debug("Selected address %s of server %s.", strna(pretty), a->name->string);
         }
 }
@@ -758,7 +759,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 if (r < 0)
                         return log_error_errno(r, "Failed to add server address: %m");
 
-                server_address_pretty(a, &pretty);
+                (void) server_address_pretty(a, &pretty);
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
         }
 
@@ -781,6 +782,8 @@ static int manager_retry_connect(sd_event_source *source, usec_t usec, void *use
 }
 
 int manager_connect(Manager *m) {
+        const char *sqo = "[", *sqc = "]", *default_port = "123", *temp;
+        char *addr, *port;
         int r;
 
         assert(m);
@@ -877,7 +880,27 @@ int manager_connect(Manager *m) {
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                /* port 123 used to be hard-coded, while config can be fed an ip address overriding the port number,
+                 * eg server.domain:1234, 10.0.0.1:1234 or [fe80::1]:1234
+                 * plus, if the name is [IP::v:6] in brackets, resolve won't accept it unles we remove the brackets
+                 * r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m); */
+                addr = m->current_server_name->string;
+                if (strchr(addr, *sqo) != NULL && strcspn(addr, sqo) == 0
+                                               && strlen(addr)-1 == strcspn(addr, sqc)) {
+                        temp = strdup(m->current_server_name->string);
+                        (void) extract_first_word(&temp, &addr, sqc, 0);
+                        temp = strdup(addr);
+                        (void) extract_first_word(&temp, &addr, sqo, 0);
+                        log_debug("Removed [IP::v:6] brackets: addr is %s from original string %s", addr, m->current_server_name->string);
+                }
+
+                port = strdup(default_port); // default_port is const
+                if (m->current_server_name->overridden_port) { //plus if provided an override, resolve using it:
+                        port = m->current_server_name->overridden_port;
+                }
+
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, addr, port, &hints, manager_resolve_handler, NULL, m);
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
