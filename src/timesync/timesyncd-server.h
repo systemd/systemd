@@ -34,7 +34,6 @@ struct ServerName {
 
         ServerType type;
         char *string;
-        char *overridden_port;
 
         LIST_HEAD(ServerAddress, addresses);
         LIST_FIELDS(ServerName, names);
@@ -51,4 +50,3 @@ ServerName *server_name_free(ServerName *n);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ServerName*, server_name_free);
 
 void server_name_flush_addresses(ServerName *n);
-int server_name_parse_port(ServerName *n);

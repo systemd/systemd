@@ -782,8 +782,6 @@ static int manager_retry_connect(sd_event_source *source, usec_t usec, void *use
 }
 
 int manager_connect(Manager *m) {
-        const char *sqo = "[", *sqc = "]", *default_port = "123", *temp;
-        char *addr, *port;
         int r;
 
         assert(m);
@@ -880,24 +878,10 @@ int manager_connect(Manager *m) {
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
-                /* port 123 used to be hard-coded, while config can be fed an ip address overriding the port number,
-                 * eg server.domain:1234, 10.0.0.1:1234 or [fe80::1]:1234
-                 * plus, if the name is [IP::v:6] in brackets, resolve won't accept it unles we remove the brackets
-                 * r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m); */
-                addr = m->current_server_name->string;
-                if (strchr(addr, *sqo) != NULL && strcspn(addr, sqo) == 0
-                                               && strlen(addr)-1 == strcspn(addr, sqc)) {
-                        temp = strdup(m->current_server_name->string);
-                        (void) extract_first_word(&temp, &addr, sqc, 0);
-                        temp = strdup(addr);
-                        (void) extract_first_word(&temp, &addr, sqo, 0);
-                        log_debug("Removed [IP::v:6] brackets: addr is %s from original string %s", addr, m->current_server_name->string);
-                }
-
-                port = strdup(default_port); // default_port is const
-                if (m->current_server_name->overridden_port) { //plus if provided an override, resolve using it:
-                        port = m->current_server_name->overridden_port;
-                }
+                _cleanup_free_ char *addr = NULL, *port = NULL;
+                r = process_server_name_for_address(m->current_server_name->string, &addr, &port);
+                if (r < 0)
+                        return r;
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, addr, port, &hints, manager_resolve_handler, NULL, m);
 
@@ -954,6 +938,58 @@ void manager_flush_runtime_servers(Manager *m) {
 
         while (m->runtime_servers)
                 server_name_free(m->runtime_servers);
+}
+
+int process_server_name_for_address(const char *name, char **addr, char **port) {
+        const char *sq = "]", *co = ":";
+        char *close_sq, *first_co, *last_co;
+        int r;
+
+        assert(name);
+
+        close_sq = strrchr(name, *sq);
+        first_co = strchr(name, *co);
+        last_co = strrchr(name, *co);
+
+        if (!close_sq && !last_co) { /* neither single ':' nor substring ']:' */
+                r = free_and_strdup(addr, name);
+                if (r < 0)
+                        return r;
+                r = free_and_strdup(port, NTP_SERVICE_PORT_NUMBER);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else if (!close_sq && first_co && last_co && strlen(first_co) == strlen(last_co)) {
+                /* no ']' and single ':' for server.domain:port and I.P.v.4:port */
+                _cleanup_free_ const char *mut_name = strdupa_safe(name);
+                r = extract_first_word(&mut_name, addr, co, 0);
+                if (r < 0)
+                        return r;
+                r = extract_first_word(&mut_name, port, co, 0);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else if (close_sq && (strlen(close_sq) == strlen(last_co)+1)) { /* substring ']:' for [IP::v:6]:port */
+                _cleanup_free_ const char *mut_name = strdupa_safe(name);
+                r = extract_first_word(&mut_name, &close_sq, sq, 0);
+                if (r < 0)
+                        return r;
+                *addr = delete_chars(close_sq, "[]");
+                r = extract_first_word(&mut_name, port, co, 0);
+                if (r < 0)
+                        return r;
+                return 0;
+        } else { /* cannot resolve [IP::v:6] with braces, so remove any supplied */
+                char *t3;
+                r = free_and_strdup(&t3, name);
+                if (r < 0)
+                        return r;
+                *addr = delete_chars(t3, "[]");
+                r = free_and_strdup(port, NTP_SERVICE_PORT_NUMBER);
+                if (r < 0)
+                        return r;
+                return 0;
+        }
 }
 
 Manager* manager_free(Manager *m) {
