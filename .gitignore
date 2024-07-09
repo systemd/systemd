@@ -36,3 +36,4 @@ __pycache__/
 .aider*
 /doc-migration/.venv
 /doc-migration/build
+.venv
