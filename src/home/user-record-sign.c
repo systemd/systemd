@@ -4,13 +4,14 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "json-util.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
 #include "user-record-sign.h"
 
 static int user_record_signable_json(UserRecord *ur, char **ret) {
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         int r;
 
         assert(ur);
@@ -20,18 +21,18 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
         if (r < 0)
                 return r;
 
-        j = json_variant_ref(reduced->json);
+        j = sd_json_variant_ref(reduced->json);
 
-        r = json_variant_normalize(&j);
+        r = sd_json_variant_normalize(&j);
         if (r < 0)
                 return r;
 
-        return json_variant_format(j, 0, ret);
+        return sd_json_variant_format(j, 0, ret);
 }
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         _cleanup_(memstream_done) MemStream m = {};
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *signed_ur = NULL;
         _cleanup_free_ char *text = NULL, *key = NULL;
         _cleanup_free_ void *signature = NULL;
@@ -62,19 +63,19 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        v = json_variant_ref(ur->json);
+        v = sd_json_variant_ref(ur->json);
 
-        r = json_variant_set_fieldb(
+        r = sd_json_variant_set_fieldb(
                         &v,
                         "signature",
-                        JSON_BUILD_ARRAY(
-                                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("data", JSON_BUILD_BASE64(signature, signature_size)),
-                                                          JSON_BUILD_PAIR("key", JSON_BUILD_STRING(key)))));
+                        SD_JSON_BUILD_ARRAY(
+                                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(signature, signature_size)),
+                                                             SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_STRING(key)))));
         if (r < 0)
                 return r;
 
         if (DEBUG_LOGGING)
-                json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
 
         signed_ur = user_record_new();
         if (!signed_ur)
@@ -91,20 +92,20 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
 int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
         _cleanup_free_ char *text = NULL;
         unsigned n_good = 0, n_bad = 0;
-        JsonVariant *array, *e;
+        sd_json_variant *array, *e;
         int r;
 
         assert(ur);
         assert(public_key);
 
-        array = json_variant_by_key(ur->json, "signature");
+        array = sd_json_variant_by_key(ur->json, "signature");
         if (!array)
                 return USER_RECORD_UNSIGNED;
 
-        if (!json_variant_is_array(array))
+        if (!sd_json_variant_is_array(array))
                 return -EINVAL;
 
-        if (json_variant_elements(array) == 0)
+        if (sd_json_variant_elements(array) == 0)
                 return USER_RECORD_UNSIGNED;
 
         r = user_record_signable_json(ur, &text);
@@ -115,16 +116,16 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                 _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
                 _cleanup_free_ void *signature = NULL;
                 size_t signature_size = 0;
-                JsonVariant *data;
+                sd_json_variant *data;
 
-                if (!json_variant_is_object(e))
+                if (!sd_json_variant_is_object(e))
                         return -EINVAL;
 
-                data = json_variant_by_key(e, "data");
+                data = sd_json_variant_by_key(e, "data");
                 if (!data)
                         return -EINVAL;
 
-                r = json_variant_unbase64(data, &signature, &signature_size);
+                r = sd_json_variant_unbase64(data, &signature, &signature_size);
                 if (r < 0)
                         return r;
 
@@ -148,14 +149,14 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
 }
 
 int user_record_has_signature(UserRecord *ur) {
-        JsonVariant *array;
+        sd_json_variant *array;
 
-        array = json_variant_by_key(ur->json, "signature");
+        array = sd_json_variant_by_key(ur->json, "signature");
         if (!array)
                 return false;
 
-        if (!json_variant_is_array(array))
+        if (!sd_json_variant_is_array(array))
                 return -EINVAL;
 
-        return json_variant_elements(array) > 0;
+        return sd_json_variant_elements(array) > 0;
 }

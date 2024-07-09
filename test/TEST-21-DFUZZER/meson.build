@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-test_params +=  {
-        'timeout' : 3600,
-        'priority' : -50,
-        'slow' : true,
-}
+integration_tests += [
+        integration_test_template + {
+                'name' : fs.name(meson.current_source_dir()),
+                'timeout' : 3600,
+                'priority' : 50,
+                'vm' : true,
+                'enabled' : false,
+        },
+]

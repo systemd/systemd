@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "varlink.h"
@@ -6,5 +6,5 @@
 
 extern const VarlinkInterface vl_interface_io_systemd_service;
 
-int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
-int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
+int varlink_method_ping(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata);
+int varlink_method_set_log_level(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata);

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-44-LOG-NAMESPACE
+Wants=basic.target multi-user.target systemd-journald@foobar.socket systemd-journald-varlink@foobar.socket
+After=basic.target systemd-journald@foobar.socket systemd-journald-varlink@foobar.socket
+Before=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

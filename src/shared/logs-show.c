@@ -10,6 +10,7 @@
 
 #include "sd-id128.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -21,7 +22,6 @@
 #include "io-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
-#include "json.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -450,6 +450,9 @@ static void parse_display_realtime(
         assert(j);
         assert(ret);
 
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        source_monotonic = NULL;
+
         /* First, try _SOURCE_REALTIME_TIMESTAMP. */
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t)) {
                 *ret = t;
@@ -487,6 +490,9 @@ static void parse_display_timestamp(
         assert(j);
         assert(ret_display_ts);
         assert(ret_boot_id);
+
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        source_monotonic = NULL;
 
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;
@@ -1040,16 +1046,16 @@ void json_escape(
 }
 
 typedef struct JsonData {
-        JsonVariant* name;
-        JsonVariant* values;
+        sd_json_variant* name;
+        sd_json_variant* values;
 } JsonData;
 
 static JsonData* json_data_free(JsonData *d) {
         if (!d)
                 return NULL;
 
-        json_variant_unref(d->name);
-        json_variant_unref(d->values);
+        sd_json_variant_unref(d->name);
+        sd_json_variant_unref(d->values);
 
         return mfree(d);
 }
@@ -1067,7 +1073,7 @@ static int update_json_data(
                 const void *value,
                 size_t size) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         JsonData *d;
         int r;
 
@@ -1078,17 +1084,17 @@ static int update_json_data(
                 size = strlen(value);
 
         if (!(flags & OUTPUT_SHOW_ALL) && strlen(name) + 1 + size >= JSON_THRESHOLD)
-                r = json_variant_new_null(&v);
+                r = sd_json_variant_new_null(&v);
         else if (utf8_is_printable(value, size))
-                r = json_variant_new_stringn(&v, value, size);
+                r = sd_json_variant_new_stringn(&v, value, size);
         else
-                r = json_variant_new_array_bytes(&v, value, size);
+                r = sd_json_variant_new_array_bytes(&v, value, size);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON data: %m");
 
         d = hashmap_get(h, name);
         if (d) {
-                r = json_variant_append_array(&d->values, v);
+                r = sd_json_variant_append_array(&d->values, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append JSON value into array: %m");
         } else {
@@ -1098,15 +1104,15 @@ static int update_json_data(
                 if (!e)
                         return log_oom();
 
-                r = json_variant_new_string(&e->name, name);
+                r = sd_json_variant_new_string(&e->name, name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate JSON name variant: %m");
 
-                r = json_variant_append_array(&e->values, v);
+                r = sd_json_variant_append_array(&e->values, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON value array: %m");
 
-                r = hashmap_put(h, json_variant_string(e->name), e);
+                r = hashmap_put(h, sd_json_variant_string(e->name), e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to insert JSON data into hashmap: %m");
 
@@ -1160,12 +1166,12 @@ static int output_json(
                 sd_id128_t *previous_boot_id) {      /* unused */
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
-        _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
         usec_t realtime, monotonic;
-        JsonVariant **array = NULL;
+        sd_json_variant **array = NULL;
         JsonData *d;
         uint64_t seqnum;
         size_t n = 0;
@@ -1241,30 +1247,30 @@ static int output_json(
                         return r;
         }
 
-        array = new(JsonVariant*, hashmap_size(h)*2);
+        array = new(sd_json_variant*, hashmap_size(h)*2);
         if (!array)
                 return log_oom();
 
-        CLEANUP_ARRAY(array, n, json_variant_unref_many);
+        CLEANUP_ARRAY(array, n, sd_json_variant_unref_many);
 
         HASHMAP_FOREACH(d, h) {
-                assert(json_variant_elements(d->values) > 0);
+                assert(sd_json_variant_elements(d->values) > 0);
 
-                array[n++] = json_variant_ref(d->name);
+                array[n++] = sd_json_variant_ref(d->name);
 
-                if (json_variant_elements(d->values) == 1)
-                        array[n++] = json_variant_ref(json_variant_by_index(d->values, 0));
+                if (sd_json_variant_elements(d->values) == 1)
+                        array[n++] = sd_json_variant_ref(sd_json_variant_by_index(d->values, 0));
                 else
-                        array[n++] = json_variant_ref(d->values);
+                        array[n++] = sd_json_variant_ref(d->values);
         }
 
-        r = json_variant_new_object(&object, array, n);
+        r = sd_json_variant_new_object(&object, array, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON object: %m");
 
-        return json_variant_dump(object,
+        return sd_json_variant_dump(object,
                                  output_mode_to_json_format_flags(mode) |
-                                 (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
+                                 (FLAGS_SET(flags, OUTPUT_COLOR) ? SD_JSON_FORMAT_COLOR : 0),
                                  f, NULL);
 }
 

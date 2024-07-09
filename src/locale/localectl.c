@@ -17,10 +17,10 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "set.h"
-#include "spawn-polkit-agent.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "verbs.h"
@@ -374,8 +374,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Couldn't find any entries.");
 
-        strv_sort(list);
-        strv_uniq(list);
+        strv_sort_uniq(list);
 
         pager_open(arg_pager_flags);
 

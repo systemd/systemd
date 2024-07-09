@@ -355,6 +355,22 @@ int write_string_filef(
         return write_string_file(fn, p, flags);
 }
 
+int write_base64_file_at(
+                int dir_fd,
+                const char *fn,
+                const struct iovec *data,
+                WriteStringFileFlags flags) {
+
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t n;
+
+        n = base64mem_full(data ? data->iov_base : NULL, data ? data->iov_len : 0, 79, &encoded);
+        if (n < 0)
+                return n;
+
+        return write_string_file_at(dir_fd, fn, encoded, flags);
+}
+
 int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -1352,6 +1368,29 @@ int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *sp
                 return -EIO;
 
         return 0;
+}
+
+int fputs_with_newline(FILE *f, const char *s) {
+
+        /* This is like fputs() but outputs a trailing newline char, but only if the string isn't empty
+         * and doesn't end in a newline already. Returns 0 in case we didn't append a newline, > 0 otherwise. */
+
+        if (isempty(s))
+                return 0;
+
+        if (!f)
+                f = stdout;
+
+        if (fputs(s, f) < 0)
+                return -EIO;
+
+        if (endswith(s, "\n"))
+                return 0;
+
+        if (fputc('\n', f) < 0)
+                return -EIO;
+
+        return 1;
 }
 
 /* A bitmask of the EOL markers we know */

@@ -2440,9 +2440,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--no-reload</option></term>
 
         <listitem>
-          <para>When used with <command>enable</command> and
-          <command>disable</command>, do not implicitly reload daemon
-          configuration after executing the changes.</para>
+          <para>When used with <command>enable</command>, <command>disable</command>, <command>preset</command>,
+          <command>mask</command>, or <command>unmask</command>, do not implicitly reload daemon configuration
+          after executing the changes.</para>
         </listitem>
       </varlistentry>
 
@@ -2862,7 +2862,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           which should adhere to the syntax documented in <citerefentry
           project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           section "PARSING TIMESTAMPS". Specially, if <literal>show</literal> is given, the currently scheduled
-          action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.</para>
+          action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.
+          <literal>auto</literal> will schedule the action according to maintenance window or one minute in
+          the future.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>

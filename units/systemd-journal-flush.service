@@ -20,6 +20,9 @@ Wants=systemd-journald.service
 After=systemd-journald.service
 RequiresMountsFor=/var/log/journal
 
+Before=soft-reboot.target systemd-soft-reboot.service
+Conflicts=soft-reboot.target
+
 [Service]
 ExecStart=journalctl --flush
 ExecStop=journalctl --smart-relinquish-var

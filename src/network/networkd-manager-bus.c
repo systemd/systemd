@@ -231,7 +231,7 @@ static int bus_method_describe_link(sd_bus_message *message, void *userdata, sd_
 
 static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -242,7 +242,7 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
-        r = json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON data: %m");
 

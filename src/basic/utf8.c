@@ -130,30 +130,30 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
         return true;
 }
 
-char *utf8_is_valid_n(const char *str, size_t len_bytes) {
+char* utf8_is_valid_n(const char *str, size_t len_bytes) {
         /* Check if the string is composed of valid utf8 characters. If length len_bytes is given, stop after
          * len_bytes. Otherwise, stop at NUL. */
 
         assert(str);
 
-        for (const char *p = str; len_bytes != SIZE_MAX ? (size_t) (p - str) < len_bytes : *p != '\0'; ) {
+        for (size_t i = 0; len_bytes != SIZE_MAX ? i < len_bytes : str[i] != '\0'; ) {
                 int len;
 
-                if (_unlikely_(*p == '\0') && len_bytes != SIZE_MAX)
+                if (_unlikely_(str[i] == '\0'))
                         return NULL; /* embedded NUL */
 
-                len = utf8_encoded_valid_unichar(p,
-                                                 len_bytes != SIZE_MAX ? len_bytes - (p - str) : SIZE_MAX);
+                len = utf8_encoded_valid_unichar(str + i,
+                                                 len_bytes != SIZE_MAX ? len_bytes - i : SIZE_MAX);
                 if (_unlikely_(len < 0))
                         return NULL; /* invalid character */
 
-                p += len;
+                i += len;
         }
 
         return (char*) str;
 }
 
-char *utf8_escape_invalid(const char *str) {
+char* utf8_escape_invalid(const char *str) {
         char *p, *s;
 
         assert(str);
@@ -179,7 +179,7 @@ char *utf8_escape_invalid(const char *str) {
         return str_realloc(p);
 }
 
-static int utf8_char_console_width(const char *str) {
+int utf8_char_console_width(const char *str) {
         char32_t c;
         int r;
 
@@ -187,12 +187,15 @@ static int utf8_char_console_width(const char *str) {
         if (r < 0)
                 return r;
 
+        if (c == '\t')
+                return 8; /* Assume a tab width of 8 */
+
         /* TODO: we should detect combining characters */
 
         return unichar_iswide(c) ? 2 : 1;
 }
 
-char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
+char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
         char *p, *s, *prev_s;
         size_t n = 0; /* estimated print width */
 
@@ -268,27 +271,14 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool
         return str_realloc(p);
 }
 
-char *ascii_is_valid(const char *str) {
-        /* Check whether the string consists of valid ASCII bytes,
-         * i.e values between 0 and 127, inclusive. */
+char* ascii_is_valid_n(const char *str, size_t len) {
+        /* Check whether the string consists of valid ASCII bytes, i.e values between 1 and 127, inclusive.
+         * Stops at len, or NUL byte if len is SIZE_MAX. */
 
         assert(str);
 
-        for (const char *p = str; *p; p++)
-                if ((unsigned char) *p >= 128)
-                        return NULL;
-
-        return (char*) str;
-}
-
-char *ascii_is_valid_n(const char *str, size_t len) {
-        /* Very similar to ascii_is_valid(), but checks exactly len
-         * bytes and rejects any NULs in that range. */
-
-        assert(str);
-
-        for (size_t i = 0; i < len; i++)
-                if ((unsigned char) str[i] >= 128 || str[i] == 0)
+        for (size_t i = 0; len != SIZE_MAX ? i < len : str[i] != '\0'; i++)
+                if ((unsigned char) str[i] >= 128 || str[i] == '\0')
                         return NULL;
 
         return (char*) str;
@@ -369,7 +359,7 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
         return 0;
 }
 
-char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
+char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 
@@ -594,11 +584,14 @@ size_t utf8_n_codepoints(const char *str) {
 }
 
 size_t utf8_console_width(const char *str) {
-        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
 
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
+        size_t n = 0;
         while (*str) {
                 int w;
 

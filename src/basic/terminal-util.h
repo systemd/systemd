@@ -42,26 +42,26 @@
 #define ANSI_HIGHLIGHT_MAGENTA  "\x1B[0;1;35m"
 #define ANSI_HIGHLIGHT_CYAN     "\x1B[0;1;36m"
 #define ANSI_HIGHLIGHT_WHITE    "\x1B[0;1;37m"
-#define ANSI_HIGHLIGHT_YELLOW4  "\x1B[0;1;38;5;100m"
-#define ANSI_HIGHLIGHT_KHAKI3   "\x1B[0;1;38;5;185m"
-#define ANSI_HIGHLIGHT_GREY     "\x1B[0;1;38;5;245m"
+#define ANSI_HIGHLIGHT_YELLOW4  "\x1B[0;1;38:5:100m"
+#define ANSI_HIGHLIGHT_KHAKI3   "\x1B[0;1;38:5:185m"
+#define ANSI_HIGHLIGHT_GREY     "\x1B[0;1;38:5:245m"
 
 #define ANSI_HIGHLIGHT_YELLOW   ANSI_HIGHLIGHT_KHAKI3 /* Replacement yellow that is more legible */
 
 /* Underlined */
-#define ANSI_GREY_UNDERLINE              "\x1B[0;4;38;5;245m"
+#define ANSI_GREY_UNDERLINE              "\x1B[0;4;38:5:245m"
 #define ANSI_BRIGHT_BLACK_UNDERLINE      "\x1B[0;4;90m"
 #define ANSI_HIGHLIGHT_RED_UNDERLINE     "\x1B[0;1;4;31m"
 #define ANSI_HIGHLIGHT_GREEN_UNDERLINE   "\x1B[0;1;4;32m"
-#define ANSI_HIGHLIGHT_YELLOW_UNDERLINE  "\x1B[0;1;4;38;5;185m"
+#define ANSI_HIGHLIGHT_YELLOW_UNDERLINE  "\x1B[0;1;4;38:5:185m"
 #define ANSI_HIGHLIGHT_BLUE_UNDERLINE    "\x1B[0;1;4;34m"
 #define ANSI_HIGHLIGHT_MAGENTA_UNDERLINE "\x1B[0;1;4;35m"
-#define ANSI_HIGHLIGHT_GREY_UNDERLINE    "\x1B[0;1;4;38;5;245m"
+#define ANSI_HIGHLIGHT_GREY_UNDERLINE    "\x1B[0;1;4;38:5:245m"
 
 /* Other ANSI codes */
 #define ANSI_UNDERLINE "\x1B[0;4m"
 #define ANSI_ADD_UNDERLINE "\x1B[4m"
-#define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58;5;245m"
+#define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58:5:245m"
 #define ANSI_HIGHLIGHT "\x1B[0;1;39m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
@@ -119,23 +119,16 @@ typedef enum AcquireTerminalFlags {
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
-        /* No colors, monochrome output. */
-        COLOR_OFF,
-
-        /* All colors, no restrictions. */
-        COLOR_ON,
-
-        /* Only the base 16 colors. */
-        COLOR_16,
-
-        /* Only 256 colors. */
-        COLOR_256,
-
-        /* For truecolor or 24bit color support. */
-        COLOR_24BIT,
-
-        _COLOR_INVALID = -EINVAL,
+        COLOR_OFF,   /* No colors, monochrome output. */
+        COLOR_16,    /* Only the base 16 colors. */
+        COLOR_256,   /* Only 256 colors. */
+        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        _COLOR_MODE_MAX,
+        _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;
+
+const char* color_mode_to_string(ColorMode m) _const_;
+ColorMode color_mode_from_string(const char *s) _pure_;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
@@ -160,7 +153,7 @@ bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
 bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
-const char *default_term_for_tty(const char *tty);
+const char* default_term_for_tty(const char *tty);
 
 int make_console_stdio(void);
 
@@ -198,15 +191,15 @@ static inline bool colors_enabled(void) {
                 }                                              \
         }
 
-static inline const char *ansi_underline(void) {
+static inline const char* ansi_underline(void) {
         return underline_enabled() ? ANSI_UNDERLINE : "";
 }
 
-static inline const char *ansi_add_underline(void) {
+static inline const char* ansi_add_underline(void) {
         return underline_enabled() ? ANSI_ADD_UNDERLINE : "";
 }
 
-static inline const char *ansi_add_underline_grey(void) {
+static inline const char* ansi_add_underline_grey(void) {
         return underline_enabled() ?
                 (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
 }

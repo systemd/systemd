@@ -12,8 +12,8 @@ service
 Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
 Documentation=man:org.freedesktop.resolve1(5)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-network-configuration-managers
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-resolver-clients
+Documentation=https://systemd.io/WRITING_NETWORK_CONFIGURATION_MANAGERS
+Documentation=https://systemd.io/WRITING_RESOLVER_CLIENTS
 DefaultDependencies=no
 After=systemd-sysusers.service systemd-networkd.service
 Before=network.target nss-lookup.target shutdown.target

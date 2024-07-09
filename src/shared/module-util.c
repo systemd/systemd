@@ -10,19 +10,19 @@
 
 static void *libkmod_dl = NULL;
 
-DLSYM_FUNCTION(kmod_list_next);
-DLSYM_FUNCTION(kmod_load_resources);
-DLSYM_FUNCTION(kmod_module_get_initstate);
-DLSYM_FUNCTION(kmod_module_get_module);
-DLSYM_FUNCTION(kmod_module_get_name);
-DLSYM_FUNCTION(kmod_module_new_from_lookup);
-DLSYM_FUNCTION(kmod_module_probe_insert_module);
-DLSYM_FUNCTION(kmod_module_unref);
-DLSYM_FUNCTION(kmod_module_unref_list);
-DLSYM_FUNCTION(kmod_new);
-DLSYM_FUNCTION(kmod_set_log_fn);
-DLSYM_FUNCTION(kmod_unref);
-DLSYM_FUNCTION(kmod_validate_resources);
+DLSYM_PROTOTYPE(kmod_list_next) = NULL;
+DLSYM_PROTOTYPE(kmod_load_resources) = NULL;
+DLSYM_PROTOTYPE(kmod_module_get_initstate) = NULL;
+DLSYM_PROTOTYPE(kmod_module_get_module) = NULL;
+DLSYM_PROTOTYPE(kmod_module_get_name) = NULL;
+DLSYM_PROTOTYPE(kmod_module_new_from_lookup) = NULL;
+DLSYM_PROTOTYPE(kmod_module_probe_insert_module) = NULL;
+DLSYM_PROTOTYPE(kmod_module_unref) = NULL;
+DLSYM_PROTOTYPE(kmod_module_unref_list) = NULL;
+DLSYM_PROTOTYPE(kmod_new) = NULL;
+DLSYM_PROTOTYPE(kmod_set_log_fn) = NULL;
+DLSYM_PROTOTYPE(kmod_unref) = NULL;
+DLSYM_PROTOTYPE(kmod_validate_resources) = NULL;
 
 int dlopen_libkmod(void) {
         ELF_NOTE_DLOPEN("kmod",

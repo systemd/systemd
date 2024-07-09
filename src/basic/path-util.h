@@ -203,7 +203,7 @@ bool dot_or_dot_dot(const char *path);
 
 bool path_implies_directory(const char *path);
 
-static inline const char *skip_dev_prefix(const char *p) {
+static inline const char* skip_dev_prefix(const char *p) {
         const char *e;
 
         /* Drop any /dev prefix if there is any */

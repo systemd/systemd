@@ -146,12 +146,6 @@ if ! [[ "$TESTNAME" =~ ^TEST\-([0-9]+)\-.+$ ]]; then
     echo "ERROR: Test name '$TESTNAME' is not in the expected format: TEST-[0-9]+-*" >&2
     exit 1
 fi
-TESTID="${BASH_REMATCH[1]:?}"
-
-if [[ ! -f "$TEST_UNITS_DIR/testsuite-$TESTID.service" ]]; then
-    echo "ERROR: Test '$TESTNAME' is missing its service file '$TEST_UNITS_DIR/testsuite-$TESTID.service" >&2
-    exit 1
-fi
 
 BASICTOOLS=(
     awk
@@ -209,6 +203,7 @@ BASICTOOLS=(
     mkfifo
     mknod
     mktemp
+    modinfo
     modprobe
     mount
     mountpoint
@@ -566,9 +561,9 @@ run_qemu() {
         "loglevel=2"
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
-        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
+        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$1.service"
+        "systemd.wants=$1.service"
         "noresume"
         "oops=panic"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
@@ -658,13 +653,13 @@ run_nspawn() {
         "--register=no"
         "--kill-signal=SIGKILL"
         "--directory=${1:?}"
-        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
-        "--machine=TEST-$TESTID"
+        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$2.units:/usr/lib/systemd/tests/testdata/units:"
+        "--machine=$2"
     )
     local kernel_params=(
         "$PATH_TO_INIT"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$2.service"
+        "systemd.wants=$2.service"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
@@ -1126,7 +1121,8 @@ install_iscsi() {
         image_install iscsi-iname iscsiadm iscsid iscsistart
         image_install -o "${ROOTLIBDIR:?}"/system/iscsi-{init,onboot,shutdown}.service
         image_install "${ROOTLIBDIR:?}"/system/iscsid.{service,socket}
-        image_install "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o /usr/lib/open-iscsi/startup-checks.sh
         mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
         mkdir -p "${initdir:?}/etc/iscsi"
         echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
@@ -1156,7 +1152,11 @@ install_iscsi() {
     if [[ -z "$inst" || "$inst" =~ (server|target) ]]; then
         image_install tgt-admin tgt-setup-lun tgtadm tgtd tgtimg
         image_install -o /etc/sysconfig/tgtd
-        image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        if get_bool "$LOOKS_LIKE_DEBIAN"; then
+            image_install "${ROOTLIBDIR:?}"/system/tgt.service
+        else
+            image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        fi
         mkdir -p "${initdir:?}/etc/tgt"
         touch "${initdir:?}"/etc/tgt/{tgtd,targets}.conf
         # Install perl modules required by tgt-admin
@@ -1745,10 +1745,10 @@ save_journal() {
         dest_name="system.journal"
     fi
 
-    # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
+    # Show messages from the TEST-XX-XXX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
     "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
-        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
+        _SYSTEMD_UNIT="${TESTNAME:?}.service" + SYSLOG_IDENTIFIER="$TESTNAME.sh" + \
         PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
     if get_bool "$save"; then
@@ -1860,74 +1860,6 @@ check_result_qemu() {
     return $ret
 }
 
-check_result_nspawn_unittests() {
-    local workspace="${1:?}"
-    local ret=1
-
-    [[ -e "$workspace/testok" ]] && ret=0
-
-    if [[ -s "$workspace/failed" ]]; then
-        ret=$((ret + 1))
-        echo "=== Failed test log ==="
-        cat "$workspace/failed"
-    else
-        if [[ -s "$workspace/skipped" ]]; then
-            echo "=== Skipped test log =="
-            cat "$workspace/skipped"
-            # We might have only skipped tests - that should not fail the job
-            ret=0
-        fi
-        if [[ -s "$workspace/testok" ]]; then
-            echo "=== Passed tests ==="
-            cat "$workspace/testok"
-        fi
-    fi
-
-    get_bool "${TIMED_OUT:=}" && ret=1
-    check_coverage_reports "$workspace" || ret=5
-
-    save_journal "$workspace/var/log/journal" $ret
-    echo "${JOURNAL_LIST:-"No journals were saved"}"
-
-    _umount_dir "${initdir:?}"
-
-    return $ret
-}
-
-check_result_qemu_unittests() {
-    local ret=1
-
-    mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
-
-    if [[ -s "$initdir/failed" ]]; then
-        ret=$((ret + 1))
-        echo "=== Failed test log ==="
-        cat "$initdir/failed"
-    else
-        if [[ -s "$initdir/skipped" ]]; then
-            echo "=== Skipped test log =="
-            cat "$initdir/skipped"
-            # We might have only skipped tests - that should not fail the job
-            ret=0
-        fi
-        if [[ -s "$initdir/testok" ]]; then
-            echo "=== Passed tests ==="
-            cat "$initdir/testok"
-        fi
-    fi
-
-    get_bool "${TIMED_OUT:=}" && ret=1
-    check_coverage_reports "$initdir" || ret=5
-
-    save_journal "$initdir/var/log/journal" $ret
-    echo "${JOURNAL_LIST:-"No journals were saved"}"
-
-    _umount_dir "$initdir"
-
-    return $ret
-}
-
 create_rc_local() {
     dinfo "Create rc.local"
     mkdir -p "${initdir:?}/etc/rc.d"
@@ -2015,6 +1947,7 @@ EOF
 install_config_files() {
     dinfo "Install config files"
     inst /etc/sysconfig/init || :
+    inst /etc/hosts
     inst /etc/passwd
     inst /etc/shadow
     inst_any /etc/login.defs /usr/etc/login.defs
@@ -3027,6 +2960,8 @@ inst_recursive() {
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
+            elif [[ -L "$item" ]]; then
+                inst_symlink "$item"
             elif [[ -f "$item" ]]; then
                 inst_simple "$item"
             fi
@@ -3325,11 +3260,11 @@ test_setup() {
 }
 
 test_run() {
-    local test_id="${1:?}"
+    local test_name="${1:?}"
     mount_initdir
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
-        if run_qemu "$test_id"; then
+        if run_qemu "$test_name"; then
             check_result_qemu || { echo "qemu test failed"; return 1; }
         else
             dwarn "can't run qemu, skipping"
@@ -3337,7 +3272,7 @@ test_run() {
     fi
     if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
-        if run_nspawn "${initdir:?}" "$test_id"; then
+        if run_nspawn "${initdir:?}" "$test_name"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
@@ -3345,7 +3280,7 @@ test_run() {
 
         if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
-            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
+            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_name"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
@@ -3401,7 +3336,7 @@ do_test() {
         case $1 in
             --run)
                 echo "${testname} RUN: $TEST_DESCRIPTION"
-                test_run "$TESTID"
+                test_run "$TESTNAME"
                 ret=$?
                 if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
@@ -3433,7 +3368,7 @@ do_test() {
                     test_setup_cleanup </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 if [ $ret -eq 0 ]; then
-                    test_run "$TESTID" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                    test_run "$TESTNAME" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 test_cleanup
                 if [ $ret -eq 0 ]; then

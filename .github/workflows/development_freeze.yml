@@ -17,7 +17,7 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.repository == 'systemd/systemd'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     permissions:
       pull-requests: write
@@ -30,12 +30,12 @@ jobs:
           name: Pull Request Metadata
 
       - name: Repository checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
         with:
           fetch-depth: 0
 
       - name: Development Freezer
-        uses: redhat-plumbers-in-action/devel-freezer@396c94ba8cb417474e6626c83a42addea210a403
+        uses: redhat-plumbers-in-action/devel-freezer@ad766eafd555b28d2cb8e27937835983f9c3d173
         with:
           pr-number: ${{ fromJSON(steps.artifact.outputs.pr-metadata-json).number }}
           # delay start of validation to allow for some milestone/labels tweaking

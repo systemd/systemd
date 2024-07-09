@@ -425,16 +425,16 @@ static bool mount_is_extrinsic(Unit *u) {
         return false;
 }
 
-static bool mount_is_credentials(Mount *m) {
+static bool mount_point_is_credentials(Manager *manager, const char *path) {
         const char *e;
 
-        assert(m);
+        assert(manager);
+        assert(path);
 
-        /* Returns true if this is a credentials mount. We don't want automatic dependencies on credential
-         * mounts, since they are managed by us for even the earliest services, and we never want anything to
-         * be ordered before them hence. */
+        /* Returns true if this is a credentials mount. We don't want to generate mount units for them,
+         * since their lifetime is strictly bound to services. */
 
-        e = path_startswith(m->where, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        e = path_startswith(path, manager->prefix[EXEC_DIRECTORY_RUNTIME]);
         if (!e)
                 return false;
 
@@ -463,10 +463,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
-        } else if (mount_is_credentials(m))
-                after = before = NULL;
-
-        else if (mount_is_network(p)) {
+        } else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
 
@@ -493,7 +490,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 return r;
 
         /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
-        if (streq_ptr(p->fstype, "tmpfs") && !mount_is_credentials(m)) {
+        if (streq_ptr(p->fstype, "tmpfs")) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
                                                 /* add_reference= */ true, mask);
                 if (r < 0)
@@ -581,12 +578,16 @@ static int mount_verify(Mount *m) {
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "Where= setting doesn't match unit name. Refusing.");
 
         if (mount_point_is_api(m->where) || mount_point_ignore(m->where))
-                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "Cannot create mount unit for API file system %s. Refusing.", m->where);
+                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
+                                            "Cannot create mount unit for API file system '%s'. Refusing.", m->where);
+
+        if (mount_point_is_credentials(UNIT(m)->manager, m->where))
+                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
+                                            "Cannot create mount unit for credential mount '%s'. Refusing.", m->where);
 
         p = get_mount_parameters_fragment(m);
         if (p && !p->what && !UNIT(m)->perpetual)
-                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
-                                            "What= setting is missing. Refusing.");
+                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "What= setting is missing. Refusing.");
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP)
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
@@ -763,10 +764,8 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED)) {
+        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
                 (void) unit_setup_exec_runtime(u);
-                (void) unit_setup_cgroup_runtime(u);
-        }
 
         mount_set_state(m, m->deserialized_state);
         return 0;
@@ -1332,11 +1331,6 @@ static int mount_start(Unit *u) {
 static int mount_stop(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        /* When we directly call umount() for a path, then the state of the corresponding mount unit may be
-         * outdated. Let's re-read mountinfo now and update the state. */
-        if (m->invalidated_state)
-                (void) mount_process_proc_self_mountinfo(u->manager);
-
         switch (m->state) {
 
         case MOUNT_UNMOUNTING:
@@ -1369,11 +1363,6 @@ static int mount_stop(Unit *u) {
         case MOUNT_CLEANING:
                 /* If we are currently cleaning, then abort it, brutally. */
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_SUCCESS);
-                return 0;
-
-        case MOUNT_DEAD:
-        case MOUNT_FAILED:
-                /* The mount has just been unmounted by somebody else. */
                 return 0;
 
         default:
@@ -1840,9 +1829,9 @@ static int mount_setup_unit(
         assert(options);
         assert(fstype);
 
-        /* Ignore API mount points. They should never be referenced in
-         * dependencies ever. */
-        if (mount_point_is_api(where) || mount_point_ignore(where))
+        /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
+         * Also check the comment for mount_point_is_credentials(). */
+        if (mount_point_is_api(where) || mount_point_ignore(where) || mount_point_is_credentials(m, where))
                 return 0;
 
         if (streq(fstype, "autofs"))
@@ -2140,8 +2129,6 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
 
-                mount->invalidated_state = false;
-
                 if (!mount_is_mounted(mount)) {
 
                         /* A mount point is not around right now. It might be gone, or might never have
@@ -2236,26 +2223,6 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         assert(revents & EPOLLIN);
 
         return mount_process_proc_self_mountinfo(m);
-}
-
-int mount_invalidate_state_by_path(Manager *manager, const char *path) {
-        _cleanup_free_ char *name = NULL;
-        Unit *u;
-        int r;
-
-        assert(manager);
-        assert(path);
-
-        r = unit_name_from_path(path, ".mount", &name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to generate unit name from path \"%s\", ignoring: %m", path);
-
-        u = manager_get_unit(manager, name);
-        if (!u)
-                return -ENOENT;
-
-        MOUNT(u)->invalidated_state = true;
-        return 0;
 }
 
 static void mount_reset_failed(Unit *u) {

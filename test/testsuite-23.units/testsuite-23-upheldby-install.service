@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=Unit that sets UpheldBy= through [Install]
-
-[Service]
-ExecStart=sleep infinity
-
-[Install]
-UpheldBy=testsuite-23-retry-uphold.service

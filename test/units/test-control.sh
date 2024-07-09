@@ -107,7 +107,7 @@ run_subtests_with_signals() {
     _show_summary
 }
 
-# Run all subtests (i.e. files named as testsuite-<testid>.<subtest_name>.sh)
+# Run all subtests (i.e. files named as $TESTNAME.<subtest_name>.sh)
 run_subtests() {
     local subtests=("${0%.sh}".*.sh)
     local subtest

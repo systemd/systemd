@@ -1,4 +1,0 @@
-[Service]
-Type=notify
-NotifyAccess=all
-ExecStart=/usr/lib/systemd/tests/testdata/testsuite-80.units/test.sh

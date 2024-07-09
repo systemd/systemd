@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-rm -f "$OUTPUTDIR"/*.{rpm,deb,pkg.tar}

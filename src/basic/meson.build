@@ -57,6 +57,7 @@ basic_sources = files(
         'lock-util.c',
         'log.c',
         'login-util.c',
+        'keyring-util.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
@@ -273,7 +274,7 @@ filesystem_switch_case_h = custom_target(
 
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
-libbasic = static_library(
+libbasic_static = static_library(
         'basic',
         basic_sources,
         fundamental_sources,

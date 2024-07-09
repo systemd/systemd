@@ -22,7 +22,9 @@ int lock_dev_console(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
+         * pty in /dev/console, in which case it should be fine to lock the target TTY. */
+        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return fd;
 

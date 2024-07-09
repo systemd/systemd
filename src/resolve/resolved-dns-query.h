@@ -149,7 +149,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
 
-const char *dns_query_string(DnsQuery *q);
+const char* dns_query_string(DnsQuery *q);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 

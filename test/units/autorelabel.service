@@ -5,20 +5,15 @@ DefaultDependencies=no
 Requires=local-fs.target
 After=local-fs.target
 Conflicts=shutdown.target
-Before=shutdown.target
-Before=multi-user.target
-# Needs to access /var, which may not have been populated yet
-After=systemd-tmpfiles-setup.service
-# Must wait for systemd-machine-id-commit or firstboot-autorelabel will reactivate autorelabel
-After=systemd-machine-id-commit.service
+Before=shutdown.target basic.target
 ConditionSecurity=selinux
 ConditionPathExists=|/.autorelabel
+SuccessAction=reboot
 
 [Service]
-ExecStart=sh -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel; systemctl --force reboot'
+ExecStart=sh -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel;'
 Type=oneshot
 TimeoutSec=infinity
-RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target

@@ -504,9 +504,9 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = ASSERT_PTR(userdata);
         int32_t value = 0;
-        const char *swho;
+        const char *swhom;
         int32_t signo;
-        KillWho who;
+        KillWhom whom;
         int r, code;
 
         assert(message);
@@ -515,7 +515,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "si", &swho, &signo);
+        r = sd_bus_message_read(message, "si", &swhom, &signo);
         if (r < 0)
                 return r;
 
@@ -528,12 +528,12 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         } else
                 code = SI_USER;
 
-        if (isempty(swho))
-                who = KILL_ALL;
+        if (isempty(swhom))
+                whom = KILL_ALL;
         else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument: %s", swho);
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid whom argument: %s", swhom);
         }
 
         if (!SIGNAL_VALID(signo))
@@ -554,7 +554,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, who, signo, code, value, error);
+        r = unit_kill(u, whom, signo, code, value, error);
         if (r < 0)
                 return r;
 
@@ -723,15 +723,13 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
-        const char* perm;
         Unit *u = ASSERT_PTR(userdata);
-        bool reply_no_delay = false;
         int r;
 
         assert(message);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        perm = action == FREEZER_FREEZE ? "stop" : "start";
+        const char *perm = action == FREEZER_FREEZE ? "stop" : "start";
 
         r = mac_selinux_unit_access_check(u, message, perm, error);
         if (r < 0)
@@ -750,19 +748,19 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         r = unit_freezer_action(u, action);
         if (r == -EOPNOTSUPP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw");
         if (r == -EBUSY)
-                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job");
         if (r == -EHOSTDOWN)
-                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is not active");
         if (r == -EALREADY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit is still in progress.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Previously requested freezer operation for unit is still in progress");
         if (r == -ECHILD)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice");
         if (r < 0)
                 return r;
-        if (r == 0)
-                reply_no_delay = true;
+
+        bool reply_now = r == 0;
 
         if (u->pending_freezer_invocation) {
                 bus_unit_send_pending_freezer_message(u, true);
@@ -771,7 +769,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         u->pending_freezer_invocation = sd_bus_message_ref(message);
 
-        if (reply_no_delay) {
+        if (reply_now) {
                 r = bus_unit_send_pending_freezer_message(u, false);
                 if (r < 0)
                         return r;
@@ -1300,7 +1298,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
                  * readable in the subtree proper. */
 
-                r = cg_read_pidref(f, &pidref);
+                r = cg_read_pidref(f, &pidref, /* flags = */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
@@ -1370,8 +1368,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        CGroupRuntime *crt;
-        crt = unit_get_cgroup_runtime(u);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path) {
                 r = append_cgroup(reply, crt->cgroup_path, pids);
                 if (r < 0)

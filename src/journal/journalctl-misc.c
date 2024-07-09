@@ -285,7 +285,7 @@ int action_list_namespaces(void) {
                 }
         }
 
-        if (table_isempty(table) && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+        if (table_isempty(table) && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 if (!arg_quiet)
                         log_notice("No namespaces found.");
         } else {

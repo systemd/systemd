@@ -80,9 +80,9 @@ setup_pkcs11_token() {
     local P11_MODULE_CONFIGS_DIR P11_MODULE_DIR SOFTHSM_MODULE
 
     export SOFTHSM2_CONF="/tmp/softhsm2.conf"
-    mkdir -p "$initdir/var/lib/softhsm/tokens/"
+    mkdir -p "$initdir/usr/lib/softhsm/tokens/"
     cat >${SOFTHSM2_CONF} <<EOF
-directories.tokendir = $initdir/var/lib/softhsm/tokens/
+directories.tokendir = $initdir/usr/lib/softhsm/tokens/
 objectstore.backend = file
 slots.removable = false
 slots.mechanisms = ALL
@@ -139,7 +139,7 @@ EOF
     inst_simple "$P11_MODULE_CONFIGS_DIR/softhsm2.module"
 
     cat >"$initdir/etc/softhsm2.conf" <<EOF
-directories.tokendir = /var/lib/softhsm/tokens/
+directories.tokendir = /usr/lib/softhsm/tokens/
 objectstore.backend = file
 slots.removable = false
 slots.mechanisms = ALL
@@ -198,7 +198,7 @@ EOF
 
     # Forward journal messages to the console, so we have something to investigate even if we fail to mount
     # the encrypted /var
-    mkdir "$initdir/etc/systemd/journald.conf.d/"
+    mkdir -p "$initdir/etc/systemd/journald.conf.d/"
     echo -ne "[Journal]\nForwardToConsole=yes\n" >"$initdir/etc/systemd/journald.conf.d/99-forward.conf"
 
     # If $INITRD wasn't provided explicitly, generate a custom one with dm-crypt

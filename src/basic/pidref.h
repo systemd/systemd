@@ -5,8 +5,10 @@
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continuously. */
 typedef struct PidRef {
-        pid_t pid; /* always valid */
-        int fd;    /* only valid if pidfd are available in the kernel, and we manage to get an fd */
+        pid_t pid;      /* always valid */
+        int fd;         /* only valid if pidfd are available in the kernel, and we manage to get an fd */
+        uint64_t fd_id; /* the inode number of pidfd. only useful in kernel 6.9+ where pidfds live in
+                           their own pidfs and each process comes with a unique inode number */
 } PidRef;
 
 #define PIDREF_NULL (const PidRef) { .fd = -EBADF }
@@ -19,7 +21,8 @@ static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
 
-bool pidref_equal(const PidRef *a, const PidRef *b);
+int pidref_acquire_pidfd_id(PidRef *pidref);
+bool pidref_equal(PidRef *a, PidRef *b);
 
 /* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */

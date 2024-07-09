@@ -718,7 +718,7 @@ static int bus_message_new_polkit_auth_call_for_varlink(
 }
 
 static bool varlink_allow_interactive_authentication(Varlink *link) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(link);
@@ -732,11 +732,11 @@ static bool varlink_allow_interactive_authentication(Varlink *link) {
                 return false;
         }
 
-        JsonVariant *b;
-        b = json_variant_by_key(v, "allowInteractiveAuthentication");
+        sd_json_variant *b;
+        b = sd_json_variant_by_key(v, "allowInteractiveAuthentication");
         if (b) {
-                if (json_variant_is_boolean(b))
-                        return json_variant_boolean(b);
+                if (sd_json_variant_is_boolean(b))
+                        return sd_json_variant_boolean(b);
 
                 log_debug("Incoming 'allowInteractiveAuthentication' field is not a boolean, ignoring.");
         }
@@ -786,11 +786,13 @@ int varlink_verify_polkit_async_full(
                 if (r != 0)
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                 if (r < 0) {
-                        /* Reply with a nice error */
-                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
-                                (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
-                        else if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        if (!FLAGS_SET(flags, POLKIT_DONT_REPLY)) {
+                                /* Reply with a nice error */
+                                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
+                                        (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
+                                else if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                        (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        }
 
                         return r;
                 }

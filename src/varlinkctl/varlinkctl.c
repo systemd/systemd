@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "io-util.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -16,10 +17,14 @@
 #include "verbs.h"
 #include "version.h"
 
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static VarlinkMethodFlags arg_method_flags = 0;
 static bool arg_collect = false;
+static bool arg_quiet = false;
+static char **arg_graceful = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -37,7 +42,10 @@ static int help(void) {
                "  info ADDRESS           Show service information\n"
                "  list-interfaces ADDRESS\n"
                "                         List interfaces implemented by service\n"
-               "  introspect ADDRESS INTERFACE\n"
+               "  list-methods ADDRESS [INTERFACE…]\n"
+               "                         List methods implemented by services or specific\n"
+               "                         interfaces\n"
+               "  introspect ADDRESS [INTERFACE…]\n"
                "                         Show interface definition\n"
                "  call ADDRESS METHOD [PARAMS]\n"
                "                         Invoke method\n"
@@ -52,6 +60,8 @@ static int help(void) {
                "     --oneway            Do not request response\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
+               "  -q --quiet             Do not output method reply\n"
+               "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -76,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ONEWAY,
                 ARG_JSON,
                 ARG_COLLECT,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -86,6 +97,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "oneway",   no_argument,       NULL, ARG_ONEWAY   },
                 { "json",     required_argument, NULL, ARG_JSON     },
                 { "collect",  no_argument,       NULL, ARG_COLLECT  },
+                { "quiet",    no_argument,       NULL, 'q'          },
+                { "graceful", required_argument, NULL, ARG_GRACEFUL },
                 {},
         };
 
@@ -94,7 +107,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjq", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -128,7 +141,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
+                case ARG_GRACEFUL:
+                        r = varlink_idl_qualified_symbol_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", optarg);
+
+                        if (strv_extend(&arg_graceful, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case '?':
@@ -140,7 +169,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* If more than one reply is expected, imply JSON-SEQ output */
         if (FLAGS_SET(arg_method_flags, VARLINK_METHOD_MORE))
-                arg_json_format_flags |= JSON_FORMAT_SEQ;
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        strv_sort_uniq(arg_graceful);
 
         return 1;
 }
@@ -217,25 +248,25 @@ static int verb_info(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = varlink_call_and_log(vl, "org.varlink.service.GetInfo", /* parameters= */ NULL, &reply);
         if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                static const struct JsonDispatch dispatch_table[] = {
-                        { "vendor",     JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, vendor),     JSON_MANDATORY },
-                        { "product",    JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, product),    JSON_MANDATORY },
-                        { "version",    JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, version),    JSON_MANDATORY },
-                        { "url",        JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(GetInfoData, url),        JSON_MANDATORY },
-                        { "interfaces", JSON_VARIANT_ARRAY,  json_dispatch_strv,         offsetof(GetInfoData, interfaces), JSON_MANDATORY },
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                static const struct sd_json_dispatch_field dispatch_table[] = {
+                        { "vendor",     SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, vendor),     SD_JSON_MANDATORY },
+                        { "product",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, product),    SD_JSON_MANDATORY },
+                        { "version",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, version),    SD_JSON_MANDATORY },
+                        { "url",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, url),        SD_JSON_MANDATORY },
+                        { "interfaces", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         offsetof(GetInfoData, interfaces), SD_JSON_MANDATORY },
                         {}
                 };
                 _cleanup_(get_info_data_done) GetInfoData data = {};
 
-                r = json_dispatch(reply, dispatch_table, JSON_LOG, &data);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &data);
                 if (r < 0)
                         return r;
 
@@ -272,12 +303,12 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                                 return table_log_print_error(r);
                 }
         } else {
-                JsonVariant *v;
+                sd_json_variant *v;
 
                 v = streq_ptr(argv[0], "list-interfaces") ?
-                        json_variant_by_key(reply, "interfaces") : reply;
+                        sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
@@ -289,68 +320,137 @@ typedef struct GetInterfaceDescriptionData {
 
 static int verb_introspect(int argc, char *argv[], void *userdata) {
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
-        const char *url, *interface;
+        _cleanup_strv_free_ char **auto_interfaces = NULL;
+        char **interfaces;
+        const char *url;
+        bool list_methods;
         int r;
 
-        assert(argc == 3);
+        assert(argc >= 2);
+        list_methods = streq(argv[0], "list-methods");
         url = argv[1];
-        interface = argv[2];
+        interfaces = strv_skip(argv, 2);
 
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
 
-        JsonVariant *reply = NULL;
-        r = varlink_callb_and_log(
-                        vl,
-                        "org.varlink.service.GetInterfaceDescription",
-                        &reply,
-                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("interface", interface)));
-        if (r < 0)
-                return r;
+        if (strv_isempty(interfaces)) {
+                sd_json_variant *reply = NULL;
 
-        pager_open(arg_pager_flags);
+                /* If no interface is specified, introspect all of them */
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                static const struct JsonDispatch dispatch_table[] = {
-                        { "description",  JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY },
-                        {}
-                };
-                _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
-                const char *description = NULL;
-                unsigned line = 0, column = 0;
-
-                r = json_dispatch(reply, dispatch_table, JSON_LOG, &description);
+                r = varlink_call_and_log(vl, "org.varlink.service.GetInfo", /* parameters= */ NULL, &reply);
                 if (r < 0)
                         return r;
 
-                /* Try to parse the returned description, so that we can add syntax highlighting */
-                r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+                const struct sd_json_dispatch_field dispatch_table[] = {
+                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, PTR_TO_SIZE(&auto_interfaces), SD_JSON_MANDATORY },
+                        {}
+                };
 
-                        fputs(description, stdout);
-                        if (!endswith(description, "\n"))
-                                fputs("\n", stdout);
-                } else {
-                        r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL);
+                if (r < 0)
+                        return r;
+
+                if (strv_isempty(auto_interfaces))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Service doesn't report any implemented interfaces.");
+
+                interfaces = strv_sort_uniq(auto_interfaces);
+        }
+
+        /* Automatically switch on JSON_SEQ if we output multiple JSON objects */
+        if (!list_methods && strv_length(interfaces) > 1)
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        _cleanup_strv_free_ char **methods = NULL;
+
+        STRV_FOREACH(i, interfaces) {
+                sd_json_variant *reply = NULL;
+                r = varlink_callbo_and_log(
+                                vl,
+                                "org.varlink.service.GetInterfaceDescription",
+                                &reply,
+                                SD_JSON_BUILD_PAIR_STRING("interface", *i));
+                if (r < 0)
+                        return r;
+
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || list_methods) {
+                        static const struct sd_json_dispatch_field dispatch_table[] = {
+                                { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                                {}
+                        };
+                        _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
+                        const char *description = NULL;
+                        unsigned line = 0, column = 0;
+
+                        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to format parsed interface description: %m");
+                                return r;
+
+                        if (!list_methods && i > interfaces)
+                                print_separator();
+
+                        /* Try to parse the returned description, so that we can add syntax highlighting */
+                        r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
+                        if (r < 0) {
+                                if (list_methods)
+                                        return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
+
+                                log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+
+                                pager_open(arg_pager_flags);
+                                fputs_with_newline(stdout, description);
+                        } else if (list_methods) {
+                                for (const VarlinkSymbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
+                                        if (symbol->symbol_type != VARLINK_METHOD)
+                                                continue;
+
+                                        r = strv_extendf(&methods, "%s.%s", vi->name, symbol->name);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        } else {
+                                pager_open(arg_pager_flags);
+                                r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to format parsed interface description: %m");
+                        }
+                } else {
+                        pager_open(arg_pager_flags);
+                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 }
-        } else
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+        }
+
+        if (list_methods) {
+                pager_open(arg_pager_flags);
+
+                strv_sort_uniq(methods);
+
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                        strv_print(methods);
+                else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+                        r = sd_json_build(&j, SD_JSON_BUILD_STRV(methods));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON array: %m");
+
+                        sd_json_variant_dump(j, arg_json_format_flags, stdout, NULL);
+                }
+        }
 
         return 0;
 }
 
 static int reply_callback(
                 Varlink *link,
-                JsonVariant *parameters,
+                sd_json_variant *parameters,
                 const char *error,
                 VarlinkReplyFlags flags,
                 void *userdata)  {
 
-        int r;
+        int *ret = ASSERT_PTR(userdata), r;
 
         assert(link);
 
@@ -358,18 +458,26 @@ static int reply_callback(
                 /* Propagate the error we received via sd_notify() */
                 (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                if (strv_contains(arg_graceful, error)) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                 "Method call returned expected error: %s", error);
+
+                        r = 0;
+                } else
+                        r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
         } else
                 r = 0;
 
-        json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+        if (!arg_quiet)
+                sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+
         return r;
 }
 
 static int verb_call(int argc, char *argv[], void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *jp = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
-        const char *url, *method, *parameter;
+        const char *url, *method, *parameter, *source;
         unsigned line = 0, column = 0;
         int r;
 
@@ -380,30 +488,40 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
 
         /* No JSON mode explicitly configured? Then default to the same as -j */
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
-        arg_json_format_flags |= JSON_FORMAT_NEWLINE;
+        arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
 
         if (parameter) {
+                source = "<argv[4]>";
+
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
-                r = json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
+                r = sd_json_parse_with_source(parameter, source, 0, &jp, &line, &column);
         } else {
-                r = json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse parameters at <stdin>:%u:%u: %m", line, column);
+                if (isatty(STDIN_FILENO) > 0 && !arg_quiet)
+                        log_notice("Expecting method call parameter JSON object on standard input. (Provide empty string or {} for no parameters.)");
+
+                source = "<stdin>";
+
+                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, 0, &jp, &line, &column);
         }
+        if (r < 0 && r != -ENODATA)
+                return log_error_errno(r, "Failed to parse parameters at %s:%u:%u: %m", source, line, column);
+
+        /* If parsing resulted in ENODATA the provided string was empty. As convenience to users we'll accept
+         * that and treat it as equivalent to an empty object: as a call with empty set of parameters. This
+         * mirrors how we do this in our C APIs too, where we are happy to accept NULL instead of a proper
+         * JsonVariant object for method calls. */
 
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
 
         if (arg_collect) {
-                JsonVariant *reply = NULL;
+                sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
                 r = varlink_collect(vl, method, jp, &reply, &error);
@@ -413,12 +531,21 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         /* Propagate the error we received via sd_notify() */
                         (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        if (strv_contains(arg_graceful, error)) {
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "Method call %s() returned expected error: %s", method, error);
+
+                                r = 0;
+                        } else
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
                 } else
                         r = 0;
 
+                if (arg_quiet)
+                        return r;
+
                 pager_open(arg_pager_flags);
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
 
         } else if (arg_method_flags & VARLINK_METHOD_ONEWAY) {
@@ -432,7 +559,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 
         } else if (arg_method_flags & VARLINK_METHOD_MORE) {
 
-                varlink_set_userdata(vl, (void*) method);
+                int ret = 0;
+                varlink_set_userdata(vl, &ret);
 
                 r = varlink_bind_reply(vl, reply_callback);
                 if (r < 0)
@@ -459,8 +587,10 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wait for varlink connection events: %m");
                 }
+
+                return ret;
         } else {
-                JsonVariant *reply = NULL;
+                sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
                 r = varlink_call(vl, method, jp, &reply, &error);
@@ -472,13 +602,22 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         /* Propagate the error we received via sd_notify() */
                         (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        if (strv_contains(arg_graceful, error)) {
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "Method call %s() returned expected error: %s", method, error);
+
+                                r = 0;
+                        } else
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
                 } else
                         r = 0;
 
+                if (arg_quiet)
+                        return r;
+
                 pager_open(arg_pager_flags);
 
-                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
         }
 
@@ -522,9 +661,12 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to check interface for consistency: %m");
 
+        if (arg_quiet)
+                return 0;
+
         pager_open(arg_pager_flags);
 
-        r = varlink_idl_dump(stdout, /* use_colors= */ -1, vi);
+        r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
         if (r < 0)
                 return log_error_errno(r, "Failed to format parsed interface description: %m");
 
@@ -535,7 +677,8 @@ static int varlinkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "info",            2,        2,        0, verb_info         },
                 { "list-interfaces", 2,        2,        0, verb_info         },
-                { "introspect",      3,        3,        0, verb_introspect   },
+                { "introspect",      2,        VERB_ANY, 0, verb_introspect   },
+                { "list-methods",    2,        VERB_ANY, 0, verb_introspect   },
                 { "call",            3,        4,        0, verb_call         },
                 { "validate-idl",    1,        2,        0, verb_validate_idl },
                 { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },

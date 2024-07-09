@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-04-27 09:23+0000\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-01 14:53+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -287,40 +287,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Za dużo nieudanych prób logowania użytkownika %s, odmawianie."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Wpis użytkownika jest zablokowany, zabranianie dostępu."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Wpis użytkownika nie jest jeszcze ważny, zabranianie dostępu."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Wpis użytkownika nie jest już ważny, zabranianie dostępu."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Wpis użytkownika jest nieważny, zabranianie dostępu."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Za dużo logowań, proszę spróbować ponownie za %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Wymagana jest zmiana hasła."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Hasło wygasło, wymagana jest zmiana."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Hasło wygasło, ale nie można go zmienić, odmawianie logowania."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "Hasło niedługo wygaśnie, proszę je zmienić."
 
@@ -1041,10 +1041,10 @@ msgstr ""
 "sieciowy."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Określenie, czy dostępne są trwałe urządzenia do przechowywania danych dla "
-"systemd-networkd."
+"systemd-networkd"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
@@ -1194,7 +1194,7 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
 "z jednostką „$(unit)”."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

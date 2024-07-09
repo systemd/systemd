@@ -843,8 +843,8 @@ int unit_load(Unit *unit);
 int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
-const char *unit_description(Unit *u) _pure_;
-const char *unit_status_string(Unit *u, char **combined);
+const char* unit_description(Unit *u) _pure_;
+const char* unit_status_string(Unit *u, char **combined);
 
 bool unit_has_name(const Unit *u, const char *name);
 
@@ -862,7 +862,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
+int unit_kill(Unit *u, KillWhom w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
@@ -886,8 +886,8 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 
 int set_unit_path(const char *p);
 
-char *unit_dbus_path(Unit *u);
-char *unit_dbus_path_invocation_id(Unit *u);
+char* unit_dbus_path(Unit *u);
+char* unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
@@ -906,7 +906,7 @@ void unit_reset_failed(Unit *u);
 Unit *unit_following(Unit *u);
 int unit_following_set(Unit *u, Set **s);
 
-const char *unit_slice_name(Unit *u);
+const char* unit_slice_name(Unit *u);
 
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
@@ -916,7 +916,7 @@ bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
-void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyAtom atom, JobMode job_mode);
+void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);

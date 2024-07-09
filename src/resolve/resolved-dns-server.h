@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "in-addr-util.h"
-#include "json.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "time-util.h"
@@ -139,8 +140,8 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
 
-const char *dns_server_string(DnsServer *server);
-const char *dns_server_string_full(DnsServer *server);
+const char* dns_server_string(DnsServer *server);
+const char* dns_server_string_full(DnsServer *server);
 int dns_server_ifindex(const DnsServer *s);
 uint16_t dns_server_port(const DnsServer *s);
 
@@ -181,4 +182,4 @@ void dns_server_unref_stream(DnsServer *s);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
-int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret);
+int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);

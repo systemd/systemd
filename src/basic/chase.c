@@ -641,8 +641,8 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
                          * absolute, hence it is not necessary to prefix with the root. When "root" points to
                          * a non-root directory, the result path is always normalized and relative, hence
                          * we can simply call path_join() and not necessary to call path_simplify().
-                         * Note that the result of chaseat() may start with "." (more specifically, it may be
-                         * "." or "./"), and we need to drop "." in that case. */
+                         * As a special case, chaseat() may return "." or "./", which are normalized too,
+                         * but we need to drop "." before merging with root. */
 
                         if (empty_or_root(root))
                                 assert(path_is_absolute(p));
@@ -651,7 +651,7 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
 
                                 assert(!path_is_absolute(p));
 
-                                q = path_join(root, p + (*p == '.'));
+                                q = path_join(root, p + STR_IN_SET(p, ".", "./"));
                                 if (!q)
                                         return -ENOMEM;
 

@@ -318,10 +318,11 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes one of <option>udplite</option>
-        or <option>sctp</option>. The socket will use the UDP-Lite
-        (<constant>IPPROTO_UDPLITE</constant>) or SCTP
-        (<constant>IPPROTO_SCTP</constant>) protocol, respectively.</para>
+        <listitem><para>Takes one of <option>udplite</option>,
+        <option>sctp</option> or <option>mptcp</option>. The socket will use
+        the UDP-Lite (<constant>IPPROTO_UDPLITE</constant>), SCTP
+        (<constant>IPPROTO_SCTP</constant>) or MPTCP
+        (<constant>IPPROTO_MPTCP</constant>) protocol, respectively.</para>
 
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
@@ -424,10 +425,15 @@
         services (in case of <varname>Accept=</varname><option>yes</option>). See the Description section
         above for a more detailed discussion of the naming rules of triggered services.</para>
 
-        <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
-        contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
+        <para>For IPv4 and IPv6 connections, the <varname>$REMOTE_ADDR</varname> environment variable will
+        contain the remote IP address, and <varname>$REMOTE_PORT</varname> will contain the remote port. This
         is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
         protocol.</para>
+
+        <para>For <constant>AF_UNIX</constant> socket connections, the <varname>$REMOTE_ADDR</varname>
+        environment variable will contain either the remote socket's file system path starting with a slash
+        (<literal>/</literal>) or its address in the abstract namespace starting with an at symbol
+        (<literal>@</literal>). If the socket is unnamed, <varname>$REMOTE_ADDR</varname> won't be set.</para>
 
         <para>It is recommended to set <varname>CollectMode=inactive-or-failed</varname> for service
         instances activated via <varname>Accept=yes</varname>, to ensure that failed connection services are

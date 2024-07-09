@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=Upholding Unit
-Upholds=testsuite-23-retry-upheld.service
-
-[Service]
-ExecStart=sleep infinity

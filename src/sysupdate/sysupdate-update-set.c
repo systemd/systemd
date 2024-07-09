@@ -28,7 +28,7 @@ int update_set_cmp(UpdateSet *const*a, UpdateSet *const*b) {
         return -strverscmp_improved((*a)->version, (*b)->version);
 }
 
-const char *update_set_flags_to_color(UpdateSetFlags flags) {
+const char* update_set_flags_to_color(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return (flags & UPDATE_NEWEST) ? ansi_highlight_grey() : ansi_grey();
@@ -45,7 +45,7 @@ const char *update_set_flags_to_color(UpdateSetFlags flags) {
         return NULL;
 }
 
-const char *update_set_flags_to_glyph(UpdateSetFlags flags) {
+const char* update_set_flags_to_glyph(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return special_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);

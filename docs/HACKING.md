@@ -22,15 +22,6 @@ If adding a new source file, consider adding a matching test executable.
 For features at a higher level, tests in `src/test/` are very strongly recommended.
 If that is not possible, integration tests in `test/` are encouraged.
 
-```shell
-$ git config submodule.recurse true
-$ git config fetch.recurseSubmodules on-demand
-$ git config push.recurseSubmodules no
-$ cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
-$ cp tools/git-submodule-update-hook.sh .git/hooks/post-rewrite
-$ cp tools/git-submodule-update-hook.sh .git/hooks/post-checkout
-```
-
 Please always test your work before submitting a PR.
 For many of the components of systemd testing is straightforward as you can simply compile systemd and run the relevant tool from the build directory.
 
@@ -54,27 +45,10 @@ or:
 $ mkosi qemu
 ```
 
-Every time you rerun the `mkosi` command a fresh image is built,
-incorporating all current changes you made to the project tree.
-
-By default a directory image is built.
-This requires `virtiofsd` to be installed on the host.
-To build a disk image instead which does not require `virtiofsd`, add the following to `mkosi.local.conf`:
-
-```conf
-[Output]
-Format=disk
-```
-
-To boot in UEFI mode instead of using QEMU's direct kernel boot, add the following to `mkosi.local.conf`:
-
-```conf
-[Host]
-QemuFirmware=uefi
-```
-
-To avoid having to build a new image all the time when iterating on a patch,
-add the following to `mkosi.local.conf`:
+Every time you rerun the `mkosi` command a fresh image is built, incorporating
+all current changes you made to the project tree. To avoid having to build a new
+image all the time when iterating on a patch, add the following to
+`mkosi.local.conf`:
 
 ```conf
 [Host]
@@ -83,31 +57,21 @@ RuntimeBuildSources=yes
 
 After enabling this setting, the source and build directories will be mounted to
 `/work/src` and `/work/build` respectively when booting the image as a container
-or virtual machine. To build the latest changes and re-install, run
-`meson install -C /work/build --only-changed` in the container or virtual machine
-and optionally restart the daemon(s) you're working on using
-`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1
-or `systemctl soft-reboot` to restart everything.
-
-Aside from the image, the `mkosi.output` directory will also be populated with a
-set of distribution packages. Assuming you're running the same distribution and
-release as the mkosi image, you can install these rpms on your host or test
-system as well for any testing or debugging that cannot easily be performed in a
-VM or container.
-
-By default, no debuginfo packages are produced. To produce debuginfo packages,
-run mkosi with the `WITH_DEBUG` environment variable set to `1`:
+or virtual machine. To build the latest changes and re-install after booting the
+image, run `mkosi -t none` in another terminal on the host and run one of the
+following commands in the container or virtual machine depending on the
+distribution:
 
 ```sh
-$ mkosi -E WITH_DEBUG=1 -f
+dnf upgrade --disablerepo="*" /work/build/*.rpm # CentOS/Fedora
+apt install --reinstall /work/build/*.deb # Debian/Ubuntu
+pacman -U /work/build/*.pkg.tar # Arch Linux
+zypper install --allow-unsigned-rpm /work/build/*.rpm # OpenSUSE
 ```
 
-or configure it in `mkosi.local.conf`:
-
-```conf
-[Content]
-Environment=WITH_DEBUG=1
-```
+and optionally restart the daemon(s) you're working on using
+`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on
+pid1 or `systemctl soft-reboot` to restart everything.
 
 Putting this all together, here's a series of commands for preparing a patch for systemd:
 
@@ -119,6 +83,7 @@ $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
 $ vim src/core/main.c             # or wherever you'd like to make your changes
 $ mkosi -f qemu                   # (re-)build and boot up the test image in qemu
+$ mkosi -t none                   # Build new packages without rebuilding the image
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
 $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
@@ -150,6 +115,50 @@ $ meson test -C build
 ```
 
 Happy hacking!
+
+## Building distribution packages with mkosi
+
+To build distribution packages for a specific distribution and release without
+building an actual image, the following command can be used:
+
+```sh
+mkosi -d <distribution> -r <release> -t none -f
+```
+
+Afterwards the distribution packages will be located in `build/mkosi.output`. To
+also build debuginfo packages, the following command can be used:
+
+```sh
+mkosi -d <distribution> -r <release> -E WITH_DEBUG=1 -t none -f
+```
+
+To upgrade the systemd packages on the host system to the newer versions built
+by mkosi, run the following:
+
+```sh
+dnf upgrade build/mkosi.output/*.rpm # Fedora/CentOS
+# TODO: Other distributions
+```
+
+To downgrade back to the old version shipped by the distribution, run the
+following:
+
+```sh
+dnf downgrade "systemd*" # Fedora/CentOS
+# TODO: Other distributions
+```
+
+Additionally, for each pull request, the built distribution packages are
+attached as CI artifacts to the pull request CI jobs, which means that users can
+download and install them to test out if a pull request fixes the issue that
+they reported. To download the packages from a pull request, click on the
+`Checks` tab. Then click on the `mkosi` workflow in the list of workflows on the
+left of the `Checks` page. Finally, scroll down to find the list of CI
+artifacts. In this list of artifacts you can find artifacts containing
+distribution packages. To install these, download the artifact which is a zip
+archive, extract the zip archive to access the individual packages, and install
+them with your package manager in the same way as described above for packages
+that were built locally.
 
 ## Templating engines in .in files
 

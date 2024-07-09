@@ -118,6 +118,7 @@ Machine* machine_free(Machine *m) {
                         m->manager->host_machine = NULL;
         }
 
+        m->leader_pidfd_event_source = sd_event_source_disable_unref(m->leader_pidfd_event_source);
         if (pidref_is_set(&m->leader)) {
                 if (m->manager)
                         (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
@@ -475,6 +476,38 @@ static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_e
         return 0;
 }
 
+static int machine_dispatch_leader_pidfd(sd_event_source *s, int fd, unsigned revents, void *userdata) {
+        Machine *m = ASSERT_PTR(userdata);
+
+        m->leader_pidfd_event_source = sd_event_source_disable_unref(m->leader_pidfd_event_source);
+        machine_add_to_gc_queue(m);
+
+        return 0;
+}
+
+static int machine_watch_pidfd(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(m->manager);
+        assert(pidref_is_set(&m->leader));
+        assert(!m->leader_pidfd_event_source);
+
+        if (m->leader.fd < 0)
+                return 0;
+
+        /* If we have a pidfd for the leader, let's also track it for POLLIN, and GC the machine
+         * automatically if it dies */
+
+        r = sd_event_add_io(m->manager->event, &m->leader_pidfd_event_source, m->leader.fd, EPOLLIN, machine_dispatch_leader_pidfd, m);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->leader_pidfd_event_source, "machine-pidfd");
+
+        return 0;
+}
+
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
@@ -487,6 +520,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return 0;
 
         r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
+        if (r < 0)
+                return r;
+
+        r = machine_watch_pidfd(m);
         if (r < 0)
                 return r;
 
@@ -510,7 +547,6 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         machine_save(m);
 
         machine_send_signal(m, true);
-        (void) manager_enqueue_nscd_cache_flush(m->manager);
 
         return 0;
 }
@@ -537,7 +573,6 @@ int machine_stop(Machine *m) {
         m->stopping = true;
 
         machine_save(m);
-        (void) manager_enqueue_nscd_cache_flush(m->manager);
 
         return 0;
 }
@@ -592,6 +627,8 @@ void machine_add_to_gc_queue(Machine *m) {
 
         LIST_PREPEND(gc_queue, m->manager->machine_gc_queue, m);
         m->in_gc_queue = true;
+
+        manager_enqueue_gc(m->manager);
 }
 
 MachineState machine_get_state(Machine *s) {
@@ -609,7 +646,7 @@ MachineState machine_get_state(Machine *s) {
         return MACHINE_RUNNING;
 }
 
-int machine_kill(Machine *m, KillWho who, int signo) {
+int machine_kill(Machine *m, KillWhom whom, int signo) {
         assert(m);
 
         if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
@@ -618,7 +655,7 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         if (!m->unit)
                 return -ESRCH;
 
-        if (who == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
+        if (whom == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
                 return pidref_kill(&m->leader, signo);
 
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
@@ -675,8 +712,9 @@ void machine_release_unit(Machine *m) {
 
                 r = manager_unref_unit(m->manager, m->unit, &error);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to drop reference to machine scope, ignoring: %s",
-                                          bus_error_message(&error, r));
+                        log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to drop reference to machine scope, ignoring: %s",
+                                       bus_error_message(&error, r));
 
                 m->referenced = false;
         }
@@ -919,9 +957,9 @@ static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
 
-static const char* const kill_who_table[_KILL_WHO_MAX] = {
+static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_LEADER] = "leader",
         [KILL_ALL] = "all"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);

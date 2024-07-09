@@ -234,8 +234,9 @@ bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections) 
         if (le16toh(pe_header->optional.Subsystem) != IMAGE_SUBSYSTEM_EFI_APPLICATION)
                 return false;
 
+        /* Note that the UKI spec only requires .linux, but we are stricter here, and require .osrel too,
+         * since for sd-boot it just doesn't make sense to not have that. */
         return
                 pe_header_find_section(pe_header, sections, ".osrel") &&
-                pe_header_find_section(pe_header, sections, ".linux") &&
-                pe_header_find_section(pe_header, sections, ".initrd");
+                pe_header_find_section(pe_header, sections, ".linux");
 }

@@ -273,10 +273,19 @@
       <varlistentry>
         <term><varname>_SOURCE_REALTIME_TIMESTAMP=</varname></term>
         <listitem>
-          <para>The earliest trusted timestamp of the message, if any
-          is known that is different from the reception time of the
-          journal. This is the time in microseconds since the epoch
-          UTC, formatted as a decimal string.</para>
+          <para>The earliest trusted timestamp of the message, if any is known that is different from
+          the reception time of the journal. The timestamp is in the <constant>CLOCK_REALTIME</constant>
+          clock in microseconds, formatted as decimal strings.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>_SOURCE_BOOTTIME_TIMESTAMP=</varname></term>
+        <listitem>
+          <para>The earliest trusted timestamp of the message in <constant>CLOCK_BOOTTIME</constant> clock.
+          For details, refer to <varname>_SOURCE_REALTIME_TIMESTAMP=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 

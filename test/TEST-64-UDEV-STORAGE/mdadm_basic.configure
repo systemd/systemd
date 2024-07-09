@@ -1,0 +1,25 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import sys
+
+
+config = json.load(sys.stdin)
+
+config["QemuArgs"] += ["-device", "virtio-scsi-pci,id=scsi0"]
+
+for i in range(5):
+    id = f"drivemdadmbasic{i}"
+    config["QemuDrives"] += [
+        {
+            "Id": id,
+            "Size": "64M",
+            "Options": "cache=unsafe",
+        }
+    ]
+    config["QemuArgs"] += [
+        "-device", f"scsi-hd,drive={id},vendor=systemd,product=foobar,serial=deadbeefmdadm{i}",
+    ]
+
+json.dump(config, sys.stdout)

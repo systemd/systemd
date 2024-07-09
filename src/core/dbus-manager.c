@@ -834,11 +834,13 @@ static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, 0);
+        /* Only active units can be frozen, which must be properly loaded already */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, 0);
+        /* Same as freeze above */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1551,26 +1553,27 @@ static int verify_run_space_permissive(const char *message, sd_bus_error *error)
 
 static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *comm = NULL;
-        Unit *caller;
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         assert(message);
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
                 return;
 
-        /* We need at least the PID, otherwise there's nothing to log, the rest is optional */
-        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+        /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
+        if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
+
+        const char *comm = NULL;
+        Unit *caller;
 
         (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pid(manager, pid);
+        caller = manager_get_unit_by_pidref(manager, &pidref);
 
         log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                 method, pid,
+                 method, pidref.pid,
                  comm ? " ('" : "", strempty(comm), comm ? "')" : "",
                  caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
@@ -1685,13 +1688,13 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Reboot is only supported by system manager.");
+
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Reboot is only supported for system managers.");
 
         m->objective = MANAGER_REBOOT;
 
@@ -1699,12 +1702,16 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *rt = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_free_ char *rt = NULL;
         const char *root;
         int r;
 
         assert(message);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Soft reboot is only supported by system manager.");
 
         r = verify_run_space_permissive("soft reboot may fail", error);
         if (r < 0)
@@ -1726,9 +1733,9 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "New root directory path '%s' is not absolute.", root);
 
-                rt = strdup(root);
-                if (!rt)
-                        return -ENOMEM;
+                r = path_simplify_alloc(root, &rt);
+                if (r < 0)
+                        return r;
         }
 
         free_and_replace(m->switch_root, rt);
@@ -1743,13 +1750,13 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Powering off is only supported by system manager.");
+
         r = mac_selinux_access_check(message, "halt", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Powering off is only supported for system managers.");
 
         m->objective = MANAGER_POWEROFF;
 
@@ -1762,13 +1769,13 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Halt is only supported by system manager.");
+
         r = mac_selinux_access_check(message, "halt", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Halt is only supported for system managers.");
 
         m->objective = MANAGER_HALT;
 
@@ -1781,13 +1788,13 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
         assert(message);
 
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "KExec is only supported by system manager.");
+
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "KExec is only supported for system managers.");
 
         m->objective = MANAGER_KEXEC;
 
@@ -1795,12 +1802,16 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 }
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *ri = NULL, *rt = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_free_ char *ri = NULL, *rt = NULL;
         const char *root, *init;
         int r;
 
         assert(message);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Root switching is only supported by system manager.");
 
         r = verify_run_space_permissive("root switching may fail", error);
         if (r < 0)
@@ -1809,10 +1820,6 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
         if (r < 0)
@@ -1824,8 +1831,8 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                 root = "/sysroot";
         else {
                 if (!path_is_valid(root))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "New root directory must be a valid path.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "New root directory must be a valid path.");
 
                 if (!path_is_absolute(root))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
@@ -1837,14 +1844,14 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                                                        "Failed to check if new root directory '%s' is the same as old root: %m",
                                                        root);
                 if (r > 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "New root directory cannot be the old root directory.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "New root directory cannot be the old root directory.");
         }
 
         /* Safety check */
         if (!in_initrd())
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Not in initrd, refusing switch-root operation.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Not in initrd, refusing switch-root operation.");
 
         r = path_is_os_tree(root);
         if (r < 0)
@@ -1874,14 +1881,14 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                                                        "Could not resolve init executable %s: %m", init);
         }
 
-        rt = strdup(root);
-        if (!rt)
-                return -ENOMEM;
+        r = path_simplify_alloc(root, &rt);
+        if (r < 0)
+                return r;
 
         if (!isempty(init)) {
-                ri = strdup(init);
-                if (!ri)
-                        return -ENOMEM;
+                r = path_simplify_alloc(init, &ri);
+                if (r < 0)
+                        return r;
         }
 
         free_and_replace(m->switch_root, rt);
@@ -2185,9 +2192,8 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
 }
 
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        UnitFileList *item;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
@@ -2203,11 +2209,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        h = hashmap_new(&unit_file_list_hash_ops_free);
-        if (!h)
-                return -ENOMEM;
-
-        r = unit_file_get_list(m->runtime_scope, NULL, h, states, patterns);
+        r = unit_file_get_list(m->runtime_scope, /* root_dir = */ NULL, states, patterns, &h);
         if (r < 0)
                 return r;
 
@@ -2215,8 +2217,8 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        UnitFileList *item;
         HASHMAP_FOREACH(item, h) {
-
                 r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
                 if (r < 0)
                         return r;
@@ -2423,7 +2425,7 @@ static int reply_install_changes_and_free(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
@@ -2488,7 +2490,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, error);
 }
 
-static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
+static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
@@ -2548,7 +2550,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 

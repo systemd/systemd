@@ -11,6 +11,7 @@ _systemd_headers = [
         'sd-hwdb.h',
         'sd-id128.h',
         'sd-journal.h',
+        'sd-json.h',
         'sd-login.h',
         'sd-messages.h',
         'sd-path.h',

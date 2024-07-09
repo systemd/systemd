@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 '''Test wrapper command for driving integration tests.
-
-Note: This is deliberately rough and only intended to drive existing tests
-with the expectation that as part of formally defining the API it will be tidy.
-
 '''
 
 import argparse
@@ -40,32 +36,38 @@ ExecStart=false
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--mkosi', required=True)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
-    parser.add_argument('--test-name', required=True)
-    parser.add_argument('--test-number', required=True)
+    parser.add_argument('--name', required=True)
+    parser.add_argument('--unit', required=True)
     parser.add_argument('--storage', required=True)
     parser.add_argument('--firmware', required=True)
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
     if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
-        print(f"SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        print(f"SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
     if args.slow and not bool(int(os.getenv("SYSTEMD_SLOW_TESTS", "0"))):
-        print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.test_name}", file=sys.stderr)
+        print(f"SYSTEMD_SLOW_TESTS=1 not found in environment, skipping {args.name}", file=sys.stderr)
         exit(77)
 
-    name = args.test_name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
-    test_unit = f"testsuite-{args.test_number}.service"
+    if args.vm and bool(int(os.getenv("TEST_NO_QEMU", "0"))):
+        print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
+        exit(77)
+
+    keep_journal = os.getenv("TEST_SAVE_JOURNAL", "fail")
+
+    name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
         """\
         [Unit]
-        After=multi-user.target network.target
-        Requires=multi-user.target
         SuccessAction=exit
         SuccessActionExitStatus=123
 
@@ -101,10 +103,16 @@ def main():
         journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
     else:
+        dropin += textwrap.dedent(
+            """
+            [Unit]
+            Wants=multi-user.target
+            """
+        )
         journal_file = None
 
     cmd = [
-        'mkosi',
+        args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
@@ -122,16 +130,17 @@ def main():
             else []
         ),
         '--credential',
-        f"systemd.unit-dropin.{test_unit}={shlex.quote(dropin)}",
+        f"systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
         '--runtime-scratch=no',
-        '--append',
+        *args.mkosi_args,
         '--qemu-firmware', args.firmware,
+        '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
-            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
-            f"systemd.unit={test_unit}",
+            f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/{args.name}.units:/usr/lib/systemd/tests/testdata/units:",
+            f"systemd.unit={args.unit}",
             'systemd.mask=systemd-networkd-wait-online.service',
             *(
                 [
@@ -145,19 +154,16 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *args.mkosi_args,
-        'qemu',
+        'qemu' if args.vm or os.getuid() != 0 else 'boot',
     ]
 
     result = subprocess.run(cmd)
 
-    # Return code 123 is the expected success code
-    if result.returncode in (123, 77):
-        # Do not keep journal files for tests that don't fail.
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
+        journal_file.unlink(missing_ok=True)
 
-        exit(0 if result.returncode == 123 else 77)
+    if result.returncode in (args.exit_code, 77):
+        exit(0 if result.returncode == args.exit_code else 77)
 
     if journal_file:
         ops = []
@@ -168,7 +174,7 @@ def main():
             j = json.loads(
                 subprocess.run(
                     [
-                        "mkosi",
+                        args.mkosi,
                         "--directory", os.fspath(args.meson_source_dir),
                         "--json",
                         "summary",
@@ -177,14 +183,13 @@ def main():
                     text=True,
                 ).stdout
             )
-            images = {image["Image"]: image for image in j["Images"]}
-            distribution = images["system"]["Distribution"]
-            release = images["system"]["Release"]
+            distribution = j["Images"][-1]["Distribution"]
+            release = j["Images"][-1]["Release"]
             artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
             ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
             journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
 
-        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {test_unit} -p info"]
+        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info"]
 
         print("Test failed, relevant logs can be viewed with: \n\n"
               f"{(' && '.join(ops))}\n", file=sys.stderr)

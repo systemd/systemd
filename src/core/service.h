@@ -196,9 +196,10 @@ struct Service {
         bool exec_fd_hot:1;
 
         char *bus_name;
-        char *bus_name_owner; /* unique name of the current owner */
 
         char *status_text;
+        char *status_bus_error;
+        char *status_varlink_error;
         int status_errno;
 
         sd_event_source *timer_event_source;

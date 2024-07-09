@@ -8,8 +8,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-04-26 08:36+0000\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-01 14:53+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.5\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -258,40 +258,40 @@ msgstr "사용자 %s의 홈은 현재 잠겨 있으며, 우선 로컬에서 잠�
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "사용자 %s에 대한 너무 많이 실패한 로그인이 있었으며, 거부합니다."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "사용자 레코드가 차단되었으며, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "사용자 레크드가 아직 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "사용자 레코드가 더 이상 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "사용자 레코드가 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "너무 많은 로그인, %s에서 다시 시도하세요."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "비밀번호 변경이 필요합니다."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "비밀번호가 만료되었으며, 변경이 필요합니다."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr "비밀번호가 만료되었으나, 변경 할 수 없고, 로그인이 거부됩니다."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "비밀번호가 곧 만료됩니다, 변경해 주세요."
 
@@ -960,14 +960,15 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "네트워크 연결 장치를 다시 설정하려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
-msgstr "systemd-networkd를 위한 영구 저장소가 사용 가능한지 여부를 지정합니다."
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "systemd-networkd를 위한 영구 저장소가 사용 가능한지 여부를 지정합니다"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr "인증은 systemd-networkd를 위해 영구적으로 사용 가능한지 여부를 지정하기 위해 "
+msgstr ""
+"인증은 systemd-networkd를 위해 영구적으로 사용 가능한지 여부를 지정하기 위해 "
 "필요합니다."
 
 #: src/portable/org.freedesktop.portable1.policy:13
@@ -1094,7 +1095,7 @@ msgid ""
 "'$(unit)'."
 msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필요합니다."

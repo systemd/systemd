@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=TEST-79-MEMPRESS
-
-[Service]
-Type=oneshot
-ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-MemoryAccounting=1

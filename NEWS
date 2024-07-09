@@ -1,6 +1,39 @@
 systemd System and Service Manager
 
-CHANGES WITH 256-rc1:
+CHANGES WITH 257 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for automatic flushing of the nscd user/group database caches
+          has been dropped.
+
+        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
+          considered obsolete and systemd by default will refuse to boot under
+          it. To forcibly reenable cgroup v1 support,
+          SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must be set on kernel command
+          line. The meson option 'default-hierarchy=' is also deprecated, i.e.
+          only cgroup v2 ('unified' hierarchy) can be selected as build-time
+          default.
+
+        * Support for System V service scripts is deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
+        — <place>, <date>
+
+CHANGES WITH 256:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -37,6 +70,18 @@ CHANGES WITH 256-rc1:
           [BridgeVLAN] section, then all assigned VLAN IDs on the interface
           that are not configured in the .network file are removed.
 
+        * IPForward= setting in .network file is deprecated and replaced with
+          IPv4Forwarding= and IPv6Forwarding= settings. These new settings are
+          supported both in .network file and networkd.conf. If specified in a
+          .network file, they control corresponding per-link settings. If
+          specified in networkd.conf, they control corresponding global
+          settings. Note, previously IPv6SendRA= and IPMasquerade= implied
+          IPForward=, but now they imply the new per-link settings. One of the
+          simplest ways to migrate configurations, that worked as a router with
+          the previous version, is enabling both IPv4Forwarding= and
+          IPv6Forwarding= in networkd.conf. See systemd.network(5) and
+          networkd.conf(5) for more details.
+
         * systemd-gpt-auto-generator will stop generating units for ESP or
           XBOOTLDR partitions if it finds mount entries for or below the /boot/
           or /efi/ hierarchies in /etc/fstab. This is to prevent the generator
@@ -49,7 +94,7 @@ CHANGES WITH 256-rc1:
           locking a homed-managed home area. This is known to cause issues with
           the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
           drivers may want to add drop-in configuration files that set
-          SYSTEMD_SLEEP_FREEZE_USER_SESSION=false for systemd-suspend.service
+          SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false for systemd-suspend.service
           and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
           systemd-homed.service.
 
@@ -68,6 +113,11 @@ CHANGES WITH 256-rc1:
 
         * systemd.crash_reboot and related settings are deprecated in favor of
           systemd.crash_action=.
+
+        * Stable releases for version v256 and newer will now be pushed in the
+          main repository. The systemd-stable repository will be used for existing
+          stable branches (v255-stable and lower), and when they reach EOL it will
+          be archived.
 
         General Changes and New Features:
 
@@ -178,7 +228,7 @@ CHANGES WITH 256-rc1:
           additional per-user service managers, whose users are transient and
           are only defined as long as the service manager is running. (This is
           implemented via DynamicUser=1), allowing a user manager to be used to
-          manager a group of processes without needing to create an actual user
+          manage a group of processes without needing to create an actual user
           account. These service managers run with home directories of
           /var/lib/capsules/<capsule-name> and can contain regular services and
           other units. A capsule is started via a simple "systemctl start
@@ -990,53 +1040,64 @@ CHANGES WITH 256-rc1:
         Abraham Samuel Adekunle, Adrian Vovk, Adrian Wannenmacher,
         Alan Liang, Alberto Planas, Alexander Zavyalov, Anders Jonsson,
         Andika Triwidada, Andres Beltran, Andrew Sayers,
-        Antonio Alvarez Feijoo, Arthur Zamarin, Artur Pak, AtariDreams,
-        Benjamin Franzke, Bernhard M. Wiedemann, Black-Hole1, Bryan Jacobs,
-        Burak Gerz, Carlos Garnacho, Chandra Pratap, Chris Simons,
-        Christian Wesselhoeft, Clayton Craft, Colin Geniet, Colin Walters,
-        Costa Tsaousis, Cristian Rodríguez, Daan De Meyer,
-        Damien Challet, Dan Streetman, David Tardon, David Venhoek,
-        Diego Viola, Dionna Amalie Glaze, Dmitry Konishchev,
-        Edson Juliano Drosdeck, Eisuke Kawashima, Eli Schwartz,
-        Emanuele Giuseppe Esposito, Eric Daigle, Evgeny Vereshchagin,
-        Felix Riemann, Fernando Fernandez Mancera, Florian Schmaus,
+        Antonio Alvarez Feijoo, Arian van Putten, Arthur Zamarin,
+        Artur Pak, AtariDreams, Benjamin Franzke, Bernhard M. Wiedemann,
+        Black-Hole1, Bryan Jacobs, Burak Gerz, Carlos Garnacho,
+        Chandra Pratap, Chris Hofstaedtler, Chris Packham, Chris Simons,
+        Christian Göttsche, Christian Wesselhoeft, Clayton Craft,
+        Colin Geniet, Colin Walters, Colin Watson, Costa Tsaousis,
+        Cristian Rodríguez, Daan De Meyer, Damien Challet, Dan Streetman,
+        Daniel Winzen, Daniele Medri, David Seifert, David Tardon,
+        David Venhoek, Diego Viola, Dionna Amalie Glaze,
+        Dmitry Konishchev, Dmitry V. Levin, Edson Juliano Drosdeck,
+        Eisuke Kawashima, Eli Schwartz, Emanuele Giuseppe Esposito,
+        Eric Daigle, Evgeny Vereshchagin, Felix Riemann,
+        Fernando Fernandez Mancera, Florian Fainelli, Florian Schmaus,
         Franck Bui, Frantisek Sumsal, Friedrich Altheide,
         Gabríel Arthúr Pétursson, Gaël Donval, Georges Basile Stavracas Neto,
         Gerd Hoffmann, GNOME Foundation, Guido Leenders,
         Guilhem Lettron, Göran Uddeborg, Hans de Goede, Harald Brinkmann,
-        Heinrich Schuchardt, Henry Li, Holger Assmann, Ivan Kruglov,
-        Ivan Shapovalov, Jakub Sitnicki, James Muir, Jan Engelhardt,
-        Jan Macku, Jeff King, JmbFountain, Joakim Nohlgård,
-        Jonathan Conder, Julius Alexandre, Jörg Behrmann, Keian, Kirk,
-        Kristian Klausen, Krzesimir Nowak, Lars Ellenberg,
-        Lennart Poettering, Luca Boccassi, Ludwig Nussel, Lukáš Nykrýn,
-        Luna Jernberg, Luxiter, Maanya Goenka, Mariano Giménez,
-        Markus Merklinger, Martin Ivicic, Martin Srebotnjak,
-        Martin Trigaux, Martin Wilck, Matt Layher, Matt Muggeridge,
-        Matteo Croce, Matthias Lisin, Max Gautier, Max Staudt, MaxHearnden,
-        Michael Biebl, Michal Koutný, Michal Sekletár, Mike Gilbert,
-        Mike Yuan, Mikko Ylinen, MkfsSion, MrSmör, Nandakumar Raghavan,
-        Nick Cao, Nick Rosbrook, Norbert Lange, Ole Peder Brandtzæg,
-        Ondrej Kozina, Oğuz Ersen, Pablo Méndez Hernández,
-        Pierre GRASSER, Piotr Drąg, QuonXF, Rafaël Kooi, Raito Bezarius,
-        Rasmus Villemoes, Reid Wahl, Renjaya Raga Zenta, Richard Maw,
-        Roland Hieber, Ronan Pigott, Rose, Ross Burton, Sam Leonard,
-        Samuel BF, Sarvajith Adyanthaya, Sergei Zhmylev, Sergey A, Shulhan,
-        SidhuRupinder, Simon Fowler, Sludge, Stuart Hayhurst, Susant Sahani,
-        Takashi Sakamoto, Temuri Doghonadze, Thilo Fromm, Thomas Blume,
+        Heinrich Schuchardt, Helmut Grohne, Henry Li, Heran Yang,
+        Holger Assmann, Ivan Kruglov, Ivan Shapovalov, Jakub Sitnicki,
+        James Muir, Jan Engelhardt, Jan Macku, Jarne Förster, Jeff King,
+        Jian-Hong Pan, JmbFountain, Joakim Nohlgård, Jonathan Conder,
+        Julius Alexandre, Jörg Behrmann, Kai Lueke, Kamil Szczęk,
+        KayJay7, Keian, Kirk, Kristian Klausen, Krzesimir Nowak,
+        Lain "Fearyncess" Yang, Lars Ellenberg, Lennart Poettering,
+        Leonard, Luca Boccassi, Lucas Salles, Ludwig Nussel,
+        Lukáš Nykrýn, Luna Jernberg, Luxiter, Maanya Goenka,
+        Maciej S. Szmigiero, Mariano Giménez, Markus Merklinger,
+        Martin Ivicic, Martin Srebotnjak, Martin Trigaux, Martin Wilck,
+        Mathias Lang, Matt Layher, Matt Muggeridge, Matteo Croce,
+        Matthias Lisin, Max Gautier, Max Staudt, MaxHearnden,
+        Michael Biebl, Michal Koutný, Michal Sekletár, Michał Kopeć,
+        Mike Gilbert, Mike Yuan, Mikko Ylinen, MkfsSion, Moritz Sanft,
+        MrSmör, Nandakumar Raghavan, Nicholas Little, Nick Cao,
+        Nick Rosbrook, Nicolas Bouchinet, Norbert Lange,
+        Ole Peder Brandtzæg, Ondrej Kozina, Oğuz Ersen,
+        Pablo Méndez Hernández, Pierre GRASSER, Piotr Drąg, QuonXF,
+        Radoslav Kolev, Rafaël Kooi, Raito Bezarius, Rasmus Villemoes,
+        Reid Wahl, Renjaya Raga Zenta, Richard Maw, Roland Hieber,
+        Ronan Pigott, Rose, Ross Burton, Saliba-san, Sam Leonard,
+        Samuel BF, Sarvajith Adyanthaya, Scrambled 777,
+        Sebastian Pucilowski, Sergei Zhmylev, Sergey A, Shulhan,
+        SidhuRupinder, Simon Fowler, Skia, Sludge, Stuart Hayhurst,
+        Susant Sahani, Takashi Sakamoto, Temuri Doghonadze, Thayne McCombs,
+        Thilo Fromm, Thomas Blume, Tiago Rocha Cunha, Timo Rothenpieler,
         TobiPeterG, Tobias Fleig, Tomáš Pecka, Topi Miettinen,
         Tycho Andersen, Unique-Usman, Usman Akinyemi, Vasiliy Kovalev,
-        Vasiliy Stelmachenok, Vishal Chillara Srinivas, Vitaly Kuznetsov,
-        Vito Caputo, Vladimir Stoiakin, Werner Sembach, Will Springer,
-        Winterhuman, Xiaotian Wu, Yu Watanabe, Yuri Chornoivan,
-        Zbigniew Jędrzejewski-Szmek, Zmyeir, aslepykh, chenjiayi,
-        cpackham-atlnz, cunshunxia, djantti, hfavisado, hulkoba, ksaleem,
+        Vasiliy Stelmachenok, Victor Berchet, Vishal Chillara Srinivas,
+        Vitaly Kuznetsov, Vito Caputo, Vladimir Stoiakin, Werner Sembach,
+        Will Springer, Winterhuman, Xiaotian Wu, Yu Watanabe,
+        Yuri Chornoivan, Zbigniew Jędrzejewski-Szmek, Zmyeir, anphir,
+        aslepykh, chenjiayi, cpackham-atlnz, cunshunxia, djantti, drewbug,
+        hanjinpeng, hfavisado, hulkoba, hydrargyrum, ksaleem, mburucuyapy,
         medusalix, mille-feuille, mkubiak, mooo, msizanoen, networkException,
-        nl6720, r-vdp, runiq, sam-leonard-ct, samuelvw01, sharad3001, sushmbha,
-        wangyuhang, zzywysm, İ. Ensar Gülşen, Łukasz Stelmach,
-        Štěpán Němec, 我超厉害, 김인수
+        nl6720, r-vdp, runiq, sam-leonard-ct, samuelvw01, sharad3001, spdfnet,
+        sushmbha, wangyuhang, zeroskyx, zzywysm, İ. Ensar Gülşen,
+        Łukasz Stelmach, Štěpán Němec, 我超厉害, 김인수
 
-        — Edinburgh, 2024-04-25
+        — Edinburgh, 2024-06-11
 
 CHANGES WITH 255:
 
@@ -16824,7 +16885,7 @@ CHANGES WITH 196:
           indexed database to link up additional information with
           journal entries. For further details please check:
 
-          https://www.freedesktop.org/wiki/Software/systemd/catalog
+          https://systemd.io/CATALOG
 
           The indexed message catalog database also needs to be
           rebuilt after installation of message catalog files. Use

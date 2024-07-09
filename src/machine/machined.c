@@ -26,6 +26,7 @@
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "special.h"
 
 static Manager* manager_unref(Manager *m);
@@ -92,9 +93,8 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
-#if ENABLE_NSCD
-        sd_event_source_unref(m->nscd_cache_flush_event);
-#endif
+
+        sd_event_source_disable_unref(m->deferred_gc_event_source);
 
         hashmap_free(m->polkit_registry);
 
@@ -142,6 +142,11 @@ static int manager_add_host_machine(Manager *m) {
 
         t->leader = TAKE_PIDREF(pidref);
         t->id = mid;
+
+        /* If vsock is available, let's expose the loopback CID for the local host (and not the actual local
+         * CID, in order to return a ideally constant record for the host) */
+        if (vsock_get_local_cid(/* ret= */ NULL) >= 0)
+                t->vsock_cid = VMADDR_CID_LOCAL;
 
         t->root_directory = TAKE_PTR(rd);
         t->unit = TAKE_PTR(unit);
@@ -258,29 +263,6 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static void manager_gc(Manager *m, bool drop_not_started) {
-        Machine *machine;
-
-        assert(m);
-
-        while ((machine = LIST_POP(gc_queue, m->machine_gc_queue))) {
-                machine->in_gc_queue = false;
-
-                /* First, if we are not closing yet, initiate stopping */
-                if (machine_may_gc(machine, drop_not_started) &&
-                    machine_get_state(machine) != MACHINE_CLOSING)
-                        machine_stop(machine);
-
-                /* Now, the stop probably made this referenced
-                 * again, but if it didn't, then it's time to let it
-                 * go entirely. */
-                if (machine_may_gc(machine, drop_not_started)) {
-                        machine_finalize(machine);
-                        machine_free(machine);
-                }
-        }
-}
-
 static int manager_startup(Manager *m) {
         Machine *machine;
         int r;
@@ -311,7 +293,7 @@ static int manager_startup(Manager *m) {
 }
 
 static bool check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         if (m->operations)
                 return false;
@@ -322,7 +304,8 @@ static bool check_idle(void *userdata) {
         if (varlink_server_current_connections(m->varlink_machine_server) > 0)
                 return false;
 
-        manager_gc(m, true);
+        if (!hashmap_isempty(m->polkit_registry))
+                return false;
 
         return hashmap_isempty(m->machines);
 }

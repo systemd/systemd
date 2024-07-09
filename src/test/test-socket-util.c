@@ -253,9 +253,9 @@ TEST(passfd_read) {
         assert_se(receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd) == 0);
 
         assert_se(fd >= 0);
-        r = read(fd, buf, sizeof(buf)-1);
-        assert_se(r >= 0);
-        buf[r] = 0;
+        ssize_t n = read(fd, buf, sizeof(buf)-1);
+        assert_se(n >= 0);
+        buf[n] = 0;
         ASSERT_STREQ(buf, file_contents);
 }
 
@@ -453,13 +453,10 @@ TEST(send_emptydata) {
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_MAKE_STRING("");  /* zero-length iov */
-                assert_se(iov.iov_len == 0);
-
                 pair[0] = safe_close(pair[0]);
 
                 /* This will succeed, since iov is set. */
-                assert_se(send_one_fd_iov(pair[1], -1, &iov, 1, MSG_DONTWAIT) == 0);
+                assert_se(send_one_fd_iov(pair[1], -1, &iovec_empty, 1, MSG_DONTWAIT) == 0);
                 _exit(EXIT_SUCCESS);
         }
 

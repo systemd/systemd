@@ -219,12 +219,12 @@ CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_compress);
 CONFIG_PARSER_PROTOTYPE(config_parse_forward_to_socket);
 
-const char *storage_to_string(Storage s) _const_;
+const char* storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 
-const char *split_mode_to_string(SplitMode s) _const_;
+const char* split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
 int server_new(Server **ret);

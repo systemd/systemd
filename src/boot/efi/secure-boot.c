@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "efivars.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
 #include "util.h"
@@ -33,7 +34,7 @@ SecureBootMode secure_boot_mode(void) {
 }
 
 /*
- * Custom mode allows to change secure boot certificate databases db, dbx, KEK and PK without the variable
+ * Custom mode allows the secure boot certificate databases db, dbx, KEK, and PK to be changed without the variable
  * updates being signed. When enrolling certificates to an unconfigured system (no PK present yet) writing
  * db, dbx and KEK updates without signature works fine even in standard mode. Writing PK updates without
  * signature requires custom mode in any case.

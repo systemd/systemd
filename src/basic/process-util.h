@@ -54,8 +54,8 @@ int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
 int get_process_ppid(pid_t pid, pid_t *ret);
-int pid_get_start_time(pid_t pid, uint64_t *ret);
-int pidref_get_start_time(const PidRef* pid, uint64_t *ret);
+int pid_get_start_time(pid_t pid, usec_t *ret);
+int pidref_get_start_time(const PidRef* pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
@@ -113,12 +113,12 @@ bool oom_score_adjust_is_valid(int oa);
 #define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
 unsigned long personality_from_string(const char *p);
-const char *personality_to_string(unsigned long);
+const char* personality_to_string(unsigned long);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
 
-const char *sigchld_code_to_string(int i) _const_;
+const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
 int sched_policy_to_string_alloc(int i, char **s);

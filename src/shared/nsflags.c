@@ -58,7 +58,7 @@ int namespace_flags_to_string(unsigned long flags, char **ret) {
         return 0;
 }
 
-const char *namespace_single_flag_to_string(unsigned long flag) {
+const char* namespace_single_flag_to_string(unsigned long flag) {
         for (unsigned i = 0; namespace_info[i].proc_name; i++)
                 if (namespace_info[i].clone_flag == flag)
                         return namespace_info[i].proc_name;

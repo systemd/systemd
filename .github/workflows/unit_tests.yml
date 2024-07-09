@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ matrix.cryptolib }}-${{ github.ref }}
       cancel-in-progress: true
@@ -30,7 +30,7 @@ jobs:
             cryptolib: gcrypt
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       - name: Install build dependencies
         run: |
           # Drop XDG_* stuff from /etc/environment, so we don't get the user

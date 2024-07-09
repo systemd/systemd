@@ -137,6 +137,9 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
 static inline int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         return open_mkdir_at_full(dirfd, path, flags, 0, mode);
 }
+static inline int open_mkdir(const char *path, int flags, mode_t mode) {
+        return open_mkdir_at_full(AT_FDCWD, path, flags, 0, mode);
+}
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 

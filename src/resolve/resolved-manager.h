@@ -226,6 +226,6 @@ bool manager_server_is_stub(Manager *m, DnsServer *s);
 
 int socket_disable_pmtud(int fd, int af);
 
-int dns_manager_dump_statistics_json(Manager *m, JsonVariant **ret);
+int dns_manager_dump_statistics_json(Manager *m, sd_json_variant **ret);
 
 void dns_manager_reset_statistics(Manager *m);

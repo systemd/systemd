@@ -3,8 +3,8 @@
 /*	Documentation/netlink/specs/fou.yaml */
 /* YNL-GEN uapi header */
 
-#ifndef _UAPI_LINUX_FOU_H
-#define _UAPI_LINUX_FOU_H
+#ifndef _LINUX_FOU_H
+#define _LINUX_FOU_H
 
 #define FOU_GENL_NAME		"fou"
 #define FOU_GENL_VERSION	1
@@ -43,4 +43,4 @@ enum {
 };
 #define FOU_CMD_MAX (__FOU_CMD_MAX - 1)
 
-#endif /* _UAPI_LINUX_FOU_H */
+#endif /* _LINUX_FOU_H */

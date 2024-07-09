@@ -271,7 +271,7 @@ int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name
 int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filename) {
         assert_return(server, -EINVAL);
 
-        if (filename && (!string_is_safe(filename) || !ascii_is_valid(filename)))
+        if (filename && !string_is_safe_ascii(filename))
                 return -EINVAL;
 
         return free_and_strdup(&server->boot_filename, filename);
@@ -1252,7 +1252,7 @@ static int server_receive_message(sd_event_source *s, int fd,
                 /* Preallocate the additional size for DHCP Relay Agent Information Option if needed */
                 buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
 
-        message = malloc(buflen);
+        message = malloc0(buflen);
         if (!message)
                 return -ENOMEM;
 

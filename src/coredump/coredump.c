@@ -10,6 +10,7 @@
 
 #include "sd-daemon.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 #include "sd-login.h"
 #include "sd-messages.h"
 
@@ -32,6 +33,7 @@
 #include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-send.h"
+#include "json-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -503,17 +505,21 @@ static int save_external_coredump(
                                                   bus_error_message(&error, r));
                 }
 
+                /* First, ensure we are not going to go over the cgroup limit */
                 max_size = MIN(cgroup_limit, max_size);
-                max_size = LESS_BY(max_size, 1024U) / 2; /* Account for 1KB metadata overhead for compressing */
-                max_size = MAX(PROCESS_SIZE_MIN, max_size); /* Impose a lower minimum */
-
-                /* tmpfs might get full quickly, so check the available space too.
-                 * But don't worry about errors here, failing to access the storage
-                 * location will be better logged when writing to it. */
+                /* tmpfs might get full quickly, so check the available space too. But don't worry about
+                 * errors here, failing to access the storage location will be better logged when writing to
+                 * it. */
                 if (fstatvfs(fd, &sv) >= 0)
                         max_size = MIN((uint64_t)sv.f_frsize * (uint64_t)sv.f_bfree, max_size);
+                /* Impose a lower minimum, otherwise we will miss the basic headers. */
+                max_size = MAX(PROCESS_SIZE_MIN, max_size);
+                /* Ensure we can always switch to compressing on the fly in case we are running out of space
+                 * by keeping half of the space/memory available, plus 1KB metadata overhead from the
+                 * compression algorithm. */
+                max_size = LESS_BY(max_size, 1024U) / 2;
 
-                log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup memory limits.", max_size);
+                log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
         r = copy_bytes(input_fd, fd, max_size, 0);
@@ -773,14 +779,14 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
         const char *module_name;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false, written = false;
-        JsonVariant *module_json;
+        sd_json_variant *module_json;
         int r;
 
         assert(context);
@@ -870,7 +876,7 @@ static int submit_coredump(
         if (json_metadata) {
                 _cleanup_free_ char *formatted_json = NULL;
 
-                r = json_variant_format(json_metadata, 0, &formatted_json);
+                r = sd_json_variant_format(json_metadata, 0, &formatted_json);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON package metadata: %m");
 
@@ -881,19 +887,19 @@ static int submit_coredump(
          * let's avoid guessing the module name and skip the loop. */
         if (context->meta[META_EXE])
                 JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
-                        JsonVariant *t;
+                        sd_json_variant *t;
 
                         /* We only add structured fields for the 'main' ELF module, and only if we can identify it. */
                         if (!path_equal_filename(module_name, context->meta[META_EXE]))
                                 continue;
 
-                        t = json_variant_by_key(module_json, "name");
+                        t = sd_json_variant_by_key(module_json, "name");
                         if (t)
-                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(t));
+                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", sd_json_variant_string(t));
 
-                        t = json_variant_by_key(module_json, "version");
+                        t = sd_json_variant_by_key(module_json, "version");
                         if (t)
-                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(t));
+                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", sd_json_variant_string(t));
                 }
 
         /* Optionally store the entire coredump in the journal */

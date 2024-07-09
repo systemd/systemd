@@ -24,6 +24,7 @@
     <para><simplelist>
       <member><filename>/etc/sysctl.d/*.conf</filename></member>
       <member><filename>/run/sysctl.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/sysctl.d/*.conf</filename></member>
       <member><filename>/usr/lib/sysctl.d/*.conf</filename></member>
     </simplelist></para>
 

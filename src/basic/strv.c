@@ -11,11 +11,13 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "gunicode.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
 
 char* strv_find(char * const *l, const char *name) {
         assert(name);
@@ -704,6 +706,21 @@ char** strv_sort(char **l) {
         return l;
 }
 
+char** strv_sort_uniq(char **l) {
+        if (strv_isempty(l))
+                return l;
+
+        char **tail = strv_sort(l), *prev = NULL;
+        STRV_FOREACH(i, l)
+                if (streq_ptr(*i, prev))
+                        free(*i);
+                else
+                        *(tail++) = prev = *i;
+
+        *tail = NULL;
+        return l;
+}
+
 int strv_compare(char * const *a, char * const *b) {
         int r;
 
@@ -967,3 +984,91 @@ int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const 
 }
 
 DEFINE_HASH_OPS_FULL(string_strv_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
+
+int strv_rebreak_lines(char **l, size_t width, char ***ret) {
+        _cleanup_strv_free_ char **broken = NULL;
+        int r;
+
+        assert(ret);
+
+        /* Implements a simple UTF-8 line breaking algorithm
+         *
+         * Goes through all entries in *l, and line-breaks each line that is longer than the specified
+         * character width. Breaks at the end of words/beginning of whitespace. Lines that do not contain whitespace are not
+         * broken. Retains whitespace at beginning of lines, removes it at end of lines. */
+
+        if (width == SIZE_MAX) { /* NOP? */
+                broken = strv_copy(l);
+                if (!broken)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(broken);
+                return 0;
+        }
+
+        STRV_FOREACH(i, l) {
+                const char *start = *i, *whitespace_begin = NULL, *whitespace_end = NULL;
+                bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
+                size_t w = 0;
+
+                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                        if (strchr(NEWLINE, *p)) {
+                                in_prefix = true;
+                                whitespace_begin = whitespace_end = NULL;
+                                w = 0;
+                        } else if (strchr(WHITESPACE, *p)) {
+                                if (!in_prefix && (!whitespace_begin || whitespace_end)) {
+                                        whitespace_begin = p;
+                                        whitespace_end = NULL;
+                                }
+                        } else {
+                                if (whitespace_begin && !whitespace_end)
+                                        whitespace_end = p;
+
+                                in_prefix = false;
+                        }
+
+                        int cw = utf8_char_console_width(p);
+                        if (cw < 0) {
+                                log_debug_errno(cw, "Comment to line break contains invalid UTF-8, ignoring.");
+                                cw = 1;
+                        }
+
+                        w += cw;
+
+                        if (w > width && whitespace_begin && whitespace_end) {
+                                _cleanup_free_ char *truncated = NULL;
+
+                                truncated = strndup(start, whitespace_begin - start);
+                                if (!truncated)
+                                        return -ENOMEM;
+
+                                r = strv_consume(&broken, TAKE_PTR(truncated));
+                                if (r < 0)
+                                        return r;
+
+                                p = start = whitespace_end;
+                                whitespace_begin = whitespace_end = NULL;
+                                w = cw;
+                        }
+                }
+
+                /* Process rest of the line */
+                assert(start);
+                if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
+                        r = strv_extend(&broken, "");
+                else if (whitespace_begin && !whitespace_end) { /* Ends in whitespace? Chop it off! */
+                        _cleanup_free_ char *truncated = strndup(start, whitespace_begin - start);
+                        if (!truncated)
+                                return -ENOMEM;
+
+                        r = strv_consume(&broken, TAKE_PTR(truncated));
+                } else /* Otherwise use line as is */
+                        r = strv_extend(&broken, start);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(broken);
+        return 0;
+}

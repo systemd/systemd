@@ -24,6 +24,8 @@ struct Manager {
         Hashmap *machine_units;
         Hashmap *machine_leaders;
 
+        sd_event_source *deferred_gc_event_source;
+
         Hashmap *polkit_registry;
 
         Hashmap *image_cache;
@@ -35,10 +37,6 @@ struct Manager {
 
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
-
-#if ENABLE_NSCD
-        sd_event_source *nscd_cache_flush_event;
-#endif
 
         VarlinkServer *varlink_userdb_server;
         VarlinkServer *varlink_machine_server;
@@ -60,11 +58,8 @@ int manager_unref_unit(Manager *m, const char *unit, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit);
 int manager_job_is_active(Manager *manager, const char *path);
 
-#if ENABLE_NSCD
-int manager_enqueue_nscd_cache_flush(Manager *m);
-#else
-static inline void manager_enqueue_nscd_cache_flush(Manager *m) {}
-#endif
-
 int manager_find_machine_for_uid(Manager *m, uid_t host_uid, Machine **ret_machine, uid_t *ret_internal_uid);
 int manager_find_machine_for_gid(Manager *m, gid_t host_gid, Machine **ret_machine, gid_t *ret_internal_gid);
+
+void manager_gc(Manager *m, bool drop_not_started);
+void manager_enqueue_gc(Manager *m);

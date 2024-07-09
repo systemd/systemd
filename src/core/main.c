@@ -30,6 +30,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
+#include "clock-warp.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
 #include "copy.h"
@@ -1371,7 +1372,7 @@ static void test_usr(void) {
 
         log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+                    "Consult https://systemd.io/SEPARATE_USR_IS_BROKEN for more information.");
 }
 
 static int enforce_syscall_archs(Set *archs) {
@@ -1649,7 +1650,7 @@ static int become_shutdown(int objective, int retval) {
         (void) watchdog_setup_pretimeout(0);
         (void) watchdog_setup_pretimeout_governor(NULL);
         r = watchdog_setup(watchdog_timer);
-        watchdog_close(r < 0);
+        watchdog_close(/* disarm= */ r < 0);
 
         /* The environment block: */
 
@@ -1670,7 +1671,7 @@ static int become_shutdown(int objective, int retval) {
         return -errno;
 }
 
-static void initialize_clock(void) {
+static void initialize_clock_timewarp(void) {
         int r;
 
         /* This is called very early on, before we parse the kernel command line or otherwise figure out why
@@ -1682,7 +1683,7 @@ static void initialize_clock(void) {
                 /* The very first call of settimeofday() also does a time warp in the kernel.
                  *
                  * In the rtc-in-local time mode, we set the kernel's timezone, and rely on external tools to
-                 * take care of maintaining the RTC and do all adjustments.  This matches the behavior of
+                 * take care of maintaining the RTC and do all adjustments. This matches the behavior of
                  * Windows, which leaves the RTC alone if the registry tells that the RTC runs in UTC.
                  */
                 r = clock_set_timezone(&min);
@@ -1704,24 +1705,11 @@ static void initialize_clock(void) {
                  * time concepts will be treated as UTC that way.
                  */
                 (void) clock_reset_timewarp();
-
-        ClockChangeDirection change_dir;
-        r = clock_apply_epoch(&change_dir);
-        if (r > 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_info("System time before build time, advancing clock.");
-        else if (r > 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_info("System time is further ahead than %s after build time, resetting clock to build time.",
-                         FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
-        else if (r < 0 && change_dir == CLOCK_CHANGE_FORWARD)
-                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
-        else if (r < 0 && change_dir == CLOCK_CHANGE_BACKWARD)
-                log_error_errno(r, "Current system time is further ahead %s after build time, but cannot correct: %m",
-                                FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
 }
 
 static void apply_clock_update(void) {
-        /* This is called later than initialize_clock(), i.e. after we parsed configuration files/kernel
-         * command line and such. */
+        /* This is called later than clock_apply_epoch(), i.e. after we have parsed
+         * configuration files/kernel command line and such. */
 
         if (arg_clock_usec == 0)
                 return;
@@ -3048,7 +3036,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (!skip_setup)
-                                initialize_clock();
+                                initialize_clock_timewarp();
+
+                        clock_apply_epoch(/* allow_backwards= */ !skip_setup);
 
                         /* Set the default for later on, but don't actually open the logs like this for
                          * now. Note that if we are transitioning from the initrd there might still be
@@ -3295,15 +3285,15 @@ int main(int argc, char *argv[]) {
                              &switch_root_dir,
                              &switch_root_init,
                              &error_message);
-        assert(r < 0 || IN_SET(r, MANAGER_EXIT,          /* MANAGER_OK is not expected here. */
-                                  MANAGER_RELOAD,
-                                  MANAGER_REEXECUTE,
-                                  MANAGER_REBOOT,
-                                  MANAGER_SOFT_REBOOT,
-                                  MANAGER_POWEROFF,
-                                  MANAGER_HALT,
-                                  MANAGER_KEXEC,
-                                  MANAGER_SWITCH_ROOT));
+        /* MANAGER_OK and MANAGER_RELOAD are not expected here. */
+        assert(r < 0 || IN_SET(r, MANAGER_REEXECUTE, MANAGER_EXIT) ||
+               (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
+                IN_SET(r, MANAGER_REBOOT,
+                          MANAGER_SOFT_REBOOT,
+                          MANAGER_POWEROFF,
+                          MANAGER_HALT,
+                          MANAGER_KEXEC,
+                          MANAGER_SWITCH_ROOT)));
 
 finish:
         pager_close();

@@ -41,6 +41,7 @@
 #include "logarithm.h"
 #include "macro.h"
 #include "mkdir-label.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -127,9 +128,6 @@ Unit* unit_new(Manager *m, size_t size) {
                 .interval = 10 * USEC_PER_SEC,
                 .burst = 16
         };
-
-        unit_reset_memory_accounting_last(u);
-        unit_reset_io_accounting_last(u);
 
         return u;
 }
@@ -483,8 +481,8 @@ bool unit_may_gc(Unit *u) {
         /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
          * around. Units with active processes should never be collected. */
         r = unit_cgroup_is_empty(u);
-        if (r <= 0 && r != -ENXIO)
-                return false; /* ENXIO means: currently not realized */
+        if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
+                return false; /* ENXIO/EOWNERDEAD means: currently not realized */
 
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
@@ -789,7 +787,7 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-        unit_release_cgroup(u);
+        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_unlink_state_files(u);
@@ -842,8 +840,6 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_release_resources_queue)
                 LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
-
-        bpf_firewall_close(u);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -1275,7 +1271,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (c->private_tmp) {
+        if (c->private_tmp == PRIVATE_TMP_CONNECTED) {
                 r = unit_add_mounts_for(u, "/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
@@ -1336,10 +1332,6 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (r < 0)
                         return r;
         }
-
-        r = unit_add_default_credential_dependencies(u, c);
-        if (r < 0)
-                return r;
 
         return 0;
 }
@@ -1405,11 +1397,13 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
                 u->load_state = UNIT_LOADED;
         }
 
+        u = unit_follow_merge(u);
+
         /* Load drop-in directory data. If u is an alias, we might be reloading the
          * target unit needlessly. But we cannot be sure which drops-ins have already
          * been loaded and which not, at least without doing complicated book-keeping,
          * so let's always reread all drop-ins. */
-        r = unit_load_dropin(unit_follow_merge(u));
+        r = unit_load_dropin(u);
         if (r < 0)
                 return r;
 
@@ -1463,6 +1457,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 
 static int unit_add_slice_dependencies(Unit *u) {
         Unit *slice;
+
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1474,8 +1469,12 @@ static int unit_add_slice_dependencies(Unit *u) {
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
         slice = UNIT_GET_SLICE(u);
-        if (slice)
+        if (slice) {
+                if (!IN_SET(slice->freezer_state, FREEZER_RUNNING, FREEZER_THAWING))
+                        u->freezer_state = FREEZER_FROZEN_BY_PARENT;
+
                 return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
+        }
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -1595,26 +1594,36 @@ static int unit_add_startup_units(Unit *u) {
         return set_ensure_put(&u->manager->startup_units, NULL, u);
 }
 
-static int unit_validate_on_failure_job_mode(
-                Unit *u,
-                const char *job_mode_setting,
-                JobMode job_mode,
-                const char *dependency_name,
-                UnitDependencyAtom atom) {
+static const struct {
+        UnitDependencyAtom atom;
+        size_t job_mode_offset;
+        const char *dependency_name;
+        const char *job_mode_setting_name;
+} on_termination_settings[] = {
+        { UNIT_ATOM_ON_SUCCESS, offsetof(Unit, on_success_job_mode), "OnSuccess=", "OnSuccessJobMode=" },
+        { UNIT_ATOM_ON_FAILURE, offsetof(Unit, on_failure_job_mode), "OnFailure=", "OnFailureJobMode=" },
+};
 
-        Unit *other, *found = NULL;
+static int unit_validate_on_termination_job_modes(Unit *u) {
+        assert(u);
 
-        if (job_mode != JOB_ISOLATE)
-                return 0;
+        /* Verify that if On{Success,Failure}JobMode=isolate, only one unit gets specified. */
 
-        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
-                if (!found)
-                        found = other;
-                else if (found != other)
-                        return log_unit_error_errno(
-                                        u, SYNTHETIC_ERRNO(ENOEXEC),
-                                        "More than one %s dependencies specified but %sisolate set. Refusing.",
-                                        dependency_name, job_mode_setting);
+        FOREACH_ELEMENT(setting, on_termination_settings) {
+                JobMode job_mode = *(JobMode*) ((uint8_t*) u + setting->job_mode_offset);
+
+                if (job_mode != JOB_ISOLATE)
+                        continue;
+
+                Unit *other, *found = NULL;
+                UNIT_FOREACH_DEPENDENCY(other, u, setting->atom) {
+                        if (!found)
+                                found = other;
+                        else if (found != other)
+                                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
+                                                            "More than one %s dependencies specified but %sisolate set. Refusing.",
+                                                            setting->dependency_name, setting->job_mode_setting_name);
+                }
         }
 
         return 0;
@@ -1673,11 +1682,7 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_failure_job_mode(u, "OnSuccessJobMode=", u->on_success_job_mode, "OnSuccess=", UNIT_ATOM_ON_SUCCESS);
-                if (r < 0)
-                        goto fail;
-
-                r = unit_validate_on_failure_job_mode(u, "OnFailureJobMode=", u->on_failure_job_mode, "OnFailure=", UNIT_ATOM_ON_FAILURE);
+                r = unit_validate_on_termination_job_modes(u);
                 if (r < 0)
                         goto fail;
 
@@ -2241,40 +2246,43 @@ static void retroactively_stop_dependencies(Unit *u) {
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
-void unit_start_on_failure(
-                Unit *u,
-                const char *dependency_name,
-                UnitDependencyAtom atom,
-                JobMode job_mode) {
-
-        int n_jobs = -1;
-        Unit *other;
+void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
+        const char *dependency_name = NULL;
+        JobMode job_mode;
+        unsigned n_jobs = 0;
         int r;
-
-        assert(u);
-        assert(dependency_name);
-        assert(IN_SET(atom, UNIT_ATOM_ON_SUCCESS, UNIT_ATOM_ON_FAILURE));
 
         /* Act on OnFailure= and OnSuccess= dependencies */
 
+        assert(u);
+        assert(u->manager);
+        assert(IN_SET(atom, UNIT_ATOM_ON_SUCCESS, UNIT_ATOM_ON_FAILURE));
+
+        FOREACH_ELEMENT(setting, on_termination_settings)
+                if (atom == setting->atom) {
+                        job_mode = *(JobMode*) ((uint8_t*) u + setting->job_mode_offset);
+                        dependency_name = setting->dependency_name;
+                        break;
+                }
+
+        assert(dependency_name);
+
+        Unit *other;
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                if (n_jobs < 0) {
+                if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
-                        n_jobs = 0;
-                }
 
                 r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
-                        log_unit_warning_errno(
-                                        u, r, "Failed to enqueue %s job, ignoring: %s",
-                                        dependency_name, bus_error_message(&error, r));
+                        log_unit_warning_errno(u, r, "Failed to enqueue %s%s job, ignoring: %s",
+                                               dependency_name, other->id, bus_error_message(&error, r));
                 n_jobs++;
         }
 
-        if (n_jobs >= 0)
-                log_unit_debug(u, "Triggering %s dependencies done (%i %s).",
+        if (n_jobs > 0)
+                log_unit_debug(u, "Triggering %s dependencies done (%u %s).",
                                dependency_name, n_jobs, n_jobs == 1 ? "job" : "jobs");
 }
 
@@ -2592,9 +2600,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
-        const char *reason;
-        Manager *m;
-
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
         assert(ns < _UNIT_ACTIVE_STATE_MAX);
@@ -2603,23 +2608,22 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * UnitActiveState! That means that ns == os is an expected behavior here. For example: if a mount point is
          * remounted this function will be called too! */
 
-        m = u->manager;
+        Manager *m = ASSERT_PTR(u->manager);
 
         /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
          * the bus queue, so that any job change signal queued will force out the unit change signal first. */
         unit_add_to_dbus_queue(u);
 
-        /* Update systemd-oomd on the property/state change */
-        if (os != ns) {
-                /* Always send an update if the unit is going into an inactive state so systemd-oomd knows to stop
-                 * monitoring.
-                 * Also send an update whenever the unit goes active; this is to handle a case where an override file
-                 * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
-                 * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
-                 * have the information on the property. Thus, indiscriminately send an update. */
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        (void) manager_varlink_send_managed_oom_update(u);
-        }
+        /* Update systemd-oomd on the property/state change.
+         *
+         * Always send an update if the unit is going into an inactive state so systemd-oomd knows to
+         * stop monitoring.
+         * Also send an update whenever the unit goes active; this is to handle a case where an override file
+         * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
+         * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
+         * have the information on the property. Thus, indiscriminately send an update. */
+        if (os != ns && (UNIT_IS_INACTIVE_OR_FAILED(ns) || UNIT_IS_ACTIVE_OR_RELOADING(ns)))
+                (void) manager_varlink_send_managed_oom_update(u);
 
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
@@ -2671,20 +2675,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                                 retroactively_stop_dependencies(u);
                 }
 
-                if (ns != os && ns == UNIT_FAILED) {
-                        log_unit_debug(u, "Unit entered failed state.");
-                        unit_start_on_failure(u, "OnFailure=", UNIT_ATOM_ON_FAILURE, u->on_failure_job_mode);
-                }
-
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns) && !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* This unit just finished starting up */
 
                         unit_emit_audit_start(u);
                         manager_send_unit_plymouth(m, u);
                         manager_send_unit_supervisor(m, u, /* active= */ true);
-                }
 
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
+                } else if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
 
                         unit_emit_audit_stop(u, ns);
@@ -2693,7 +2691,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 }
 
                 if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE))
-                        unit_start_on_failure(u, "OnSuccess=", UNIT_ATOM_ON_SUCCESS, u->on_success_job_mode);
+                        unit_start_on_termination_deps(u, UNIT_ATOM_ON_SUCCESS);
+                else if (ns != os && ns == UNIT_FAILED)
+                        unit_start_on_termination_deps(u, UNIT_ATOM_ON_FAILURE);
         }
 
         manager_recheck_journal(m);
@@ -2702,6 +2702,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         unit_trigger_notify(u);
 
         if (!MANAGER_IS_RELOADING(m)) {
+                const char *reason;
+
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
                         emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
@@ -2730,9 +2732,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 /* Maybe we can release some resources now? */
                 unit_submit_to_release_resources_queue(u);
-        }
 
-        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+        } else if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                 /* Start uphold units regardless if going up was expected or not */
                 check_uphold_dependencies(u);
 
@@ -2801,13 +2802,8 @@ int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         new_array[n] = u;
         new_array[n+1] = NULL;
 
-        /* Make sure the hashmap is allocated */
-        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops_free);
-        if (r < 0)
-                return r;
-
         /* Add or replace the old array */
-        r = hashmap_replace(u->manager->watch_pids_more, old_pid ?: pid, new_array);
+        r = hashmap_ensure_replace(&u->manager->watch_pids_more, &pidref_hash_ops_free, old_pid ?: pid, new_array);
         if (r < 0)
                 return r;
 
@@ -2978,15 +2974,7 @@ int unit_enqueue_rewatch_pids(Unit *u) {
 }
 
 void unit_dequeue_rewatch_pids(Unit *u) {
-        int r;
         assert(u);
-
-        if (!u->rewatch_pids_event_source)
-                return;
-
-        r = sd_event_source_set_enabled(u->rewatch_pids_event_source, SD_EVENT_OFF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable event source for tidying watched PIDs, ignoring: %m");
 
         u->rewatch_pids_event_source = sd_event_source_disable_unref(u->rewatch_pids_event_source);
 }
@@ -3186,8 +3174,8 @@ int unit_add_dependency(
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
 
-        /* Note that ordering a device unit after a unit is permitted since it allows to start its job
-         * running timeout at a specific time. */
+        /* Note that ordering a device unit after a unit is permitted since it allows its job running
+         * timeout to be started at a specific time. */
         if (FLAGS_SET(a, UNIT_ATOM_BEFORE) && other->type == UNIT_DEVICE) {
                 log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
@@ -3342,7 +3330,7 @@ int set_unit_path(const char *p) {
         return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
 }
 
-char *unit_dbus_path(Unit *u) {
+char* unit_dbus_path(Unit *u) {
         assert(u);
 
         if (!u->id)
@@ -3351,7 +3339,7 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-char *unit_dbus_path_invocation_id(Unit *u) {
+char* unit_dbus_path_invocation_id(Unit *u) {
         assert(u);
 
         if (sd_id128_is_null(u->invocation_id))
@@ -3496,7 +3484,7 @@ int unit_set_default_slice(Unit *u) {
         return unit_set_slice(u, slice);
 }
 
-const char *unit_slice_name(Unit *u) {
+const char* unit_slice_name(Unit *u) {
         Unit *slice;
         assert(u);
 
@@ -4016,7 +4004,7 @@ static int unit_kill_one(
 
 int unit_kill(
                 Unit *u,
-                KillWho who,
+                KillWhom whom,
                 int signo,
                 int code,
                 int value,
@@ -4031,8 +4019,8 @@ int unit_kill(
          * stop a service ourselves. */
 
         assert(u);
-        assert(who >= 0);
-        assert(who < _KILL_WHO_MAX);
+        assert(whom >= 0);
+        assert(whom < _KILL_WHOM_MAX);
         assert(SIGNAL_VALID(signo));
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
@@ -4042,27 +4030,27 @@ int unit_kill(
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
                 return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(main_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (!control_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(control_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, control_pid, "control", signo, code, value, ret_error);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
         }
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, main_pid, "main", signo, code, value, ret >= 0 ? ret_error : NULL);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
@@ -4071,7 +4059,7 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
                 if (crt && crt->cgroup_path) {
@@ -4103,7 +4091,7 @@ int unit_kill(
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret >= 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return ret;
@@ -4217,6 +4205,25 @@ static int user_from_unit_name(Unit *u, char **ret) {
         return 0;
 }
 
+static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
+        assert(u);
+
+        if (!ec)
+                return 0;
+
+        if (MANAGER_IS_USER(u->manager) && ec->dynamic_user)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "DynamicUser= enabled for user unit, which is not supported. Refusing.");
+
+        if (ec->dynamic_user && ec->working_directory_home)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
+
+        if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
+            exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
+
+        return 0;
+}
+
 int unit_patch_contexts(Unit *u) {
         CGroupContext *cc;
         ExecContext *ec;
@@ -4238,16 +4245,14 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (MANAGER_IS_USER(u->manager) &&
-                    !ec->working_directory) {
-
+                if (MANAGER_IS_USER(u->manager) && !ec->working_directory) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
 
-                        /* Allow user services to run, even if the
-                         * home directory is missing */
-                        ec->working_directory_missing_ok = true;
+                        if (!ec->working_directory_home)
+                                /* If home directory is implied by us, allow it to be missing. */
+                                ec->working_directory_missing_ok = true;
                 }
 
                 if (ec->private_devices)
@@ -4279,7 +4284,11 @@ int unit_patch_contexts(Unit *u) {
                          * UID/GID around in the file system or on IPC objects. Hence enforce a strict
                          * sandbox. */
 
-                        ec->private_tmp = true;
+                        /* With DynamicUser= we want private directories, so if the user hasn't manually
+                         * selected PrivateTmp=, enable it, but to a fully private (disconnected) tmpfs
+                         * instance. */
+                        if (ec->private_tmp == PRIVATE_TMP_OFF)
+                                ec->private_tmp = PRIVATE_TMP_DISCONNECTED;
                         ec->remove_ipc = true;
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
                         if (ec->protect_home == PROTECT_HOME_NO)
@@ -4342,7 +4351,7 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
-        return 0;
+        return unit_verify_contexts(u, ec);
 }
 
 ExecContext *unit_get_exec_context(const Unit *u) {
@@ -4561,12 +4570,9 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         }
 
         if (u->transient_file) {
-                /* When this is a transient unit file in creation, then let's not create a new drop-in but instead
-                 * write to the transient unit file. */
-                fputs(data, u->transient_file);
-
-                if (!endswith(data, "\n"))
-                        fputc('\n', u->transient_file);
+                /* When this is a transient unit file in creation, then let's not create a new drop-in,
+                 * but instead write to the transient unit file. */
+                fputs_with_newline(u->transient_file, data);
 
                 /* Remember which section we wrote this entry to */
                 u->last_section_private = !!(flags & UNIT_PRIVATE);
@@ -6091,7 +6097,7 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
         if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
-        exec_context_destroy_credentials(u);
+        exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
         exec_context_destroy_mount_ns_dir(u);
 }
 

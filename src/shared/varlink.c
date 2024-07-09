@@ -7,11 +7,13 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "list.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -27,8 +29,8 @@
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-internal.h"
-#include "varlink-org.varlink.service.h"
 #include "varlink-io.systemd.h"
+#include "varlink-org.varlink.service.h"
 #include "version.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
@@ -100,7 +102,7 @@ typedef struct VarlinkJsonQueueItem VarlinkJsonQueueItem;
  * whole pipeline. */
 struct VarlinkJsonQueueItem {
         LIST_FIELDS(VarlinkJsonQueueItem, queue);
-        JsonVariant *data;
+        sd_json_variant *data;
         size_t n_fds;
         int fds[];
 };
@@ -138,7 +140,8 @@ struct Varlink {
                           * at most. */
         unsigned n_pending;
 
-        int fd;
+        int input_fd;
+        int output_fd;
 
         char *input_buffer; /* valid data starts at input_buffer_index, ends at input_buffer_index+input_buffer_size */
         size_t input_buffer_index;
@@ -173,8 +176,8 @@ struct Varlink {
 
         VarlinkReply reply_callback;
 
-        JsonVariant *current;
-        JsonVariant *current_collected;
+        sd_json_variant *current;
+        sd_json_variant *current_collected;
         VarlinkReplyFlags current_reply_flags;
         VarlinkSymbol *current_method;
 
@@ -184,7 +187,8 @@ struct Varlink {
 
         bool write_disconnected:1;
         bool read_disconnected:1;
-        bool prefer_read_write:1;
+        bool prefer_read:1;
+        bool prefer_write:1;
         bool got_pollhup:1;
 
         bool allow_fd_passing_input:1;
@@ -202,7 +206,8 @@ struct Varlink {
         char *description;
 
         sd_event *event;
-        sd_event_source *io_event_source;
+        sd_event_source *input_event_source;
+        sd_event_source *output_event_source;
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
@@ -303,13 +308,13 @@ static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *
         if (!q)
                 return NULL;
 
-        json_variant_unref(q->data);
+        sd_json_variant_unref(q->data);
         close_many(q->fds, q->n_fds);
 
         return mfree(q);
 }
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_new(JsonVariant *m, const int fds[], size_t n_fds) {
+static VarlinkJsonQueueItem *varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
         VarlinkJsonQueueItem *q;
 
         assert(m);
@@ -320,7 +325,7 @@ static VarlinkJsonQueueItem *varlink_json_queue_item_new(JsonVariant *m, const i
                 return NULL;
 
         *q = (VarlinkJsonQueueItem) {
-                .data = json_variant_ref(m),
+                .data = sd_json_variant_ref(m),
                 .n_fds = n_fds,
         };
 
@@ -356,7 +361,8 @@ static int varlink_new(Varlink **ret) {
 
         *v = (Varlink) {
                 .n_ref = 1,
-                .fd = -EBADF,
+                .input_fd = -EBADF,
+                .output_fd = -EBADF,
 
                 .state = _VARLINK_STATE_INVALID,
 
@@ -386,11 +392,11 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (v->fd < 0)
+        v->input_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (v->input_fd < 0)
                 return log_debug_errno(errno, "Failed to create AF_UNIX socket: %m");
 
-        v->fd = fd_move_above_stdio(v->fd);
+        v->output_fd = v->input_fd = fd_move_above_stdio(v->input_fd);
         v->af = AF_UNIX;
 
         r = sockaddr_un_set_path(&sockaddr.un, address);
@@ -401,9 +407,9 @@ int varlink_connect_address(Varlink **ret, const char *address) {
                 /* This is a file system path, and too long to fit into sockaddr_un. Let's connect via O_PATH
                  * to this socket. */
 
-                r = connect_unix_path(v->fd, AT_FDCWD, address);
+                r = connect_unix_path(v->input_fd, AT_FDCWD, address);
         } else
-                r = RET_NERRNO(connect(v->fd, &sockaddr.sa, r));
+                r = RET_NERRNO(connect(v->input_fd, &sockaddr.sa, r));
 
         if (r < 0) {
                 if (!IN_SET(r, -EAGAIN, -EINPROGRESS))
@@ -506,7 +512,7 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->fd = TAKE_FD(pair[0]);
+        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
         v->af = AF_UNIX;
         v->exec_pid = TAKE_PID(pid);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
@@ -515,7 +521,18 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         return 0;
 }
 
-static int varlink_connect_ssh(Varlink **ret, const char *where) {
+static int ssh_path(const char **ret) {
+        assert(ret);
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        if (!path_is_valid(ssh))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+
+        *ret = ssh;
+        return 0;
+}
+
+static int varlink_connect_ssh_unix(Varlink **ret, const char *where) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
@@ -526,9 +543,10 @@ static int varlink_connect_ssh(Varlink **ret, const char *where) {
         /* Connects to an SSH server via OpenSSH 9.4's -W switch to connect to a remote AF_UNIX socket. For
          * now we do not expose this function directly, but only via varlink_connect_url(). */
 
-        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
-        if (!path_is_valid(ssh))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+        const char *ssh;
+        r = ssh_path(&ssh);
+        if (r < 0)
+                return r;
 
         const char *e = strchr(where, ':');
         if (!e)
@@ -582,8 +600,101 @@ static int varlink_connect_ssh(Varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->fd = TAKE_FD(pair[0]);
+        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
         v->af = AF_UNIX;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
+static int varlink_connect_ssh_exec(Varlink **ret, const char *where) {
+        _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(where, -EINVAL);
+
+        /* Connects to an SSH server to connect to a remote process' stdin/stdout. For now we do not expose
+         * this function directly, but only via varlink_connect_url(). */
+
+        const char *ssh;
+        r = ssh_path(&ssh);
+        if (r < 0)
+                return r;
+
+        const char *e = strchr(where, ':');
+        if (!e)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH specification lacks a : separator between host and path, refusing: %s", where);
+
+        _cleanup_free_ char *h = strndup(where, e - where);
+        if (!h)
+                return log_oom_debug();
+
+        _cleanup_strv_free_ char **cmdline = NULL;
+        r = strv_split_full(&cmdline, e + 1, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to split command line: %m");
+        if (strv_isempty(cmdline))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote command line is empty, refusing.");
+
+        _cleanup_strv_free_ char **full_cmdline = NULL;
+        full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
+        if (!full_cmdline)
+                return log_oom_debug();
+        r = strv_extend_strv(&full_cmdline, cmdline, /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom_debug();
+
+        _cleanup_free_ char *j = NULL;
+        j = quote_command_line(full_cmdline, SHELL_ESCAPE_EMPTY);
+        if (!j)
+                return log_oom_debug();
+
+        log_debug("Forking off SSH child process: %s", j);
+
+        if (pipe2(input_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to allocate input pipe: %m");
+        if (pipe2(output_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to allocate output pipe: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlssh)",
+                        /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                /* Child */
+                execvp(ssh, full_cmdline);
+                log_debug_errno(errno, "Failed to invoke %s: %m", j);
+                _exit(EXIT_FAILURE);
+        }
+
+        input_pipe[0] = safe_close(input_pipe[0]);
+        output_pipe[1] = safe_close(output_pipe[1]);
+
+        r = fd_nonblock(input_pipe[1], true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make input pipe non-blocking: %m");
+
+        r = fd_nonblock(output_pipe[0], true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->input_fd = TAKE_FD(output_pipe[0]);
+        v->output_fd = TAKE_FD(input_pipe[1]);
+        v->af = AF_UNSPEC;
         v->exec_pid = TAKE_PID(pid);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -597,7 +708,8 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         enum {
                 SCHEME_UNIX,
                 SCHEME_EXEC,
-                SCHEME_SSH,
+                SCHEME_SSH_UNIX,
+                SCHEME_SSH_EXEC,
         } scheme;
         int r;
 
@@ -615,8 +727,10 @@ int varlink_connect_url(Varlink **ret, const char *url) {
                 scheme = SCHEME_UNIX;
         else if ((p = startswith(url, "exec:")))
                 scheme = SCHEME_EXEC;
-        else if ((p = startswith(url, "ssh:")))
-                scheme = SCHEME_SSH;
+        else if ((p = STARTSWITH_SET(url, "ssh:", "ssh-unix:")))
+                scheme = SCHEME_SSH_UNIX;
+        else if ((p = startswith(url, "ssh-exec:")))
+                scheme = SCHEME_SSH_EXEC;
         else
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
 
@@ -625,8 +739,10 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
-        if (scheme == SCHEME_SSH)
-                return varlink_connect_ssh(ret, p);
+        if (scheme == SCHEME_SSH_UNIX)
+                return varlink_connect_ssh_unix(ret, p);
+        if (scheme == SCHEME_SSH_EXEC)
+                return varlink_connect_ssh_exec(ret, p);
 
         if (scheme == SCHEME_EXEC || p[0] != '@') { /* no path validity checks for abstract namespace sockets */
 
@@ -647,23 +763,37 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         return varlink_connect_address(ret, c ?: p);
 }
 
-int varlink_connect_fd(Varlink **ret, int fd) {
+int varlink_connect_fd_pair(Varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred) {
         Varlink *v;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(input_fd, true);
         if (r < 0)
-                return log_debug_errno(r, "Failed to make fd %d nonblocking: %m", fd);
+                return log_debug_errno(r, "Failed to make input fd %d nonblocking: %m", input_fd);
+
+        if (input_fd != output_fd) {
+                r = fd_nonblock(output_fd, true);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make output fd %d nonblocking: %m", output_fd);
+        }
 
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->fd = fd;
-        v->af = -1,
+        v->input_fd = input_fd;
+        v->output_fd = output_fd;
+        v->af = -1;
+
+        if (override_ucred) {
+                v->ucred = *override_ucred;
+                v->ucred_acquired = true;
+        }
+
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         /* Note that if this function is called we assume the passed socket (if it is one) is already
@@ -677,10 +807,15 @@ int varlink_connect_fd(Varlink **ret, int fd) {
         return 0;
 }
 
+int varlink_connect_fd(Varlink **ret, int fd) {
+        return varlink_connect_fd_pair(ret, fd, fd, /* override_ucred= */ NULL);
+}
+
 static void varlink_detach_event_sources(Varlink *v) {
         assert(v);
 
-        v->io_event_source = sd_event_source_disable_unref(v->io_event_source);
+        v->input_event_source = sd_event_source_disable_unref(v->input_event_source);
+        v->output_event_source = sd_event_source_disable_unref(v->output_event_source);
         v->time_event_source = sd_event_source_disable_unref(v->time_event_source);
         v->quit_event_source = sd_event_source_disable_unref(v->quit_event_source);
         v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
@@ -690,8 +825,8 @@ static void varlink_clear_current(Varlink *v) {
         assert(v);
 
         /* Clears the currently processed incoming message */
-        v->current = json_variant_unref(v->current);
-        v->current_collected = json_variant_unref(v->current_collected);
+        v->current = sd_json_variant_unref(v->current);
+        v->current_collected = sd_json_variant_unref(v->current_collected);
         v->current_method = NULL;
         v->current_reply_flags = 0;
 
@@ -705,7 +840,11 @@ static void varlink_clear(Varlink *v) {
 
         varlink_detach_event_sources(v);
 
-        v->fd = safe_close(v->fd);
+        if (v->input_fd != v->output_fd) {
+                v->input_fd = safe_close(v->input_fd);
+                v->output_fd = safe_close(v->output_fd);
+        } else
+                v->output_fd = v->input_fd = safe_close(v->input_fd);
 
         varlink_clear_current(v);
 
@@ -820,7 +959,7 @@ static int varlink_write(Varlink *v) {
         if (v->output_buffer_size == 0)
                 return 0;
 
-        assert(v->fd >= 0);
+        assert(v->output_fd >= 0);
 
         if (v->n_output_fds > 0) { /* If we shall send fds along, we must use sendmsg() */
                 struct iovec iov = {
@@ -841,20 +980,20 @@ static int varlink_write(Varlink *v) {
                 control->cmsg_type = SCM_RIGHTS;
                 memcpy(CMSG_DATA(control), v->output_fds, sizeof(int) * v->n_output_fds);
 
-                n = sendmsg(v->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+                n = sendmsg(v->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
         } else {
                 /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
                  * with non-socket IO, hence fall back automatically.
                  *
                  * Use a local variable to help gcc figure out that we set 'n' in all cases. */
-                bool prefer_write = v->prefer_read_write;
+                bool prefer_write = v->prefer_write;
                 if (!prefer_write) {
-                        n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
+                        n = send(v->output_fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
                         if (n < 0 && errno == ENOTSOCK)
-                                prefer_write = v->prefer_read_write = true;
+                                prefer_write = v->prefer_write = true;
                 }
                 if (prefer_write)
-                        n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
+                        n = write(v->output_fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         }
         if (n < 0) {
                 if (errno == EAGAIN)
@@ -913,7 +1052,7 @@ static int varlink_read(Varlink *v) {
         if (v->input_buffer_size >= VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
-        assert(v->fd >= 0);
+        assert(v->input_fd >= 0);
 
         if (MALLOC_SIZEOF_SAFE(v->input_buffer) <= v->input_buffer_index + v->input_buffer_size) {
                 size_t add;
@@ -960,16 +1099,16 @@ static int varlink_read(Varlink *v) {
                         .msg_controllen = v->input_control_buffer_size,
                 };
 
-                n = recvmsg_safe(v->fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                n = recvmsg_safe(v->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         } else {
-                bool prefer_read = v->prefer_read_write;
+                bool prefer_read = v->prefer_read;
                 if (!prefer_read) {
-                        n = recv(v->fd, p, rs, MSG_DONTWAIT);
+                        n = recv(v->input_fd, p, rs, MSG_DONTWAIT);
                         if (n < 0 && errno == ENOTSOCK)
-                                prefer_read = v->prefer_read_write = true;
+                                prefer_read = v->prefer_read = true;
                 }
                 if (prefer_read)
-                        n = read(v->fd, p, rs);
+                        n = read(v->input_fd, p, rs);
         }
         if (n < 0) {
                 if (errno == EAGAIN)
@@ -1053,7 +1192,7 @@ static int varlink_parse_message(Varlink *v) {
 
         sz = e - begin + 1;
 
-        r = json_parse(begin, 0, &v->current, NULL, NULL);
+        r = sd_json_parse(begin, 0, &v->current, NULL, NULL);
         if (v->input_sensitive)
                 explicit_bzero_safe(begin, sz);
         if (r < 0) {
@@ -1065,16 +1204,16 @@ static int varlink_parse_message(Varlink *v) {
 
         if (v->input_sensitive) {
                 /* Mark the parameters subfield as sensitive right-away, if that's requested */
-                JsonVariant *parameters = json_variant_by_key(v->current, "parameters");
+                sd_json_variant *parameters = sd_json_variant_by_key(v->current, "parameters");
                 if (parameters)
-                        json_variant_sensitive(parameters);
+                        sd_json_variant_sensitive(parameters);
         }
 
         if (DEBUG_LOGGING) {
                 _cleanup_(erase_and_freep) char *censored_text = NULL;
 
                 /* Suppress sensitive fields in the debug output */
-                r = json_variant_format(v->current, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                r = sd_json_variant_format(v->current, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
                 if (r < 0)
                         return r;
 
@@ -1150,36 +1289,36 @@ static int varlink_dispatch_disconnect(Varlink *v) {
         return 1;
 }
 
-static int varlink_sanitize_parameters(JsonVariant **v) {
+static int varlink_sanitize_parameters(sd_json_variant **v) {
         int r;
 
         assert(v);
 
         /* Varlink always wants a parameters list, hence make one if the caller doesn't want any */
         if (!*v)
-                return json_variant_new_object(v, NULL, 0);
-        if (json_variant_is_null(*v)) {
-                JsonVariant *empty;
+                return sd_json_variant_new_object(v, NULL, 0);
+        if (sd_json_variant_is_null(*v)) {
+                sd_json_variant *empty;
 
-                r = json_variant_new_object(&empty, NULL, 0);
+                r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
 
-                json_variant_unref(*v);
+                sd_json_variant_unref(*v);
                 *v = empty;
                 return 0;
         }
-        if (!json_variant_is_object(*v))
+        if (!sd_json_variant_is_object(*v))
                 return -EINVAL;
 
         return 0;
 }
 
 static int varlink_dispatch_reply(Varlink *v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         VarlinkReplyFlags flags = 0;
         const char *error = NULL;
-        JsonVariant *e;
+        sd_json_variant *e;
         const char *k;
         int r;
 
@@ -1192,7 +1331,7 @@ static int varlink_dispatch_reply(Varlink *v) {
 
         assert(v->n_pending > 0);
 
-        if (!json_variant_is_object(v->current))
+        if (!sd_json_variant_is_object(v->current))
                 goto invalid;
 
         JSON_VARIANT_OBJECT_FOREACH(k, e, v->current) {
@@ -1200,28 +1339,28 @@ static int varlink_dispatch_reply(Varlink *v) {
                 if (streq(k, "error")) {
                         if (error)
                                 goto invalid;
-                        if (!json_variant_is_string(e))
+                        if (!sd_json_variant_is_string(e))
                                 goto invalid;
 
-                        error = json_variant_string(e);
+                        error = sd_json_variant_string(e);
                         flags |= VARLINK_REPLY_ERROR;
 
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
+                        if (!sd_json_variant_is_object(e) && !sd_json_variant_is_null(e))
                                 goto invalid;
 
-                        parameters = json_variant_ref(e);
+                        parameters = sd_json_variant_ref(e);
 
                 } else if (streq(k, "continues")) {
                         if (FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
                                 goto invalid;
 
-                        if (!json_variant_is_boolean(e))
+                        if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
 
-                        if (json_variant_boolean(e))
+                        if (sd_json_variant_boolean(e))
                                 flags |= VARLINK_REPLY_CONTINUES;
                 } else
                         goto invalid;
@@ -1281,7 +1420,7 @@ invalid:
 
 static int generic_method_get_info(
                 Varlink *link,
-                JsonVariant *parameters,
+                sd_json_variant *parameters,
                 VarlinkMethodFlags flags,
                 void *userdata) {
 
@@ -1291,7 +1430,7 @@ static int generic_method_get_info(
 
         assert(link);
 
-        if (json_variant_elements(parameters) != 0)
+        if (sd_json_variant_elements(parameters) != 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
         product = strjoin("systemd (", program_invocation_short_name, ")");
@@ -1307,22 +1446,23 @@ static int generic_method_get_info(
 
         strv_sort(interfaces);
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
-                                              JSON_BUILD_PAIR_STRING("product", product),
-                                              JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
-                                              JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
-                                              JSON_BUILD_PAIR_STRV("interfaces", interfaces)));
+        return varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
+                        SD_JSON_BUILD_PAIR_STRING("product", product),
+                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
+                        SD_JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
+                        SD_JSON_BUILD_PAIR_STRV("interfaces", interfaces));
 }
 
 static int generic_method_get_interface_description(
                 Varlink *link,
-                JsonVariant *parameters,
+                sd_json_variant *parameters,
                 VarlinkMethodFlags flags,
                 void *userdata) {
 
-        static const struct JsonDispatch dispatch_table[] = {
-                { "interface",  JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY },
+        static const struct sd_json_dispatch_field dispatch_table[] = {
+                { "interface",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                 {}
         };
         _cleanup_free_ char *text = NULL;
@@ -1332,30 +1472,31 @@ static int generic_method_get_interface_description(
 
         assert(link);
 
-        r = json_dispatch(parameters, dispatch_table, 0, &name);
+        r = sd_json_dispatch(parameters, dispatch_table, 0, &name);
         if (r < 0)
                 return r;
 
         interface = hashmap_get(ASSERT_PTR(link->server)->interfaces, name);
         if (!interface)
-                return varlink_errorb(link, VARLINK_ERROR_INTERFACE_NOT_FOUND,
-                                      JSON_BUILD_OBJECT(
-                                                      JSON_BUILD_PAIR_STRING("interface", name)));
+                return varlink_errorbo(
+                                link,
+                                VARLINK_ERROR_INTERFACE_NOT_FOUND,
+                                SD_JSON_BUILD_PAIR_STRING("interface", name));
 
         r = varlink_idl_format(interface, &text);
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link,
-                           JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR_STRING("description", text)));
+        return varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("description", text));
 }
 
 static int varlink_dispatch_method(Varlink *v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         VarlinkMethodFlags flags = 0;
         const char *method = NULL;
-        JsonVariant *e;
+        sd_json_variant *e;
         VarlinkMethod callback;
         const char *k;
         int r;
@@ -1367,7 +1508,7 @@ static int varlink_dispatch_method(Varlink *v) {
         if (!v->current)
                 return 0;
 
-        if (!json_variant_is_object(v->current))
+        if (!sd_json_variant_is_object(v->current))
                 goto invalid;
 
         JSON_VARIANT_OBJECT_FOREACH(k, e, v->current) {
@@ -1375,28 +1516,28 @@ static int varlink_dispatch_method(Varlink *v) {
                 if (streq(k, "method")) {
                         if (method)
                                 goto invalid;
-                        if (!json_variant_is_string(e))
+                        if (!sd_json_variant_is_string(e))
                                 goto invalid;
 
-                        method = json_variant_string(e);
+                        method = sd_json_variant_string(e);
 
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
+                        if (!sd_json_variant_is_object(e) && !sd_json_variant_is_null(e))
                                 goto invalid;
 
-                        parameters = json_variant_ref(e);
+                        parameters = sd_json_variant_ref(e);
 
                 } else if (streq(k, "oneway")) {
 
                         if ((flags & (VARLINK_METHOD_ONEWAY|VARLINK_METHOD_MORE)) != 0)
                                 goto invalid;
 
-                        if (!json_variant_is_boolean(e))
+                        if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
 
-                        if (json_variant_boolean(e))
+                        if (sd_json_variant_boolean(e))
                                 flags |= VARLINK_METHOD_ONEWAY;
 
                 } else if (streq(k, "more")) {
@@ -1404,10 +1545,10 @@ static int varlink_dispatch_method(Varlink *v) {
                         if ((flags & (VARLINK_METHOD_ONEWAY|VARLINK_METHOD_MORE)) != 0)
                                 goto invalid;
 
-                        if (!json_variant_is_boolean(e))
+                        if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
 
-                        if (json_variant_boolean(e))
+                        if (sd_json_variant_boolean(e))
                                 flags |= VARLINK_METHOD_MORE;
 
                 } else
@@ -1474,7 +1615,7 @@ static int varlink_dispatch_method(Varlink *v) {
                         }
                 }
         } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
-                r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
+                r = varlink_errorbo(v, VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)));
                 if (r < 0)
                         return r;
         }
@@ -1619,20 +1760,20 @@ int varlink_dispatch_again(Varlink *v) {
         return 0;
 }
 
-int varlink_get_current_parameters(Varlink *v, JsonVariant **ret) {
-        JsonVariant *p;
+int varlink_get_current_parameters(Varlink *v, sd_json_variant **ret) {
+        sd_json_variant *p;
 
         assert_return(v, -EINVAL);
 
         if (!v->current)
                 return -ENODATA;
 
-        p = json_variant_by_key(v->current, "parameters");
+        p = sd_json_variant_by_key(v->current, "parameters");
         if (!p)
                 return -ENODATA;
 
         if (ret)
-                *ret = json_variant_ref(p);
+                *ret = sd_json_variant_ref(p);
 
         return 0;
 }
@@ -1663,7 +1804,7 @@ static void handle_revents(Varlink *v, int revents) {
 }
 
 int varlink_wait(Varlink *v, usec_t timeout) {
-        int r, fd, events;
+        int r, events;
         usec_t t;
 
         assert_return(v, -EINVAL);
@@ -1688,22 +1829,42 @@ int varlink_wait(Varlink *v, usec_t timeout) {
             (t == USEC_INFINITY || timeout < t))
                 t = timeout;
 
-        fd = varlink_get_fd(v);
-        if (fd < 0)
-                return fd;
-
         events = varlink_get_events(v);
         if (events < 0)
                 return events;
 
-        r = fd_wait_for_event(fd, events, t);
+        struct pollfd pollfd[2];
+        size_t n_poll_fd = 0;
+
+        if (v->input_fd == v->output_fd) {
+                pollfd[n_poll_fd++] = (struct pollfd) {
+                        .fd = v->input_fd,
+                        .events = events,
+                };
+        } else {
+                pollfd[n_poll_fd++] = (struct pollfd) {
+                        .fd = v->input_fd,
+                        .events = events & POLLIN,
+                };
+                pollfd[n_poll_fd++] = (struct pollfd) {
+                        .fd = v->output_fd,
+                        .events = events & POLLOUT,
+                };
+        };
+
+        r = ppoll_usec(pollfd, n_poll_fd, t);
         if (ERRNO_IS_NEG_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
                                         * the caller gets a chance to call back into us */
                 return 1;
         if (r <= 0)
                 return r;
 
-        handle_revents(v, r);
+        /* Merge the seen events into one */
+        int revents = 0;
+        FOREACH_ARRAY(p, pollfd, n_poll_fd)
+                revents |= p->revents;
+
+        handle_revents(v, revents);
         return 1;
 }
 
@@ -1722,10 +1883,12 @@ int varlink_get_fd(Varlink *v) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->fd < 0)
+        if (v->input_fd != v->output_fd)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "Separate file descriptors for input/output set.");
+        if (v->input_fd < 0)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid fd.");
 
-        return v->fd;
+        return v->input_fd;
 }
 
 int varlink_get_events(Varlink *v) {
@@ -1794,7 +1957,7 @@ int varlink_flush(Varlink *v) {
                         continue;
                 }
 
-                r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
+                r = fd_wait_for_event(v->output_fd, POLLOUT, USEC_INFINITY);
                 if (ERRNO_IS_NEG_TRANSIENT(r))
                         continue;
                 if (r < 0)
@@ -1879,14 +2042,14 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
         return varlink_close_unref(v);
 }
 
-static int varlink_format_json(Varlink *v, JsonVariant *m) {
+static int varlink_format_json(Varlink *v, sd_json_variant *m) {
         _cleanup_(erase_and_freep) char *text = NULL;
         int sz, r;
 
         assert(v);
         assert(m);
 
-        sz = json_variant_format(m, /* flags= */ 0, &text);
+        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
         if (sz < 0)
                 return sz;
         assert(text[sz] == '\0');
@@ -1898,7 +2061,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
                 _cleanup_(erase_and_freep) char *censored_text = NULL;
 
                 /* Suppress sensitive fields in the debug output */
-                r = json_variant_format(m, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
                 if (r < 0)
                         return r;
 
@@ -1934,7 +2097,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
                 v->output_buffer_index = 0;
         }
 
-        if (json_variant_is_sensitive_recursive(m))
+        if (sd_json_variant_is_sensitive_recursive(m))
                 v->output_buffer_sensitive = true; /* Propagate sensitive flag */
         else
                 text = mfree(text); /* No point in the erase_and_free() destructor declared above */
@@ -1942,7 +2105,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
         return 0;
 }
 
-static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
+static int varlink_enqueue_json(Varlink *v, sd_json_variant *m) {
         VarlinkJsonQueueItem *q;
 
         assert(v);
@@ -2006,8 +2169,8 @@ static int varlink_format_queue(Varlink *v) {
         return 0;
 }
 
-int varlink_send(Varlink *v, const char *method, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_send(Varlink *v, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2024,10 +2187,11 @@ int varlink_send(Varlink *v, const char *method, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
-                                       JSON_BUILD_PAIR("oneway", JSON_BUILD_BOOLEAN(true))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR("oneway", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2041,14 +2205,14 @@ int varlink_send(Varlink *v, const char *method, JsonVariant *parameters) {
 }
 
 int varlink_sendb(Varlink *v, const char *method, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, method);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2057,8 +2221,8 @@ int varlink_sendb(Varlink *v, const char *method, ...) {
         return varlink_send(v, method, parameters);
 }
 
-int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_invoke(Varlink *v, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2075,9 +2239,10 @@ int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2093,14 +2258,14 @@ int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
 }
 
 int varlink_invokeb(Varlink *v, const char *method, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, method);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2109,8 +2274,8 @@ int varlink_invokeb(Varlink *v, const char *method, ...) {
         return varlink_invoke(v, method, parameters);
 }
 
-int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_observe(Varlink *v, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2128,10 +2293,11 @@ int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
-                                       JSON_BUILD_PAIR("more", JSON_BUILD_BOOLEAN(true))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2147,14 +2313,14 @@ int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters) {
 }
 
 int varlink_observeb(Varlink *v, const char *method, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, method);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2166,12 +2332,12 @@ int varlink_observeb(Varlink *v, const char *method, ...) {
 int varlink_call_full(
                 Varlink *v,
                 const char *method,
-                JsonVariant *parameters,
-                JsonVariant **ret_parameters,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
                 const char **ret_error_id,
                 VarlinkReplyFlags *ret_flags) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2192,9 +2358,10 @@ int varlink_call_full(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2227,17 +2394,17 @@ int varlink_call_full(
                 assert(v->n_pending == 1);
                 v->n_pending--;
 
-                JsonVariant *e = json_variant_by_key(v->current, "error"),
-                        *p = json_variant_by_key(v->current, "parameters");
+                sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                        *p = sd_json_variant_by_key(v->current, "parameters");
 
                 /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
                 if (!ret_error_id && e)
-                        return varlink_error_to_errno(json_variant_string(e), p);
+                        return varlink_error_to_errno(sd_json_variant_string(e), p);
 
                 if (ret_parameters)
                         *ret_parameters = p;
                 if (ret_error_id)
-                        *ret_error_id = e ? json_variant_string(e) : NULL;
+                        *ret_error_id = e ? sd_json_variant_string(e) : NULL;
                 if (ret_flags)
                         *ret_flags = v->current_reply_flags;
 
@@ -2259,18 +2426,18 @@ int varlink_call_full(
 int varlink_callb_ap(
                 Varlink *v,
                 const char *method,
-                JsonVariant **ret_parameters,
+                sd_json_variant **ret_parameters,
                 const char **ret_error_id,
                 VarlinkReplyFlags *ret_flags,
                 va_list ap) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         int r;
 
         assert_return(v, -EINVAL);
         assert_return(method, -EINVAL);
 
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2280,10 +2447,10 @@ int varlink_callb_ap(
 int varlink_call_and_log(
                 Varlink *v,
                 const char *method,
-                JsonVariant *parameters,
-                JsonVariant **ret_parameters) {
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters) {
 
-        JsonVariant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         int r;
 
@@ -2306,10 +2473,10 @@ int varlink_call_and_log(
 int varlink_callb_and_log(
                 Varlink *v,
                 const char *method,
-                JsonVariant **ret_parameters,
+                sd_json_variant **ret_parameters,
                 ...) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2317,7 +2484,7 @@ int varlink_callb_and_log(
         assert_return(method, -EINVAL);
 
         va_start(ap, ret_parameters);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON message: %m");
@@ -2328,12 +2495,12 @@ int varlink_callb_and_log(
 int varlink_collect_full(
                 Varlink *v,
                 const char *method,
-                JsonVariant *parameters,
-                JsonVariant **ret_parameters,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
                 const char **ret_error_id,
                 VarlinkReplyFlags *ret_flags) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL, *collected = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL, *collected = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2354,10 +2521,11 @@ int varlink_collect_full(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
-                                       JSON_BUILD_PAIR("more", JSON_BUILD_BOOLEAN(true))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2387,8 +2555,8 @@ int varlink_collect_full(
                 case VARLINK_COLLECTING_REPLY: {
                         assert(v->current);
 
-                        JsonVariant *e = json_variant_by_key(v->current, "error"),
-                                *p = json_variant_by_key(v->current, "parameters");
+                        sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                                *p = sd_json_variant_by_key(v->current, "parameters");
 
                         /* Unless there is more to collect we reset state to idle */
                         if (!FLAGS_SET(v->current_reply_flags, VARLINK_REPLY_CONTINUES)) {
@@ -2399,22 +2567,22 @@ int varlink_collect_full(
 
                         if (e) {
                                 if (!ret_error_id)
-                                        return varlink_error_to_errno(json_variant_string(e), p);
+                                        return varlink_error_to_errno(sd_json_variant_string(e), p);
 
                                 if (ret_parameters)
                                         *ret_parameters = p;
                                 if (ret_error_id)
-                                        *ret_error_id = json_variant_string(e);
+                                        *ret_error_id = sd_json_variant_string(e);
                                 if (ret_flags)
                                         *ret_flags = v->current_reply_flags;
 
                                 return 1;
                         }
 
-                        if (json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
-                                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", json_variant_elements(collected));
+                        if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
+                                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
 
-                        r = json_variant_append_array(&collected, p);
+                        r = sd_json_variant_append_array(&collected, p);
                         if (r < 0)
                                 return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
 
@@ -2454,18 +2622,18 @@ int varlink_collect_full(
 int varlink_collectb(
                 Varlink *v,
                 const char *method,
-                JsonVariant **ret_parameters,
+                sd_json_variant **ret_parameters,
                 const char **ret_error_id,
                 ...) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, ret_error_id);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2474,8 +2642,8 @@ int varlink_collectb(
         return varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 
-int varlink_reply(Varlink *v, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_reply(Varlink *v, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2491,7 +2659,7 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
+        r = sd_json_buildo(&m, SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2524,14 +2692,14 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
 }
 
 int varlink_replyb(Varlink *v, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, v);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2540,8 +2708,8 @@ int varlink_replyb(Varlink *v, ...) {
         return varlink_reply(v, parameters);
 }
 
-int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_error(Varlink *v, const char *error_id, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2565,9 +2733,10 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("error", JSON_BUILD_STRING(error_id)),
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_STRING(error_id)),
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2598,7 +2767,7 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
 }
 
 int varlink_errorb(Varlink *v, const char *error_id, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2606,7 +2775,7 @@ int varlink_errorb(Varlink *v, const char *error_id, ...) {
         assert_return(error_id, -EINVAL);
 
         va_start(ap, error_id);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2615,7 +2784,7 @@ int varlink_errorb(Varlink *v, const char *error_id, ...) {
         return varlink_error(v, error_id, parameters);
 }
 
-int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
+int varlink_error_invalid_parameter(Varlink *v, sd_json_variant *parameters) {
         int r;
 
         assert_return(v, -EINVAL);
@@ -2629,25 +2798,21 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         /* varlink_error(...) expects a json object as the third parameter. Passing a string variant causes
          * parameter sanitization to fail, and it returns -EINVAL. */
 
-        if (json_variant_is_string(parameters)) {
-                _cleanup_(json_variant_unrefp) JsonVariant *parameters_obj = NULL;
+        if (sd_json_variant_is_string(parameters)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
 
-                r = json_build(&parameters_obj,
-                                JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("parameter", JSON_BUILD_VARIANT(parameters))));
+                r = sd_json_buildo(&parameters_obj,SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_VARIANT(parameters)));
                 if (r < 0)
                         return r;
 
                 return varlink_error(v, VARLINK_ERROR_INVALID_PARAMETER, parameters_obj);
         }
 
-        if (json_variant_is_object(parameters) &&
-            json_variant_elements(parameters) > 0) {
-                _cleanup_(json_variant_unrefp) JsonVariant *parameters_obj = NULL;
+        if (sd_json_variant_is_object(parameters) &&
+            sd_json_variant_elements(parameters) > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
 
-                r = json_build(&parameters_obj,
-                                JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("parameter", JSON_BUILD_VARIANT(json_variant_by_index(parameters, 0)))));
+                r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_VARIANT(sd_json_variant_by_index(parameters, 0))));
                 if (r < 0)
                         return r;
 
@@ -2658,21 +2823,21 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
 }
 
 int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
-        return varlink_errorb(
+        return varlink_errorbo(
                         v,
                         VARLINK_ERROR_INVALID_PARAMETER,
-                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+                        SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_STRING(name)));
 }
 
 int varlink_error_errno(Varlink *v, int error) {
-        return varlink_errorb(
+        return varlink_errorbo(
                         v,
                         VARLINK_ERROR_SYSTEM,
-                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("errno", JSON_BUILD_INTEGER(abs(error)))));
+                        SD_JSON_BUILD_PAIR("errno", SD_JSON_BUILD_INTEGER(abs(error))));
 }
 
-int varlink_notify(Varlink *v, JsonVariant *parameters) {
-        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+int varlink_notify(Varlink *v, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2692,9 +2857,10 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = json_build(&m, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
-                                       JSON_BUILD_PAIR("continues", JSON_BUILD_BOOLEAN(true))));
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR("continues", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2717,14 +2883,14 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 }
 
 int varlink_notifyb(Varlink *v, ...) {
-        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
         va_start(ap, v);
-        r = json_buildv(&parameters, ap);
+        r = sd_json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
@@ -2733,7 +2899,7 @@ int varlink_notifyb(Varlink *v, ...) {
         return varlink_notify(v, parameters);
 }
 
-int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata) {
+int varlink_dispatch(Varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata) {
         const char *bad_field = NULL;
         int r;
 
@@ -2742,7 +2908,7 @@ int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch tab
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
-        r = json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
+        r = sd_json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
                         return varlink_error_invalid_parameter_name(v, bad_field);
@@ -2788,7 +2954,12 @@ static int varlink_acquire_ucred(Varlink *v) {
         if (v->ucred_acquired)
                 return 0;
 
-        r = getpeercred(v->fd, &v->ucred);
+        /* If we are connected asymmetrically, let's refuse, since it's not clear if caller wants to know
+         * peer on read or write fd */
+        if (v->input_fd != v->output_fd)
+                return -EBADF;
+
+        r = getpeercred(v->input_fd, &v->ucred);
         if (r < 0)
                 return r;
 
@@ -2853,7 +3024,10 @@ static int varlink_acquire_pidfd(Varlink *v) {
         if (v->peer_pidfd >= 0)
                 return 0;
 
-        v->peer_pidfd = getpeerpidfd(v->fd);
+        if (v->input_fd != v->output_fd)
+                return -EBADF;
+
+        v->peer_pidfd = getpeerpidfd(v->input_fd);
         if (v->peer_pidfd < 0)
                 return v->peer_pidfd;
 
@@ -2956,7 +3130,14 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         if (e < 0)
                 return e;
 
-        r = sd_event_source_set_io_events(v->io_event_source, e);
+        if (v->input_event_source == v->output_event_source)
+                /* Same fd for input + output */
+                r = sd_event_source_set_io_events(v->input_event_source, e);
+        else {
+                r = sd_event_source_set_io_events(v->input_event_source, e & EPOLLIN);
+                if (r >= 0)
+                        r = sd_event_source_set_io_events(v->output_event_source, e & EPOLLOUT);
+        }
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to set source events: %m");
 
@@ -3023,19 +3204,33 @@ int varlink_attach_event(Varlink *v, sd_event *e, int64_t priority) {
 
         (void) sd_event_source_set_description(v->quit_event_source, "varlink-quit");
 
-        r = sd_event_add_io(v->event, &v->io_event_source, v->fd, 0, io_callback, v);
+        r = sd_event_add_io(v->event, &v->input_event_source, v->input_fd, 0, io_callback, v);
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_prepare(v->io_event_source, prepare_callback);
+        r = sd_event_source_set_prepare(v->input_event_source, prepare_callback);
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_priority(v->io_event_source, priority);
+        r = sd_event_source_set_priority(v->input_event_source, priority);
         if (r < 0)
                 goto fail;
 
-        (void) sd_event_source_set_description(v->io_event_source, "varlink-io");
+        (void) sd_event_source_set_description(v->input_event_source, "varlink-input");
+
+        if (v->input_fd == v->output_fd)
+                v->output_event_source = sd_event_source_ref(v->input_event_source);
+        else {
+                r = sd_event_add_io(v->event, &v->output_event_source, v->output_fd, 0, io_callback, v);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_event_source_set_priority(v->output_event_source, priority);
+                if (r < 0)
+                        goto fail;
+
+                (void) sd_event_source_set_description(v->output_event_source, "varlink-output");
+        }
 
         r = sd_event_add_defer(v->event, &v->defer_event_source, defer_callback, v);
         if (r < 0)
@@ -3181,16 +3376,23 @@ static int verify_unix_socket(Varlink *v) {
          *    • otherwise: v->af contains the address family we determined */
 
         if (v->af < 0) {
+                /* If we have distinct input + output fds, we don't consider ourselves to be connected via a regular
+                 * AF_UNIX socket. */
+                if (v->input_fd != v->output_fd) {
+                        v->af = AF_UNSPEC;
+                        return -ENOTSOCK;
+                }
+
                 struct stat st;
 
-                if (fstat(v->fd, &st) < 0)
+                if (fstat(v->input_fd, &st) < 0)
                         return -errno;
                 if (!S_ISSOCK(st.st_mode)) {
                         v->af = AF_UNSPEC;
                         return -ENOTSOCK;
                 }
 
-                v->af = socket_get_family(v->fd);
+                v->af = socket_get_family(v->input_fd);
                 if (v->af < 0)
                         return v->af;
         }
@@ -3373,19 +3575,34 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
         return 0;
 }
 
-int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) {
+int varlink_server_add_connection_pair(
+                VarlinkServer *server,
+                int input_fd,
+                int output_fd,
+                const struct ucred *override_ucred,
+                Varlink **ret) {
+
         _cleanup_(varlink_unrefp) Varlink *v = NULL;
         struct ucred ucred = UCRED_INVALID;
         bool ucred_acquired;
         int r;
 
         assert_return(server, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
 
         if ((server->flags & (VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_ACCOUNT_UID)) != 0) {
-                r = getpeercred(fd, &ucred);
-                if (r < 0)
-                        return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
+
+                if (override_ucred)
+                        ucred = *override_ucred;
+                else {
+                        if (input_fd != output_fd)
+                                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing: %m");
+
+                        r = getpeercred(input_fd, &ucred);
+                        if (r < 0)
+                                return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
+                }
 
                 ucred_acquired = true;
 
@@ -3405,7 +3622,8 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         if (r < 0)
                 return r;
 
-        v->fd = fd;
+        v->input_fd = input_fd;
+        v->output_fd = output_fd;
         if (server->flags & VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
 
@@ -3415,7 +3633,7 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         }
 
         _cleanup_free_ char *desc = NULL;
-        if (asprintf(&desc, "%s-%i", varlink_server_description(server), v->fd) >= 0)
+        if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
                 v->description = TAKE_PTR(desc);
 
         /* Link up the server and the connection, and take reference in both directions. Note that the
@@ -3430,7 +3648,8 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 r = varlink_attach_event(v, server->event, server->event_priority);
                 if (r < 0) {
                         varlink_log_errno(v, r, "Failed to attach new connection: %m");
-                        v->fd = -EBADF; /* take the fd out of the connection again */
+                        TAKE_FD(v->input_fd); /* take the fd out of the connection again */
+                        TAKE_FD(v->output_fd);
                         varlink_close(v);
                         return r;
                 }
@@ -3440,6 +3659,10 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 *ret = v;
 
         return 0;
+}
+
+int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) {
+        return varlink_server_add_connection_pair(server, fd, fd, /* override_ucred= */ NULL, ret);
 }
 
 static VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
@@ -3591,6 +3814,66 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         return 0;
 }
 
+int varlink_server_add_connection_stdio(VarlinkServer *s, Varlink **ret) {
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        input_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (input_fd < 0)
+                return -errno;
+
+        output_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (output_fd < 0)
+                return -errno;
+
+        r = rearrange_stdio(-EBADF, -EBADF, STDERR_FILENO);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(input_fd, true);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(output_fd, true);
+        if (r < 0)
+                return r;
+
+        struct stat input_st;
+        if (fstat(input_fd, &input_st) < 0)
+                return -errno;
+
+        struct stat output_st;
+        if (fstat(output_fd, &output_st) < 0)
+                return -errno;
+
+        /* If stdin/stdout are both pipes and have the same owning uid/gid then let's synthesize a "struct
+         * ucred" from the owning UID/GID, since we got them passed in with such ownership. We'll not fill in
+         * the PID however, since there's no way to know which process created a pipe. */
+        struct ucred ucred, *pucred;
+        if (S_ISFIFO(input_st.st_mode) &&
+            S_ISFIFO(output_st.st_mode) &&
+            input_st.st_uid == output_st.st_uid &&
+            input_st.st_gid == output_st.st_gid) {
+                ucred = (struct ucred) {
+                        .uid = input_st.st_uid,
+                        .gid = input_st.st_gid,
+                };
+                pucred = &ucred;
+        } else
+                pucred = NULL;
+
+        r = varlink_server_add_connection_pair(s, input_fd, output_fd, pucred, ret);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(input_fd);
+        TAKE_FD(output_fd);
+
+        return 0;
+}
+
 int varlink_server_listen_auto(VarlinkServer *s) {
         _cleanup_strv_free_ char **names = NULL;
         int r, n = 0;
@@ -3631,12 +3914,17 @@ int varlink_server_listen_auto(VarlinkServer *s) {
                 n++;
         }
 
-        /* For debug purposes let's listen on an explicitly specified address */
+        /* Let's listen on an explicitly specified address */
         const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
         if (e) {
-                r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                if (streq(e, "-"))
+                        r = varlink_server_add_connection_stdio(s, /* ret= */ NULL);
+                else
+                        r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
                 if (r < 0)
                         return r;
+
+                n++;
         }
 
         return n;
@@ -3986,7 +4274,9 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m) {
 }
 
 unsigned varlink_server_current_connections(VarlinkServer *s) {
-        assert_return(s, UINT_MAX);
+
+        if (!s) /* Unallocated servers have zero connections */
+                return 0;
 
         return s->n_connections;
 }
@@ -4084,7 +4374,7 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
 
         /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
 
-        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit a manual override for testing purposes */
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit an explicit override */
         if (e)
                 return true;
 
@@ -4116,7 +4406,7 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
         return true;
 }
 
-int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
+int varlink_error_to_errno(const char *error, sd_json_variant *parameters) {
         static const struct {
                 const char *error;
                 int value;
@@ -4140,17 +4430,65 @@ int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
                         return t->value;
 
         if (streq(error, VARLINK_ERROR_SYSTEM) && parameters) {
-                JsonVariant *e;
+                sd_json_variant *e;
 
-                e = json_variant_by_key(parameters, "errno");
-                if (json_variant_is_integer(e)) {
+                e = sd_json_variant_by_key(parameters, "errno");
+                if (sd_json_variant_is_integer(e)) {
                         int64_t i;
 
-                        i = json_variant_integer(e);
+                        i = sd_json_variant_integer(e);
                         if (i > 0 && i < ERRNO_MAX)
                                 return -i;
                 }
         }
 
         return -EBADR; /* Catch-all */
+}
+
+int varlink_many_notifyb(Set *s, ...) {
+        int r;
+
+        /* Equivalent to varlink_notifyb(), but does this for each entry of the supplied set of Varlink connections */
+
+        if (set_isempty(s))
+                return 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        va_start(ap, s);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_notify(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_reply(Set *s, sd_json_variant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_reply(link, parameters));
+
+        return ret;
+}
+
+int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters) {
+        if (set_isempty(s))
+                return 0;
+
+        int ret = 1;
+        Varlink *link;
+        SET_FOREACH(link, s)
+                RET_GATHER(ret, varlink_error(link, error_id, parameters));
+
+        return ret;
 }

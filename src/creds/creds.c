@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "build.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
@@ -12,7 +14,8 @@
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "json.h"
+#include "json-util.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
@@ -40,7 +43,7 @@ typedef enum TranscodeMode {
         _TRANSCODE_INVALID = -EINVAL,
 } TranscodeMode;
 
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_system = false;
@@ -128,6 +131,29 @@ not_found:
         return 0;
 }
 
+static int is_tmpfs_with_noswap(dev_t devno) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        int r;
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_mtab(table, /* filename= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct libmnt_fs *fs = mnt_table_find_devno(table, devno, MNT_ITER_FORWARD);
+        if (!fs)
+                return -ENODEV;
+
+        r = mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        if (r < 0)
+                return r;
+
+        return r == 0;
+}
+
 static int add_credentials_to_table(Table *t, bool encrypted) {
         _cleanup_closedir_ DIR *d = NULL;
         const char *prefix;
@@ -184,12 +210,24 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                         secure = "insecure"; /* Anything that is accessible more than read-only to its owner is insecure */
                         secure_color = ansi_highlight_red();
                 } else {
-                        r = fd_is_fs_type(fd, RAMFS_MAGIC);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine backing file system of '%s': %m", de->d_name);
+                        struct statfs sfs;
+                        if (fstatfs(fd, &sfs) < 0)
+                                return log_error_errno(r, "fstatfs() failed on '%s': %m", de->d_name);
 
-                        secure = r > 0 ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
-                        secure_color = r > 0 ? ansi_highlight_green() : ansi_highlight_yellow4();
+                        bool is_secure;
+                        if (is_fs_type(&sfs, RAMFS_MAGIC))
+                                is_secure = true; /* ramfs is not swappable, hence "secure" */
+                        else if (is_fs_type(&sfs, TMPFS_MAGIC)) {
+                                r = is_tmpfs_with_noswap(st.st_dev);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if file system of '%s' has 'noswap' enabled, assuming not: %m", de->d_name);
+
+                                is_secure = r > 0;
+                        } else
+                                is_secure = false; /* everything else we assume is not "secure" */
+
+                        secure = is_secure ? "secure" : "weak";
+                        secure_color = is_secure ? ansi_highlight_green() : ansi_highlight_yellow4();
                 }
 
                 j = path_join(prefix, de->d_name);
@@ -235,7 +273,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_isempty(t)) {
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && table_isempty(t)) {
                 log_info("No credentials");
                 return 0;
         }
@@ -332,19 +370,19 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         int r;
 
         if (arg_transcode == TRANSCODE_OFF &&
-            arg_json_format_flags != JSON_FORMAT_OFF) {
+            arg_json_format_flags != SD_JSON_FORMAT_OFF) {
                 _cleanup_(erase_and_freep) char *suffixed = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 r = make_cstring(data, size, MAKE_CSTRING_REFUSE_TRAILING_NUL, &suffixed);
                 if (r < 0)
                         return log_error_errno(r, "Unable to convert binary string to C string: %m");
 
-                r = json_parse(suffixed, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(suffixed, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 
-                json_variant_dump(v, arg_json_format_flags, f, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, f, NULL);
                 return 0;
         }
 
@@ -1131,16 +1169,16 @@ static int settle_scope(
         return 0;
 }
 
-static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, name),      0 },
-                { "text",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, text),      0 },
-                { "data",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodEncryptParameters, data),      0 },
-                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, timestamp), 0 },
-                { "notAfter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, not_after), 0 },
-                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodEncryptParameters, scope),     0 },
-                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodEncryptParameters, uid),       0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodEncryptParameters, name),      0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodEncryptParameters, text),      0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodEncryptParameters, data),      0 },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, timestamp), 0 },
+                { "notAfter",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, not_after), 0 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodEncryptParameters, scope),     0 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodEncryptParameters, uid),       0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1217,14 +1255,14 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
         if (r < 0)
                 return r;
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output));
         if (r < 0)
                 return r;
 
         /* Let's also mark the (theoretically encrypted) reply as sensitive, in case the NULL encryption scheme was used. */
-        json_variant_sensitive(reply);
+        sd_json_variant_sensitive(reply);
 
         return varlink_reply(link, reply);
 }
@@ -1243,14 +1281,14 @@ static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
         iovec_done_erase(&p->blob);
 }
 
-static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodDecryptParameters, name),      0              },
-                { "blob",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodDecryptParameters, blob),      JSON_MANDATORY },
-                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodDecryptParameters, timestamp), 0              },
-                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodDecryptParameters, scope),     0              },
-                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodDecryptParameters, uid),       0              },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),      0                 },
+                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),      SD_JSON_MANDATORY },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp), 0                 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),     0                 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),       0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1337,13 +1375,13 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
         if (r < 0)
                 return r;
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("data", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("data", &output));
         if (r < 0)
                 return r;
 
-        json_variant_sensitive(reply);
+        sd_json_variant_sensitive(reply);
 
         return varlink_reply(link, reply);
 }

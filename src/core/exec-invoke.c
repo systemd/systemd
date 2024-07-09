@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -44,6 +45,7 @@
 #include "journal-send.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
+#include "missing_sched.h"
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
@@ -1435,6 +1437,13 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, b
 
         if (needs_ambient_hack) {
                 r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
+        if (p->exec_fd >= 0 || p->handoff_timestamp_fd >= 0) {
+                r = seccomp_filter_set_add_by_name(c->syscall_filter, c->syscall_allow_list, "write");
                 if (r < 0)
                         return r;
         }
@@ -3054,7 +3063,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *extension_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+                *private_namespace_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -3108,7 +3117,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3145,8 +3154,8 @@ static int apply_mount_namespace(
                 if (!incoming_dir)
                         return -ENOMEM;
 
-                extension_dir = strdup("/run/systemd/unit-extensions");
-                if (!extension_dir)
+                private_namespace_dir = strdup("/run/systemd");
+                if (!private_namespace_dir)
                         return -ENOMEM;
 
                 /* If running under a different root filesystem, propagate the host's os-release. We make a
@@ -3159,7 +3168,7 @@ static int apply_mount_namespace(
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
-                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
+                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
                         return -ENOMEM;
 
                 if (setup_os_release_symlink) {
@@ -3225,7 +3234,7 @@ static int apply_mount_namespace(
 
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
-                .extension_dir = extension_dir,
+                .private_namespace_dir = private_namespace_dir,
                 .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
                 .host_os_release_stage = host_os_release_stage,
 
@@ -3243,6 +3252,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+                .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
 
@@ -3585,26 +3595,29 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+static int acquire_home(const ExecContext *c, const char **home, char **ret_buf) {
         int r;
 
         assert(c);
         assert(home);
-        assert(buf);
+        assert(ret_buf);
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
-        if (*home)
+        if (*home) /* Already acquired from get_fixed_user()? */
                 return 0;
 
         if (!c->working_directory_home)
                 return 0;
 
-        r = get_home_dir(buf);
+        if (c->dynamic_user)
+                return -EADDRNOTAVAIL;
+
+        r = get_home_dir(ret_buf);
         if (r < 0)
                 return r;
 
-        *home = *buf;
+        *home = *ret_buf;
         return 1;
 }
 
@@ -3713,7 +3726,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
         r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
         if (r < 0)
-                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
         FOREACH_ELEMENT(i, socket_types) {
@@ -3721,7 +3734,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
                 fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to create socket for '%s': %m",
                                                     of->path);
 
@@ -3729,12 +3742,12 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
                 if (r >= 0)
                         return TAKE_FD(fd);
                 if (r != -EPROTOTYPE)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     r, "Failed to connect to socket for '%s': %m",
                                                     of->path);
         }
 
-        return log_exec_error_errno(c, p,
+        return log_exec_debug_errno(c, p,
                                     SYNTHETIC_ERRNO(EPROTOTYPE), "No suitable socket type to connect to socket '%s'.",
                                     of->path);
 }
@@ -3749,10 +3762,10 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(c, p, of, ofd);
@@ -3760,7 +3773,7 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to shutdown send for socket '%s': %m",
                                                     of->path);
 
@@ -3772,9 +3785,9 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags | O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
+                        return log_exec_debug_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
                 log_exec_debug(c, p, "Opened file '%s' as fd %d.", of->path, fd);
         }
@@ -3783,8 +3796,6 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 }
 
 static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t *n_fds) {
-        int r;
-
         assert(c);
         assert(p);
         assert(n_fds);
@@ -3795,21 +3806,24 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 fd = get_open_file_fd(c, p, of);
                 if (fd < 0) {
                         if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
-                                log_exec_warning_errno(c, p, fd,
-                                                       "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
-                                                       of->path);
+                                log_exec_full_errno(c, p,
+                                                    fd == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(fd) ? LOG_DEBUG : LOG_WARNING,
+                                                    fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
+                                                    of->path);
                                 continue;
                         }
 
-                        return fd;
+                        return log_exec_error_errno(c, p, fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s': %m",
+                                                    of->path);
                 }
 
                 if (!GREEDY_REALLOC(p->fds, *n_fds + 1))
-                        return -ENOMEM;
+                        return log_oom();
 
-                r = strv_extend(&p->fd_names, of->fdname);
-                if (r < 0)
-                        return r;
+                if (strv_extend(&p->fd_names, of->fdname) < 0)
+                        return log_oom();
 
                 p->fds[(*n_fds)++] = TAKE_FD(fd);
         }
@@ -3854,7 +3868,7 @@ static bool exec_context_need_unprivileged_private_users(
                 return false;
 
         return context->private_users ||
-               context->private_tmp ||
+               context->private_tmp != PRIVATE_TMP_OFF ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
@@ -4008,7 +4022,7 @@ static int send_handoff_timestamp(
         dual_timestamp dt;
         dual_timestamp_now(&dt);
 
-        if (send(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2, 0) < 0) {
+        if (write(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2) < 0) {
                 if (reterr_exit_status)
                         *reterr_exit_status = EXIT_EXEC;
                 return log_exec_error_errno(c, p, errno, "Failed to send handoff timestamp: %m");
@@ -4291,7 +4305,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, uid, &home, &home_buffer);
+        r = acquire_home(context, &home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
@@ -4399,15 +4413,14 @@ int exec_invoke(
         }
 
         if (context->cpu_sched_set) {
-                struct sched_param param = {
+                struct sched_attr attr = {
+                        .size = sizeof(attr),
+                        .sched_policy = context->cpu_sched_policy,
                         .sched_priority = context->cpu_sched_priority,
+                        .sched_flags = context->cpu_sched_reset_on_fork ? SCHED_FLAG_RESET_ON_FORK : 0,
                 };
 
-                r = sched_setscheduler(0,
-                                       context->cpu_sched_policy |
-                                       (context->cpu_sched_reset_on_fork ?
-                                        SCHED_RESET_ON_FORK : 0),
-                                       &param);
+                r = sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0);
                 if (r < 0) {
                         *exit_status = EXIT_SETSCHEDULER;
                         return log_exec_error_errno(context, params, errno, "Failed to set up CPU scheduling: %m");
@@ -4750,7 +4763,7 @@ int exec_invoke(
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (r == -EPERM)
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_exec_warning_errno(context, params, r,
                                                        "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
                         else if (r < 0) {

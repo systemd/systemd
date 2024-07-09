@@ -13,7 +13,7 @@ typedef enum {
 
 extern const BusObjectImplementation machine_object;
 
-char *machine_bus_path(Machine *s);
+char* machine_bus_path(Machine *s);
 
 int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:31+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-04-30 20:36+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -70,7 +70,8 @@ msgstr "Vnovič naloži stanje systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -147,12 +148,10 @@ msgstr ""
 "domačega območja."
 
 #: src/home/org.freedesktop.home1.policy:73
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktiviraj domače območje"
 
 #: src/home/org.freedesktop.home1.policy:74
-#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za aktiviranje uporabnikovega domačega "
@@ -294,47 +293,47 @@ msgstr "Dom uporabnika %s je trenutno zaklenjen, najprej odklenite lokalno."
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Preveč neuspešnih poskusov prijave za uporabniški %s, zavračanje."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 #, fuzzy
 msgid "User record is blocked, prohibiting access."
 msgstr "Zapis uporabnika je blokiran, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 #, fuzzy
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Zapis uporabnika še ni veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 #, fuzzy
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Zapis uporabnika ni več veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 #, fuzzy
 msgid "User record not valid, prohibiting access."
 msgstr "Zapis uporabnika ni veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, fuzzy, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Preveč prijav, poskusite znova v %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 #, fuzzy
 msgid "Password change required."
 msgstr "Zahtevana je sprememba gesla"
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 #, fuzzy
 msgid "Password expired, change required."
 msgstr "Geslo je poteklo, potrebna je sprememba."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 #, fuzzy
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Geslo je poteklo, vendar ga ni mogoče spremeniti in zavrne prijavo."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 #, fuzzy
 msgid "Password will expire soon, please change."
 msgstr "Geslo bo kmalu poteklo, prosimo, spremenite."
@@ -1222,7 +1221,7 @@ msgstr ""
 "pristnosti."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1391,7 +1390,7 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za brisanje datotek in imenikov, "
 "povezanih z »$(enota)«."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
@@ -1399,15 +1398,14 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za zamrznitev ali odmrzovanje postopkov "
 "enote »$(enota)«."
 
-#: src/home/org.freedesktop.home1.policy:73
 #, fuzzy
-msgid "Inhibit automatic lock of a home area"
-msgstr "Zaviranje samodejnega zaklepanja domačega območja"
+#~ msgid "Inhibit automatic lock of a home area"
+#~ msgstr "Zaviranje samodejnega zaklepanja domačega območja"
 
-#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Preverjanje pristnosti je potrebno za preprečevanje samodejnega zaklepanja "
-"uporabnikovega domačega območja."
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr ""
+#~ "Preverjanje pristnosti je potrebno za preprečevanje samodejnega "
+#~ "zaklepanja uporabnikovega domačega območja."

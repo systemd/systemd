@@ -35,7 +35,9 @@
 
     <para>The <filename>.link</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
-    <filename>/usr/local/lib/systemd/network</filename>, the volatile runtime network directory
+    <filename>/usr/local/lib/systemd/network</filename>
+    <xi:include href="standard-conf.xml" xpointer="usr-local-footnote" />,
+    the volatile runtime network directory
     <filename>/run/systemd/network</filename>, and the local administration network directory
     <filename>/etc/systemd/network</filename>. All configuration files are collectively sorted and
     processed in alphanumeric order, regardless of the directories in which they live. However, files
@@ -605,7 +607,7 @@
           an allowed character, it's recommended to avoid it when naming interfaces as various tools (such as
           <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>) use
           it as separator character. Also, fully numeric interface names are not allowed (in order to avoid
-          ambiguity with interface specification by numeric indexes), as are the special strings
+          ambiguity with interface specification by numeric indexes), nor are the special strings
           <literal>.</literal>, <literal>..</literal>, <literal>all</literal> and
           <literal>default</literal>.</para>
 

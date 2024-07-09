@@ -552,7 +552,7 @@ char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlag
         return NULL;
 }
 
-char *strv_env_pairs_get(char **l, const char *name) {
+char* strv_env_pairs_get(char **l, const char *name) {
         char *result = NULL;
 
         assert(name);
@@ -941,11 +941,11 @@ int replace_env_argv(
         }
 
         if (ret_unset_variables) {
-                strv_uniq(strv_sort(unset_variables));
+                strv_sort_uniq(unset_variables);
                 *ret_unset_variables = TAKE_PTR(unset_variables);
         }
         if (ret_bad_variables) {
-                strv_uniq(strv_sort(bad_variables));
+                strv_sort_uniq(bad_variables);
                 *ret_bad_variables = TAKE_PTR(bad_variables);
         }
 

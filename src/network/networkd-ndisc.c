@@ -12,6 +12,7 @@
 
 #include "event-util.h"
 #include "missing_network.h"
+#include "ndisc-router-internal.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-dhcp6.h"
@@ -34,6 +35,8 @@
 /* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
  * Not sure if the threshold is high enough. Let's adjust later if not. */
 #define NDISC_PREF64_MAX 64U
+
+static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
 
 bool link_ndisc_enabled(Link *link) {
         assert(link);
@@ -219,20 +222,33 @@ static int ndisc_request_route(Route *route, Link *link) {
                 /* Note, here do not call route_remove_and_cancel() with 'route' directly, otherwise
                  * existing route(s) may be removed needlessly. */
 
-                if (route_get(link->manager, route, &existing) >= 0) {
-                        /* Found an existing route that may conflict with this route. */
+                /* First, check if a conflicting route is already requested. If there is an existing route,
+                 * and also an existing pending request, then the source may be updated by the request. So,
+                 * we first need to check the source of the requested route. */
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
                         if (!route_can_update(existing, route)) {
-                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
+                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
                                         return r;
                         }
                 }
 
-                if (route_get_request(link->manager, route, &req) >= 0) {
-                        existing = ASSERT_PTR(req->userdata);
+                /* Then, check if a conflicting route exists. */
+                if (route_get(link->manager, route, &existing) >= 0) {
                         if (!route_can_update(existing, route)) {
-                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
+                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
                                         return r;
@@ -288,18 +304,44 @@ static int ndisc_remove_route(Route *route, Link *link) {
         if (r < 0)
                 return r;
 
-        if (route->pref_set) {
-                ndisc_set_route_priority(link, route);
-                return route_remove_and_cancel(route, link->manager);
-        }
-
-        uint8_t pref;
+        uint8_t pref, pref_original = route->pref;
         FOREACH_ARGUMENT(pref, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH) {
+                Route *existing;
+                Request *req;
+
+                /* If the preference is specified by the user config (that is, for semi-static routes),
+                 * rather than RA, then only search conflicting routes that have the same preference. */
+                if (route->pref_set && pref != pref_original)
+                        continue;
+
                 route->pref = pref;
                 ndisc_set_route_priority(link, route);
-                r = route_remove_and_cancel(route, link->manager);
-                if (r < 0)
-                        return r;
+
+                /* Unfortunately, we cannot directly pass 'route' to route_remove_and_cancel() here, as the
+                 * same or similar route may be configured or requested statically. */
+
+                /* First, check if the route is already requested. If there is an existing route, and also an
+                 * existing pending request, then the source may be updated by the request. So, we first need
+                 * to check the source of the requested route. */
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
+                        if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Then, check if the route exists. */
+                if (route_get(link->manager, route, &existing) >= 0) {
+                        if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -516,8 +558,6 @@ static int ndisc_redirect_drop_conflict(Link *link, sd_ndisc_redirect *rd) {
 }
 
 static int ndisc_redirect_verify_sender(Link *link, sd_ndisc_redirect *rd) {
-        sd_ndisc_redirect *existing;
-        struct in6_addr router, sender;
         int r;
 
         assert(link);
@@ -527,11 +567,18 @@ static int ndisc_redirect_verify_sender(Link *link, sd_ndisc_redirect *rd) {
         * The IP source address of the Redirect is the same as the current first-hop router for the specified
         * ICMP Destination Address. */
 
+        struct in6_addr sender;
         r = sd_ndisc_redirect_get_sender_address(rd, &sender);
         if (r < 0)
                 return r;
 
-        existing = set_get(link->ndisc_redirects, rd);
+        /* We will reuse the sender's router lifetime as the lifetime of the redirect route. Hence, if we
+         * have not remembered an RA from the sender, refuse the Redirect message. */
+        sd_ndisc_router *router = hashmap_get(link->ndisc_routers_by_sender, &sender);
+        if (!router)
+                return false;
+
+        sd_ndisc_redirect *existing = set_get(link->ndisc_redirects, rd);
         if (existing) {
                 struct in6_addr target, dest;
 
@@ -555,15 +602,30 @@ static int ndisc_redirect_verify_sender(Link *link, sd_ndisc_redirect *rd) {
                         return false;
         }
 
-        if (!link->ndisc_default_router)
-                return false;
-
-        r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &router);
+        /* Check if the sender is one of the known router with highest priority. */
+        uint8_t preference;
+        r = sd_ndisc_router_get_preference(router, &preference);
         if (r < 0)
                 return r;
 
-        /* The sender must be the default router. */
-        return in6_addr_equal(&sender, &router);
+        if (preference == SD_NDISC_PREFERENCE_HIGH)
+                return true;
+
+        sd_ndisc_router *rt;
+        HASHMAP_FOREACH(rt, link->ndisc_routers_by_sender) {
+                if (rt == router)
+                        continue;
+
+                uint8_t pref;
+                if (sd_ndisc_router_get_preference(rt, &pref) < 0)
+                        continue;
+
+                if (pref == SD_NDISC_PREFERENCE_HIGH ||
+                    (pref == SD_NDISC_PREFERENCE_MEDIUM && preference == SD_NDISC_PREFERENCE_LOW))
+                        return false;
+        }
+
+        return true;
 }
 
 static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
@@ -575,6 +637,15 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
 
         if (!link->network->ndisc_use_redirect)
                 return 0;
+
+        usec_t now_usec;
+        r = sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec);
+        if (r < 0)
+                return r;
+
+        r = ndisc_drop_outdated(link, /* router = */ NULL, now_usec);
+        if (r < 0)
+                return r;
 
         r = ndisc_redirect_verify_sender(link, rd);
         if (r <= 0)
@@ -598,6 +669,14 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         if (r < 0)
                 return r;
 
+        sd_ndisc_router *rt = hashmap_get(link->ndisc_routers_by_sender, &route->provider.in6);
+        if (!rt)
+                return -EADDRNOTAVAIL;
+
+        r = sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &route->lifetime_usec);
+        if (r < 0)
+                return r;
+
         return ndisc_request_route(route, link);
 }
 
@@ -609,13 +688,10 @@ static int ndisc_drop_redirect(Link *link, const struct in6_addr *router) {
         sd_ndisc_redirect *rd;
         SET_FOREACH(rd, link->ndisc_redirects) {
                 if (router) {
-                        struct in6_addr target;
+                        struct in6_addr a;
 
-                        r = sd_ndisc_redirect_get_target_address(rd, &target);
-                        if (r < 0)
-                                return r;
-
-                        if (!in6_addr_equal(&target, router))
+                        if (!(sd_ndisc_redirect_get_sender_address(rd, &a) >= 0 && in6_addr_equal(&a, router)) &&
+                            !(sd_ndisc_redirect_get_target_address(rd, &a) >= 0 && in6_addr_equal(&a, router)))
                                 continue;
                 }
 
@@ -782,124 +858,105 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int update_default_router_address(Link *link, const struct in6_addr *original_address, const struct in6_addr *current_address) {
-        struct in6_addr a;
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                ndisc_router_hash_ops,
+                struct in6_addr,
+                in6_addr_hash_func,
+                in6_addr_compare_func,
+                sd_ndisc_router,
+                sd_ndisc_router_unref);
+
+static int ndisc_update_router_address(Link *link, const struct in6_addr *original_address, const struct in6_addr *current_address) {
+        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
         int r;
 
         assert(link);
         assert(original_address);
         assert(current_address);
 
-        if (!link->ndisc_default_router)
+        rt = hashmap_remove(link->ndisc_routers_by_sender, original_address);
+        if (!rt)
                 return 0;
 
-        r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &a);
+        /* If we already received an RA from the new address, then forget the RA from the old address. */
+        if (hashmap_contains(link->ndisc_routers_by_sender, current_address))
+                return 0;
+
+        /* Otherwise, update the sender address of the previously received RA. */
+        r = sd_ndisc_router_set_sender_address(rt, current_address);
         if (r < 0)
                 return r;
 
-        if (!in6_addr_equal(&a, original_address))
-                return 0;
+        r = hashmap_put(link->ndisc_routers_by_sender, &rt->packet->sender_address, rt);
+        if (r < 0)
+                return r;
 
-        return sd_ndisc_router_set_sender_address(link->ndisc_default_router, current_address);
+        TAKE_PTR(rt);
+        return 0;
 }
 
-static int drop_default_router(Link *link, const struct in6_addr *router, usec_t timestamp_usec) {
+static int ndisc_drop_router_one(Link *link, sd_ndisc_router *rt, usec_t timestamp_usec) {
         usec_t lifetime_usec;
         int r;
 
         assert(link);
+        assert(rt);
+        assert(rt->packet);
 
-        if (!link->ndisc_default_router)
-                return 0;
-
-        if (router) {
-                struct in6_addr a;
-
-                r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &a);
-                if (r < 0)
-                        return r;
-
-                if (!in6_addr_equal(&a, router))
-                        return 0;
-        }
-
-        r = sd_ndisc_router_get_lifetime_timestamp(link->ndisc_default_router, CLOCK_BOOTTIME, &lifetime_usec);
+        r = sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return r;
 
         if (lifetime_usec > timestamp_usec)
                 return 0;
 
-        link->ndisc_default_router = sd_ndisc_router_unref(link->ndisc_default_router);
-        return 0;
+        r = ndisc_drop_redirect(link, &rt->packet->sender_address);
+
+        sd_ndisc_router_unref(hashmap_remove(link->ndisc_routers_by_sender, &rt->packet->sender_address));
+
+        return r;
 }
 
-static int accept_default_router(sd_ndisc_router *new_router, sd_ndisc_router *existing_router) {
-        usec_t lifetime_usec;
-        struct in6_addr a, b;
-        uint8_t p, q;
-        int r;
+static int ndisc_drop_routers(Link *link, const struct in6_addr *router, usec_t timestamp_usec) {
+        sd_ndisc_router *rt;
+        int ret = 0;
 
-        assert(new_router);
+        assert(link);
 
-        r = sd_ndisc_router_get_lifetime(new_router, &lifetime_usec);
-        if (r < 0)
-                return r;
+        if (router) {
+                rt = hashmap_get(link->ndisc_routers_by_sender, router);
+                if (!rt)
+                        return 0;
 
-        if (lifetime_usec == 0)
-                return false; /* Received a new RA about revoking the router, ignoring. */
+                return ndisc_drop_router_one(link, rt, timestamp_usec);
+        }
 
-        if (!existing_router)
-                return true;
+        HASHMAP_FOREACH_KEY(rt, router, link->ndisc_routers_by_sender)
+                RET_GATHER(ret, ndisc_drop_router_one(link, rt, timestamp_usec));
 
-        /* lifetime of the existing router is already checked in ndisc_drop_outdated(). */
-
-        r = sd_ndisc_router_get_sender_address(new_router, &a);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_router_get_sender_address(existing_router, &b);
-        if (r < 0)
-                return r;
-
-        if (in6_addr_equal(&a, &b))
-                return true; /* Received a new RA from the remembered router. Replace the remembered RA. */
-
-        r = sd_ndisc_router_get_preference(new_router, &p);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_router_get_preference(existing_router, &q);
-        if (r < 0)
-                return r;
-
-        if (p == q)
-                return true;
-
-        if (p == SD_NDISC_PREFERENCE_HIGH)
-                return true;
-
-        if (p == SD_NDISC_PREFERENCE_MEDIUM && q == SD_NDISC_PREFERENCE_LOW)
-                return true;
-
-        return false;
+        return ret;
 }
 
-static int ndisc_remember_default_router(Link *link, sd_ndisc_router *rt) {
+static int ndisc_remember_router(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
         assert(rt);
+        assert(rt->packet);
 
-        r = accept_default_router(rt, link->ndisc_default_router);
+        sd_ndisc_router_unref(hashmap_remove(link->ndisc_routers_by_sender, &rt->packet->sender_address));
+
+        /* Remember RAs with non-zero lifetime. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
         if (r <= 0)
                 return r;
 
-        sd_ndisc_router_ref(rt);
-        sd_ndisc_router_unref(link->ndisc_default_router);
-        link->ndisc_default_router = rt;
+        r = hashmap_ensure_put(&link->ndisc_routers_by_sender, &ndisc_router_hash_ops, &rt->packet->sender_address, rt);
+        if (r < 0)
+                return r;
 
-        return 1; /* The received router advertisement is from the default router. */
+        sd_ndisc_router_ref(rt);
+        return 0;
 }
 
 static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) {
@@ -912,11 +969,6 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
 
         if (!link->network->ndisc_use_reachable_time)
                 return 0;
-
-        /* Ignore the reachable time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_reachable_time(rt, &reachable_time);
         if (r < 0)
@@ -951,11 +1003,6 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (!link->network->ndisc_use_retransmission_time)
                 return 0;
 
-        /* Ignore the retransmission time field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
-
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
@@ -988,11 +1035,6 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_hop_limit)
                 return 0;
-
-        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
         if (r < 0)
@@ -1028,11 +1070,6 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ndisc_use_mtu)
                 return 0;
-
-        /* Ignore the MTU option if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         r = sd_ndisc_router_get_mtu(rt, &mtu);
         if (r == -ENODATA)
@@ -1081,25 +1118,26 @@ static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_rou
         if (t > 2 * USEC_PER_HOUR)
                 return 0;
 
+        if (address_get(link, address, &existing) < 0 || existing->source != NETWORK_CONFIG_SOURCE_NDISC)
+                return 0;
+
+        if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
+                return 0;
+
+        /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information option
+         *    with regards to the valid lifetime, unless the Router Advertisement from which this option was
+         *    obtained has been authenticated (e.g., via Secure Neighbor Discovery [RFC3971]). If the Router
+         *    Advertisement was authenticated, the valid lifetime of the corresponding address should be set
+         *    to the Valid Lifetime in the received option.
+         *
+         * Currently, authentication is not supported. So check the lifetime of the existing address. */
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &t);
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, &existing) >= 0 && existing->source == NETWORK_CONFIG_SOURCE_NDISC) {
-                if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
-                        return 0;
-
-                /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information
-                 *    option with regards to the valid lifetime, unless the Router Advertisement from which
-                 *    this option was obtained has been authenticated (e.g., via Secure Neighbor Discovery
-                 *    [RFC3971]). If the Router Advertisement was authenticated, the valid lifetime of the
-                 *    corresponding address should be set to the Valid Lifetime in the received option.
-                 *
-                 * Currently, authentication is not supported. So check the lifetime of the existing address. */
-                if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
-                        address->lifetime_valid_usec = existing->lifetime_valid_usec;
-                        return 0;
-                }
+        if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
+                address->lifetime_valid_usec = existing->lifetime_valid_usec;
+                return 0;
         }
 
         /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
@@ -1276,10 +1314,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
 
         if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Prefix '%s' is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_prefix) ? "not in allow list"
-                                                                                              : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_prefix))
+                        log_link_debug(link, "Prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
+                else
+                        log_link_debug(link, "Prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
@@ -1330,11 +1369,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (in6_prefix_is_filtered(&dst, prefixlen,
                                    link->network->ndisc_allow_listed_route_prefix,
                                    link->network->ndisc_deny_listed_route_prefix)) {
-
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Route prefix %s is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_route_prefix) ? "not in allow list"
-                                                                                                    : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_route_prefix))
+                        log_link_debug(link, "Route prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
+                else
+                        log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
                 return 0;
         }
@@ -1861,7 +1900,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
          * valid lifetimes to improve the reaction of SLAAC to renumbering events.
          * See draft-ietf-6man-slaac-renum-02, section 4.2. */
 
-        r = drop_default_router(link, router, timestamp_usec);
+        r = ndisc_drop_routers(link, router, timestamp_usec);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to drop outdated default router, ignoring: %m"));
 
@@ -1980,6 +2019,16 @@ static int ndisc_setup_expire(Link *link) {
         assert(link);
         assert(link->manager);
 
+        sd_ndisc_router *rt;
+        HASHMAP_FOREACH(rt, link->ndisc_routers_by_sender) {
+                usec_t t;
+
+                if (sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &t) < 0)
+                        continue;
+
+                lifetime_usec = MIN(lifetime_usec, t);
+        }
+
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
@@ -2094,12 +2143,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
         if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
-                if (DEBUG_LOGGING) {
-                        if (!set_isempty(link->network->ndisc_allow_listed_router))
-                                log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                        else
-                                log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                }
+                if (!set_isempty(link->network->ndisc_allow_listed_router))
+                        log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
+                else
+                        log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
                 return 0;
         }
 
@@ -2115,7 +2162,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        r = ndisc_remember_default_router(link, rt);
+        r = ndisc_remember_router(link, rt);
         if (r < 0)
                 return r;
 
@@ -2214,7 +2261,7 @@ static int ndisc_neighbor_handle_router_message(Link *link, sd_ndisc_neighbor *n
         if (in6_addr_equal(&current_address, &original_address))
                 return 0; /* the router address is not changed */
 
-        r = update_default_router_address(link, &original_address, &current_address);
+        r = ndisc_update_router_address(link, &original_address, &current_address);
         if (r < 0)
                 return r;
 
@@ -2459,7 +2506,6 @@ int ndisc_stop(Link *link) {
         return sd_ndisc_stop(link->ndisc);
 }
 
-
 void ndisc_flush(Link *link) {
         assert(link);
 
@@ -2467,6 +2513,7 @@ void ndisc_flush(Link *link) {
         (void) ndisc_drop_outdated(link, /* router = */ NULL, /* timestamp_usec = */ USEC_INFINITY);
         (void) ndisc_drop_redirect(link, /* router = */ NULL);
 
+        link->ndisc_routers_by_sender = hashmap_free(link->ndisc_routers_by_sender);
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);

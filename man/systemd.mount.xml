@@ -82,7 +82,7 @@
     for kernel-to-userspace and userspace-to-userspace interfaces. Some
     of them may not be changed via mount units, and cannot be
     disabled. For a longer discussion see <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
+    url="https://systemd.io/API_FILE_SYSTEMS">API
     File Systems</ulink>.</para>
 
     <para>The

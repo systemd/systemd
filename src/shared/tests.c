@@ -309,7 +309,7 @@ int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, false);
 }
 
-const char *ci_environment(void) {
+const char* ci_environment(void) {
         /* We return a string because we might want to provide multiple bits of information later on: not
          * just the general CI environment type, but also whether we're sanitizing or not, etc. The caller is
          * expected to use strstr on the returned value. */

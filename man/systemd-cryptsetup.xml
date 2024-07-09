@@ -94,8 +94,9 @@
       <listitem><para>If the <varname>try-empty-password</varname> option is specified then unlocking the
       volume with an empty password is attempted.</para></listitem>
 
-      <listitem><para>The kernel keyring is then checked for a suitable cached password from previous
-      attempts.</para></listitem>
+      <listitem><para>If the <varname>password-cache=</varname> option is set to <literal>yes</literal> or
+      <literal>read-only</literal>, the kernel keyring is then checked for a suitable cached password from
+      previous attempts.</para></listitem>
 
       <listitem><para>Finally, the user is queried for a password, possibly multiple times, unless
       the <varname>headless</varname> option is set.</para></listitem>

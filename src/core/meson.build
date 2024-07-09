@@ -110,17 +110,13 @@ load_fragment_gperf_nulstr_c = custom_target(
 
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
-libcore = shared_library(
+libcore_static = static_library(
         libcore_name,
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
         c_args : ['-fvisibility=default'],
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libshared_sym_path],
-        link_depends : libshared_sym_path,
-        link_with : libshared,
         dependencies : [libacl,
                         libapparmor,
                         libaudit,
@@ -135,6 +131,16 @@ libcore = shared_library(
                         libselinux,
                         threads,
                         userspace],
+        build_by_default : false)
+
+libcore = shared_library(
+        libcore_name,
+        c_args : ['-fvisibility=default'],
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libshared_sym_path],
+        link_depends : libshared_sym_path,
+        link_whole: libcore_static,
+        link_with : libshared,
         install : true,
         install_dir : pkglibdir)
 
@@ -143,12 +149,24 @@ core_includes = [includes, include_directories('.')]
 systemd_sources = files(
         'main.c',
         'crash-handler.c',
+        'clock-warp.c',
 )
 
 systemd_executor_sources = files(
         'executor.c',
         'exec-invoke.c',
 )
+
+executor_libs = get_option('link-executor-shared') ? \
+        [
+                libcore,
+                libshared,
+        ] : [
+                libcore_static,
+                libshared_static,
+                libbasic_static,
+                libsystemd_static,
+        ]
 
 executables += [
         libexec_template + {
@@ -167,10 +185,7 @@ executables += [
                 'public' : true,
                 'sources' : systemd_executor_sources,
                 'include_directories' : core_includes,
-                'link_with' : [
-                        libcore,
-                        libshared,
-                ],
+                'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor,
                         libpam,

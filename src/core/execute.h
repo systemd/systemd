@@ -314,7 +314,7 @@ struct ExecContext {
         int private_mounts;
         int mount_apivfs;
         int memory_ksm;
-        bool private_tmp;
+        PrivateTmp private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
@@ -525,7 +525,7 @@ void exec_context_revert_tty(ExecContext *c);
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
-const char *exec_context_tty_path(const ExecContext *context);
+const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int tty_fd, const char *tty_path);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
 
@@ -624,11 +624,6 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep) \
         ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=%s" : "INVOCATION_ID=%s")
 
-/* Like LOG_MESSAGE(), but with the unit name prefixed. */
-#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
-#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
-#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
-
 #define log_exec_full_errno_zerook(ec, ep, level, error, ...)                     \
         ({                                                                        \
                 const ExecContext *_c = (ec);                                     \
@@ -641,8 +636,10 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 !_do_log ? -ERRNO_VALUE(error) :                                  \
                         log_object_internal(_l, error,                            \
                                             PROJECT_FILE, __LINE__, __func__,     \
-                                            LOG_EXEC_ID(_p),                      \
-                                            LOG_EXEC_INVOCATION_ID(_p),           \
+                                            LOG_EXEC_ID_FIELD(_p),                \
+                                            _p->unit_id,                          \
+                                            LOG_EXEC_INVOCATION_ID_FIELD(_p),     \
+                                            _p->invocation_id_string,             \
                                             ##__VA_ARGS__);                       \
         })
 
@@ -666,6 +663,11 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define log_exec_notice_errno(ec, ep, error, ...)  log_exec_full_errno(ec, ep, LOG_NOTICE, error, __VA_ARGS__)
 #define log_exec_warning_errno(ec, ep, error, ...) log_exec_full_errno(ec, ep, LOG_WARNING, error, __VA_ARGS__)
 #define log_exec_error_errno(ec, ep, error, ...)   log_exec_full_errno(ec, ep, LOG_ERR, error, __VA_ARGS__)
+
+/* Like LOG_MESSAGE(), but with the unit name prefixed. */
+#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
+#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
+#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
 
 #define log_exec_struct_errno(ec, ep, level, error, ...)                          \
         ({                                                                        \

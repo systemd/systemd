@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "format-table.h"
+#include "json-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -360,7 +361,7 @@ TEST(strv_wrapped) {
 }
 
 TEST(json) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
 
         assert_se(t = table_new("foo bar", "quux", "piep miau"));
@@ -378,18 +379,18 @@ TEST(json) {
 
         assert_se(table_to_json(t, &v) >= 0);
 
-        assert_se(json_build(&w,
-                             JSON_BUILD_ARRAY(
-                                             JSON_BUILD_OBJECT(
-                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
-                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_UNSIGNED(4711)),
-                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_BOOLEAN(true))),
-                                             JSON_BUILD_OBJECT(
-                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
-                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_NULL),
-                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_UNSIGNED(0755))))) >= 0);
+        assert_se(sd_json_build(&w,
+                             SD_JSON_BUILD_ARRAY(
+                                             SD_JSON_BUILD_OBJECT(
+                                                             SD_JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
+                                                             SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_UNSIGNED(4711)),
+                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_BOOLEAN(true))),
+                                             SD_JSON_BUILD_OBJECT(
+                                                             SD_JSON_BUILD_PAIR("foo_bar", SD_JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
+                                                             SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_NULL),
+                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_UNSIGNED(0755))))) >= 0);
 
-        assert_se(json_variant_equal(v, w));
+        assert_se(sd_json_variant_equal(v, w));
 }
 
 TEST(table) {
@@ -551,18 +552,18 @@ TEST(vertical) {
 
         assert_se(streq(formatted,
                         "     pfft aa: foo\n"
-                        "       uuu o: 1.0K\n"
+                        "       uuu o: 1K\n"
                         "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
 
-        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
         assert_se(table_to_json(t, &a) >= 0);
 
-        assert_se(json_build(&b, JSON_BUILD_OBJECT(
-                                             JSON_BUILD_PAIR("pfft_aa", JSON_BUILD_STRING("foo")),
-                                             JSON_BUILD_PAIR("dimpfelmoser", JSON_BUILD_UNSIGNED(1024)),
-                                             JSON_BUILD_PAIR("lllllllllllo", JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))) >= 0);
+        assert_se(sd_json_build(&b, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("pfft_aa", SD_JSON_BUILD_STRING("foo")),
+                                             SD_JSON_BUILD_PAIR("dimpfelmoser", SD_JSON_BUILD_UNSIGNED(1024)),
+                                             SD_JSON_BUILD_PAIR("lllllllllllo", SD_JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))) >= 0);
 
-        assert_se(json_variant_equal(a, b));
+        assert_se(sd_json_variant_equal(a, b));
 }
 
 TEST(path_basename) {
@@ -624,6 +625,41 @@ TEST(dup_cell) {
                         "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
                         "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
                         "aaa     0     65535   4294967295   100%   ../    hello    hello    hello\n"));
+}
+
+TEST(table_bps) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(table = table_new("uint64", "size", "bps"));
+        uint64_t v;
+        FOREACH_ARGUMENT(v,
+                         2500,
+                         10000000,
+                         20000000,
+                         25000000,
+                         1000000000,
+                         2000000000,
+                         2500000000)
+                assert_se(table_add_many(table,
+                                         TABLE_UINT64, v,
+                                         TABLE_SIZE, v,
+                                         TABLE_BPS, v) >= 0);
+
+        table_set_width(table, 50);
+        assert_se(table_format(table, &formatted) >= 0);
+
+        printf("%s", formatted);
+        assert_se(streq(formatted,
+                        "UINT64             SIZE           BPS\n"
+                        "2500               2.4K           2.5Kbps\n"
+                        "10000000           9.5M           10Mbps\n"
+                        "20000000           19M            20Mbps\n"
+                        "25000000           23.8M          25Mbps\n"
+                        "1000000000         953.6M         1Gbps\n"
+                        "2000000000         1.8G           2Gbps\n"
+                        "2500000000         2.3G           2.5Gbps\n"
+                  ));
 }
 
 static int intro(void) {

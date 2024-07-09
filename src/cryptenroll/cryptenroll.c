@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 
 #include "ask-password-api.h"
+#include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "cryptenroll-fido2.h"
@@ -39,6 +40,8 @@ static char *arg_unlock_fido2_device = NULL;
 static char *arg_unlock_tpm2_device = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
+static char *arg_fido2_salt_file = NULL;
+static bool arg_fido2_parameters_in_header = true;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
 static char *arg_tpm2_device_key = NULL;
@@ -69,6 +72,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_unlock_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fido2_salt_file, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
@@ -176,6 +180,7 @@ static int help(void) {
                "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
+               "     --list-devices    List candidate block devices to operate on\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
                "\n%3$sUnlocking:%4$s\n"
@@ -194,6 +199,10 @@ static int help(void) {
                "\n%3$sFIDO2 Enrollment:%4$s\n"
                "     --fido2-device=PATH\n"
                "                       Enroll a FIDO2-HMAC security token\n"
+               "     --fido2-salt-file=PATH\n"
+               "                       Use salt from a file instead of generating one\n"
+               "     --fido2-parameters-in-header=BOOL\n"
+               "                       Whether to store FIDO2 parameters in the LUKS2 header\n"
                "     --fido2-credential-algorithm=STRING\n"
                "                       Specify COSE algorithm for FIDO2 credential\n"
                "     --fido2-with-client-pin=BOOL\n"
@@ -243,6 +252,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UNLOCK_TPM2_DEVICE,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
+                ARG_FIDO2_SALT_FILE,
+                ARG_FIDO2_PARAMETERS_IN_HEADER,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_DEVICE_KEY,
                 ARG_TPM2_SEAL_KEY_HANDLE,
@@ -257,32 +268,36 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
+                ARG_LIST_DEVICES,
         };
 
         static const struct option options[] = {
-                { "help",                         no_argument,       NULL, 'h'                       },
-                { "version",                      no_argument,       NULL, ARG_VERSION               },
-                { "password",                     no_argument,       NULL, ARG_PASSWORD              },
-                { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY          },
-                { "unlock-key-file",              required_argument, NULL, ARG_UNLOCK_KEYFILE        },
-                { "unlock-fido2-device",          required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE   },
-                { "unlock-tpm2-device",           required_argument, NULL, ARG_UNLOCK_TPM2_DEVICE    },
-                { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI      },
-                { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG        },
-                { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE          },
-                { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN        },
-                { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP         },
-                { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV         },
-                { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE           },
-                { "tpm2-device-key",              required_argument, NULL, ARG_TPM2_DEVICE_KEY       },
-                { "tpm2-seal-key-handle",         required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE  },
-                { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS             },
-                { "tpm2-public-key",              required_argument, NULL, ARG_TPM2_PUBLIC_KEY       },
-                { "tpm2-public-key-pcrs",         required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS  },
-                { "tpm2-signature",               required_argument, NULL, ARG_TPM2_SIGNATURE        },
-                { "tpm2-pcrlock",                 required_argument, NULL, ARG_TPM2_PCRLOCK          },
-                { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_WITH_PIN         },
-                { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT             },
+                { "help",                          no_argument,       NULL, 'h'                            },
+                { "version",                       no_argument,       NULL, ARG_VERSION                    },
+                { "password",                      no_argument,       NULL, ARG_PASSWORD                   },
+                { "recovery-key",                  no_argument,       NULL, ARG_RECOVERY_KEY               },
+                { "unlock-key-file",               required_argument, NULL, ARG_UNLOCK_KEYFILE             },
+                { "unlock-fido2-device",           required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE        },
+                { "unlock-tpm2-device",            required_argument, NULL, ARG_UNLOCK_TPM2_DEVICE         },
+                { "pkcs11-token-uri",              required_argument, NULL, ARG_PKCS11_TOKEN_URI           },
+                { "fido2-credential-algorithm",    required_argument, NULL, ARG_FIDO2_CRED_ALG             },
+                { "fido2-device",                  required_argument, NULL, ARG_FIDO2_DEVICE               },
+                { "fido2-salt-file",               required_argument, NULL, ARG_FIDO2_SALT_FILE            },
+                { "fido2-parameters-in-header",    required_argument, NULL, ARG_FIDO2_PARAMETERS_IN_HEADER },
+                { "fido2-with-client-pin",         required_argument, NULL, ARG_FIDO2_WITH_PIN             },
+                { "fido2-with-user-presence",      required_argument, NULL, ARG_FIDO2_WITH_UP              },
+                { "fido2-with-user-verification",  required_argument, NULL, ARG_FIDO2_WITH_UV              },
+                { "tpm2-device",                   required_argument, NULL, ARG_TPM2_DEVICE                },
+                { "tpm2-device-key",               required_argument, NULL, ARG_TPM2_DEVICE_KEY            },
+                { "tpm2-seal-key-handle",          required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE       },
+                { "tpm2-pcrs",                     required_argument, NULL, ARG_TPM2_PCRS                  },
+                { "tpm2-public-key",               required_argument, NULL, ARG_TPM2_PUBLIC_KEY            },
+                { "tpm2-public-key-pcrs",          required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS       },
+                { "tpm2-signature",                required_argument, NULL, ARG_TPM2_SIGNATURE             },
+                { "tpm2-pcrlock",                  required_argument, NULL, ARG_TPM2_PCRLOCK               },
+                { "tpm2-with-pin",                 required_argument, NULL, ARG_TPM2_WITH_PIN              },
+                { "wipe-slot",                     required_argument, NULL, ARG_WIPE_SLOT                  },
+                { "list-devices",                  no_argument,       NULL, ARG_LIST_DEVICES               },
                 {}
         };
 
@@ -449,6 +464,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_FIDO2_SALT_FILE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_fido2_salt_file);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_FIDO2_PARAMETERS_IN_HEADER:
+                        r = parse_boolean_argument("--fido2-parameters-in-header=", optarg, &arg_fido2_parameters_in_header);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
 
@@ -597,6 +626,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_LIST_DEVICES:
+                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+
                 case '?':
                         return -EINVAL;
 
@@ -629,6 +665,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
                                                "Please specify device paths for enrolling and unlocking respectively.");
+
+                if (!arg_fido2_parameters_in_header && !arg_fido2_salt_file)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 parameters' storage in the LUKS2 header was disabled, but no salt file provided, refusing.");
 
                 if (!arg_fido2_device) {
                         r = fido2_find_device_auto(&arg_fido2_device);
@@ -841,7 +881,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg);
+                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, arg_fido2_parameters_in_header);
                 break;
 
         case ENROLL_TPM2:

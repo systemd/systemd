@@ -202,11 +202,13 @@ typedef struct UnitStatusInfo {
         bool transient;
 
         /* Service */
+        bool running;
         pid_t main_pid;
         pid_t control_pid;
-        const char *status_text;
         const char *pid_file;
-        bool running;
+        const char *status_text;
+        const char *status_bus_error;
+        const char *status_varlink_error;
         int status_errno;
 
         uint32_t fd_store_max;
@@ -681,9 +683,26 @@ static void print_status_info(
 
         if (i->status_text)
                 printf("     Status: \"%s%s%s\"\n", ansi_highlight_cyan(), i->status_text, ansi_normal());
-        if (i->status_errno > 0) {
-                errno = i->status_errno;
-                printf("      Error: %i (%m)\n", i->status_errno);
+
+        if (i->status_errno > 0 || i->status_bus_error || i->status_varlink_error) {
+                const char *prefix = " ";
+
+                printf("      Error:");
+
+                if (i->status_errno > 0) {
+                        printf("%scode: %i (%s)", prefix, i->status_errno, STRERROR(i->status_errno));
+                        prefix = "; ";
+                }
+                if (i->status_bus_error) {
+                        printf("%sD-Bus: %s", prefix, i->status_bus_error);
+                        prefix = "; ";
+                }
+                if (i->status_varlink_error) {
+                        printf("%sVarlink: %s", prefix, i->status_varlink_error);
+                        prefix = "; ";
+                }
+
+                putchar('\n');
         }
 
         if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
@@ -2041,9 +2060,11 @@ static int show_one(
                 { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
                 { "MainPID",                        "u",               map_main_pid,   0                                                           },
                 { "ControlPID",                     "u",               NULL,           offsetof(UnitStatusInfo, control_pid)                       },
-                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
                 { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                          },
+                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
                 { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "StatusBusError",                 "s",               NULL,           offsetof(UnitStatusInfo, status_bus_error)                  },
+                { "StatusVarlinkError",             "s",               NULL,           offsetof(UnitStatusInfo, status_varlink_error)              },
                 { "FileDescriptorStoreMax",         "u",               NULL,           offsetof(UnitStatusInfo, fd_store_max)                      },
                 { "NFileDescriptorStore",           "u",               NULL,           offsetof(UnitStatusInfo, n_fd_store)                        },
                 { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
