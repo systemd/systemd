@@ -4270,7 +4270,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* 6. And pin it, so that it cannot be unmounted */
                 safe_close(m->pin_cgroupfs_fd);
-                m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+                m->pin_cgroupfs_fd = open(path, O_PATH|O_CLOEXEC|O_DIRECTORY);
                 if (m->pin_cgroupfs_fd < 0)
                         return log_error_errno(errno, "Failed to open pin file: %m");
 

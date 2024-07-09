@@ -54,11 +54,11 @@ int switch_root(const char *new_root,
         assert(new_root);
 
         /* Check if we shall remove the contents of the old root */
-        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        old_root_fd = open("/", O_PATH|O_CLOEXEC);
         if (old_root_fd < 0)
                 return log_error_errno(errno, "Failed to open root directory: %m");
 
-        new_root_fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+        new_root_fd = open(new_root, O_PATH|O_CLOEXEC);
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
