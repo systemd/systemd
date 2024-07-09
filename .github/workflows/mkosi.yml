@@ -91,8 +91,8 @@ jobs:
             cflags: "-Og"
 
     steps:
-    - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
-    - uses: systemd/mkosi@70aa901697f12182ccaa24e2325867d275479b55
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+    - uses: systemd/mkosi@6b66aa9096948e0bc38154333687584e0351f450
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
