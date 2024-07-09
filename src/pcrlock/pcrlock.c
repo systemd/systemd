@@ -1927,6 +1927,9 @@ static int event_log_map_components(EventLog *el) {
                         continue;
                 }
 
+                if (!c->n_variants)
+                        log_notice("%s has no variant\n", c->id);
+
                 FOREACH_ARRAY(ii, c->variants, c->n_variants) {
                         EventLogComponentVariant *i = *ii;
 
@@ -4053,6 +4056,16 @@ static int event_log_predict_pcrs(
 
         component = ASSERT_PTR(el->components[component_index]);
 
+        if (!component->n_variants) {
+                return event_log_predict_pcrs(
+                        el,
+                        context,
+                        parent_result,
+                        component_index + 1, /* Next component */
+                        pcr,
+                        path);
+        }
+
         FOREACH_ARRAY(ii, component->variants, component->n_variants) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
                 EventLogComponentVariant *variant = *ii;
@@ -4111,8 +4124,9 @@ static ssize_t event_log_calculate_component_combinations(EventLog *el) {
                 /* Overflow check */
                 if (c->n_variants > (size_t) (SSIZE_MAX/count))
                         return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many component combinations.");
-
-                count *= c->n_variants;
+                /* If no variant, this will lead to count being 0 and sigfpe */
+                if (c->n_variants)
+                        count *= c->n_variants;
         }
 
         return count;
@@ -4410,6 +4424,9 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
         if (r < 0)
                 return r;
+
+        if (!new_prediction.pcrs)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Set of PCRs to use for policy is empty");
 
         usec_t predict_start_usec = now(CLOCK_MONOTONIC);
 
