@@ -114,7 +114,9 @@ def _includes(el):
         if el.get('href') == 'version-info.xml':
             versionString = conf.global_substitutions.get(
                 el.get("xpointer"))
-            return f".. versionadded:: {versionString}"
+            # `\n\n   \n\n   ` forces a newline and subsequent indent.
+            # The empty spaces are stripped later
+            return f".. only:: html\n\n   \n\n   .. versionadded:: {versionString}"
         elif not el.get("xpointer"):
             return f".. include:: ./{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
