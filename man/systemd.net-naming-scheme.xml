@@ -525,6 +525,14 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v257</constant></term>
+
+          <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
