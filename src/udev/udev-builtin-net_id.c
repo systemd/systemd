@@ -566,6 +566,54 @@ static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
         return -ENOENT;
 }
 
+static bool get_sun(sd_device *dev, uint32_t *ret) {
+        const char *attr;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = device_get_sysattr_value_filtered(dev, "firmware_node/sun", &attr);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to read firmware_node/sun, ignoring: %m");
+                return false;
+        }
+
+        r = safe_atou32(attr, ret);
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to parse firmware_node/sun (%s), ignoring: %m", attr);
+                return false;
+        }
+
+        return true;
+}
+
+static int pci_get_slot_from_firmware_node_sun(sd_device *dev, uint32_t *ret) {
+        int r;
+        sd_device *slot_dev;
+
+        assert(dev);
+        assert(ret);
+
+        /* Try getting the ACPI _SUN for the device */
+        if (get_sun(dev, ret))
+                return 0;
+
+        if ((r = sd_device_get_parent_with_subsystem_devtype(dev, "pci", NULL, &slot_dev)) < 0)
+                return log_device_debug_errno(dev, r, "Failed to find pci parent, ignoring: %m");
+
+        if (is_pci_bridge(slot_dev) && !is_pci_multifunction(dev))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ESTALE),
+                                              "Not using slot information because the parent pcieport "
+                                              "is a bridge and the PCI device has single function.");
+
+        /* Try getting the ACPI _SUN from the parent pcieport */
+        if (get_sun(slot_dev, ret))
+                return 0;
+
+        return -ENOENT;
+}
+
 static int get_pci_slot_specifiers(
                 sd_device *dev,
                 char **ret_domain,
@@ -616,7 +664,7 @@ static int get_pci_slot_specifiers(
 
 static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, EventMode mode) {
         _cleanup_free_ char *domain = NULL, *bus_and_slot = NULL, *func = NULL, *port = NULL;
-        uint32_t hotplug_slot = 0;  /* avoid false maybe-uninitialized warning */
+        uint32_t slot = 0;  /* avoid false maybe-uninitialized warning */
         char str[ALTIFNAMSIZ];
         int r;
 
@@ -641,7 +689,11 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
                          strna(domain), bus_and_slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
-        r = pci_get_hotplug_slot(pci_dev, &hotplug_slot);
+        if (naming_scheme_has(NAMING_FIRMWARE_NODE_SUN))
+                r = pci_get_slot_from_firmware_node_sun(pci_dev, &slot);
+        else
+                r = pci_get_hotplug_slot(pci_dev, &slot);
+
         if (r < 0)
                 return r;
         if (r > 0)
@@ -650,11 +702,11 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
                 domain = mfree(domain);
 
         if (snprintf_ok(str, sizeof str, "%s%ss%"PRIu32"%s%s%s",
-                        prefix, strempty(domain), hotplug_slot, strempty(func), strempty(port), strempty(suffix)))
+                        prefix, strempty(domain), slot, strempty(func), strempty(port), strempty(suffix)))
                 udev_builtin_add_property(dev, mode, "ID_NET_NAME_SLOT", str);
 
         log_device_debug(dev, "Slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
-                         strna(domain), hotplug_slot, strna(func), strna(port),
+                         strna(domain), slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
         return 0;
