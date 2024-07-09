@@ -832,7 +832,7 @@
         type when precisely a unit has finished starting up. Most importantly, for service units start-up is
         considered completed for the purpose of <varname>Before=</varname>/<varname>After=</varname> when all
         its configured start-up commands have been invoked and they either failed or reported start-up
-        success. Note that this does includes <varname>ExecStartPost=</varname> (or
+        success. Note that this includes <varname>ExecStartPost=</varname> (or
         <varname>ExecStopPost=</varname> for the shutdown case).</para>
 
         <para>Note that those settings are independent of and orthogonal to the requirement dependencies as
