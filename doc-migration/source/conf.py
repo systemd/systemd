@@ -41,6 +41,14 @@ html_theme_options = {
   },
 }
 
+
+man_pages = [
+  ('busctl', 'busctl', 'Introspect the bus', None, '1'),
+  ('journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
+  ('os-release', 'os-release', 'Operating system identification', None, '5'),
+  ('systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
+]
+
 global_substitutions = {
   'v183': '183',
   'v184': '184',
