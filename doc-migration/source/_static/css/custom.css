@@ -5,3 +5,22 @@
 section {
   margin-block-end: 2em;
 }
+
+/* Make right sidebar wider to accomodate long titles */
+.toc-drawer {
+  width: 100%;
+}
+
+/* Make Toc section headers bold */
+.toc-tree li a:has(+ ul) {
+  font-weight: 600;
+}
+
+.sig-name,
+.sig-prename {
+  color: var(--color-content-foreground);
+}
+
+.std.option {
+  margin-left: 2rem;
+}
