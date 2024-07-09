@@ -306,7 +306,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           argument is omitted, symlinks to files with the same name
           residing in the directory
           <filename>/usr/share/factory/</filename> are created. Note
-          that permissions and ownership on symlinks are ignored.
+          that permissions on symlinks are ignored.
           </para></listitem>
         </varlistentry>
 
@@ -588,8 +588,8 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
       used. For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to
       <literal>-</literal>, the file ownership will not be modified. These parameters are ignored for
-      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>L</varname>,
-      <varname>t</varname>, and <varname>a</varname> lines.</para>
+      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>t</varname>,
+      and <varname>a</varname> lines.</para>
 
       <para>This field should generally only reference system users/groups, i.e. users/groups that are
       guaranteed to be resolvable during early boot. If this field references users/groups that only become
@@ -764,6 +764,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
             <row>
               <entry><literal>%S</literal></entry>
               <entry>System or user state directory</entry>

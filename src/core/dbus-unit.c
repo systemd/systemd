@@ -504,9 +504,9 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = ASSERT_PTR(userdata);
         int32_t value = 0;
-        const char *swho;
+        const char *swhom;
         int32_t signo;
-        KillWho who;
+        KillWhom whom;
         int r, code;
 
         assert(message);
@@ -515,7 +515,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "si", &swho, &signo);
+        r = sd_bus_message_read(message, "si", &swhom, &signo);
         if (r < 0)
                 return r;
 
@@ -528,12 +528,12 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         } else
                 code = SI_USER;
 
-        if (isempty(swho))
-                who = KILL_ALL;
+        if (isempty(swhom))
+                whom = KILL_ALL;
         else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument: %s", swho);
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid whom argument: %s", swhom);
         }
 
         if (!SIGNAL_VALID(signo))
@@ -554,7 +554,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, who, signo, code, value, error);
+        r = unit_kill(u, whom, signo, code, value, error);
         if (r < 0)
                 return r;
 

@@ -153,7 +153,7 @@ char* utf8_is_valid_n(const char *str, size_t len_bytes) {
         return (char*) str;
 }
 
-char *utf8_escape_invalid(const char *str) {
+char* utf8_escape_invalid(const char *str) {
         char *p, *s;
 
         assert(str);
@@ -195,7 +195,7 @@ int utf8_char_console_width(const char *str) {
         return unichar_iswide(c) ? 2 : 1;
 }
 
-char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
+char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis) {
         char *p, *s, *prev_s;
         size_t n = 0; /* estimated print width */
 
@@ -359,7 +359,7 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
         return 0;
 }
 
-char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
+char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 

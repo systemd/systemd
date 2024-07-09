@@ -182,10 +182,10 @@
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
-      PE binaries, and a <literal>.cmdline</literal> section is parsed from them. Addons are supposed to be
-      used to pass additional kernel command line parameters or Devicetree blobs, regardless of the kernel
-      image being booted, for example to allow platform vendors to ship platform-specific
-      configuration.</para>
+      PE binaries, and a <literal>.cmdline</literal> or <literal>.ucode</literal> section is parsed from them.
+      Addons are supposed to be used to pass additional kernel command line parameters, or Devicetree blobs,
+      and microcode updates, regardless of the kernel image being booted, for example to allow platform vendors
+      to ship platform-specific configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
       Shim's MOK, and will be rejected otherwise. Additionally, if both the addon and the UKI contain a
@@ -199,7 +199,9 @@
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
       to the kernel command line. UKI command line options are listed first, then options from addons in
       <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
-      loaded and measured following the same algorithm. Addons are always loaded in the same order based on
+      loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
+      order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
+      driver stops on the first matching filename. Addons are always loaded in the same order based on
       the filename, so that, given the same set of addons, the same set of measurements can be expected in
       PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
       with write access to the ESP could potentially rename these files to change the order in which they are
@@ -215,9 +217,10 @@
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and <literal>.cmdline</literal> and/or <literal>.dtb</literal> sections are
-      parsed from them. This is supposed to be used to pass additional command line parameters or Devicetree
-      blobs to the kernel, regardless of the kernel being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal> and/or
+      <literal>.ucode</literal>sections are parsed from them. This is supposed to be used to pass additional
+      command line parameters, Devicetree blobs and microcode updates to the kernel, regardless of the
+      kernel being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd

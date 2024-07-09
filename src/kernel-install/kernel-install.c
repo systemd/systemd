@@ -1467,7 +1467,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sAdd and remove kernel and initrd images to and from /boot/%6$s\n"
+               "%5$sAdd and remove kernel and initrd images to and from the boot partition.%6$s\n"
                "\n%3$sUsage:%4$s\n"
                "  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] add-all\n"

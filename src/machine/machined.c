@@ -93,9 +93,8 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
-#if ENABLE_NSCD
-        sd_event_source_unref(m->nscd_cache_flush_event);
-#endif
+
+        sd_event_source_disable_unref(m->deferred_gc_event_source);
 
         hashmap_free(m->polkit_registry);
 
@@ -264,29 +263,6 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static void manager_gc(Manager *m, bool drop_not_started) {
-        Machine *machine;
-
-        assert(m);
-
-        while ((machine = LIST_POP(gc_queue, m->machine_gc_queue))) {
-                machine->in_gc_queue = false;
-
-                /* First, if we are not closing yet, initiate stopping */
-                if (machine_may_gc(machine, drop_not_started) &&
-                    machine_get_state(machine) != MACHINE_CLOSING)
-                        machine_stop(machine);
-
-                /* Now, the stop probably made this referenced
-                 * again, but if it didn't, then it's time to let it
-                 * go entirely. */
-                if (machine_may_gc(machine, drop_not_started)) {
-                        machine_finalize(machine);
-                        machine_free(machine);
-                }
-        }
-}
-
 static int manager_startup(Manager *m) {
         Machine *machine;
         int r;
@@ -330,8 +306,6 @@ static bool check_idle(void *userdata) {
 
         if (!hashmap_isempty(m->polkit_registry))
                 return false;
-
-        manager_gc(m, true);
 
         return hashmap_isempty(m->machines);
 }

@@ -618,8 +618,7 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)));
         if (r < 0)
                 return r;
 
@@ -671,8 +670,7 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
         if (!uid_is_valid(uid))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)));
         if (r < 0)
                 return r;
 
@@ -891,8 +889,7 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)));
         if (r < 0)
                 return r;
 
@@ -942,8 +939,7 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
         if (!gid_is_valid(gid))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)));
         if (r < 0)
                 return r;
 
@@ -1150,8 +1146,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)));
         if (r < 0)
                 return r;
 
@@ -1196,8 +1191,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_build(&query, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name))));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)));
         if (r < 0)
                 return r;
 

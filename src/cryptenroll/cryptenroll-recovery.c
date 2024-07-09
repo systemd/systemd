@@ -74,10 +74,9 @@ int enroll_recovery(
                 goto rollback;
         }
 
-        r = sd_json_build(&v,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-recovery")),
-                                       SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string)))));
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-recovery")),
+                           SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))));
         if (r < 0) {
                 log_error_errno(r, "Failed to prepare recovery key JSON token object: %m");
                 goto rollback;

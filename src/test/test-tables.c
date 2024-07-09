@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         test_table(job_state, JOB_STATE);
         test_table(job_type, JOB_TYPE);
         test_table(kill_mode, KILL_MODE);
-        test_table(kill_who, KILL_WHO);
+        test_table(kill_whom, KILL_WHOM);
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
         test_table(managed_oom_mode, MANAGED_OOM_MODE);

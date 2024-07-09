@@ -264,7 +264,7 @@ EOF
 }
 
 testcase_bootctl_varlink() {
-    varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}'
+    varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}' --graceful=io.systemd.BootControl.NoSuchBootEntry
 
     # We may have UEFI in the test environment.
     # If we don't have UEFI then we can test whether bootctl's varlink API fails cleanly.
@@ -272,8 +272,8 @@ testcase_bootctl_varlink() {
     if ! (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported; then
         return 0
     fi
-    (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
-    (SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' || true) |& grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+    SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
+    SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
 }
 
 run_testcases

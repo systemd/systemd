@@ -112,6 +112,7 @@ typedef struct MountEntry {
         unsigned n_followed;
         LIST_HEAD(MountOptions, image_options_const);
         char **overlay_layers;
+        VeritySettings verity;
 } MountEntry;
 
 typedef struct MountList {
@@ -343,6 +344,7 @@ static void mount_entry_done(MountEntry *p) {
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
         p->overlay_layers = strv_free(p->overlay_layers);
+        verity_settings_done(&p->verity);
 }
 
 static void mount_list_done(MountList *ml) {
@@ -505,6 +507,7 @@ static int append_extensions(
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
         for (size_t i = 0; i < n_mount_images; i++) {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
@@ -522,6 +525,10 @@ static int append_extensions(
                                         SYNTHETIC_ERRNO(ENOENT),
                                         "No matching entry in .v/ directory %s found.",
                                         m->source);
+
+                r = verity_settings_load(&verity, result.path, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check verity root hash of %s: %m", result.path);
 
                 if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, i) < 0)
                         return -ENOMEM;
@@ -547,6 +554,7 @@ static int append_extensions(
                         .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
+                        .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                 };
         }
 
@@ -752,6 +760,11 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         if (d != 0)
                 return d;
 
+        /* MOUNT_PRIVATE_TMPFS needs to be set up earlier, especially than MOUNT_BIND. */
+        d = -CMP(a->mode == MOUNT_PRIVATE_TMPFS, b->mode == MOUNT_PRIVATE_TMPFS);
+        if (d != 0)
+                return d;
+
         /* If the paths are not equal, then order prefixes first */
         d = path_compare(mount_entry_path(a), mount_entry_path(b));
         if (d != 0)
@@ -782,6 +795,36 @@ static int prefix_where_needed(MountList *ml, const char *root_directory) {
         return 0;
 }
 
+static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle) {
+
+        assert(ml);
+        assert(needle);
+        assert(needle >= ml->mounts && needle < ml->mounts + ml->n_mounts);
+        assert(needle->mode == MOUNT_EXTENSION_IMAGE);
+
+        if (needle->verity.root_hash_size == 0)
+                return false;
+
+        /* Overlayfs rejects supplying the same directory inode twice as determined by filesystem UUID and
+         * file handle in lowerdir=, even if they are mounted on different paths, as it resolves each mount
+         * to its source filesystem, so drop duplicates, and keep the last one. This only covers non-DDI
+         * verity images. Note that the list is ordered, so we only check for the reminder of the list for
+         * each item, rather than the full list from the beginning, as any earlier duplicates will have
+         * already been pruned. */
+
+        for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
+                if (m->mode != MOUNT_EXTENSION_IMAGE)
+                        continue;
+                if (memcmp_nn(m->verity.root_hash,
+                              m->verity.root_hash_size,
+                              needle->verity.root_hash,
+                              needle->verity.root_hash_size) == 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static void drop_duplicates(MountList *ml) {
         MountEntry *f, *t, *previous;
 
@@ -801,6 +844,12 @@ static void drop_duplicates(MountList *ml) {
                         previous->read_only = previous->read_only || mount_entry_read_only(f);
                         previous->noexec = previous->noexec || mount_entry_noexec(f);
                         previous->exec = previous->exec || mount_entry_exec(f);
+                        mount_entry_done(f);
+                        continue;
+                }
+
+                if (f->mode == MOUNT_EXTENSION_IMAGE && verity_has_later_duplicates(ml, f)) {
+                        log_debug("Skipping duplicate extension image %s", mount_entry_source(f));
                         mount_entry_done(f);
                         continue;
                 }
@@ -1342,7 +1391,7 @@ static int mount_mqueuefs(const MountEntry *m) {
 }
 
 static int mount_image(
-                const MountEntry *m,
+                MountEntry *m,
                 const char *root_directory,
                 const ImagePolicy *image_policy) {
 
@@ -1382,6 +1431,7 @@ static int mount_image(
                         host_os_release_sysext_level,
                         host_os_release_confext_level,
                         /* required_sysext_scope= */ NULL,
+                        &m->verity,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -1712,11 +1762,11 @@ static int apply_one_mount(
                         (void) mkdir_parents(mount_entry_path(m), 0755);
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
-                        if (q < 0) {
-                                if (q != -EEXIST) // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
-                                        log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
-                                                          mount_entry_path(m));
-                        } else
+                        if (q < 0 && q != -EEXIST)
+                                // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
+                                log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
+                                                  mount_entry_path(m));
+                        else
                                 try_again = true;
                 }
 
@@ -2310,9 +2360,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .create_source_dir = true,
                 };
 
-                /* Ensure that the tmpfs is mounted first, and bind mounts are added later. */
-                assert_cc(MOUNT_BIND < MOUNT_PRIVATE_TMPFS);
-        } else {
+        } else if (p->tmp_dir || p->var_tmp_dir) {
+                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+
                 if (p->tmp_dir) {
                         bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
 
@@ -3152,4 +3202,4 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);

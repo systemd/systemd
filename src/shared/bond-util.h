@@ -81,26 +81,26 @@ typedef enum BondPrimaryReselect {
         _NETDEV_BOND_PRIMARY_RESELECT_INVALID = -EINVAL,
 } BondPrimaryReselect;
 
-const char *bond_mode_to_string(BondMode d) _const_;
+const char* bond_mode_to_string(BondMode d) _const_;
 BondMode bond_mode_from_string(const char *d) _pure_;
 
-const char *bond_xmit_hash_policy_to_string(BondXmitHashPolicy d) _const_;
+const char* bond_xmit_hash_policy_to_string(BondXmitHashPolicy d) _const_;
 BondXmitHashPolicy bond_xmit_hash_policy_from_string(const char *d) _pure_;
 
-const char *bond_lacp_rate_to_string(BondLacpRate d) _const_;
+const char* bond_lacp_rate_to_string(BondLacpRate d) _const_;
 BondLacpRate bond_lacp_rate_from_string(const char *d) _pure_;
 
-const char *bond_fail_over_mac_to_string(BondFailOverMac d) _const_;
+const char* bond_fail_over_mac_to_string(BondFailOverMac d) _const_;
 BondFailOverMac bond_fail_over_mac_from_string(const char *d) _pure_;
 
-const char *bond_ad_select_to_string(BondAdSelect d) _const_;
+const char* bond_ad_select_to_string(BondAdSelect d) _const_;
 BondAdSelect bond_ad_select_from_string(const char *d) _pure_;
 
-const char *bond_arp_validate_to_string(BondArpValidate d) _const_;
+const char* bond_arp_validate_to_string(BondArpValidate d) _const_;
 BondArpValidate bond_arp_validate_from_string(const char *d) _pure_;
 
-const char *bond_arp_all_targets_to_string(BondArpAllTargets d) _const_;
+const char* bond_arp_all_targets_to_string(BondArpAllTargets d) _const_;
 BondArpAllTargets bond_arp_all_targets_from_string(const char *d) _pure_;
 
-const char *bond_primary_reselect_to_string(BondPrimaryReselect d) _const_;
+const char* bond_primary_reselect_to_string(BondPrimaryReselect d) _const_;
 BondPrimaryReselect bond_primary_reselect_from_string(const char *d) _pure_;

@@ -13,12 +13,19 @@ project('systemd', 'c',
         meson_version : '>= 0.60.0',
        )
 
+project_major_version = meson.project_version().split('.')[0].split('~')[0]
+if meson.project_version().contains('.')
+        project_minor_version = meson.project_version().split('.')[-1].split('~')[0]
+else
+        project_minor_version = '0'
+endif
+
 libsystemd_version = '0.39.0'
 libudev_version = '1.7.9'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
+conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
@@ -547,6 +554,7 @@ decl_headers = '''
 #include <uchar.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sched.h>
 '''
 
 foreach decl : ['char16_t',
@@ -554,6 +562,7 @@ foreach decl : ['char16_t',
                 'struct mount_attr',
                 'struct statx',
                 'struct dirent64',
+                'struct sched_attr',
                ]
 
         # We get -1 if the size cannot be determined
@@ -601,6 +610,7 @@ foreach ident : [
                                  #include <unistd.h>'''],     # no known header declares pivot_root
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
+        ['sched_setattr',     '''#include <sched.h>'''],      # no known header declares sched_setattr
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
@@ -723,7 +733,7 @@ gperf = find_program('gperf')
 
 gperf_test_format = '''
 #include <string.h>
-const char * in_word_set(const char *, @0@);
+const char* in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet = run_command(sh, '-c', 'echo foo,bar | "$1" -L ANSI-C', '_', gperf,
@@ -1641,7 +1651,6 @@ foreach term : ['analyze',
                 'machined',
                 'mountfsd',
                 'networkd',
-                'nscd',
                 'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
@@ -1740,6 +1749,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-ffile-prefix-map=',
                 '-fdebug-prefix-map=',
                 '-fmacro-prefix-map=',
+                '--sysroot=',
         ]
 
         foreach opt : c_args
@@ -1759,15 +1769,15 @@ if conf.get('BPF_FRAMEWORK') == 1
         # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
         # and src/basic/missing_syscall_def.h.
         cpu_arch_defines = {
-                'ppc'     : ['-D__powerpc__'],
-                'ppc64'   : ['-D__powerpc64__', '-D_CALL_ELF=2'],
-                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
-                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
-                'x86'     : ['-D__i386__'],
-                's390x'   : ['-D__s390__', '-D__s390x__'],
+                'ppc'     : ['-D__powerpc__', '-D__TARGET_ARCH_powerpc'],
+                'ppc64'   : ['-D__powerpc64__', '-D__TARGET_ARCH_powerpc', '-D_CALL_ELF=2'],
+                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32', '-D__TARGET_ARCH_riscv'],
+                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64', '-D__TARGET_ARCH_riscv'],
+                'x86'     : ['-D__i386__', '-D__TARGET_ARCH_x86'],
+                's390x'   : ['-D__s390__', '-D__s390x__', '-D__TARGET_ARCH_s390'],
 
                 # For arm, assume hardware fp is available.
-                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
+                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP', '-D__TARGET_ARCH_arm'],
         }
 
         bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
@@ -1993,7 +2003,7 @@ version_h = vcs_tag(
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version().split('~')[0]
+        shared_lib_tag = project_major_version
 endif
 
 #####################################################################
@@ -2079,7 +2089,7 @@ libsystemd = shared_library(
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2245,7 +2255,7 @@ nss_template = {
         'link_with' : [
                 libsystemd_static,
                 libshared_static,
-                libbasic,
+                libbasic_static,
         ],
         'dependencies' : [
                 librt,
@@ -2651,12 +2661,6 @@ foreach executable : ['systemd-journal-remote', 'systemd-measure']
 endforeach
 
 if mkosi.found()
-        genkey = custom_target('genkey',
-                output : ['mkosi.key', 'mkosi.crt'],
-                command : [mkosi, '--force', 'genkey'],
-                depends : mkosi_depends,
-        )
-
         custom_target('mkosi',
                 build_always_stale : true,
                 build_by_default: false,
@@ -2668,14 +2672,10 @@ if mkosi.found()
                         '--output-dir', meson.current_build_dir() / 'mkosi.output',
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
-                        '--secure-boot-key', meson.current_build_dir() / 'mkosi.key',
-                        '--secure-boot-certificate', meson.current_build_dir() / 'mkosi.crt',
-                        '--verity-key', meson.current_build_dir() / 'mkosi.key',
-                        '--verity-certificate', meson.current_build_dir() / 'mkosi.crt',
                         '--force',
                         'build',
                 ],
-                depends : mkosi_depends + [genkey],
+                depends : mkosi_depends,
         )
 endif
 
@@ -2756,17 +2756,11 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
-                version = meson.project_version()
-                if name == 'udevadm'
-                        # For compatibility reasons we can't use the full version in udevadm.
-                        version = version.split('~')[0]
-                endif
-
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             version],
+                             project_major_version],
                      depends: exec)
         endif
 endforeach
@@ -3061,7 +3055,6 @@ foreach tuple : [
         ['dmi'],
         ['idn'],
         ['polkit'],
-        ['nscd'],
         ['legacy-pkla',            install_polkit_pkla],
         ['kmod'],
         ['xenctrl'],

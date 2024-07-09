@@ -832,6 +832,8 @@ static void test_exec_systemcallfilter(Manager *m) {
                 return;
         }
 
+        test(m, "exec-systemcallfilter-writing-handoff-timestamp.service", 0, CLD_EXITED);
+
         test(m, "exec-systemcallfilter-not-failing.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-not-failing2.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-not-failing3.service", 0, CLD_EXITED);

@@ -14,20 +14,18 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "varlink.h"
 
-static int process_vsock(const char *host, const char *port) {
+static int process_vsock_cid(unsigned cid, const char *port) {
         int r;
 
-        assert(host);
+        assert(cid != VMADDR_CID_ANY);
         assert(port);
 
         union sockaddr_union sa = {
+                .vm.svm_cid = cid,
                 .vm.svm_family = AF_VSOCK,
         };
-
-        r = vsock_parse_cid(host, &sa.vm.svm_cid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse vsock cid: %s", host);
 
         r = vsock_parse_port(port, &sa.vm.svm_port);
         if (r < 0)
@@ -47,6 +45,21 @@ static int process_vsock(const char *host, const char *port) {
 
         log_debug("Successfully sent AF_VSOCK socket via STDOUT.");
         return 0;
+
+}
+
+static int process_vsock_string(const char *host, const char *port) {
+        unsigned cid;
+        int r;
+
+        assert(host);
+        assert(port);
+
+        r = vsock_parse_cid(host, &cid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse vsock cid: %s", host);
+
+        return process_vsock_cid(cid, port);
 }
 
 static int process_unix(const char *path) {
@@ -124,6 +137,43 @@ static int process_vsock_mux(const char *path, const char *port) {
         return 0;
 }
 
+static int process_machine(const char *machine, const char *port) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        int r;
+
+        assert(machine);
+        assert(port);
+
+        r = varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Machine.List",
+                        &result,
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(machine)));
+        if (r < 0)
+                return r;
+
+        uint32_t cid = VMADDR_CID_ANY;
+
+        const sd_json_dispatch_field dispatch_table[] = {
+                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, PTR_TO_SIZE(&cid), 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse Varlink reply: %m");
+
+        if (cid == VMADDR_CID_ANY)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine has no AF_VSOCK CID assigned.");
+
+        return process_vsock_cid(cid, port);
+}
+
 static int run(int argc, char* argv[]) {
 
         log_setup();
@@ -135,7 +185,7 @@ static int run(int argc, char* argv[]) {
 
         const char *p = startswith(host, "vsock/");
         if (p)
-                return process_vsock(p, port);
+                return process_vsock_string(p, port);
 
         p = startswith(host, "unix/");
         if (p)
@@ -144,6 +194,10 @@ static int run(int argc, char* argv[]) {
         p = startswith(host, "vsock-mux/");
         if (p)
                 return process_vsock_mux(p, port);
+
+        p = startswith(host, "machine/");
+        if (p)
+                return process_machine(p, port);
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Don't know how to parse host name specification: %s", host);
 }

@@ -634,6 +634,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 
 * `$SYSTEMD_REPART_OVERRIDE_FSTYPE` – if set the value will override the file
   system type specified in Format= lines in partition definition files.
+  Additionally, the filesystem for all partitions with a specific designator can
+  be overridden via a correspondingly named environment variable. For example,
+  to override the filesystem type for all partitions with `Type=root`, you can
+  set `SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT=ext4`.
 
 `systemd-nspawn`, `systemd-networkd`:
 
@@ -686,7 +690,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 * `$SYSTEMD_VARLINK_LISTEN` – interpreted by some tools that provide a Varlink
   service. Takes a file system path: if specified the tool will listen on an
   `AF_UNIX` stream socket on the specified path in addition to whatever else it
-  would listen on.
+  would listen on. If set to "-" the tool will turn stdin/stdout into a Varlink
+  connection.
 
 `systemd-mountfsd`:
 
@@ -713,6 +718,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   and `run0` invocations is turned off. Note that this environment variable has
   no effect if the background color is explicitly selected via the relevant
   `--background=` switch of the tool.
+
+* `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
+  window title will not be updated for interactive invocation of the mentioned
+  tools.
 
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:

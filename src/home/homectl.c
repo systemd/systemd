@@ -39,13 +39,13 @@
 #include "path-util.h"
 #include "percent-util.h"
 #include "pkcs11-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
-#include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
@@ -3179,11 +3179,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!t)
                                 return log_oom();
 
-                        r = sd_json_variant_set_fieldb(
+                        r = sd_json_variant_set_fieldbo(
                                         &arg_identity_extra_rlimits, t,
-                                        SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR("cur", SD_JSON_BUILD_VARIANT(jcur)),
-                                                        SD_JSON_BUILD_PAIR("max", SD_JSON_BUILD_VARIANT(jmax))));
+                                        SD_JSON_BUILD_PAIR("cur", SD_JSON_BUILD_VARIANT(jcur)),
+                                        SD_JSON_BUILD_PAIR("max", SD_JSON_BUILD_VARIANT(jmax)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
 

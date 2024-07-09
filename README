@@ -130,9 +130,10 @@ REQUIREMENTS:
 
         Required for signed Verity images support:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
-        Required to verify signed Verity images using keys enrolled in the MoK
-        (Machine-Owner Key) keyring:
+        Required to verify signed Verity images using keys enrolled in the MOK
+        (Machine-Owner Key) and DB UEFI certificate stores:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING
+          CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
 
@@ -168,6 +169,7 @@ REQUIREMENTS:
 
         Required for systemd-oomd:
           CONFIG_PSI
+          CONFIG_MEMCG
 
         Note that kernel auditing is broken when used with systemd's container
         code. When using systemd in conjunction with containers, please make

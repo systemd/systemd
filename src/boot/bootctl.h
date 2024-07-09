@@ -20,6 +20,7 @@ extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
 extern unsigned arg_print_root_device;
 extern bool arg_touch_variables;
+extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
 extern bool arg_graceful;
 extern bool arg_quiet;
@@ -38,7 +39,7 @@ extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
 
-static inline const char *arg_dollar_boot_path(void) {
+static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
         return arg_xbootldr_path ?: arg_esp_path;
 }

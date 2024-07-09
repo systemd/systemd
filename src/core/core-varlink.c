@@ -29,8 +29,7 @@ static int build_user_json(const char *user_name, uid_t uid, sd_json_variant **r
         assert(uid_is_valid(uid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(uid)),
@@ -39,7 +38,7 @@ static int build_user_json(const char *user_name, uid_t uid, sd_json_variant **r
                                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
                                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
+                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic")))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -86,11 +85,11 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
         } else
                 return -EINVAL;
 
-        return sd_json_build(ret_v, SD_JSON_BUILD_OBJECT(
-                                 SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING(mode)),
-                                 SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
-                                 SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
-                                 SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit))));
+        return sd_json_buildo(ret_v,
+                              SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING(mode)),
+                              SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
+                              SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
+                              SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)));
 }
 
 int manager_varlink_send_managed_oom_update(Unit *u) {
@@ -141,7 +140,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
                         return r;
         }
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr))));
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
         if (r < 0)
                 return r;
 
@@ -203,7 +202,7 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
                 }
         }
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr))));
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
         if (r < 0)
                 return r;
 
@@ -362,13 +361,12 @@ static int build_group_json(const char *group_name, gid_t gid, sd_json_variant *
         assert(gid_is_valid(gid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
                                        SD_JSON_BUILD_PAIR("description", JSON_BUILD_CONST_STRING("Dynamic Group")),
                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic"))))));
+                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic")))));
 }
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {

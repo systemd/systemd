@@ -6,10 +6,13 @@
 
 #include "ask-password-api.h"
 #include "errno-util.h"
+#include "fido2-util.h"
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
+#include "iovec-util.h"
+#include "json-util.h"
 #include "libcrypt-util.h"
 #include "libfido2-util.h"
 #include "locale-util.h"
@@ -66,8 +69,7 @@ static int add_fido2_salt(
                 sd_json_variant **v,
                 const void *cid,
                 size_t cid_size,
-                const void *fido2_salt,
-                size_t fido2_salt_size,
+                const struct iovec *salt,
                 const void *secret,
                 size_t secret_size,
                 Fido2EnrollFlags lock_with) {
@@ -76,6 +78,11 @@ static int add_fido2_salt(
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *hashed = NULL;
         ssize_t base64_encoded_size;
         int r;
+
+        assert(v);
+        assert(cid);
+        assert(iovec_is_set(salt));
+        assert(secret);
 
         /* Before using UNIX hashing on the supplied key we base64 encode it, since crypt_r() and friends
          * expect a NUL terminated string, and we use a binary key */
@@ -87,13 +94,13 @@ static int add_fido2_salt(
         if (r < 0)
                 return log_error_errno(errno_or_else(EINVAL), "Failed to UNIX hash secret key: %m");
 
-        r = sd_json_build(&e, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
-                                       SD_JSON_BUILD_PAIR("salt", SD_JSON_BUILD_BASE64(fido2_salt, fido2_salt_size)),
-                                       SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)),
-                                       SD_JSON_BUILD_PAIR("up", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
-                                       SD_JSON_BUILD_PAIR("uv", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))),
-                                       SD_JSON_BUILD_PAIR("clientPin", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN)))));
+        r = sd_json_buildo(&e,
+                           SD_JSON_BUILD_PAIR("credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
+                           SD_JSON_BUILD_PAIR("salt", JSON_BUILD_IOVEC_BASE64(salt)),
+                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)),
+                           SD_JSON_BUILD_PAIR("up", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
+                           SD_JSON_BUILD_PAIR("uv", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))),
+                           SD_JSON_BUILD_PAIR("clientPin", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))));
 
         if (r < 0)
                 return log_error_errno(r, "Failed to build FIDO2 salt JSON key object: %m");
@@ -103,11 +110,11 @@ static int add_fido2_salt(
 
         r = sd_json_variant_append_array(&l, e);
         if (r < 0)
-                return log_error_errno(r, "Failed append FIDO2 salt: %m");
+                return log_error_errno(r, "Failed to append FIDO2 salt: %m");
 
         r = sd_json_variant_set_field(&w, "fido2HmacSalt", l);
         if (r < 0)
-                return log_error_errno(r, "Failed to set FDO2 salt: %m");
+                return log_error_errno(r, "Failed to set FIDO2 salt: %m");
 
         r = sd_json_variant_set_field(v, "privileged", w);
         if (r < 0)
@@ -125,9 +132,10 @@ int identity_add_fido2_parameters(
 
 #if HAVE_LIBFIDO2
         sd_json_variant *un, *realm, *rn;
-        _cleanup_(erase_and_freep) void *secret = NULL, *salt = NULL;
+        _cleanup_(iovec_done) struct iovec salt = {};
+        _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(erase_and_freep) char *used_pin = NULL;
-        size_t cid_size, salt_size, secret_size;
+        size_t cid_size, secret_size;
         _cleanup_free_ void *cid = NULL;
         const char *fido_un;
         int r;
@@ -158,6 +166,10 @@ int identity_add_fido2_parameters(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "realName field of user record is not a string");
 
+        r = fido2_generate_salt(&salt);
+        if (r < 0)
+               return r;
+
         r = fido2_generate_hmac_hash(
                         device,
                         /* rp_id= */ "io.systemd.home",
@@ -170,8 +182,8 @@ int identity_add_fido2_parameters(
                         /* askpw_credential= */ "home.token-pin",
                         lock_with,
                         cred_alg,
+                        &salt,
                         &cid, &cid_size,
-                        &salt, &salt_size,
                         &secret, &secret_size,
                         &used_pin,
                         &lock_with);
@@ -189,8 +201,7 @@ int identity_add_fido2_parameters(
                         v,
                         cid,
                         cid_size,
-                        salt,
-                        salt_size,
+                        &salt,
                         secret,
                         secret_size,
                         lock_with);

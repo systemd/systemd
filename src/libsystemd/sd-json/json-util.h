@@ -60,8 +60,16 @@ struct json_variant_foreach_state {
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(n)); \
                                                                         \
                 type cc = func(sd_json_variant_string(variant));        \
-                if (cc < 0)                                             \
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized.", strna(n)); \
+                if (cc < 0) {                                           \
+                        /* Maybe this enum is recognizable if we replace "_" (i.e. Varlink syntax) with "-" (how we usually prefer it). */ \
+                        _cleanup_free_ char *z = strreplace(sd_json_variant_string(variant), "_", "-"); \
+                        if (!z)                                         \
+                                return json_log_oom(variant, flags);    \
+                                                                        \
+                        cc = func(z);                                   \
+                        if (cc < 0)                                     \
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized: %s", strna(n), sd_json_variant_string(variant)); \
+                }                                                       \
                                                                         \
                 *c = cc;                                                \
                 return 0;                                               \
@@ -130,6 +138,8 @@ enum {
         _JSON_BUILD_IOVEC_HEX,
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
+        _JSON_BUILD_STRING_UNDERSCORIFY,
+        _JSON_BUILD_DUAL_TIMESTAMP,
 
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_FINITE_USEC,
@@ -156,6 +166,8 @@ enum {
 #define JSON_BUILD_ETHER_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
+#define JSON_BUILD_STRING_UNDERSCORIFY(s) _JSON_BUILD_STRING_UNDERSCORIFY, (const char *) { s }
+#define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
 
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }

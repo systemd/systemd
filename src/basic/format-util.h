@@ -81,7 +81,7 @@ static inline int format_ifname_alloc(int ifindex, char **ret) {
         return format_ifname_full_alloc(ifindex, 0, ret);
 }
 
-static inline char *_format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {
+static inline char* _format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {
         (void) format_ifname_full(ifindex, flag, buf);
         return buf;
 }
@@ -97,10 +97,10 @@ typedef enum {
 
 #define FORMAT_BYTES_MAX 16U
 
-char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
+char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
 
 _warn_unused_result_
-static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
+static inline char* format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
 }
 

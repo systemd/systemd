@@ -83,22 +83,28 @@ int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
 static inline char* umount_and_rmdir_and_free(char *p) {
+        if (!p)
+                return NULL;
+
         PROTECT_ERRNO;
-        if (p) {
-                (void) umount_recursive(p, 0);
-                (void) rmdir(p);
-        }
+        (void) umount_recursive(p, 0);
+        (void) rmdir(p);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
-static inline char *umount_and_free(char *p) {
+static inline char* umount_and_free(char *p) {
+        if (!p)
+                return NULL;
+
         PROTECT_ERRNO;
-        if (p)
-                (void) umount_recursive(p, 0);
+        (void) umount_recursive(p, 0);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
+
+char* umount_and_unlink_and_free(char *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_unlink_and_free);
 
 int bind_mount_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);

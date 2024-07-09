@@ -253,9 +253,9 @@ TEST(passfd_read) {
         assert_se(receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd) == 0);
 
         assert_se(fd >= 0);
-        r = read(fd, buf, sizeof(buf)-1);
-        assert_se(r >= 0);
-        buf[r] = 0;
+        ssize_t n = read(fd, buf, sizeof(buf)-1);
+        assert_se(n >= 0);
+        buf[n] = 0;
         ASSERT_STREQ(buf, file_contents);
 }
 

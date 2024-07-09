@@ -1947,6 +1947,7 @@ EOF
 install_config_files() {
     dinfo "Install config files"
     inst /etc/sysconfig/init || :
+    inst /etc/hosts
     inst /etc/passwd
     inst /etc/shadow
     inst_any /etc/login.defs /usr/etc/login.defs
@@ -2959,6 +2960,8 @@ inst_recursive() {
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
+            elif [[ -L "$item" ]]; then
+                inst_symlink "$item"
             elif [[ -f "$item" ]]; then
                 inst_simple "$item"
             fi

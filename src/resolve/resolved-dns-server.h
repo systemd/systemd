@@ -140,8 +140,8 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
 
-const char *dns_server_string(DnsServer *server);
-const char *dns_server_string_full(DnsServer *server);
+const char* dns_server_string(DnsServer *server);
+const char* dns_server_string_full(DnsServer *server);
 int dns_server_ifindex(const DnsServer *s);
 uint16_t dns_server_port(const DnsServer *s);
 

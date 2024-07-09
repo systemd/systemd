@@ -845,6 +845,9 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         if (sd_json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+
         r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ false,
                         /* ret_part= */ NULL,
@@ -873,8 +876,7 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
         for (size_t i = 0; i < config.n_entries; i++) {
                 if (previous) {
-                        r = varlink_notifyb(link, SD_JSON_BUILD_OBJECT(
-                                                            SD_JSON_BUILD_PAIR_VARIANT("entry", previous)));
+                        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
                         if (r < 0)
                                 return r;
 
@@ -886,6 +888,8 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
                         return r;
         }
 
-        return varlink_replyb(link, SD_JSON_BUILD_OBJECT(
-                                              SD_JSON_BUILD_PAIR_CONDITION(!!previous, "entry", SD_JSON_BUILD_VARIANT(previous))));
+        if (!previous)
+                return varlink_error(link, "io.systemd.BootControl.NoSuchBootEntry", NULL);
+
+        return varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
 }

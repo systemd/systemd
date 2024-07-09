@@ -214,11 +214,11 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_va
         assert(lease);
         assert(ret);
 
-        return sd_json_build(ret,
-                        SD_JSON_BUILD_OBJECT(
-                                 SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientId", lease->client_id.raw, lease->client_id.size),
-                                 JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
-                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname)));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientId", lease->client_id.raw, lease->client_id.size),
+                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname));
 }
 
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
@@ -247,10 +247,10 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
 
                 usec_t exp_r = map_clock_usec_raw(lease->expiration, now_b, now_r);
 
-                r = sd_json_variant_merge_objectb(&w,
-                                 SD_JSON_BUILD_OBJECT(
-                                         SD_JSON_BUILD_PAIR_UNSIGNED("ExpirationUSec", lease->expiration),
-                                         SD_JSON_BUILD_PAIR_UNSIGNED("ExpirationRealtimeUSec", exp_r)));
+                r = sd_json_variant_merge_objectbo(
+                                &w,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("ExpirationUSec", lease->expiration),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("ExpirationRealtimeUSec", exp_r));
                 if (r < 0)
                         return r;
 
@@ -308,11 +308,12 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
-                                JSON_BUILD_PAIR_IN4_ADDR("Address", &(struct in_addr) { .s_addr = server->address }),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength",
-                                        in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask }))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                        JSON_BUILD_PAIR_IN4_ADDR("Address", &(struct in_addr) { .s_addr = server->address }),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength",
+                                                    in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask })));
         if (r < 0)
                 return r;
 

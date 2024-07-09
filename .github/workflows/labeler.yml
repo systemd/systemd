@@ -30,12 +30,12 @@ jobs:
 
     steps:
     - name: Repository checkout
-      uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       if: github.event_name == 'pull_request'
 
     - name: Label PR based on policy in labeler.yml
       uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9
-      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed'
+      if: startsWith(github.event_name, 'pull_request') && github.base_ref == 'main' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml

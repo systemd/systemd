@@ -222,20 +222,33 @@ static int ndisc_request_route(Route *route, Link *link) {
                 /* Note, here do not call route_remove_and_cancel() with 'route' directly, otherwise
                  * existing route(s) may be removed needlessly. */
 
-                if (route_get(link->manager, route, &existing) >= 0) {
-                        /* Found an existing route that may conflict with this route. */
+                /* First, check if a conflicting route is already requested. If there is an existing route,
+                 * and also an existing pending request, then the source may be updated by the request. So,
+                 * we first need to check the source of the requested route. */
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
                         if (!route_can_update(existing, route)) {
-                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
+                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
                                         return r;
                         }
                 }
 
-                if (route_get_request(link->manager, route, &req) >= 0) {
-                        existing = ASSERT_PTR(req->userdata);
+                /* Then, check if a conflicting route exists. */
+                if (route_get(link->manager, route, &existing) >= 0) {
                         if (!route_can_update(existing, route)) {
-                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
+                                if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
+                                        log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, ignoring request.");
+                                        return 0;
+                                }
+
+                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
                                 r = route_remove_and_cancel(existing, link->manager);
                                 if (r < 0)
                                         return r;
@@ -291,18 +304,44 @@ static int ndisc_remove_route(Route *route, Link *link) {
         if (r < 0)
                 return r;
 
-        if (route->pref_set) {
-                ndisc_set_route_priority(link, route);
-                return route_remove_and_cancel(route, link->manager);
-        }
-
-        uint8_t pref;
+        uint8_t pref, pref_original = route->pref;
         FOREACH_ARGUMENT(pref, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH) {
+                Route *existing;
+                Request *req;
+
+                /* If the preference is specified by the user config (that is, for semi-static routes),
+                 * rather than RA, then only search conflicting routes that have the same preference. */
+                if (route->pref_set && pref != pref_original)
+                        continue;
+
                 route->pref = pref;
                 ndisc_set_route_priority(link, route);
-                r = route_remove_and_cancel(route, link->manager);
-                if (r < 0)
-                        return r;
+
+                /* Unfortunately, we cannot directly pass 'route' to route_remove_and_cancel() here, as the
+                 * same or similar route may be configured or requested statically. */
+
+                /* First, check if the route is already requested. If there is an existing route, and also an
+                 * existing pending request, then the source may be updated by the request. So, we first need
+                 * to check the source of the requested route. */
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
+                        if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Then, check if the route exists. */
+                if (route_get(link->manager, route, &existing) >= 0) {
+                        if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -1275,10 +1314,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
 
         if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Prefix '%s' is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_prefix) ? "not in allow list"
-                                                                                              : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_prefix))
+                        log_link_debug(link, "Prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
+                else
+                        log_link_debug(link, "Prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
@@ -1329,11 +1369,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (in6_prefix_is_filtered(&dst, prefixlen,
                                    link->network->ndisc_allow_listed_route_prefix,
                                    link->network->ndisc_deny_listed_route_prefix)) {
-
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "Route prefix %s is %s, ignoring",
-                                       !set_isempty(link->network->ndisc_allow_listed_route_prefix) ? "not in allow list"
-                                                                                                    : "in deny list",
+                if (set_isempty(link->network->ndisc_allow_listed_route_prefix))
+                        log_link_debug(link, "Route prefix '%s' is in deny list, ignoring.",
+                                       IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
+                else
+                        log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring.",
                                        IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
                 return 0;
         }
@@ -2103,12 +2143,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
         if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
-                if (DEBUG_LOGGING) {
-                        if (!set_isempty(link->network->ndisc_allow_listed_router))
-                                log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                        else
-                                log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
-                }
+                if (!set_isempty(link->network->ndisc_allow_listed_router))
+                        log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
+                else
+                        log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
                 return 0;
         }
 

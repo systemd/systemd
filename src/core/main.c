@@ -3292,14 +3292,15 @@ int main(int argc, char *argv[]) {
                              &switch_root_dir,
                              &switch_root_init,
                              &error_message);
-        assert(r < 0 || IN_SET(r, MANAGER_EXIT,          /* MANAGER_OK and MANAGER_RELOAD are not expected here. */
-                                  MANAGER_REEXECUTE,
-                                  MANAGER_REBOOT,
-                                  MANAGER_SOFT_REBOOT,
-                                  MANAGER_POWEROFF,
-                                  MANAGER_HALT,
-                                  MANAGER_KEXEC,
-                                  MANAGER_SWITCH_ROOT));
+        /* MANAGER_OK and MANAGER_RELOAD are not expected here. */
+        assert(r < 0 || IN_SET(r, MANAGER_REEXECUTE, MANAGER_EXIT) ||
+               (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
+                IN_SET(r, MANAGER_REBOOT,
+                          MANAGER_SOFT_REBOOT,
+                          MANAGER_POWEROFF,
+                          MANAGER_HALT,
+                          MANAGER_KEXEC,
+                          MANAGER_SWITCH_ROOT)));
 
 finish:
         pager_close();

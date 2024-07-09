@@ -117,7 +117,7 @@ static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
         uint16_t rcode;
 
         if (p->opt)
-                rcode = (uint16_t) (p->opt->ttl >> 24);
+                rcode = (uint16_t) ((p->opt->ttl >> 20) & 0xFF0);
         else
                 rcode = 0;
 
@@ -351,11 +351,11 @@ enum {
 
 const char* dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
-const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
+const char* format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_ede_rcode_to_string(int i) _const_;
-const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
+const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_EDE_RCODE(i) format_dns_ede_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_protocol_to_string(DnsProtocol p) _const_;
@@ -377,7 +377,7 @@ enum {
 };
 
 const char* dns_svc_param_key_to_string(int i) _const_;
-const char *format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]);
+const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]);
 #define FORMAT_DNS_SVC_PARAM_KEY(i) format_dns_svc_param_key(i, (char [DECIMAL_STR_MAX(uint16_t)+3]) {})
 
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })

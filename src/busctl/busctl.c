@@ -159,6 +159,14 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         return 0;
 }
 
+static void notify_bus_error(const sd_bus_error *error) {
+
+        if (!sd_bus_error_is_set(error))
+                return;
+
+        (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
+}
+
 static int list_bus_names(int argc, char **argv, void *userdata) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -459,6 +467,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
                                "org.freedesktop.DBus.Introspectable", "Introspect",
                                &error, &reply, NULL);
         if (r < 0) {
+                notify_bus_error(&error);
                 printf("%sFailed to introspect object %s of service %s: %s%s\n",
                        ansi_highlight_red(),
                        path, service, bus_error_message(&error, r),
@@ -996,9 +1005,11 @@ static int introspect(int argc, char **argv, void *userdata) {
         r = sd_bus_call_method(bus, argv[1], argv[2],
                                "org.freedesktop.DBus.Introspectable", "Introspect",
                                &error, &reply_xml, NULL);
-        if (r < 0)
+        if (r < 0) {
+                notify_bus_error(&error);
                 return log_error_errno(r, "Failed to introspect object %s of service %s: %s",
                                        argv[2], argv[1], bus_error_message(&error, r));
+        }
 
         r = sd_bus_message_read(reply_xml, "s", &xml);
         if (r < 0)
@@ -1032,9 +1043,11 @@ static int introspect(int argc, char **argv, void *userdata) {
                 r = sd_bus_call_method(bus, argv[1], argv[2],
                                        "org.freedesktop.DBus.Properties", "GetAll",
                                        &error, &reply, "s", m->interface);
-                if (r < 0)
+                if (r < 0) {
+                        notify_bus_error(&error);
                         return log_error_errno(r, "Failed to get all properties on interface %s: %s",
                                                m->interface, bus_error_message(&error, r));
+                }
 
                 r = sd_bus_message_enter_container(reply, 'a', "{sv}");
                 if (r < 0)
@@ -1214,7 +1227,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (ts == 0)
                 ts = now(CLOCK_REALTIME);
 
-        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(
+        r = sd_json_buildo(&w,
                 SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
                 SD_JSON_BUILD_PAIR("endian", SD_JSON_BUILD_STRING(e)),
                 SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(m->header->flags)),
@@ -1231,7 +1244,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
                 SD_JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", SD_JSON_BUILD_INTEGER(m->realtime)),
                 SD_JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", SD_JSON_BUILD_INTEGER(m->seqnum)),
                 SD_JSON_BUILD_PAIR_CONDITION(!!m->error.name, "error_name", SD_JSON_BUILD_STRING(m->error.name)),
-                SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v))));
+                SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1305,9 +1318,11 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
-        if (r < 0)
+        if (r < 0) {
+                notify_bus_error(&error);
                 return log_error_errno(r, "Call to org.freedesktop.DBus.Monitoring.BecomeMonitor failed: %s",
                                        bus_error_message(&error, r));
+        }
 
         r = sd_bus_get_unique_name(bus, &unique_name);
         if (r < 0)
@@ -1735,8 +1750,9 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, sd_js
         if (r < 0)
                 return r;
 
-        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
-                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value))));
+        r = sd_json_buildo(ret,
+                          SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
+                          SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value)));
         if (r < 0)
                 return log_oom();
 
@@ -2008,8 +2024,9 @@ static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_json_build(ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
-                                              SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v))));
+        r = sd_json_buildo(ret,
+                          SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
+                          SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
                 return log_oom();
 
@@ -2074,8 +2091,10 @@ static int call(int argc, char **argv, void *userdata) {
         }
 
         r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
-        if (r < 0)
+        if (r < 0) {
+                notify_bus_error(&error);
                 return log_error_errno(r, "Call failed: %s", bus_error_message(&error, r));
+        }
 
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
@@ -2178,10 +2197,12 @@ static int get_property(int argc, char **argv, void *userdata) {
                 r = sd_bus_call_method(bus, argv[1], argv[2],
                                        "org.freedesktop.DBus.Properties", "Get",
                                        &error, &reply, "ss", argv[3], *i);
-                if (r < 0)
+                if (r < 0) {
+                        notify_bus_error(&error);
                         return log_error_errno(r, "Failed to get property %s on interface %s: %s",
                                                *i, argv[3],
                                                bus_error_message(&error, r));
+                }
 
                 r = sd_bus_message_peek_type(reply, &type, &contents);
                 if (r < 0)
@@ -2265,10 +2286,12 @@ static int set_property(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
-        if (r < 0)
+        if (r < 0) {
+                notify_bus_error(&error);
                 return log_error_errno(r, "Failed to set property %s on interface %s: %s",
                                        argv[4], argv[3],
                                        bus_error_message(&error, r));
+        }
 
         return 0;
 }

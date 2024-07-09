@@ -306,13 +306,17 @@ TEST(build) {
         a = sd_json_variant_unref(a);
         b = sd_json_variant_unref(b);
 
-        assert_se(sd_json_build(&a, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("one", SD_JSON_BUILD_INTEGER(7)),
-                                                   SD_JSON_BUILD_PAIR("two", SD_JSON_BUILD_REAL(2.0)),
-                                                   SD_JSON_BUILD_PAIR("three", SD_JSON_BUILD_INTEGER(0)))) >= 0);
+        assert_se(sd_json_buildo(&a,
+                                 SD_JSON_BUILD_PAIR("one", SD_JSON_BUILD_INTEGER(7)),
+                                 SD_JSON_BUILD_PAIR("two", SD_JSON_BUILD_REAL(2.0)),
+                                 SD_JSON_BUILD_PAIR("four", JSON_BUILD_STRING_UNDERSCORIFY("foo-bar-baz")),
+                                 SD_JSON_BUILD_PAIR("three", SD_JSON_BUILD_INTEGER(0))) >= 0);
 
-        assert_se(sd_json_build(&b, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("two", SD_JSON_BUILD_INTEGER(2)),
-                                                   SD_JSON_BUILD_PAIR("three", SD_JSON_BUILD_REAL(0)),
-                                                   SD_JSON_BUILD_PAIR("one", SD_JSON_BUILD_REAL(7)))) >= 0);
+        assert_se(sd_json_buildo(&b,
+                                 SD_JSON_BUILD_PAIR("two", SD_JSON_BUILD_INTEGER(2)),
+                                 SD_JSON_BUILD_PAIR("four", SD_JSON_BUILD_STRING("foo_bar_baz")),
+                                 SD_JSON_BUILD_PAIR("three", SD_JSON_BUILD_REAL(0)),
+                                 SD_JSON_BUILD_PAIR("one", SD_JSON_BUILD_REAL(7))) >= 0);
 
         assert_se(sd_json_variant_equal(a, b));
 
@@ -410,6 +414,21 @@ TEST(build) {
         assert_se(sd_json_build(&ssv2, SD_JSON_BUILD_LITERAL("{\"zzz\":[\"kawumm\",\"pief\",\"xxxx\"]}")) >= 0);
 
         assert_se(sd_json_variant_equal(ssv, ssv2));
+}
+
+TEST(json_buildo) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+
+        assert_se(sd_json_buildo(&a,
+                                 SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)),
+                                 SD_JSON_BUILD_PAIR("bar", SD_JSON_BUILD_STRING("xxxx"))) >= 0);
+
+        assert_se(sd_json_build(&b,
+                                SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR("bar", SD_JSON_BUILD_STRING("xxxx")),
+                                                SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)))) >= 0);
+
+        assert_se(sd_json_variant_equal(a, b));
 }
 
 TEST(json_parse_file_empty) {
@@ -898,37 +917,40 @@ TEST(json_dispatch) {
 }
 
 typedef enum mytestenum {
-        myfoo, mybar, mybaz, _mymax, _myinvalid = -EINVAL,
+        myfoo, mybar, mybaz, with_some_dashes, _mymax, _myinvalid = -EINVAL,
 } mytestenum;
 
 static const char *mytestenum_table[_mymax] = {
         [myfoo] = "myfoo",
         [mybar] = "mybar",
         [mybaz] = "mybaz",
+        [with_some_dashes] = "with-some-dashes",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(mytestenum, mytestenum);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mytestenum, mytestenum);
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_mytestenum, mytestenum, mytestenum_from_string);
 
 TEST(json_dispatch_enum_define) {
 
         struct data {
-                mytestenum a, b, c, d;
+                mytestenum a, b, c, d, e;
         } data = {
                 .a = _myinvalid,
                 .b = _myinvalid,
                 .c = _myinvalid,
                 .d = mybar,
+                .e = _myinvalid,
         };
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
-        assert_se(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
-                                             SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("mybaz")),
-                                             SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_STRING("mybar")),
-                                             SD_JSON_BUILD_PAIR("c", SD_JSON_BUILD_STRING("myfoo")),
-                                             SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_NULL))) >= 0);
+        assert_se(sd_json_buildo(&j,
+                                 SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("mybaz")),
+                                 SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_STRING("mybar")),
+                                 SD_JSON_BUILD_PAIR("c", SD_JSON_BUILD_STRING("myfoo")),
+                                 SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_NULL),
+                                 SD_JSON_BUILD_PAIR("e", JSON_BUILD_STRING_UNDERSCORIFY(mytestenum_to_string(with_some_dashes)))) >= 0);
 
         assert_se(sd_json_dispatch(j,
                                 (const sd_json_dispatch_field[]) {
@@ -936,6 +958,7 @@ TEST(json_dispatch_enum_define) {
                                         { "b", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_mytestenum, offsetof(struct data, b), 0 },
                                         { "c", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_mytestenum, offsetof(struct data, c), 0 },
                                         { "d", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_mytestenum, offsetof(struct data, d), 0 },
+                                        { "e", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_mytestenum, offsetof(struct data, e), 0 },
                                         {},
                                 },
                                 /* flags= */ 0,
@@ -945,6 +968,7 @@ TEST(json_dispatch_enum_define) {
         assert(data.b == mybar);
         assert(data.c == myfoo);
         assert(data.d < 0);
+        assert(data.e == with_some_dashes);
 }
 
 TEST(json_dispatch_double) {

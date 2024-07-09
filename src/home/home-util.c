@@ -137,10 +137,10 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
         return sd_bus_message_append(m, "s", formatted);
 }
 
-const char *home_record_dir(void) {
+const char* home_record_dir(void) {
         return secure_getenv("SYSTEMD_HOME_RECORD_DIR") ?: "/var/lib/systemd/home/";
 }
 
-const char *home_system_blob_dir(void) {
+const char* home_system_blob_dir(void) {
         return secure_getenv("SYSTEMD_HOME_SYSTEM_BLOB_DIR") ?: "/var/cache/systemd/home/";
 }

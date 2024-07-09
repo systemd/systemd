@@ -48,7 +48,7 @@ static int varlink_idl_format_comment(
         }
 
         _cleanup_strv_free_ char **l = NULL;
-        r = strv_split_full(&l, text, NEWLINE, 0);
+        r = strv_split_full(&l, text, NEWLINE, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to split comment string: %m");
 
@@ -74,19 +74,75 @@ static int varlink_idl_format_comment(
         return 0;
 }
 
+static int varlink_idl_format_comment_fields(
+                FILE *f,
+                const VarlinkField *start,
+                size_t n,
+                const char *indent,
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
+
+        int r;
+
+        if (n == 0)
+                return 0;
+
+        assert(start);
+
+        for (const VarlinkField *c = start; n > 0; c++, n--) {
+                r = varlink_idl_format_comment(f, ASSERT_PTR(c->name), indent, colors, cols);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static const VarlinkField *varlink_idl_symbol_find_start_comment(
+                const VarlinkSymbol *symbol,
+                const VarlinkField *field) {
+
+        assert(symbol);
+        assert(field);
+        assert(field >= symbol->fields);
+
+        const VarlinkField *start = NULL;
+
+        for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
+                const VarlinkField *c0 = c1 - 1;
+
+                if (c0->field_type != _VARLINK_FIELD_COMMENT)
+                        break;
+
+                start = c0;
+        }
+
+        return start;
+}
+
 static int varlink_idl_format_enum_values(
                 FILE *f,
                 const VarlinkSymbol *symbol,
                 const char *indent,
-                const char *const colors[static _COLOR_MAX]) {
+                const char *const colors[static _COLOR_MAX],
+                size_t cols) {
 
+        _cleanup_free_ char *indent2 = NULL;
         bool first = true;
+        int r;
 
         assert(f);
         assert(symbol);
         assert(symbol->symbol_type == VARLINK_ENUM_TYPE);
 
+        indent2 = strjoin(strempty(indent), "\t");
+        if (!indent2)
+                return -ENOMEM;
+
         for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+
+                if (field->field_type == _VARLINK_FIELD_COMMENT) /* skip comments at first */
+                        continue;
 
                 if (first) {
                         first = false;
@@ -94,8 +150,18 @@ static int varlink_idl_format_enum_values(
                 } else
                         fputs(",\n", f);
 
-                fputs(strempty(indent), f);
-                fputs("\t", f);
+                /* We found an enum value we want to output. In this case, start by outputting all
+                 * immediately preceding comments. For that find the first comment in the series before the
+                 * enum value, so that we can start printing from there. */
+                const VarlinkField *start_comment = varlink_idl_symbol_find_start_comment(symbol, field);
+
+                if (start_comment) {
+                        r = varlink_idl_format_comment_fields(f, start_comment, field - start_comment, indent2, colors, cols);
+                        if (r < 0)
+                                return r;
+                }
+
+                fputs(indent2, f);
                 fputs(colors[COLOR_IDENTIFIER], f);
                 fputs(field->name, f);
                 fputs(colors[COLOR_RESET], f);
@@ -202,7 +268,7 @@ static int varlink_idl_format_field(
                 return varlink_idl_format_all_fields(f, ASSERT_PTR(field->symbol), VARLINK_REGULAR, indent, colors, cols);
 
         case VARLINK_ENUM:
-                return varlink_idl_format_enum_values(f, ASSERT_PTR(field->symbol), indent, colors);
+                return varlink_idl_format_enum_values(f, ASSERT_PTR(field->symbol), indent, colors, cols);
 
         default:
                 assert_not_reached();
@@ -245,24 +311,15 @@ static int varlink_idl_format_all_fields(
                 } else
                         fputs(",\n", f);
 
-                /* We found a field we want to output. In this case, output all immediately preceding
-                 * comments first. First, find the first comment in the series before. */
-                const VarlinkField *start_comment = NULL;
-                for (const VarlinkField *c1 = field; c1 > symbol->fields; c1--) {
-                        const VarlinkField *c0 = c1 - 1;
-
-                        if (c0->field_type != _VARLINK_FIELD_COMMENT)
-                                break;
-
-                        start_comment = c0;
-                }
+                /* We found a field we want to output. In this case, start by outputting all immediately
+                 * preceding comments. For that find the first comment in the series before the field, so
+                 * that we can start printing from there. */
+                const VarlinkField *start_comment = varlink_idl_symbol_find_start_comment(symbol, field);
 
                 if (start_comment) {
-                        for (const VarlinkField *c = start_comment; c < field; c++) {
-                                r = varlink_idl_format_comment(f, ASSERT_PTR(c->name), indent2, colors, cols);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = varlink_idl_format_comment_fields(f, start_comment, field - start_comment, indent2, colors, cols);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = varlink_idl_format_field(f, field, indent2, colors, cols);
@@ -300,7 +357,7 @@ static int varlink_idl_format_symbol(
                 fputs(symbol->name, f);
                 fputs(colors[COLOR_RESET], f);
 
-                r = varlink_idl_format_enum_values(f, symbol, /* indent= */ NULL, colors);
+                r = varlink_idl_format_enum_values(f, symbol, /* indent= */ NULL, colors, cols);
                 break;
 
         case VARLINK_STRUCT_TYPE:
@@ -1395,6 +1452,28 @@ static bool varlink_idl_comment_is_valid(const char *comment) {
         return utf8_is_valid(comment);
 }
 
+int varlink_idl_qualified_symbol_name_is_valid(const char *name) {
+        const char *dot;
+
+        /* Validates a qualified symbol name (i.e. interface name, followed by a dot, followed by a symbol name) */
+
+        if (!name)
+                return false;
+
+        dot = strrchr(name, '.');
+        if (!dot)
+                return false;
+
+        if (!varlink_idl_symbol_name_is_valid(dot + 1))
+                return false;
+
+        _cleanup_free_ char *iface = strndup(name, dot - name);
+        if (!iface)
+                return -ENOMEM;
+
+        return varlink_idl_interface_name_is_valid(iface);
+}
+
 static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, int level);
 
 static int varlink_idl_field_consistent(
@@ -1703,6 +1782,9 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_vari
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
+                        if (field->field_type == _VARLINK_FIELD_COMMENT)
+                                continue;
+
                         assert(field->field_type == VARLINK_ENUM_VALUE);
 
                         if (streq_ptr(field->name, s)) {
@@ -1730,6 +1812,9 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, sd_json_vari
                 }
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
+
+                        if (field->field_type == _VARLINK_FIELD_COMMENT)
+                                continue;
 
                         if (field->field_direction != direction)
                                 continue;

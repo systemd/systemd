@@ -259,13 +259,7 @@ int open_extension_release_at(
                 }
 
                 if (!relax_extension_release_check) {
-                        _cleanup_free_ char *base_image_name = NULL, *base_extension = NULL;
-
-                        r = path_extract_image_name(image_name, &base_image_name);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to extract image name from %s/%s, ignoring: %m", dir_path, de->d_name);
-                                continue;
-                        }
+                        _cleanup_free_ char *base_extension = NULL;
 
                         r = path_extract_image_name(extension, &base_extension);
                         if (r < 0) {
@@ -273,7 +267,7 @@ int open_extension_release_at(
                                 continue;
                         }
 
-                        if (!streq(base_image_name, base_extension) &&
+                        if (!streq(image_name, base_extension) &&
                             extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
                                 continue;
                 }
@@ -476,7 +470,7 @@ int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eo
         return DIV_ROUND_UP(now(CLOCK_REALTIME), USEC_PER_SEC) > (usec_t) eol;
 }
 
-const char *os_release_pretty_name(const char *pretty_name, const char *name) {
+const char* os_release_pretty_name(const char *pretty_name, const char *name) {
         /* Distills a "pretty" name to show from os-release data. First argument is supposed to be the
          * PRETTY_NAME= field, the second one the NAME= field. This function is trivial, of course, and
          * exists mostly to ensure we use the same logic wherever possible. */

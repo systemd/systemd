@@ -310,7 +310,9 @@
         <filename>/dev/hidraw1</filename>). Alternatively the special value <literal>auto</literal> may be
         specified, in order to automatically determine the device node of a currently plugged in security
         token (of which there must be exactly one). This automatic discovery is unsupported if
-        <option>--fido2-device=</option> option is also specified.</para>
+        <option>--fido2-device=</option> option is also specified. Note that currently FIDO2 devices
+        enrolled without an accompanying LUKS2 token (i.e. <option>--fido2-parameters-in-header=no</option>)
+        cannot be used for unlocking.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
@@ -399,6 +401,30 @@
         <filename>/etc/crypttab</filename> line.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-salt-file=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, specifies the path to a file or an
+        <constant>AF_UNIX</constant> socket from which we should read the salt value to be used in the
+        HMAC operation performed by the FIDO2 security token. If this option is not specified, the salt
+        will be randomly generated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-parameters-in-header=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to store FIDO2
+        parameters in a token in the LUKS2 superblock. Defaults to <literal>yes</literal>.
+        If set to <literal>no</literal>, the <option>fido2-cid=</option> option has to be specified manually
+        in the respective <filename>/etc/crypttab</filename> line along with a key file. See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -647,6 +673,16 @@
 
         <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present that contain a LUKS superblock, and shows their device
+        node paths along with any of their symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

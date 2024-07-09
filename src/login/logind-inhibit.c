@@ -446,7 +446,7 @@ bool manager_is_inhibited(
         return inhibited;
 }
 
-const char *inhibit_what_to_string(InhibitWhat w) {
+const char* inhibit_what_to_string(InhibitWhat w) {
         static thread_local char buffer[STRLEN(
             "shutdown:"
             "sleep:"

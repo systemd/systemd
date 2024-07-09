@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "ask-password-agent.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -19,11 +20,10 @@
 #include "macro.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "polkit-agent.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "set.h"
-#include "spawn-ask-password-agent.h"
-#include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
@@ -327,14 +327,15 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
         if (r < 0)
                 return r;
 
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+                goto skip;
+
         if (ignore_masked) {
                 r = unit_is_masked(bus, name);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        *ret = NULL;
-                        return 0;
-                }
+                if (r > 0)
+                        goto skip;
         }
 
         dbus_path = unit_dbus_path_from_name(name);
@@ -370,6 +371,10 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
 
         *ret = TAKE_PTR(active);
         return 0;
+
+skip:
+        *ret = NULL;
+        return 0;
 }
 
 void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked) {
@@ -383,8 +388,8 @@ void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation,
 
         r = get_active_triggering_units(bus, unit, ignore_masked, &triggered_by);
         if (r < 0) {
-                log_warning_errno(r,
-                                  "Failed to get triggering units for '%s', ignoring: %m", unit);
+                if (r != -ENOENT) /* A linked unit might have disappeared after disabling */
+                        log_warning_errno(r, "Failed to get triggering units for '%s', ignoring: %m", unit);
                 return;
         }
 

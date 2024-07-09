@@ -1757,7 +1757,7 @@ int user_record_build(UserRecord **ret, ...) {
         return 0;
 }
 
-const char *user_record_user_name_and_realm(UserRecord *h) {
+const char* user_record_user_name_and_realm(UserRecord *h) {
         assert(h);
 
         /* Return the pre-initialized joined string if it is defined */
@@ -1778,13 +1778,13 @@ UserStorage user_record_storage(UserRecord *h) {
         return USER_CLASSIC;
 }
 
-const char *user_record_file_system_type(UserRecord *h) {
+const char* user_record_file_system_type(UserRecord *h) {
         assert(h);
 
         return h->file_system_type ?: "btrfs";
 }
 
-const char *user_record_skeleton_directory(UserRecord *h) {
+const char* user_record_skeleton_directory(UserRecord *h) {
         assert(h);
 
         return h->skeleton_directory ?: "/etc/skel";
@@ -1820,7 +1820,7 @@ const char* user_record_home_directory(UserRecord *h) {
         return user_record_home_directory_real(h);
 }
 
-const char *user_record_image_path(UserRecord *h) {
+const char* user_record_image_path(UserRecord *h) {
         assert(h);
 
         if (h->image_path)
@@ -1833,7 +1833,7 @@ const char *user_record_image_path(UserRecord *h) {
                 user_record_home_directory_real(h) : NULL;
 }
 
-const char *user_record_cifs_user_name(UserRecord *h) {
+const char* user_record_cifs_user_name(UserRecord *h) {
         assert(h);
 
         return h->cifs_user_name ?: h->user_name;
@@ -1862,7 +1862,7 @@ static const char *user_record_shell_real(UserRecord *h) {
         return NOLOGIN;
 }
 
-const char *user_record_shell(UserRecord *h) {
+const char* user_record_shell(UserRecord *h) {
         const char *shell;
 
         assert(h);
@@ -1877,7 +1877,7 @@ const char *user_record_shell(UserRecord *h) {
         return shell;
 }
 
-const char *user_record_real_name(UserRecord *h) {
+const char* user_record_real_name(UserRecord *h) {
         assert(h);
 
         return h->real_name ?: h->user_name;
@@ -1925,13 +1925,13 @@ bool user_record_luks_offline_discard(UserRecord *h) {
         return true;
 }
 
-const char *user_record_luks_cipher(UserRecord *h) {
+const char* user_record_luks_cipher(UserRecord *h) {
         assert(h);
 
         return h->luks_cipher ?: "aes";
 }
 
-const char *user_record_luks_cipher_mode(UserRecord *h) {
+const char* user_record_luks_cipher_mode(UserRecord *h) {
         assert(h);
 
         return h->luks_cipher_mode ?: "xts-plain64";
@@ -2007,7 +2007,7 @@ uint64_t user_record_luks_sector_size(UserRecord *h) {
         return CLAMP(UINT64_C(1) << (63 - __builtin_clzl(h->luks_sector_size)), 512U, 4096U);
 }
 
-const char *user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
+const char* user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
         assert(h);
 
         return h->luks_pbkdf_hash_algorithm ?: "sha512";

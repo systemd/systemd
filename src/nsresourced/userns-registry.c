@@ -361,14 +361,15 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
-        r = sd_json_build(&def, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
-                                       SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
-                                       SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "start", SD_JSON_BUILD_UNSIGNED(info->start)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "size", SD_JSON_BUILD_UNSIGNED(info->size)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "target", SD_JSON_BUILD_UNSIGNED(info->target)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array))));
+        r = sd_json_buildo(
+                        &def,
+                        SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
+                        SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "start", SD_JSON_BUILD_UNSIGNED(info->start)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "size", SD_JSON_BUILD_UNSIGNED(info->size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "target", SD_JSON_BUILD_UNSIGNED(info->target)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)));
         if (r < 0)
                 return r;
 

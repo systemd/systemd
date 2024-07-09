@@ -199,7 +199,7 @@ static const GptPartitionType *gpt_partition_type_find_by_uuid(sd_id128_t id) {
         return NULL;
 }
 
-const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
+const char* gpt_partition_type_uuid_to_string(sd_id128_t id) {
         const GptPartitionType *pt;
 
         pt = gpt_partition_type_find_by_uuid(id);
@@ -209,7 +209,7 @@ const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
         return pt->name;
 }
 
-const char *gpt_partition_type_uuid_to_string_harder(
+const char* gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
                 char buffer[static SD_ID128_UUID_STRING_MAX]) {
 
@@ -296,7 +296,7 @@ GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id) {
         };
 }
 
-const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
+const char* gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
         return partition_mountpoint_to_string(type.designator);
 }
 
@@ -337,6 +337,18 @@ bool gpt_partition_type_knows_no_auto(GptPartitionType type) {
                       PARTITION_TMP,
                       PARTITION_XBOOTLDR,
                       PARTITION_SWAP);
+}
+
+bool gpt_partition_type_has_filesystem(GptPartitionType type) {
+        return IN_SET(type.designator,
+                      PARTITION_ROOT,
+                      PARTITION_USR,
+                      PARTITION_HOME,
+                      PARTITION_SRV,
+                      PARTITION_ESP,
+                      PARTITION_XBOOTLDR,
+                      PARTITION_TMP,
+                      PARTITION_VAR);
 }
 
 bool gpt_header_has_signature(const GptHeader *p) {

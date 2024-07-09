@@ -201,7 +201,7 @@ CK_RV pkcs11_get_slot_list_malloc(
         return CKR_BUFFER_TOO_SMALL;
 }
 
-char *pkcs11_token_label(const CK_TOKEN_INFO *token_info) {
+char* pkcs11_token_label(const CK_TOKEN_INFO *token_info) {
         char *t;
 
         /* The label is not NUL terminated and likely padded with spaces, let's make a copy here, so that we
@@ -214,7 +214,7 @@ char *pkcs11_token_label(const CK_TOKEN_INFO *token_info) {
         return t;
 }
 
-char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info) {
+char* pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info) {
         char *t;
 
         t = strndup((char*) token_info->manufacturerID, sizeof(token_info->manufacturerID));
@@ -225,7 +225,7 @@ char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info) {
         return t;
 }
 
-char *pkcs11_token_model(const CK_TOKEN_INFO *token_info) {
+char* pkcs11_token_model(const CK_TOKEN_INFO *token_info) {
         char *t;
 
         t = strndup((char*) token_info->model, sizeof(token_info->model));

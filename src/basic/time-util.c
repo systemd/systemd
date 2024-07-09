@@ -312,7 +312,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-char *format_timestamp_style(
+char* format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,

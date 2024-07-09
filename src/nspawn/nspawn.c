@@ -1659,12 +1659,6 @@ static int verify_arguments(void) {
         SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged);
 
         if (!arg_privileged) {
-                /* machined is not accessible to unpriv clients */
-                if (arg_register) {
-                        log_notice("Automatically implying --register=no, since machined is not accessible to unprivileged clients.");
-                        arg_register = false;
-                }
-
                 if (!arg_private_network) {
                         log_notice("Automatically implying --private-network, since mounting /sys/ in an unprivileged user namespaces requires network namespacing.");
                         arg_private_network = true;
@@ -4563,6 +4557,9 @@ static void set_window_title(PTYForward *f) {
 
         assert(f);
 
+        if (!shall_set_terminal_title())
+                return;
+
         (void) gethostname_strict(&hn);
 
         if (emoji_enabled())
@@ -5350,7 +5347,7 @@ static int run_container(
         }
 
         if (arg_register || !arg_keep_unit) {
-                if (arg_privileged)
+                if (arg_privileged || arg_register)
                         r = sd_bus_default_system(&bus);
                 else
                         r = sd_bus_default_user(&bus);

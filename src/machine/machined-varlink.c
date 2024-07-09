@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
+#include "hostname-util.h"
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "socket-util.h"
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Machine.h"
@@ -25,17 +27,18 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
         assert(uid_is_valid(uid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
-                                       SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                       SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
-                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                                                           SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
+                                                           SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
+                                                           SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                                           SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                                           SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
 }
 
 static bool user_match_lookup_parameters(LookupParameters *p, const char *name, uid_t uid) {
@@ -196,14 +199,15 @@ static int build_group_json(const char *group_name, gid_t gid, const char *descr
         assert(gid_is_valid(gid));
         assert(ret);
 
-        return sd_json_build(ret, SD_JSON_BUILD_OBJECT(
-                                   SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
-                                       SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
-                                       SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container"))))));
-    }
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
+                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
+                                                           SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
+                                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
+}
 
 static bool group_match_lookup_parameters(LookupParameters *p, const char *name, gid_t gid) {
         assert(p);
@@ -381,6 +385,83 @@ static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters,
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
+static int list_machine_one(Varlink *link, Machine *m, bool more) {
+        int r;
+
+        assert(link);
+        assert(m);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(m->name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
+                        SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(machine_class_to_string(m->class))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->service, "service", SD_JSON_BUILD_STRING(m->service)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->root_directory, "rootDirectory", SD_JSON_BUILD_STRING(m->root_directory)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->unit, "unit", SD_JSON_BUILD_STRING(m->unit)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
+                        SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)));
+        if (r < 0)
+                return r;
+
+        if (more)
+                return varlink_notify(link, v);
+
+        return varlink_reply(link, v);
+}
+
+static int vl_method_list(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        const char *mn = NULL;
+
+        const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, PTR_TO_SIZE(&mn), 0 },
+                {}
+        };
+
+        int r;
+
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, 0);
+        if (r != 0)
+                return r;
+
+        if (mn) {
+                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                        return varlink_error_invalid_parameter_name(link, "name");
+
+                Machine *machine = hashmap_get(m->machines, mn);
+                if (!machine)
+                        return varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+                return list_machine_one(link, machine, /* more= */ false);
+        }
+
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        Machine *previous = NULL, *i;
+        HASHMAP_FOREACH(i, m->machines) {
+                if (previous) {
+                        r = list_machine_one(link, previous, /* more= */ true);
+                        if (r < 0)
+                                return r;
+                }
+
+                previous = i;
+        }
+
+        if (previous)
+                return list_machine_one(link, previous, /* more= */ false);
+
+        return varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+}
+
 static int manager_varlink_init_userdb(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -431,7 +512,7 @@ static int manager_varlink_init_machine(Manager *m) {
         if (m->varlink_machine_server)
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -441,7 +522,10 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
-        r = varlink_server_bind_method(s, "io.systemd.Machine.Register", vl_method_register);
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.Machine.Register", vl_method_register,
+                        "io.systemd.Machine.List",     vl_method_list);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

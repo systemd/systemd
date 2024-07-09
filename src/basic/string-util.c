@@ -46,7 +46,7 @@ char* first_word(const char *s, const char *word) {
         return (char*) nw;
 }
 
-char *strnappend(const char *s, const char *suffix, size_t b) {
+char* strnappend(const char *s, const char *suffix, size_t b) {
         size_t a;
         char *r;
 
@@ -77,7 +77,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         return r;
 }
 
-char *strjoin_real(const char *x, ...) {
+char* strjoin_real(const char *x, ...) {
         va_list ap;
         size_t l = 1;
         char *r, *p;
@@ -109,7 +109,7 @@ char *strjoin_real(const char *x, ...) {
         return r;
 }
 
-char *strstrip(char *s) {
+char* strstrip(char *s) {
         if (!s)
                 return NULL;
 
@@ -118,7 +118,7 @@ char *strstrip(char *s) {
         return delete_trailing_chars(skip_leading_chars(s, WHITESPACE), WHITESPACE);
 }
 
-char *delete_chars(char *s, const char *bad) {
+char* delete_chars(char *s, const char *bad) {
         char *f, *t;
 
         /* Drops all specified bad characters, regardless where in the string */
@@ -141,7 +141,7 @@ char *delete_chars(char *s, const char *bad) {
         return s;
 }
 
-char *delete_trailing_chars(char *s, const char *bad) {
+char* delete_trailing_chars(char *s, const char *bad) {
         char *c = s;
 
         /* Drops all specified bad characters, at the end of the string */
@@ -161,7 +161,7 @@ char *delete_trailing_chars(char *s, const char *bad) {
         return s;
 }
 
-char *truncate_nl_full(char *s, size_t *ret_len) {
+char* truncate_nl_full(char *s, size_t *ret_len) {
         size_t n;
 
         assert(s);
@@ -189,7 +189,7 @@ char ascii_toupper(char x) {
         return x;
 }
 
-char *ascii_strlower(char *t) {
+char* ascii_strlower(char *t) {
         assert(t);
 
         for (char *p = t; *p; p++)
@@ -198,7 +198,7 @@ char *ascii_strlower(char *t) {
         return t;
 }
 
-char *ascii_strupper(char *t) {
+char* ascii_strupper(char *t) {
         assert(t);
 
         for (char *p = t; *p; p++)
@@ -207,7 +207,7 @@ char *ascii_strupper(char *t) {
         return t;
 }
 
-char *ascii_strlower_n(char *t, size_t n) {
+char* ascii_strlower_n(char *t, size_t n) {
         if (n <= 0)
                 return t;
 
@@ -389,7 +389,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         return t;
 }
 
-char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, k, len, len2;
         const char *i, *j;
         int r;
@@ -524,7 +524,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         return e;
 }
 
-char *cellescape(char *buf, size_t len, const char *s) {
+char* cellescape(char *buf, size_t len, const char *s) {
         /* Escape and ellipsize s into buffer buf of size len. Only non-control ASCII
          * characters are copied as they are, everything else is escaped. The result
          * is different then if escaping and ellipsization was performed in two
@@ -630,7 +630,7 @@ int strgrowpad0(char **s, size_t l) {
         return 0;
 }
 
-char *strreplace(const char *text, const char *old_string, const char *new_string) {
+char* strreplace(const char *text, const char *old_string, const char *new_string) {
         size_t l, old_len, new_len;
         char *t, *ret = NULL;
         const char *f;
@@ -692,7 +692,7 @@ static void advance_offsets(
                 shift[1] += size;
 }
 
-char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
+char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         const char *begin = NULL;
         enum {
                 STATE_OTHER,
@@ -824,7 +824,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         return *ibuf;
 }
 
-char *strextend_with_separator_internal(char **x, const char *separator, ...) {
+char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
@@ -980,7 +980,7 @@ oom:
         return -ENOMEM;
 }
 
-char *strextendn(char **x, const char *s, size_t l) {
+char* strextendn(char **x, const char *s, size_t l) {
         assert(x);
         assert(s || l == 0);
 
@@ -1007,7 +1007,7 @@ char *strextendn(char **x, const char *s, size_t l) {
         return *x;
 }
 
-char *strrep(const char *s, unsigned n) {
+char* strrep(const char *s, unsigned n) {
         char *r, *p;
         size_t l;
 
@@ -1288,7 +1288,7 @@ bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
         return in_charset(s1, ok) && in_charset(s2, ok);
 }
 
-char *string_replace_char(char *str, char old_char, char new_char) {
+char* string_replace_char(char *str, char old_char, char new_char) {
         assert(str);
         assert(old_char != '\0');
         assert(new_char != '\0');
@@ -1358,14 +1358,14 @@ size_t strspn_from_end(const char *str, const char *accept) {
         return n;
 }
 
-char *strdupspn(const char *a, const char *accept) {
+char* strdupspn(const char *a, const char *accept) {
         if (isempty(a) || isempty(accept))
                 return strdup("");
 
         return strndup(a, strspn(a, accept));
 }
 
-char *strdupcspn(const char *a, const char *reject) {
+char* strdupcspn(const char *a, const char *reject) {
         if (isempty(a))
                 return strdup("");
         if (isempty(reject))
@@ -1374,7 +1374,7 @@ char *strdupcspn(const char *a, const char *reject) {
         return strndup(a, strcspn(a, reject));
 }
 
-char *find_line_startswith(const char *haystack, const char *needle) {
+char* find_line_startswith(const char *haystack, const char *needle) {
         char *p;
 
         assert(haystack);
@@ -1485,7 +1485,7 @@ ssize_t strlevenshtein(const char *x, const char *y) {
         return t1[yl];
 }
 
-char *strrstr(const char *haystack, const char *needle) {
+char* strrstr(const char *haystack, const char *needle) {
         /* Like strstr() but returns the last rather than the first occurrence of "needle" in "haystack". */
 
         if (!haystack || !needle)

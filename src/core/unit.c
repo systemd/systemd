@@ -41,6 +41,7 @@
 #include "logarithm.h"
 #include "macro.h"
 #include "mkdir-label.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -127,9 +128,6 @@ Unit* unit_new(Manager *m, size_t size) {
                 .interval = 10 * USEC_PER_SEC,
                 .burst = 16
         };
-
-        unit_reset_memory_accounting_last(u);
-        unit_reset_io_accounting_last(u);
 
         return u;
 }
@@ -483,8 +481,8 @@ bool unit_may_gc(Unit *u) {
         /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
          * around. Units with active processes should never be collected. */
         r = unit_cgroup_is_empty(u);
-        if (r <= 0 && r != -ENXIO)
-                return false; /* ENXIO means: currently not realized */
+        if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
+                return false; /* ENXIO/EOWNERDEAD means: currently not realized */
 
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
@@ -789,7 +787,7 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-        unit_release_cgroup(u);
+        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_unlink_state_files(u);
@@ -842,8 +840,6 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_release_resources_queue)
                 LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
-
-        bpf_firewall_close(u);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -1401,11 +1397,13 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
                 u->load_state = UNIT_LOADED;
         }
 
+        u = unit_follow_merge(u);
+
         /* Load drop-in directory data. If u is an alias, we might be reloading the
          * target unit needlessly. But we cannot be sure which drops-ins have already
          * been loaded and which not, at least without doing complicated book-keeping,
          * so let's always reread all drop-ins. */
-        r = unit_load_dropin(unit_follow_merge(u));
+        r = unit_load_dropin(u);
         if (r < 0)
                 return r;
 
@@ -2804,13 +2802,8 @@ int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         new_array[n] = u;
         new_array[n+1] = NULL;
 
-        /* Make sure the hashmap is allocated */
-        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops_free);
-        if (r < 0)
-                return r;
-
         /* Add or replace the old array */
-        r = hashmap_replace(u->manager->watch_pids_more, old_pid ?: pid, new_array);
+        r = hashmap_ensure_replace(&u->manager->watch_pids_more, &pidref_hash_ops_free, old_pid ?: pid, new_array);
         if (r < 0)
                 return r;
 
@@ -3337,7 +3330,7 @@ int set_unit_path(const char *p) {
         return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
 }
 
-char *unit_dbus_path(Unit *u) {
+char* unit_dbus_path(Unit *u) {
         assert(u);
 
         if (!u->id)
@@ -3346,7 +3339,7 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-char *unit_dbus_path_invocation_id(Unit *u) {
+char* unit_dbus_path_invocation_id(Unit *u) {
         assert(u);
 
         if (sd_id128_is_null(u->invocation_id))
@@ -3491,7 +3484,7 @@ int unit_set_default_slice(Unit *u) {
         return unit_set_slice(u, slice);
 }
 
-const char *unit_slice_name(Unit *u) {
+const char* unit_slice_name(Unit *u) {
         Unit *slice;
         assert(u);
 
@@ -4011,7 +4004,7 @@ static int unit_kill_one(
 
 int unit_kill(
                 Unit *u,
-                KillWho who,
+                KillWhom whom,
                 int signo,
                 int code,
                 int value,
@@ -4026,8 +4019,8 @@ int unit_kill(
          * stop a service ourselves. */
 
         assert(u);
-        assert(who >= 0);
-        assert(who < _KILL_WHO_MAX);
+        assert(whom >= 0);
+        assert(whom < _KILL_WHOM_MAX);
         assert(SIGNAL_VALID(signo));
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
@@ -4037,27 +4030,27 @@ int unit_kill(
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
                 return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(main_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (!control_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
                 if (!pidref_is_set(control_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, control_pid, "control", signo, code, value, ret_error);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
         }
 
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+        if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, main_pid, "main", signo, code, value, ret >= 0 ? ret_error : NULL);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
@@ -4066,7 +4059,7 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
                 if (crt && crt->cgroup_path) {
@@ -4098,7 +4091,7 @@ int unit_kill(
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret >= 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return ret;
@@ -4223,6 +4216,10 @@ static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
 
         if (ec->dynamic_user && ec->working_directory_home)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
+
+        if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
+            exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
         return 0;
 }

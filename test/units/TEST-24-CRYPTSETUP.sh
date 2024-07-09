@@ -270,4 +270,6 @@ cryptsetup_start_and_check detached_slot{0..1}
 cryptsetup_start_and_check -f detached_slot_fail
 cryptsetup_start_and_check -u detached_nofail
 
+systemd-cryptenroll --list-devices
+
 touch /testok

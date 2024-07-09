@@ -12,7 +12,7 @@ static const struct af_name* lookup_af(register const char *str, register GPERF_
 #include "af-from-name.h"
 #include "af-to-name.h"
 
-const char *af_to_name(int id) {
+const char* af_to_name(int id) {
 
         if (id <= 0)
                 return NULL;
@@ -39,7 +39,7 @@ int af_max(void) {
         return ELEMENTSOF(af_names);
 }
 
-const char *af_to_ipv4_ipv6(int id) {
+const char* af_to_ipv4_ipv6(int id) {
         /* Pretty often we want to map the address family to the typically used protocol name for IPv4 +
          * IPv6. Let's add special helpers for that. */
         return id == AF_INET ? "ipv4" :

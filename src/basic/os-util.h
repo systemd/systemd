@@ -57,4 +57,4 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
 
-const char *os_release_pretty_name(const char *pretty_name, const char *name);
+const char* os_release_pretty_name(const char *pretty_name, const char *name);

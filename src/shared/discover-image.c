@@ -1647,19 +1647,19 @@ bool image_in_search_path(
 int image_to_json(const struct Image *img, sd_json_variant **ret) {
         assert(img);
 
-        return sd_json_build(ret,
-                             SD_JSON_BUILD_OBJECT(
-                                             SD_JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
-                                             SD_JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
-                                             SD_JSON_BUILD_PAIR_STRING("Name", img->name),
-                                             SD_JSON_BUILD_PAIR_CONDITION(!!img->path, "Path", SD_JSON_BUILD_STRING(img->path)),
-                                             SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", SD_JSON_BUILD_UNSIGNED(img->crtime)),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", SD_JSON_BUILD_UNSIGNED(img->mtime)),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", SD_JSON_BUILD_UNSIGNED(img->usage)),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", SD_JSON_BUILD_UNSIGNED(img->usage_exclusive)),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", SD_JSON_BUILD_UNSIGNED(img->limit)),
-                                             SD_JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", SD_JSON_BUILD_UNSIGNED(img->limit_exclusive))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
+                        SD_JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
+                        SD_JSON_BUILD_PAIR_STRING("Name", img->name),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!img->path, "Path", SD_JSON_BUILD_STRING(img->path)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", SD_JSON_BUILD_UNSIGNED(img->crtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", SD_JSON_BUILD_UNSIGNED(img->mtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", SD_JSON_BUILD_UNSIGNED(img->usage)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", SD_JSON_BUILD_UNSIGNED(img->usage_exclusive)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", SD_JSON_BUILD_UNSIGNED(img->limit)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", SD_JSON_BUILD_UNSIGNED(img->limit_exclusive)));
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {

@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
+#include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_mount.h"
 #include "missing_stat.h"
@@ -35,6 +36,24 @@
  * with large file handles anyway. */
 #define ORIGINAL_MAX_HANDLE_SZ 128
 
+bool is_name_to_handle_at_fatal_error(int err) {
+        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For example the
+         * kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
+         * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container), or the mount
+         * point is not triggered yet (EOVERFLOW, think autofs+nfs4), or some general name_to_handle_at()
+         * flakiness (EINVAL). However other errors are not supposed to happen and therefore are considered
+         * fatal ones. */
+
+        assert(err < 0);
+
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(err))
+                return false;
+        if (ERRNO_IS_NEG_PRIVILEGE(err))
+                return false;
+
+        return !IN_SET(err, -EOVERFLOW, -EINVAL);
+}
+
 int name_to_handle_at_loop(
                 int fd,
                 const char *path,
@@ -44,7 +63,8 @@ int name_to_handle_at_loop(
 
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH|AT_HANDLE_FID)) == 0);
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
          * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
@@ -86,9 +106,9 @@ int name_to_handle_at_loop(
                         return 0;
                 }
 
-                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by something
-                 * else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes), not by the too small
-                 * buffer. In that case propagate EOVERFLOW */
+                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by
+                 * something else (apparently EOVERFLOW is returned for untriggered nfs4 autofs mounts
+                 * sometimes), not by the too small buffer. In that case propagate EOVERFLOW */
                 if (h->handle_bytes <= n)
                         return -EOVERFLOW;
 
@@ -99,6 +119,30 @@ int name_to_handle_at_loop(
                 if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
+}
+
+int name_to_handle_at_try_fid(
+                int fd,
+                const char *path,
+                struct file_handle **ret_handle,
+                int *ret_mnt_id,
+                int flags) {
+
+        int r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        /* First issues name_to_handle_at() with AT_HANDLE_FID. If this fails and this is not a fatal error
+         * we'll try without the flag, in order to support older kernels that didn't have AT_HANDLE_FID
+         * (i.e. older than Linux 6.5). */
+
+        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags | AT_HANDLE_FID);
+        if (r >= 0)
+                return r;
+        if (is_name_to_handle_at_fatal_error(r))
+                return r;
+
+        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
 }
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
@@ -160,17 +204,15 @@ static bool filename_possibly_with_slash_suffix(const char *s) {
         return filename_is_valid(copied);
 }
 
-static bool is_name_to_handle_at_fatal_error(int err) {
-        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For
-         * example the kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall
-         * was blocked (EACCES/EPERM; maybe through seccomp, because we are running inside of a
-         * container), or the mount point is not triggered yet (EOVERFLOW, think nfs4), or some
-         * general name_to_handle_at() flakiness (EINVAL). However other errors are not supposed to
-         * happen and therefore are considered fatal ones. */
+bool file_handle_equal(const struct file_handle *a, const struct file_handle *b) {
+        if (a == b)
+                return true;
+        if (!a != !b)
+                return false;
+        if (a->handle_type != b->handle_type)
+                return false;
 
-        assert(err < 0);
-
-        return !IN_SET(err, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL);
+        return memcmp_nn(a->f_handle, a->handle_bytes, b->f_handle, b->handle_bytes) == 0;
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
@@ -231,14 +273,12 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
         } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-        else if (FLAGS_SET(sx.stx_mask, STATX_TYPE) && S_ISLNK(sx.stx_mode))
-                return false; /* symlinks are never mount points */
 
-        r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
+        r = name_to_handle_at_try_fid(fd, filename, &h, &mount_id, flags);
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
-                if (r != -EOPNOTSUPP)
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
                         goto fallback_fdinfo;
 
                 /* This kernel or file system does not support name_to_handle_at(), hence let's see
@@ -248,13 +288,13 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         }
 
         if (isempty(filename))
-                r = name_to_handle_at_loop(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
+                r = name_to_handle_at_try_fid(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
         else
-                r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
+                r = name_to_handle_at_try_fid(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
-                if (r != -EOPNOTSUPP)
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
                         goto fallback_fdinfo;
                 if (nosupp)
                         /* Both the parent and the directory can't do name_to_handle_at() */
@@ -272,17 +312,14 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         /* If the file handle for the directory we are interested in and its parent are identical,
          * we assume this is the root directory, which is a mount point. */
-
-        if (h->handle_type == h_parent->handle_type &&
-            memcmp_nn(h->f_handle, h->handle_bytes,
-                      h_parent->f_handle, h_parent->handle_bytes) == 0)
+        if (file_handle_equal(h_parent, h))
                 return 1;
 
         return mount_id != mount_id_parent;
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (IN_SET(r, -EOPNOTSUPP, -EACCES, -EPERM, -ENOSYS))
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r))
                 goto fallback_fstat;
         if (r < 0)
                 return r;
@@ -311,8 +348,6 @@ fallback_fstat:
                 flags |= AT_SYMLINK_NOFOLLOW;
         if (fstatat(fd, filename, &a, flags) < 0)
                 return -errno;
-        if (S_ISLNK(a.st_mode)) /* Symlinks are never mount points */
-                return false;
 
         if (isempty(filename))
                 r = fstatat(fd, "..", &b, 0);
@@ -647,7 +682,7 @@ int mount_nofollow(
         return mount_fd(source, fd, filesystemtype, mountflags, data);
 }
 
-const char *mount_propagation_flag_to_string(unsigned long flags) {
+const char* mount_propagation_flag_to_string(unsigned long flags) {
 
         switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
         case 0:

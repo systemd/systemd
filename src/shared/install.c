@@ -1810,7 +1810,8 @@ static int install_info_discover(
                 r = install_info_traverse(ctx, lp, info, flags, ret);
 
         if (r < 0)
-                install_changes_add(changes, n_changes, r, name_or_path, NULL);
+                return install_changes_add(changes, n_changes, r, name_or_path, NULL);
+
         return r;
 }
 
@@ -1871,7 +1872,10 @@ int unit_file_verify_alias(
                 if (!p)
                         p = endswith(dir, ".requires");
                 if (!p) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        if (r != -EXDEV)
+                                return r;
+
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV), "Invalid path \"%s\" in alias.", dir);
                 }
 
@@ -1879,7 +1883,9 @@ int unit_file_verify_alias(
 
                 UnitNameFlags type = unit_name_classify(dir);
                 if (type < 0) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        if (r != -EXDEV)
+                                return r;
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
                                                "Invalid unit name component \"%s\" in alias.", dir);
                 }
@@ -1891,7 +1897,10 @@ int unit_file_verify_alias(
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify alias validity: %m");
                 if (r == 0) {
-                        install_changes_add(changes, n_changes, -EXDEV, dst, info->name);
+                        r = install_changes_add(changes, n_changes, -EXDEV, dst, info->name);
+                        if (r != -EXDEV)
+                                return r;
+
                         return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
                                                "Invalid unit \"%s\" symlink \"%s\".",
                                                info->name, dst);
@@ -1905,7 +1914,9 @@ int unit_file_verify_alias(
 
                         UnitNameFlags type = unit_name_to_instance(info->name, &inst);
                         if (type < 0) {
-                                install_changes_add(changes, n_changes, -EUCLEAN, info->name, NULL);
+                                r = install_changes_add(changes, n_changes, -EUCLEAN, info->name, NULL);
+                                if (r != -EUCLEAN)
+                                        return r;
                                 return log_debug_errno(type, "Failed to extract instance name from \"%s\": %m", info->name);
                         }
 
@@ -1986,7 +1997,9 @@ static int install_info_symlink_alias(
                 }
                 broken = r == 0; /* symlink target does not exist? */
 
-                RET_GATHER(ret, create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes));
+                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                if (r != 0 && ret >= 0)
+                        ret = r;
         }
 
         return ret;
@@ -2009,7 +2022,7 @@ static int install_info_symlink_wants(
 
         UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
         const char *n;
-        int r = 0, q;
+        int r, q;
 
         assert(info);
         assert(lp);
@@ -2080,7 +2093,7 @@ static int install_info_symlink_wants(
                         return -ENOMEM;
 
                 q = create_symlink(lp, info->path, path, /* force = */ true, changes, n_changes);
-                if ((q < 0 && r >= 0) || r == 0)
+                if (q != 0 && r >= 0)
                         r = q;
 
                 if (unit_file_exists(scope, lp, dst) == 0) {
@@ -2152,15 +2165,15 @@ static int install_info_apply(
         r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->required_by, ".requires/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->upheld_by, ".upholds/", changes, n_changes);
-        if (r == 0)
+        if (q != 0 && r >= 0)
                 r = q;
 
         return r;
@@ -2286,10 +2299,14 @@ static int install_context_mark_for_removal(
                         }
                 } else if (r < 0) {
                         log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
-                        install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                        int k = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                        if (k != r)
+                                return k;
                 } else if (i->install_mode == INSTALL_MODE_MASKED) {
                         log_debug("Unit file %s is masked, ignoring.", i->name);
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path ?: i->name, NULL);
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path ?: i->name, NULL);
+                        if (r < 0)
+                                return r;
                         continue;
                 } else if (i->install_mode != INSTALL_MODE_REGULAR) {
                         log_debug("Unit %s has install mode %s, ignoring.",
@@ -2437,10 +2454,8 @@ int unit_file_unmask(
                         return -ENOMEM;
 
                 if (!dry_run && unlink(path) < 0) {
-                        if (errno != ENOENT) {
-                                RET_GATHER(r, -errno);
-                                install_changes_add(changes, n_changes, -errno, path, NULL);
-                        }
+                        if (errno != ENOENT)
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -errno, path, NULL));
 
                         continue;
                 }

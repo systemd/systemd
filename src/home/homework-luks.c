@@ -998,12 +998,12 @@ static int format_luks_token_text(
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);
 
-        r = sd_json_build(&v,
-                       SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
-                                       SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_EMPTY_ARRAY),
-                                       SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
-                                       SD_JSON_BUILD_PAIR("iv", SD_JSON_BUILD_BASE64(iv, iv_size))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
+                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
+                        SD_JSON_BUILD_PAIR("iv", SD_JSON_BUILD_BASE64(iv, iv_size)));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare LUKS JSON token object: %m");
 

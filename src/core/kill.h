@@ -28,26 +28,26 @@ struct KillContext {
         bool send_sighup;
 };
 
-typedef enum KillWho {
-        /* Kill who is a property of an operation */
+typedef enum KillWhom {
+        /* Kill whom is a property of an operation */
         KILL_MAIN,
         KILL_CONTROL,
         KILL_ALL,
         KILL_MAIN_FAIL,
         KILL_CONTROL_FAIL,
         KILL_ALL_FAIL,
-        _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -EINVAL,
-} KillWho;
+        _KILL_WHOM_MAX,
+        _KILL_WHOM_INVALID = -EINVAL,
+} KillWhom;
 
 void kill_context_init(KillContext *c);
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix);
 
-const char *kill_mode_to_string(KillMode k) _const_;
+const char* kill_mode_to_string(KillMode k) _const_;
 KillMode kill_mode_from_string(const char *s) _pure_;
 
-const char *kill_who_to_string(KillWho k) _const_;
-KillWho kill_who_from_string(const char *s) _pure_;
+const char* kill_whom_to_string(KillWhom k) _const_;
+KillWhom kill_whom_from_string(const char *s) _pure_;
 
 static inline int restart_kill_signal(const KillContext *c) {
         if (c->restart_kill_signal != 0)

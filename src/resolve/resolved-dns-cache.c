@@ -1456,11 +1456,10 @@ int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_append_arrayb(
+                                r = sd_json_variant_append_arraybo(
                                                 &l,
-                                                SD_JSON_BUILD_OBJECT(
-                                                                SD_JSON_BUILD_PAIR_VARIANT("rr", rj),
-                                                                SD_JSON_BUILD_PAIR_BASE64("raw", j->rr->wire_format, j->rr->wire_format_size)));
+                                                SD_JSON_BUILD_PAIR_VARIANT("rr", rj),
+                                                SD_JSON_BUILD_PAIR_BASE64("raw", j->rr->wire_format, j->rr->wire_format_size));
                                 if (r < 0)
                                         return r;
                         }
@@ -1471,23 +1470,23 @@ int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
                                         return r;
                         }
 
-                        r = sd_json_build(&d,
-                                       SD_JSON_BUILD_OBJECT(
-                                                       SD_JSON_BUILD_PAIR_VARIANT("key", k),
-                                                       SD_JSON_BUILD_PAIR_VARIANT("rrs", l),
-                                                       SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until)));
+                        r = sd_json_buildo(
+                                        &d,
+                                        SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                        SD_JSON_BUILD_PAIR_VARIANT("rrs", l),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until));
                 } else if (i->type == DNS_CACHE_NODATA) {
-                        r = sd_json_build(&d,
-                                       SD_JSON_BUILD_OBJECT(
-                                                       SD_JSON_BUILD_PAIR_VARIANT("key", k),
-                                                       SD_JSON_BUILD_PAIR_EMPTY_ARRAY("rrs"),
-                                                       SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until)));
+                        r = sd_json_buildo(
+                                        &d,
+                                        SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                        SD_JSON_BUILD_PAIR_EMPTY_ARRAY("rrs"),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until));
                 } else
-                        r = sd_json_build(&d,
-                                       SD_JSON_BUILD_OBJECT(
-                                                       SD_JSON_BUILD_PAIR_VARIANT("key", k),
-                                                       SD_JSON_BUILD_PAIR_STRING("type", dns_cache_item_type_to_string(i)),
-                                                       SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until)));
+                        r = sd_json_buildo(
+                                        &d,
+                                        SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                        SD_JSON_BUILD_PAIR_STRING("type", dns_cache_item_type_to_string(i)),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("until", i->until));
                 if (r < 0)
                         return r;
 

@@ -22,7 +22,8 @@ int register_machine(
                 const char *directory,
                 unsigned cid,
                 const char *address,
-                const char *key_path) {
+                const char *key_path,
+                bool keep_unit) {
 
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
@@ -59,18 +60,20 @@ int register_machine(
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
 
-        return varlink_callb_and_log(vl,
+        return varlink_callbo_and_log(
+                        vl,
                         "io.systemd.Machine.Register",
-                        NULL,
-                        SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("name", machine_name),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(uuid), "id", SD_JSON_BUILD_ID128(uuid)),
-                                        SD_JSON_BUILD_PAIR_STRING("service", service),
-                                        SD_JSON_BUILD_PAIR_STRING("class", "vm"),
-                                        SD_JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", SD_JSON_BUILD_UNSIGNED(cid)),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path))));
+                        /* ret_reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_STRING("name", machine_name),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(uuid), "id", SD_JSON_BUILD_ID128(uuid)),
+                        SD_JSON_BUILD_PAIR_STRING("service", service),
+                        SD_JSON_BUILD_PAIR_STRING("class", "vm"),
+                        SD_JSON_BUILD_PAIR_CONDITION(VSOCK_CID_IS_REGULAR(cid), "vSockCid", SD_JSON_BUILD_UNSIGNED(cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(isatty(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!keep_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {

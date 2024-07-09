@@ -552,7 +552,7 @@ char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlag
         return NULL;
 }
 
-char *strv_env_pairs_get(char **l, const char *name) {
+char* strv_env_pairs_get(char **l, const char *name) {
         char *result = NULL;
 
         assert(name);

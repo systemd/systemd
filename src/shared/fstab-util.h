@@ -49,7 +49,7 @@ static inline bool fstab_test_yes_no_option(const char *opts, const char *yes_no
 }
 int fstab_find_pri(const char *opts, int *ret);
 
-char *fstab_node_to_udev_node(const char *p);
+char* fstab_node_to_udev_node(const char *p);
 
 static inline const char* fstab_path(void) {
         return secure_getenv("SYSTEMD_FSTAB") ?: "/etc/fstab";

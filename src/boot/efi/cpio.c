@@ -311,8 +311,7 @@ EFI_STATUS pack_cpio(
                 uint32_t access_mode,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
-                void **ret_buffer,
-                size_t *ret_buffer_size,
+                struct iovec *ret_buffer,
                 bool *ret_measured) {
 
         _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
@@ -327,7 +326,6 @@ EFI_STATUS pack_cpio(
         assert(loaded_image);
         assert(target_dir_prefix);
         assert(ret_buffer);
-        assert(ret_buffer_size);
 
         if (!loaded_image->DeviceHandle)
                 goto nothing;
@@ -430,7 +428,7 @@ EFI_STATUS pack_cpio(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
-        err = tpm_log_event(
+        err = tpm_log_ipl_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
@@ -439,14 +437,11 @@ EFI_STATUS pack_cpio(
                                 tpm_pcr,
                                 tpm_description);
 
-        *ret_buffer = TAKE_PTR(buffer);
-        *ret_buffer_size = buffer_size;
-
+        *ret_buffer = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
         return EFI_SUCCESS;
 
 nothing:
-        *ret_buffer = NULL;
-        *ret_buffer_size = 0;
+        *ret_buffer = (struct iovec) {};
 
         if (ret_measured)
                 *ret_measured = false;
@@ -463,8 +458,7 @@ EFI_STATUS pack_cpio_literal(
                 uint32_t access_mode,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
-                void **ret_buffer,
-                size_t *ret_buffer_size,
+                struct iovec *ret_buffer,
                 bool *ret_measured) {
 
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
@@ -476,7 +470,6 @@ EFI_STATUS pack_cpio_literal(
         assert(target_dir_prefix);
         assert(target_filename);
         assert(ret_buffer);
-        assert(ret_buffer_size);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
@@ -499,7 +492,7 @@ EFI_STATUS pack_cpio_literal(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
-        err = tpm_log_event(
+        err = tpm_log_ipl_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
@@ -508,8 +501,6 @@ EFI_STATUS pack_cpio_literal(
                                 tpm_pcr,
                                 tpm_description);
 
-        *ret_buffer = TAKE_PTR(buffer);
-        *ret_buffer_size = buffer_size;
-
+        *ret_buffer = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
         return EFI_SUCCESS;
 }

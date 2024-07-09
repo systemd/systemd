@@ -100,12 +100,11 @@ int enroll_pkcs11(
         if (r < 0)
                 return r;
 
-        r = sd_json_build(&v,
-                SD_JSON_BUILD_OBJECT(
-                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
-                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                        SD_JSON_BUILD_PAIR("pkcs11-uri", SD_JSON_BUILD_STRING(private_uri ?: uri)),
-                        SD_JSON_BUILD_PAIR("pkcs11-key", SD_JSON_BUILD_BASE64(saved_key, saved_key_size))));
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
+                           SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                           SD_JSON_BUILD_PAIR("pkcs11-uri", SD_JSON_BUILD_STRING(private_uri ?: uri)),
+                           SD_JSON_BUILD_PAIR("pkcs11-key", SD_JSON_BUILD_BASE64(saved_key, saved_key_size)));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 

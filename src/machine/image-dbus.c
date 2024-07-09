@@ -461,7 +461,7 @@ static int image_object_find(sd_bus *bus, const char *path, const char *interfac
         return 1;
 }
 
-char *image_bus_path(const char *name) {
+char* image_bus_path(const char *name) {
         _cleanup_free_ char *e = NULL;
 
         assert(name);

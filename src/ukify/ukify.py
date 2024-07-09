@@ -51,7 +51,7 @@ from typing import (Any,
 
 import pefile  # type: ignore
 
-__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
+__version__ = '{{PROJECT_VERSION}} ({{VERSION_TAG}})'
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
@@ -1265,10 +1265,31 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        type = pathlib.Path,
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
         '--linux',
         type = pathlib.Path,
         help = 'vmlinuz file [.linux section]',
         config_key = 'UKI/Linux',
+    ),
+
+    ConfigItem(
+        '--os-release',
+        metavar = 'TEXT|@PATH',
+        help = 'path to os-release file [.osrel section]',
+        config_key = 'UKI/OSRelease',
+    ),
+
+    ConfigItem(
+        '--cmdline',
+        metavar = 'TEXT|@PATH',
+        help = 'kernel command line [.cmdline section]',
+        config_key = 'UKI/Cmdline',
     ),
 
     ConfigItem(
@@ -1290,24 +1311,11 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        ('--config', '-c'),
-        metavar = 'PATH',
+        '--splash',
+        metavar = 'BMP',
         type = pathlib.Path,
-        help = 'configuration file',
-    ),
-
-    ConfigItem(
-        '--cmdline',
-        metavar = 'TEXT|@PATH',
-        help = 'kernel command line [.cmdline section]',
-        config_key = 'UKI/Cmdline',
-    ),
-
-    ConfigItem(
-        '--os-release',
-        metavar = 'TEXT|@PATH',
-        help = 'path to os-release file [.osrel section]',
-        config_key = 'UKI/OSRelease',
+        help = 'splash image bitmap file [.splash section]',
+        config_key = 'UKI/Splash',
     ),
 
     ConfigItem(
@@ -1317,13 +1325,23 @@ CONFIG_ITEMS = [
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
     ),
+
     ConfigItem(
-        '--splash',
-        metavar = 'BMP',
-        type = pathlib.Path,
-        help = 'splash image bitmap file [.splash section]',
-        config_key = 'UKI/Splash',
+        '--uname',
+        metavar='VERSION',
+        help='"uname -r" information [.uname section]',
+        config_key = 'UKI/Uname',
     ),
+
+    ConfigItem(
+        '--sbat',
+        metavar = 'TEXT|@PATH',
+        help = 'SBAT policy [.sbat section]',
+        default = [],
+        action = 'append',
+        config_key = 'UKI/SBAT',
+    ),
+
     ConfigItem(
         '--pcrpkey',
         metavar = 'KEY',
@@ -1331,11 +1349,14 @@ CONFIG_ITEMS = [
         help = 'embedded public key to seal secrets to [.pcrpkey section]',
         config_key = 'UKI/PCRPKey',
     ),
+
     ConfigItem(
-        '--uname',
-        metavar='VERSION',
-        help='"uname -r" information [.uname section]',
-        config_key = 'UKI/Uname',
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TEXT|@PATH',
+        action = 'append',
+        default = [],
+        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1351,24 +1372,6 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
-    ),
-
-    ConfigItem(
-        '--sbat',
-        metavar = 'TEXT|@PATH',
-        help = 'SBAT policy [.sbat section]',
-        default = [],
-        action = 'append',
-        config_key = 'UKI/SBAT',
-    ),
-
-    ConfigItem(
-        '--section',
-        dest = 'sections',
-        metavar = 'NAME:TEXT|@PATH',
-        action = 'append',
-        default = [],
-        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1636,7 +1639,7 @@ def finalize_options(opts):
     elif len(opts.positional) == 1 and opts.positional[0] in VERBS:
         opts.verb = opts.positional[0]
     elif opts.linux or opts.initrd:
-        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+        raise ValueError('--linux=/--initrd= options cannot be used with positional arguments')
     else:
         print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
         if opts.positional:

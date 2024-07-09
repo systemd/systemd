@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
+#include <sys/socket.h>
 
+#include "sd-event.h"
 #include "sd-json.h"
+
 #include "pidref.h"
+#include "set.h"
 #include "time-util.h"
 #include "varlink-idl.h"
 
@@ -60,6 +63,7 @@ int varlink_connect_address(Varlink **ret, const char *address);
 int varlink_connect_exec(Varlink **ret, const char *command, char **argv);
 int varlink_connect_url(Varlink **ret, const char *url);
 int varlink_connect_fd(Varlink **ret, int fd);
+int varlink_connect_fd_pair(Varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
 Varlink* varlink_ref(Varlink *link);
 Varlink* varlink_unref(Varlink *v);
@@ -86,6 +90,8 @@ Varlink* varlink_close_unref(Varlink *v);
 /* Enqueue method call, not expecting a reply */
 int varlink_send(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_sendb(Varlink *v, const char *method, ...);
+#define varlink_sendbo(v, method, ...)                          \
+        varlink_sendb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and wait for reply */
 int varlink_call_full(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
@@ -104,6 +110,8 @@ static inline int varlink_callb_full(Varlink *v, const char *method, sd_json_var
         va_end(ap);
         return r;
 }
+#define varlink_callbo_full(v, method, ret_parameters, ret_error_id, ret_flags, ...) \
+        varlink_callb_full((v), (method), (ret_parameters), (ret_error_id), (ret_flags), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 static inline int varlink_callb(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...) {
         va_list ap;
         int r;
@@ -113,7 +121,11 @@ static inline int varlink_callb(Varlink *v, const char *method, sd_json_variant 
         va_end(ap);
         return r;
 }
+#define varlink_callbo(v, method, ret_parameters, ret_error_id, ...)    \
+        varlink_callb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int varlink_callb_and_log(Varlink *v, const char *method, sd_json_variant **ret_parameters, ...);
+#define varlink_callbo_and_log(v, method, ret_parameters, ...)          \
+        varlink_callb_and_log((v), (method), (ret_parameters), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int varlink_collect_full(Varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
@@ -121,22 +133,32 @@ static inline int varlink_collect(Varlink *v, const char *method, sd_json_varian
         return varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 int varlink_collectb(Varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
+#define varlink_collectbo(v, method, ret_parameters, ret_error_id, ...) \
+        varlink_collectb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue method call, expect a reply, which is eventually delivered to the reply callback */
 int varlink_invoke(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_invokeb(Varlink *v, const char *method, ...);
+#define varlink_invokebo(v, method, ...)                                \
+        varlink_invokeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue method call, expect a reply now, and possibly more later, which are all delivered to the reply callback */
 int varlink_observe(Varlink *v, const char *method, sd_json_variant *parameters);
 int varlink_observeb(Varlink *v, const char *method, ...);
+#define varlink_observebo(v, method, ...)                               \
+        varlink_observeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue a final reply */
 int varlink_reply(Varlink *v, sd_json_variant *parameters);
 int varlink_replyb(Varlink *v, ...);
+#define varlink_replybo(v, ...)                         \
+        varlink_replyb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue a (final) error */
 int varlink_error(Varlink *v, const char *error_id, sd_json_variant *parameters);
 int varlink_errorb(Varlink *v, const char *error_id, ...);
+#define varlink_errorbo(v, error_id, ...)                               \
+        varlink_errorb((v), (error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int varlink_error_invalid_parameter(Varlink *v, sd_json_variant *parameters);
 int varlink_error_invalid_parameter_name(Varlink *v, const char *name);
 int varlink_error_errno(Varlink *v, int error);
@@ -144,6 +166,8 @@ int varlink_error_errno(Varlink *v, int error);
 /* Enqueue a "more" reply */
 int varlink_notify(Varlink *v, sd_json_variant *parameters);
 int varlink_notifyb(Varlink *v, ...);
+#define varlink_notifybo(v, ...)                        \
+        varlink_notifyb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Ask for the current message to be dispatched again */
 int varlink_dispatch_again(Varlink *v);
@@ -197,6 +221,8 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
 int varlink_server_listen_fd(VarlinkServer *s, int fd);
 int varlink_server_listen_auto(VarlinkServer *s);
 int varlink_server_add_connection(VarlinkServer *s, int fd, Varlink **ret);
+int varlink_server_add_connection_pair(VarlinkServer *s, int input_fd, int output_fd, const struct ucred *ucred_override, Varlink **ret);
+int varlink_server_add_connection_stdio(VarlinkServer *s, Varlink **ret);
 
 /* Bind callbacks */
 int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMethod callback);
@@ -243,6 +269,12 @@ typedef enum VarlinkInvocationFlags {
 int varlink_invocation(VarlinkInvocationFlags flags);
 
 int varlink_error_to_errno(const char *error, sd_json_variant *parameters);
+
+int varlink_many_notifyb(Set *s, ...);
+#define varlink_many_notifybo(s, ...)                           \
+        varlink_many_notifyb((s), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
+int varlink_many_reply(Set *s, sd_json_variant *parameters);
+int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);

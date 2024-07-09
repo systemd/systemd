@@ -29,16 +29,16 @@ int utf8_to_ascii(const char *str, char replacement_char, char **ret);
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
-char *utf8_escape_invalid(const char *s);
-char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
-static inline char *utf8_escape_non_printable(const char *str) {
+char* utf8_escape_invalid(const char *s);
+char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
+static inline char* utf8_escape_non_printable(const char *str) {
         return utf8_escape_non_printable_full(str, SIZE_MAX, false);
 }
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);
 size_t utf16_encode_unichar(char16_t *out, char32_t c);
 
-char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
+char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
 char16_t *utf8_to_utf16(const char *s, size_t length);
 
 size_t char16_strlen(const char16_t *s); /* returns the number of 16-bit words in the string (not bytes!) */

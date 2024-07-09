@@ -61,6 +61,8 @@ def main():
         print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    keep_journal = os.getenv("TEST_SAVE_JOURNAL", "fail")
+
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
@@ -101,6 +103,12 @@ def main():
         journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
     else:
+        dropin += textwrap.dedent(
+            """
+            [Unit]
+            Wants=multi-user.target
+            """
+        )
         journal_file = None
 
     cmd = [
@@ -126,7 +134,6 @@ def main():
         '--runtime-network=none',
         '--runtime-scratch=no',
         *args.mkosi_args,
-        '--append',
         '--qemu-firmware', args.firmware,
         '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
         '--kernel-command-line-extra',
@@ -152,11 +159,10 @@ def main():
 
     result = subprocess.run(cmd)
 
-    if result.returncode in (args.exit_code, 77):
-        # Do not keep journal files for tests that don't fail.
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
+        journal_file.unlink(missing_ok=True)
 
+    if result.returncode in (args.exit_code, 77):
         exit(0 if result.returncode == args.exit_code else 77)
 
     if journal_file:
@@ -177,9 +183,8 @@ def main():
                     text=True,
                 ).stdout
             )
-            images = {image["Image"]: image for image in j["Images"]}
-            distribution = images["system"]["Distribution"]
-            release = images["system"]["Release"]
+            distribution = j["Images"][-1]["Distribution"]
+            release = j["Images"][-1]["Release"]
             artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
             ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
             journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")

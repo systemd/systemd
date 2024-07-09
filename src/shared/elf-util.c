@@ -425,7 +425,7 @@ static int parse_package_metadata(const char *name, sd_json_variant *id_json, El
                         /* Then we build a new object using the module name as the key, and merge it
                          * with the previous parses, so that in the end it all fits together in a single
                          * JSON blob. */
-                        r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_VARIANT(v))));
+                        r = sd_json_buildo(&w, SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_VARIANT(v)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -478,7 +478,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
                 /* We will later parse package metadata json and pass it to our caller. Prepare the
                 * build-id in json format too, so that it can be appended and parsed cleanly. It
                 * will then be added as metadata to the journal message with the stack trace. */
-                r = sd_json_build(&id_json, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("buildId", SD_JSON_BUILD_HEX(id, id_len))));
+                r = sd_json_buildo(&id_json, SD_JSON_BUILD_PAIR("buildId", SD_JSON_BUILD_HEX(id, id_len)));
                 if (r < 0)
                         return log_error_errno(r, "json_build on buildId failed: %m");
         }
@@ -695,7 +695,7 @@ static int parse_elf(int fd, const char *executable, char **ret, sd_json_variant
 
                 /* If we found a build-id and nothing else, return at least that. */
                 if (!package_metadata && id_json) {
-                        r = sd_json_build(&package_metadata, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR(e, SD_JSON_BUILD_VARIANT(id_json))));
+                        r = sd_json_buildo(&package_metadata, SD_JSON_BUILD_PAIR(e, SD_JSON_BUILD_VARIANT(id_json)));
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to build JSON object: %m");
                 }
@@ -708,23 +708,18 @@ static int parse_elf(int fd, const char *executable, char **ret, sd_json_variant
 
         /* Note that e_type is always DYN for both executables and libraries, so we can't tell them apart from the header,
          * but we will search for the PT_INTERP section when parsing the metadata. */
-        r = sd_json_build(&elf_metadata, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("elfType", SD_JSON_BUILD_STRING(elf_type))));
+        r = sd_json_buildo(&elf_metadata, SD_JSON_BUILD_PAIR("elfType", SD_JSON_BUILD_STRING(elf_type)));
         if (r < 0)
                 return log_warning_errno(r, "Failed to build JSON object: %m");
 
 #if HAVE_DWELF_ELF_E_MACHINE_STRING
         const char *elf_architecture = sym_dwelf_elf_e_machine_string(elf_header.e_machine);
         if (elf_architecture) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_architecture = NULL;
-
-                r = sd_json_build(&json_architecture,
-                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("elfArchitecture", SD_JSON_BUILD_STRING(elf_architecture))));
+                r = sd_json_variant_merge_objectbo(
+                                &elf_metadata,
+                                SD_JSON_BUILD_PAIR("elfArchitecture", SD_JSON_BUILD_STRING(elf_architecture)));
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to build JSON object: %m");
-
-                r = sd_json_variant_merge_object(&elf_metadata, json_architecture);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to merge JSON objects: %m");
+                        return log_warning_errno(r, "Failed to add elfArchitecture field: %m");
 
                 if (ret)
                         fprintf(c.m.f, "ELF object binary architecture: %s\n", elf_architecture);
@@ -796,7 +791,8 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                            NULL);
         if (r < 0) {
                 if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
-                        int e, k;
+                        ssize_t k;
+                        int e;
 
                         k = read(error_pipe[0], &e, sizeof(e));
                         if (k < 0 && errno != EAGAIN) /* Pipe is non-blocking, EAGAIN means there's nothing */

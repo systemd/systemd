@@ -50,6 +50,7 @@ void manager_reset_config(Manager *m) {
         m->handle_suspend_key_long_press = HANDLE_HIBERNATE;
         m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_hibernate_key_long_press = HANDLE_IGNORE;
+        m->handle_secure_attention_key = HANDLE_SECURE_ATTENTION_KEY;
 
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
@@ -77,6 +78,8 @@ void manager_reset_config(Manager *m) {
         m->kill_exclude_users = strv_free(m->kill_exclude_users);
 
         m->stop_idle_session_usec = USEC_INFINITY;
+
+        m->maintenance_time = calendar_spec_free(m->maintenance_time);
 }
 
 int manager_parse_config_file(Manager *m) {
@@ -693,6 +696,8 @@ bool manager_all_buttons_ignored(Manager *m) {
         if (!IN_SET(m->handle_lid_switch_ep, _HANDLE_ACTION_INVALID, HANDLE_IGNORE))
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+        if (m->handle_secure_attention_key != HANDLE_IGNORE)
                 return false;
 
         return true;

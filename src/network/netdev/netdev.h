@@ -212,7 +212,7 @@ int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
 
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
-const char *netdev_kind_to_string(NetDevKind d) _const_;
+const char* netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
 static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {

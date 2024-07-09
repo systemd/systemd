@@ -55,7 +55,7 @@ int unhexchar(char c) {
         return -EINVAL;
 }
 
-char *hexmem(const void *p, size_t l) {
+char* hexmem(const void *p, size_t l) {
         const uint8_t *x;
         char *r, *z;
 
@@ -188,7 +188,7 @@ int unbase32hexchar(char c) {
         return -EINVAL;
 }
 
-char *base32hexmem(const void *p, size_t l, bool padding) {
+char* base32hexmem(const void *p, size_t l, bool padding) {
         char *r, *z;
         const uint8_t *x;
         size_t len;

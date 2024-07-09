@@ -22,6 +22,9 @@ static PagerFlags arg_pager_flags = 0;
 static VarlinkMethodFlags arg_method_flags = 0;
 static bool arg_collect = false;
 static bool arg_quiet = false;
+static char **arg_graceful = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -58,6 +61,7 @@ static int help(void) {
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "  -q --quiet             Do not output method reply\n"
+               "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -82,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ONEWAY,
                 ARG_JSON,
                 ARG_COLLECT,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -93,6 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",     required_argument, NULL, ARG_JSON     },
                 { "collect",  no_argument,       NULL, ARG_COLLECT  },
                 { "quiet",    no_argument,       NULL, 'q'          },
+                { "graceful", required_argument, NULL, ARG_GRACEFUL },
                 {},
         };
 
@@ -142,6 +148,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
+                case ARG_GRACEFUL:
+                        r = varlink_idl_qualified_symbol_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", optarg);
+
+                        if (strv_extend(&arg_graceful, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -152,6 +170,8 @@ static int parse_argv(int argc, char *argv[]) {
         /* If more than one reply is expected, imply JSON-SEQ output */
         if (FLAGS_SET(arg_method_flags, VARLINK_METHOD_MORE))
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        strv_sort_uniq(arg_graceful);
 
         return 1;
 }
@@ -347,11 +367,11 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;
-                r = varlink_callb_and_log(
+                r = varlink_callbo_and_log(
                                 vl,
                                 "org.varlink.service.GetInterfaceDescription",
                                 &reply,
-                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("interface", *i)));
+                                SD_JSON_BUILD_PAIR_STRING("interface", *i));
                 if (r < 0)
                         return r;
 
@@ -438,7 +458,13 @@ static int reply_callback(
                 /* Propagate the error we received via sd_notify() */
                 (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                if (strv_contains(arg_graceful, error)) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                 "Method call returned expected error: %s", error);
+
+                        r = 0;
+                } else
+                        r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
         } else
                 r = 0;
 
@@ -505,7 +531,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         /* Propagate the error we received via sd_notify() */
                         (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        if (strv_contains(arg_graceful, error)) {
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "Method call %s() returned expected error: %s", method, error);
+
+                                r = 0;
+                        } else
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
                 } else
                         r = 0;
 
@@ -570,7 +602,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         /* Propagate the error we received via sd_notify() */
                         (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
 
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        if (strv_contains(arg_graceful, error)) {
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "Method call %s() returned expected error: %s", method, error);
+
+                                r = 0;
+                        } else
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
                 } else
                         r = 0;
 

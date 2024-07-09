@@ -27,7 +27,6 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "missing_capability.h"
-#include "nscd-flush.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -582,8 +581,6 @@ static int context_update_kernel_hostname(
                 c->hostname_source = hns;
                 r = 1;
         }
-
-        (void) nscd_flush_cache(STRV_MAKE("hosts"));
 
         if (r == 0)
                 log_debug("Hostname was already set to <%s>.", hn);
@@ -1415,37 +1412,38 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
         (void) load_env_file_pairs(/* f=*/ NULL, "/etc/machine-info", &machine_info_pairs);
 
-        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("Hostname", SD_JSON_BUILD_STRING(hn)),
-                                       SD_JSON_BUILD_PAIR("StaticHostname", SD_JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
-                                       SD_JSON_BUILD_PAIR("PrettyHostname", SD_JSON_BUILD_STRING(c->data[PROP_PRETTY_HOSTNAME])),
-                                       SD_JSON_BUILD_PAIR("DefaultHostname", SD_JSON_BUILD_STRING(dhn)),
-                                       SD_JSON_BUILD_PAIR("HostnameSource", SD_JSON_BUILD_STRING(hostname_source_to_string(c->hostname_source))),
-                                       SD_JSON_BUILD_PAIR("IconName", SD_JSON_BUILD_STRING(in ?: c->data[PROP_ICON_NAME])),
-                                       SD_JSON_BUILD_PAIR("Chassis", SD_JSON_BUILD_STRING(chassis)),
-                                       SD_JSON_BUILD_PAIR("Deployment", SD_JSON_BUILD_STRING(c->data[PROP_DEPLOYMENT])),
-                                       SD_JSON_BUILD_PAIR("Location", SD_JSON_BUILD_STRING(c->data[PROP_LOCATION])),
-                                       SD_JSON_BUILD_PAIR("KernelName", SD_JSON_BUILD_STRING(u.sysname)),
-                                       SD_JSON_BUILD_PAIR("KernelRelease", SD_JSON_BUILD_STRING(u.release)),
-                                       SD_JSON_BUILD_PAIR("KernelVersion", SD_JSON_BUILD_STRING(u.version)),
-                                       SD_JSON_BUILD_PAIR("OperatingSystemPrettyName", SD_JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
-                                       SD_JSON_BUILD_PAIR("OperatingSystemCPEName", SD_JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
-                                       SD_JSON_BUILD_PAIR("OperatingSystemHomeURL", SD_JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
-                                       JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
-                                       SD_JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
-                                       SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
-                                       SD_JSON_BUILD_PAIR("HardwareVendor", SD_JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
-                                       SD_JSON_BUILD_PAIR("HardwareModel", SD_JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
-                                       SD_JSON_BUILD_PAIR("HardwareSerial", SD_JSON_BUILD_STRING(serial)),
-                                       SD_JSON_BUILD_PAIR("FirmwareVersion", SD_JSON_BUILD_STRING(firmware_version)),
-                                       SD_JSON_BUILD_PAIR("FirmwareVendor", SD_JSON_BUILD_STRING(firmware_vendor)),
-                                       JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
-                                       SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
-                                       SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
-                                       SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_ID128(product_uuid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_NULL),
-                                       SD_JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_UNSIGNED(local_cid)),
-                                       SD_JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_NULL)));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("Hostname", SD_JSON_BUILD_STRING(hn)),
+                        SD_JSON_BUILD_PAIR("StaticHostname", SD_JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
+                        SD_JSON_BUILD_PAIR("PrettyHostname", SD_JSON_BUILD_STRING(c->data[PROP_PRETTY_HOSTNAME])),
+                        SD_JSON_BUILD_PAIR("DefaultHostname", SD_JSON_BUILD_STRING(dhn)),
+                        SD_JSON_BUILD_PAIR("HostnameSource", SD_JSON_BUILD_STRING(hostname_source_to_string(c->hostname_source))),
+                        SD_JSON_BUILD_PAIR("IconName", SD_JSON_BUILD_STRING(in ?: c->data[PROP_ICON_NAME])),
+                        SD_JSON_BUILD_PAIR("Chassis", SD_JSON_BUILD_STRING(chassis)),
+                        SD_JSON_BUILD_PAIR("Deployment", SD_JSON_BUILD_STRING(c->data[PROP_DEPLOYMENT])),
+                        SD_JSON_BUILD_PAIR("Location", SD_JSON_BUILD_STRING(c->data[PROP_LOCATION])),
+                        SD_JSON_BUILD_PAIR("KernelName", SD_JSON_BUILD_STRING(u.sysname)),
+                        SD_JSON_BUILD_PAIR("KernelRelease", SD_JSON_BUILD_STRING(u.release)),
+                        SD_JSON_BUILD_PAIR("KernelVersion", SD_JSON_BUILD_STRING(u.version)),
+                        SD_JSON_BUILD_PAIR("OperatingSystemPrettyName", SD_JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
+                        SD_JSON_BUILD_PAIR("OperatingSystemCPEName", SD_JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
+                        SD_JSON_BUILD_PAIR("OperatingSystemHomeURL", SD_JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
+                        JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
+                        SD_JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
+                        SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
+                        SD_JSON_BUILD_PAIR("HardwareVendor", SD_JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
+                        SD_JSON_BUILD_PAIR("HardwareModel", SD_JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
+                        SD_JSON_BUILD_PAIR("HardwareSerial", SD_JSON_BUILD_STRING(serial)),
+                        SD_JSON_BUILD_PAIR("FirmwareVersion", SD_JSON_BUILD_STRING(firmware_version)),
+                        SD_JSON_BUILD_PAIR("FirmwareVendor", SD_JSON_BUILD_STRING(firmware_vendor)),
+                        JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
+                        SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
+                        SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_ID128(product_uuid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_NULL),
+                        SD_JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_UNSIGNED(local_cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_NULL));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
@@ -1620,11 +1618,13 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         if (r != 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         c->bus,
                         "org.freedesktop.hostname1.get-hardware-serial",
                         /* details= */ NULL,
+                        UID_INVALID,
+                        POLKIT_DONT_REPLY,
                         &c->polkit_registry);
         if (r == 0)
                 return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
@@ -1632,9 +1632,6 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
          * the product ID which we'll check explicitly. */
         privileged = r > 0;
-
-        if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_describe_response(c, privileged, &v);

@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-measure</refname>
-    <refpurpose>Pre-calculate and sign expected TPM2 PCR values for booted unified kernel images</refpurpose>
+    <refpurpose>Pre-calculate and sign expected TPM2 PCR 11 values for booted unified kernel images</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -62,7 +62,7 @@
         <term><command>status</command></term>
 
         <listitem><para>This is the default command if none is specified. This queries the local system's
-        TPM2 PCR 11+12+13 values and displays them. The data is written in a similar format as the
+        TPM2 PCR 11 values and displays them. The data is written in a similar format as the
         <command>calculate</command> command below, and may be used to quickly compare expectation with
         reality.</para>
 
@@ -76,9 +76,9 @@
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
         <option>--ucode=</option>, <option>--splash=</option>, <option>--dtb=</option>,
-        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option> see below.
-        Only <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
-        register 11 instead.)</para>
+        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option> see below.  Only
+        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
+        current values of PCR register 11 instead.)</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>

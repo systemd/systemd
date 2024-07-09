@@ -675,8 +675,8 @@
         of IPC objects and temporary files created by the executed processes is bound to the runtime of the
         service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp/</filename> and
         <filename>/var/tmp/</filename> are usually the only world-writable directories on a system, unless
-        <varname>PrivateTmp=</varname> is manually enabled, those directories will be placed on a private
-        tmpfs filesystem, as this ensures that a unit making use of dynamic user/group allocation cannot
+        <varname>PrivateTmp=</varname> is manually set to <literal>true</literal>, <literal>disconnected</literal>
+        would be implied. This ensures that a unit making use of dynamic user/group allocation cannot
         leave files around after unit termination. Furthermore
         <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
         (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
@@ -1748,20 +1748,27 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the
-        executed processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
-        directories inside it that are not shared by processes outside of the namespace. This is useful to
-        secure access to temporary files of the process, but makes sharing between processes via
-        <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If true, all temporary files
-        created by a service in these directories will be removed after the service is stopped. Defaults to
-        false. It is possible to run two or more units within the same private <filename>/tmp/</filename> and
-        <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
-        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting, the
-        same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. Enabling this setting has the side
-        effect of adding <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount
-        units necessary to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. Moreover an
+        <listitem><para>Takes a boolean argument, or <literal>disconnected</literal>. If enabled, a new
+        file system namespace will be set up for the executed processes, and <filename>/tmp/</filename>
+        and <filename>/var/tmp/</filename> directories inside it are not shared with processes outside of
+        the namespace, plus all temporary files created by a service in these directories will be removed after
+        the service is stopped. If <literal>true</literal>, the backing storage of the private temporary directories
+        will remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories.
+        If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs instance,
+        meaning that the storage is fully disconnected from the host namespace. Defaults to false.</para>
+
+        <para>This setting is useful to secure access to temporary files of the process, but makes sharing
+        between processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible.
+        If not set to <literal>disconnected</literal>, it is possible to run two or more units within
+        the same private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using
+        the <varname>JoinsNamespaceOf=</varname> directive, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting,
+        the same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
+        (as opposed to <literal>disconnected</literal>), this has the side effect of adding
+        <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
+        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover an
         implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
@@ -2022,8 +2029,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <filename>/proc/sys/</filename>, <filename>/sys/</filename>, <filename>/proc/sysrq-trigger</filename>,
         <filename>/proc/latency_stats</filename>, <filename>/proc/acpi</filename>,
         <filename>/proc/timer_stats</filename>, <filename>/proc/fs</filename> and <filename>/proc/irq</filename> will
-        be made read-only to all processes of the unit. Usually, tunable kernel variables should be initialized only at
-        boot-time, for example with the
+        be made read-only and <filename>/proc/kallsyms</filename> as well as <filename>/proc/kcore</filename> will be
+        inaccessible to all processes of the unit.
+        Usually, tunable kernel variables should be initialized only at boot-time, for example with the
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Few
         services need to write to these at runtime; it is hence recommended to turn this on for most services. For this
         setting the same restrictions regarding mount propagation and privileges apply as for

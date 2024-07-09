@@ -127,7 +127,7 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
         assert(data);
 
         while (imp->filled - imp->offset < size) {
-                int n;
+                ssize_t n;
 
                 if (imp->passive_fd)
                         /* we have to wait for some data to come to us */
