@@ -1509,8 +1509,11 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         return -errno;
 
                 u = hashmap_get(m->users, UID_TO_PTR(uid));
-                if (u)
+                if (u) {
+                        /* Make sure that disabling lingering will terminate the user tracking if no sessions pin it. */
+                        u->gc_mode = USER_GC_BY_PIN;
                         user_add_to_gc_queue(u);
+                }
         }
 
         return sd_bus_reply_method_return(message, NULL);
