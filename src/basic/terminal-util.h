@@ -295,3 +295,4 @@ static inline const char* ansi_highlight_green_red(bool b) {
 void termios_disable_echo(struct termios *termios);
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
+int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
