@@ -1601,7 +1601,8 @@ typedef struct BackgroundColorContext {
 static int scan_background_color_response(
                 BackgroundColorContext *context,
                 const char *buf,
-                size_t size) {
+                size_t size,
+                size_t *ret_processed) {
 
         assert(context);
         assert(buf || size == 0);
@@ -1677,8 +1678,12 @@ static int scan_background_color_response(
 
                 case BACKGROUND_BLUE:
                         if (c == '\x07') {
-                                if (context->blue_bits > 0)
+                                if (context->blue_bits > 0) {
+                                        if (ret_processed)
+                                                *ret_processed = i + 1;
+
                                         return 1; /* success! */
+                                }
 
                                 context->state = BACKGROUND_TEXT;
                         } else if (c == '\x1b')
@@ -1695,8 +1700,12 @@ static int scan_background_color_response(
                         break;
 
                 case BACKGROUND_STRING_TERMINATOR:
-                        if (c == '\\')
+                        if (c == '\\') {
+                                if (ret_processed)
+                                        *ret_processed = i + 1;
+
                                 return 1; /* success! */
+                        }
 
                         context->state = c == ']' ? BACKGROUND_ESCAPE : BACKGROUND_TEXT;
                         break;
@@ -1710,6 +1719,9 @@ static int scan_background_color_response(
                         context->red_bits = context->green_bits = context->blue_bits = 0;
                 }
         }
+
+        if (ret_processed)
+                *ret_processed = size;
 
         return 0; /* all good, but not enough data yet */
 }
@@ -1753,34 +1765,41 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         BackgroundColorContext context = {};
 
         for (;;) {
-                usec_t n = now(CLOCK_MONOTONIC);
+                if (buf_full == 0) {
+                        usec_t n = now(CLOCK_MONOTONIC);
 
-                if (n >= end) {
-                        r = -EOPNOTSUPP;
-                        goto finish;
+                        if (n >= end) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        ssize_t l = read(STDIN_FILENO, buf, sizeof(buf));
+                        if (l < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        assert((size_t) l <= sizeof(buf));
+                        buf_full = l;
                 }
 
-                r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
+                size_t processed;
+                r = scan_background_color_response(&context, buf, buf_full, &processed);
                 if (r < 0)
                         goto finish;
-                if (r == 0) {
-                        r = -EOPNOTSUPP;
-                        goto finish;
-                }
 
-                ssize_t l;
-                l = read(STDIN_FILENO, buf, sizeof(buf) - buf_full);
-                if (l < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                assert(processed <= buf_full);
+                buf_full -= processed;
+                memmove(buf, buf + processed, buf_full);
 
-                buf_full += l;
-                assert(buf_full <= sizeof(buf));
-
-                r = scan_background_color_response(&context, buf, buf_full);
-                if (r < 0)
-                        goto finish;
                 if (r > 0) {
                         assert(context.red_bits > 0);
                         *ret_red = (double) context.red / ((UINT64_C(1) << context.red_bits) - 1);
