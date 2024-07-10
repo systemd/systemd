@@ -197,6 +197,18 @@ TEST(terminal_get_size_by_dsr) {
         }
 }
 
+TEST(terminal_fix_size) {
+        int r;
+
+        r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+        if (r < 0)
+                log_warning_errno(r, "Failed to fix terminal size: %m");
+        else if (r == 0)
+                log_notice("Not fixing terminal size, nothing to do.");
+        else
+                log_notice("Fixed terminal size.");
+}
+
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
         ASSERT_OK(setenv(key, val, true));
         reset_terminal_feature_caches();
