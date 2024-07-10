@@ -1045,6 +1045,13 @@ static int measure_volume_key(
 #endif
 }
 
+static int log_external_activation(int r, const char *volume) {
+        assert(volume);
+
+        log_notice_errno(r, "Volume '%s' has been activated externally while we have been trying to activate it.", volume);
+        return 0;
+}
+
 static int measured_crypt_activate_by_volume_key(
                 struct crypt_device *cd,
                 const char *name,
@@ -1060,6 +1067,8 @@ static int measured_crypt_activate_by_volume_key(
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
 
         r = crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
+        if (r == -EEXIST) /* volume is already active */
+                return log_external_activation(r, name);
         if (r < 0)
                 return r;
 
@@ -1115,7 +1124,10 @@ static int measured_crypt_activate_by_passphrase(
         return measured_crypt_activate_by_volume_key(cd, name, vk, vks, flags);
 
 shortcut:
-        return crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
+        r = crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
+        if (r == -EEXIST) /* volume is already active */
+                return log_external_activation(r, name);
+        return r;
 }
 
 static int attach_tcrypt(
@@ -1382,6 +1394,8 @@ static int crypt_activate_by_token_pin_ask_password(
         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
+        if (r == -EEXIST) /* volume is already active */
+                return log_external_activation(r, name);
         if (r != -ENOANO) /* needs pin or pin is wrong */
                 return r;
 
@@ -1393,6 +1407,8 @@ static int crypt_activate_by_token_pin_ask_password(
                 r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
                         return 0;
+                if (r == -EEXIST) /* volume is already active */
+                        return log_external_activation(r, name);
                 if (r != -ENOANO) /* needs pin or pin is wrong */
                         return r;
         }
@@ -1418,6 +1434,8 @@ static int crypt_activate_by_token_pin_ask_password(
                         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
                                 return 0;
+                        if (r == -EEXIST) /* volume is already active */
+                                return log_external_activation(r, name);
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
                 }
@@ -1592,6 +1610,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
+        if (r == -EEXIST) /* volume is already active */
+                r = log_external_activation(r, name);
 
         return r;
 #else
@@ -2487,7 +2507,7 @@ static int run(int argc, char *argv[]) {
                                                 "luks2-pin",
                                                 "cryptsetup.luks2-pin");
                                 if (r >= 0) {
-                                        log_debug("Volume %s activated with LUKS token id %i.", volume, r);
+                                        log_debug("Volume %s activated with a LUKS token.", volume);
                                         return 0;
                                 }
 
