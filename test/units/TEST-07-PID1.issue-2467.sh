@@ -8,7 +8,7 @@ set -o pipefail
 
 rm -f /tmp/nonexistent
 systemctl start issue2467.socket
-nc -i20 -w20 -U /run/test.ctl || :
+ncat -i20 -w20 -U /run/test.ctl || :
 
 # TriggerLimitIntervalSec= by default is set to 2s. A "sleep 10" should give
 # systemd enough time even on slower machines, to reach the trigger limit.

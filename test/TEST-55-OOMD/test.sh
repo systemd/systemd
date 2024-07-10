@@ -14,7 +14,7 @@ TEST_NO_NSPAWN=1
 test_append_files() {
     local workspace="${1:?}"
 
-    image_install mkswap swapon swapoff stress
+    image_install mkswap swapon swapoff stress-ng
     image_install -o btrfs
 
     mkdir -p "${workspace:?}/etc/systemd/system/init.scope.d/"
