@@ -3,7 +3,9 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -174,6 +176,25 @@ TEST(get_default_background_color) {
                 log_notice_errno(r, "Can't get terminal default background color: %m");
         else
                 log_notice("R=%g G=%g B=%g", red, green, blue);
+}
+
+TEST(terminal_get_size_by_dsr) {
+        unsigned rows, columns;
+        int r;
+
+        r = terminal_get_size_by_dsr(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        if (r < 0)
+                log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
+        else {
+                log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+
+                struct winsize ws = {};
+
+                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                        log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+                else
+                        log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+        }
 }
 
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
