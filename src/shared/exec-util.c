@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -425,46 +426,42 @@ static int gather_environment_consume(int fd, void *arg) {
         return r;
 }
 
-int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
+int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
         ExecCommandFlags ex_flag, ret_flags = 0;
 
-        assert(flags);
+        assert(ret);
 
         STRV_FOREACH(opt, ex_opts) {
                 ex_flag = exec_command_flags_from_string(*opt);
                 if (ex_flag < 0)
                         return ex_flag;
+
                 ret_flags |= ex_flag;
         }
 
-        *flags = ret_flags;
+        *flags = ret;
 
         return 0;
 }
 
-int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
-        _cleanup_strv_free_ char **ret_opts = NULL;
-        ExecCommandFlags it = flags;
-        const char *str;
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
+        _cleanup_strv_free_ char **opts = NULL;
         int r;
 
-        assert(ex_opts);
+        assert(flags >= 0);
+        assert(ret);
 
-        if (flags < 0)
-                return flags;
+        BIT_FOREACH(i, flags) {
+                const char *s = exec_command_flags_to_string(1 << i);
+                if (!s)
+                        return -EINVAL;
 
-        for (unsigned i = 0; it != 0; it &= ~(1 << i), i++)
-                if (FLAGS_SET(flags, (1 << i))) {
-                        str = exec_command_flags_to_string(1 << i);
-                        if (!str)
-                                return -EINVAL;
+                r = strv_extend(&opts, s);
+                if (r < 0)
+                        return r;
+        }
 
-                        r = strv_extend(&ret_opts, str);
-                        if (r < 0)
-                                return r;
-                }
-
-        *ex_opts = TAKE_PTR(ret_opts);
+        *ret = TAKE_PTR(opts);
 
         return 0;
 }
