@@ -2,7 +2,14 @@ systemd System and Service Manager
 
 CHANGES WITH 258 in spe:
 
-       Announcements of Future Feature Removals:
+        Incompatible changes:
+
+        * systemd-run's --expand-environment= switch, which was disabled
+          by default when combined with --scope, has been changed to to be
+          enabled by default. This brings cmdline expansion of transient
+          scopes on par with services.
+
+        Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
           deprecated because accounting data and such cannot be reasonably
@@ -40,10 +47,6 @@ CHANGES WITH 258 in spe:
           approaches like credentials and confexts. The plan is to drop support
           altogether at a later point, but this might be revisited based on
           user feedback.
-
-        * systemd-run's switch --expand-environment= which currently is disabled
-          by default when combined with --scope, will be changed in a future
-          release to be enabled by default.
 
         — <place>, <date>
 

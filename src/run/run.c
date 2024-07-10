@@ -55,7 +55,7 @@ static const char *arg_unit = NULL;
 static char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
-static int arg_expand_environment = -1;
+static bool arg_expand_environment = true;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
@@ -394,17 +394,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_slice_inherit = true;
                         break;
 
-                case ARG_EXPAND_ENVIRONMENT: {
-                        bool b;
-
-                        r = parse_boolean_argument("--expand-environment=", optarg, &b);
+                case ARG_EXPAND_ENVIRONMENT:
+                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
                         if (r < 0)
                                 return r;
-
-                        arg_expand_environment = b;
-
                         break;
-                }
 
                 case ARG_SEND_SIGHUP:
                         arg_send_sighup = true;
@@ -1086,6 +1080,7 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
         _cleanup_free_ char *name = NULL;
         _cleanup_free_ char *slice = NULL;
         int r;
+
         assert(m);
 
         if (arg_slice_inherit) {
@@ -1154,7 +1149,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         /* We disable environment expansion on the server side via ExecStartEx=:.
          * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
          * So use that feature only if required. It will fail with older systemds. */
-        bool use_ex_prop = arg_expand_environment == 0;
+        bool use_ex_prop = !arg_expand_environment;
 
         assert(m);
         assert(pty_path || pty_fd < 0);
@@ -1324,7 +1319,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         _cleanup_strv_free_ char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
-                                        (arg_expand_environment > 0 ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
                                         &opts);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format execute flags: %m");
@@ -1789,7 +1784,7 @@ static int bus_call_with_hint(
         if (r < 0) {
                 log_error_errno(r, "Failed to start transient %s unit: %s", name, bus_error_message(&error, r));
 
-                if (arg_expand_environment == 0 &&
+                if (!arg_expand_environment &&
                     sd_bus_error_has_names(&error,
                                            SD_BUS_ERROR_UNKNOWN_PROPERTY,
                                            SD_BUS_ERROR_PROPERTY_READ_ONLY))
@@ -2344,7 +2339,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        if (arg_expand_environment > 0) {
+        if (arg_expand_environment) {
                 _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(arg_cmdline, env, &expanded_cmdline, &unset_variables, &bad_variables);
@@ -2610,18 +2605,6 @@ static int run(int argc, char* argv[]) {
                 arg_description = strjoin("[", program_invocation_short_name, "] ", t);
                 if (!arg_description)
                         return log_oom();
-        }
-
-        /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
-         * enabled by default for everything else. Try to detect it and print a warning, so that we can
-         * change it in the future and harmonize it. */
-        if (arg_expand_environment < 0) {
-                arg_expand_environment = !arg_scope;
-
-                if (!arg_quiet && arg_scope && strchr(arg_description, '$'))
-                        log_warning("Scope command line contains environment variable, which is not expanded"
-                                    " by default for now, but will be expanded by default in the future."
-                                    " Use --expand-environment=yes/no to explicitly control it as needed.");
         }
 
         r = connect_bus(&bus);
