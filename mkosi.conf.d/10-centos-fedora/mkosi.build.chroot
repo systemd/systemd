@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+. mkosi.functions
+
 if ((NO_BUILD)); then
     exit 0
 fi
@@ -120,3 +122,5 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
 
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
 cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
+
+make_sysext_unsigned /var/tmp/BUILD/*/BUILDROOT
