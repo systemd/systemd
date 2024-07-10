@@ -1401,9 +1401,6 @@ Features:
   - "systemd-sysupdate update --all" support, that iterates through all components
     defined on the host, plus all images installed into /var/lib/machines/,
     /var/lib/portable/ and so on.
-  - figure out what to do about system extensions (i.e. they need to imply an
-    update component, since otherwise sysupdate.d/ files would override the
-    host's update files.)
   - Allow invocation with a single transfer definition, i.e. with
     --definitions= pointing to a file rather than a dir.
   - add ability to disable implicit decompression of downloaded artifacts,

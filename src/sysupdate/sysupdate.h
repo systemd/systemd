@@ -4,6 +4,10 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "specifier.h"
+
 extern bool arg_sync;
 extern uint64_t arg_instances_max;
 extern char *arg_root;
+
+extern const Specifier specifier_table[];
