@@ -1842,3 +1842,224 @@ finish:
         (void) tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios);
         return r;
 }
+
+typedef enum CursorPositionState {
+        CURSOR_TEXT,
+        CURSOR_ESCAPE,
+        CURSOR_ROW,
+        CURSOR_COLUMN,
+} CursorPositionState;
+
+typedef struct CursorPositionContext {
+        CursorPositionState state;
+        unsigned row, column;
+} CursorPositionContext;
+
+static int scan_cursor_position_response(
+                CursorPositionContext *context,
+                const char *buf,
+                size_t size,
+                size_t *ret_processed) {
+
+        assert(context);
+        assert(buf || size == 0);
+
+        for (size_t i = 0; i < size; i++) {
+                char c = buf[i];
+
+                switch (context->state) {
+
+                case CURSOR_TEXT:
+                        context->state = c == '\x1B' ? CURSOR_ESCAPE : CURSOR_TEXT;
+                        break;
+
+                case CURSOR_ESCAPE:
+                        context->state = c == '[' ? CURSOR_ROW : CURSOR_TEXT;
+                        break;
+
+                case CURSOR_ROW:
+                        if (c == ';')
+                                context->state = context->row > 0 ? CURSOR_COLUMN : CURSOR_TEXT;
+                        else {
+                                int d = undecchar(c);
+                                if (d < 0 || context->row > (UINT_MAX-d/10))
+                                        context->state = CURSOR_TEXT;
+                                else
+                                        context->row = context->row * 10 + d;
+                        }
+                        break;
+
+                case CURSOR_COLUMN:
+                        if (c == 'R') {
+                                if (context->column > 0) {
+                                        if (ret_processed)
+                                                *ret_processed = i + 1;
+
+                                        return 1; /* success! */
+                                }
+
+                                context->state = CURSOR_TEXT;
+                        } else {
+                                int d = undecchar(c);
+                                if (d < 0 || context->column > (UINT_MAX-d/10))
+                                        context->state = CURSOR_TEXT;
+                                else
+                                        context->column = context->column * 10 + d;
+                        }
+
+                        break;
+                }
+
+                /* Reset any positions we might have picked up */
+                if (IN_SET(context->state, CURSOR_TEXT, CURSOR_ESCAPE))
+                        context->row = context->column = 0;
+        }
+
+        if (ret_processed)
+                *ret_processed = size;
+
+        return 0; /* all good, but not enough data yet */
+}
+
+int terminal_get_size_by_dsr(
+                int input_fd,
+                int output_fd,
+                unsigned *ret_rows,
+                unsigned *ret_columns) {
+
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        int r;
+
+        /* Tries to determine the terminal dimension by means of ANSI sequences rather than TIOCGWINSZ
+         * ioctl(). Why bother with this? The ioctl() information is often incorrect on serial terminals
+         * (since there's no handshake or protocol to determine the right dimensions in RS232), but since the
+         * ANSI sequences are interpreted by the final terminal instead of an intermediary tty driver they
+         * should be more accurate.
+         *
+         * Unfortunately there's no direct ANSI sequence to query terminal dimensions. But we can hack around
+         * it: we position the cursor briefly at an absolute location very far down and very far to the
+         * right, and then read back where we actually ended up. Because cursor locations are capped at the
+         * terminal width/height we should then see the right values. In order to not risk integer overflows
+         * in terminal applications we'll use INT16_MAX-1 as location to jump to — hopefully a value that is
+         * large enough for any real-life terminals, but small enough to not overflow anything or be
+         * recognized as a "niche" value. (Note that the dimension fields in "struct winsize" are 16bit only,
+         * too). */
+
+        if (terminal_is_dumb())
+                return -EOPNOTSUPP;
+
+        r = terminal_verify_same(input_fd, output_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Called for distinct input/output fds: %m");
+
+        struct termios old_termios;
+        if (tcgetattr(input_fd, &old_termios) < 0)
+                return log_debug_errno(errno, "Failed to to get terminal settings: %m");
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(input_fd, TCSADRAIN, &new_termios) < 0)
+                return log_debug_errno(errno, "Failed to to set new terminal settings: %m");
+
+        unsigned saved_row = 0, saved_column = 0;
+
+        r = loop_write(output_fd,
+                       "\x1B[6n"           /* Request cursor position (DSR/CPR) */
+                       "\x1B[32766;32766H" /* Position cursor really far to the right and to the bottom, but let's stay within the 16bit signed range */
+                       "\x1B[6n",          /* Request cursor position again */
+                       SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC);
+        char buf[256];
+        size_t buf_full = 0;
+        CursorPositionContext context = {};
+
+        for (;;) {
+                if (buf_full == 0) {
+                        usec_t n = now(CLOCK_MONOTONIC);
+
+                        if (n >= end) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        r = fd_wait_for_event(input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        ssize_t l = read(input_fd, buf, sizeof(buf) - buf_full);
+                        if (l < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        assert((size_t) l <= sizeof(buf) - buf_full);
+                        buf_full += l;
+                }
+
+                size_t processed;
+                r = scan_cursor_position_response(&context, buf, buf_full, &processed);
+                if (r < 0)
+                        goto finish;
+
+                assert(processed <= buf_full);
+                buf_full -= processed;
+                memmove(buf, buf + processed, buf_full);
+
+                if (r > 0) {
+                        if (saved_row == 0) {
+                                assert(saved_column == 0);
+
+                                /* First sequence, this is the cursor position before we set it somewhere
+                                 * into the void at the bottom right. Let's save where we are so that we can
+                                 * return later. */
+
+                                /* Superficial validity checks */
+                                if (context.row <= 0 || context.column <= 0 || context.row >= 32766 || context.column >= 32766) {
+                                        r = -ENODATA;
+                                        goto finish;
+                                }
+
+                                saved_row = context.row;
+                                saved_column = context.column;
+
+                                /* Reset state */
+                                context = (CursorPositionContext) {};
+                        } else {
+                                /* Second sequence, this is the cursor position after we set it somewhere
+                                 * into the void at the bottom right. */
+
+                                /* Superficial validity checks */
+                                if (context.row < 4 || context.column < 4 || context.row >= 32766 || context.column >= 32766) {
+                                        r = -ENODATA;
+                                        goto finish;
+                                }
+
+                                if (ret_rows)
+                                        *ret_rows = context.row;
+                                if (ret_columns)
+                                        *ret_columns = context.column;
+
+                                r = 0;
+                                goto finish;
+                        }
+                }
+        }
+
+finish:
+        /* Restore cursor position */
+        if (saved_row > 0 && saved_column > 0)
+                RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
+
+        (void) tcsetattr(input_fd, TCSADRAIN, &old_termios);
+        return r;
+}
