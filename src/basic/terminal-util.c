@@ -2069,3 +2069,36 @@ finish:
         (void) tcsetattr(input_fd, TCSADRAIN, &old_termios);
         return r;
 }
+
+int terminal_fix_size(int input_fd, int output_fd) {
+        unsigned rows, columns;
+        int r;
+
+        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences */
+
+        r = terminal_verify_same(input_fd, output_fd);
+        if (r < 0)
+                return r;
+
+        struct winsize ws = {};
+        if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
+                return log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
+
+        r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &columns);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire terminal dimensions via ANSI sequences, not adjusting terminal dimensions: %m");
+
+        if (ws.ws_row == rows && ws.ws_col == columns) {
+                log_debug("Terminal dimensions reported via ANSI sequences match currently set terminal dimensions, not changing.");
+                return 0;
+        }
+
+        ws.ws_col = columns;
+        ws.ws_row = rows;
+
+        if (ioctl(output_fd, TIOCSWINSZ, &ws) < 0)
+                return log_debug_errno(errno, "Failed to update terminal dimensions, ignoring: %m");
+
+        log_debug("Fixed terminal dimensions to %ux%u based on ANSI sequence information.", columns, rows);
+        return 1;
+}
