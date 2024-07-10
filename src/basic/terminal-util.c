@@ -607,11 +607,12 @@ int make_console_stdio(void) {
                 r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
                 if (r < 0)
                         log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
-                else {
+                else if (r > 0) {
                         r = terminal_set_size_fd(fd, NULL, rows, cols);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
-                }
+                                log_warning_errno(r, "Failed to set configured terminal size, ignoring: %m");
+                } else
+                        (void) terminal_fix_size(fd, fd);
 
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
@@ -939,7 +940,7 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
         if (ret_cols)
                 *ret_cols = cols;
 
-        return 0;
+        return rows != UINT_MAX || cols != UINT_MAX;
 }
 
 /* intended to be used as a SIGWINCH sighandler */
