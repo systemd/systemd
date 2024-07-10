@@ -146,6 +146,8 @@ Features:
 * go through our codebase, and convert "vertical tables" (i.e. things such as
   "systemctl status") to use table_new_vertical() for output
 
+* pcrlock: add support for multi-profile UKIs
+
 * logind: when logging in use new tmpfs quota support to configure quota on
   /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
   is persistent and any persistent settings mean we don#t have to reapply them.
