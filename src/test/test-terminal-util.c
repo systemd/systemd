@@ -209,6 +209,40 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
+TEST(terminal_is_pty_fd) {
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_free_ char *peer = NULL;
+
+        fd1 = openpt_allocate(O_RDWR, &peer);
+        assert_se(fd1 >= 0);
+        assert_se(terminal_is_pty_fd(fd1) > 0);
+
+        fd2 = open_terminal(peer, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd2 >= 0);
+        assert_se(terminal_is_pty_fd(fd2) > 0);
+
+        fd1 = safe_close(fd1);
+        fd2 = safe_close(fd2);
+
+        fd1 = open("/dev/null", O_RDONLY|O_CLOEXEC);
+        assert_se(fd1 >= 0);
+        assert_se(terminal_is_pty_fd(fd1) == 0);
+
+        FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1", "/dev/console") {
+                _cleanup_close_ int tfd = -EBADF;
+
+                tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
+                if (tfd == -ENOENT)
+                        continue;
+                if (tfd < 0)  {
+                        log_notice_errno(tfd, "Failed to open '%s', skipping: %m", p);
+                        continue;
+                }
+
+                assert_se(terminal_is_pty_fd(tfd) == 0);
+        }
+}
+
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
         ASSERT_OK(setenv(key, val, true));
         reset_terminal_feature_caches();
