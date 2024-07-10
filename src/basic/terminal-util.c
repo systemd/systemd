@@ -1752,7 +1752,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(STDOUT_FILENO, TCSADRAIN, &new_termios) < 0)
+        if (tcsetattr(STDIN_FILENO, TCSADRAIN, &new_termios) < 0)
                 return -errno;
 
         r = loop_write(STDOUT_FILENO, "\x1B]11;?\x07", SIZE_MAX);
@@ -1813,6 +1813,6 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        (void) tcsetattr(STDOUT_FILENO, TCSADRAIN, &old_termios);
+        (void) tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios);
         return r;
 }
