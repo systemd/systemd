@@ -614,6 +614,10 @@ int make_console_stdio(void) {
                 } else
                         (void) terminal_fix_size(fd, fd);
 
+                r = terminal_reset_ansi_seq(fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal using ANSI sequences, ignoring: %m");
+
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
                         return log_error_errno(r, "Failed to make terminal stdin/stdout/stderr: %m");
