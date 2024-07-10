@@ -344,7 +344,7 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
-        if (mode & O_CREAT)
+        if ((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) != 0)
                 return -EINVAL;
 
         for (;;) {
