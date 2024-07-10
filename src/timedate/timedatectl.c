@@ -264,10 +264,10 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         if (b == 1) {
                 fflush(stdout);
                 log_warning("Warning: The system is now being configured to read the RTC time in the local time zone\n"
-                       "         This mode cannot be fully supported. It will create various problems\n"
-                       "         with time zone changes and daylight saving time adjustments. The RTC\n"
-                       "         time is never updated, it relies on external facilities to maintain it.\n"
-                       "         If at all possible, use RTC in UTC");
+                            "         This mode cannot be fully supported. It will create various problems\n"
+                            "         with time zone changes and daylight saving time adjustments. The RTC\n"
+                            "         time is never updated, it relies on external facilities to maintain it.\n"
+                            "         If at all possible, use RTC in UTC");
         }
 
         r = bus_call_method(
