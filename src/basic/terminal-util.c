@@ -1576,6 +1576,37 @@ void termios_disable_echo(struct termios *termios) {
         termios->c_cc[VTIME] = 0;
 }
 
+static int terminal_verify_same(int input_fd, int output_fd) {
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        /* Validates that the specified fds reference the same TTY */
+
+        if (input_fd != output_fd) {
+                struct stat sti;
+                if (fstat(input_fd, &sti) < 0)
+                        return -errno;
+
+                if (!S_ISCHR(sti.st_mode)) /* TTYs are character devices */
+                        return -ENOTTY;
+
+                struct stat sto;
+                if (fstat(output_fd, &sto) < 0)
+                        return -errno;
+
+                if (!S_ISCHR(sto.st_mode))
+                        return -ENOTTY;
+
+                if (sti.st_rdev != sto.st_rdev)
+                        return -ENOLINK;
+        }
+
+        if (!isatty_safe(input_fd)) /* The check above was just for char device, but now let's ensure it's actually a tty */
+                return -ENOTTY;
+
+        return 0;
+}
+
 typedef enum BackgroundColorState {
         BACKGROUND_TEXT,
         BACKGROUND_ESCAPE,
@@ -1736,8 +1767,9 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (!colors_enabled())
                 return -EOPNOTSUPP;
 
-        if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
-                return -EOPNOTSUPP;
+        r = terminal_verify_same(STDIN_FILENO, STDOUT_FILENO);
+        if (r < 0)
+                return r;
 
         if (streq_ptr(getenv("TERM"), "linux")) {
                 /* Linux console is black */
