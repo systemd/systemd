@@ -140,6 +140,7 @@ jobs:
                 SANITIZERS=${{ matrix.sanitizers }}
                 MESON_OPTIONS=--werror
                 LLVM=${{ matrix.llvm }}
+                SYSEXT=1
 
         [Host]
         QemuMem=4G
