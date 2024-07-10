@@ -548,14 +548,10 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
-        static const struct sigaction sighup = {
-                .sa_handler = SIG_DFL,
-                .sa_flags = SA_RESTART,
-        };
         int r;
 
         assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
-        assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
+        assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
         r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
