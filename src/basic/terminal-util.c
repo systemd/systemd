@@ -76,7 +76,7 @@ int chvt(int vt) {
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (vt <= 0) {
                 int tiocl[2] = {
