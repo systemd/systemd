@@ -51,8 +51,8 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags);
 
-int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags);
-int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts);
+int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret);
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret);
 
 extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
 
