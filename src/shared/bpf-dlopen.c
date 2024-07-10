@@ -29,8 +29,10 @@ DLSYM_PROTOTYPE(bpf_map__set_max_entries) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_pin_path) = NULL;
 DLSYM_PROTOTYPE(bpf_map_delete_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_get_fd_by_id) = NULL;
+DLSYM_PROTOTYPE(bpf_map_get_next_id) = NULL;
 DLSYM_PROTOTYPE(bpf_map_lookup_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_update_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_obj_get_info_by_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_object__attach_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__destroy_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__detach_skeleton) = NULL;
@@ -38,10 +40,16 @@ DLSYM_PROTOTYPE(bpf_object__load_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__name) = NULL;
 DLSYM_PROTOTYPE(bpf_object__open_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__pin_maps) = NULL;
+DLSYM_PROTOTYPE(bpf_prog_get_fd_by_id) = NULL;
+DLSYM_PROTOTYPE(bpf_prog_get_next_id) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
+DLSYM_PROTOTYPE(btf__free) = NULL;
+DLSYM_PROTOTYPE(btf__load_from_kernel_by_id) = NULL;
+DLSYM_PROTOTYPE(btf__name_by_offset) = NULL;
+DLSYM_PROTOTYPE(btf__type_by_id) = NULL;
 DLSYM_PROTOTYPE(libbpf_get_error) = NULL;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
@@ -53,6 +61,8 @@ DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
+const char* (*sym_libbpf_bpf_map_type_str)(enum bpf_map_type t);
+const char* (*sym_libbpf_bpf_prog_type_str)(enum bpf_prog_type t);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
@@ -119,12 +129,16 @@ int dlopen_bpf(void) {
 #if MODERN_LIBBPF
                                 DLSYM_ARG(bpf_map_create),
                                 DLSYM_ARG(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG(bpf_object__next_map)
+                                DLSYM_ARG(bpf_object__next_map),
+                                DLSYM_ARG(libbpf_bpf_map_type_str),
+                                DLSYM_ARG(libbpf_bpf_prog_type_str)
 #else
                                 /* These symbols did not exist in old libbpf, hence we cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_map_create),
                                 DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG_FORCE(bpf_object__next_map)
+                                DLSYM_ARG_FORCE(bpf_object__next_map),
+                                DLSYM_ARG_FORCE(libbpf_bpf_map_type_str),
+                                DLSYM_ARG_FORCE(libbpf_bpf_prog_type_str)
 #endif
                 );
         }
@@ -144,8 +158,10 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(bpf_map__set_pin_path),
                         DLSYM_ARG(bpf_map_delete_elem),
                         DLSYM_ARG(bpf_map_get_fd_by_id),
+                        DLSYM_ARG(bpf_map_get_next_id),
                         DLSYM_ARG(bpf_map_lookup_elem),
                         DLSYM_ARG(bpf_map_update_elem),
+                        DLSYM_ARG(bpf_obj_get_info_by_fd),
                         DLSYM_ARG(bpf_object__attach_skeleton),
                         DLSYM_ARG(bpf_object__destroy_skeleton),
                         DLSYM_ARG(bpf_object__detach_skeleton),
@@ -163,7 +179,13 @@ int dlopen_bpf(void) {
                         DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
+                        DLSYM_ARG(bpf_prog_get_fd_by_id),
+                        DLSYM_ARG(bpf_prog_get_next_id),
                         DLSYM_ARG(bpf_program__name),
+                        DLSYM_ARG(btf__free),
+                        DLSYM_ARG(btf__load_from_kernel_by_id),
+                        DLSYM_ARG(btf__name_by_offset),
+                        DLSYM_ARG(btf__type_by_id),
                         DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(ring_buffer__epoll_fd),
