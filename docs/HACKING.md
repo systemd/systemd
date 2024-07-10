@@ -58,15 +58,15 @@ RuntimeBuildSources=yes
 After enabling this setting, the source and build directories will be mounted to
 `/work/src` and `/work/build` respectively when booting the image as a container
 or virtual machine. To build the latest changes and re-install after booting the
-image, run `mkosi -t none` in another terminal on the host and run one of the
-following commands in the container or virtual machine depending on the
-distribution:
+image, run one of the following commands in another terminal on your host (
+choose the right one depending on the distribution of the container or virtual
+machine):
 
 ```sh
-dnf upgrade --disablerepo="*" /work/build/*.rpm # CentOS/Fedora
-apt install --reinstall /work/build/*.deb # Debian/Ubuntu
-pacman -U /work/build/*.pkg.tar # Arch Linux
-zypper install --allow-unsigned-rpm /work/build/*.rpm # OpenSUSE
+mkosi -t none && mkosi ssh dnf upgrade --disablerepo="*" "/work/build/*.rpm" # CentOS/Fedora
+mkosi -t none && mkosi ssh apt install --reinstall "/work/build/*.deb" # Debian/Ubuntu
+mkosi -t none && mkosi ssh pacman -U "/work/build/*.pkg.tar" # Arch Linux
+mkosi -t none && mkosi ssh zypper install --allow-unsigned-rpm "/work/build/*.rpm" # OpenSUSE
 ```
 
 and optionally restart the daemon(s) you're working on using
