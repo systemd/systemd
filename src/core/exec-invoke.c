@@ -32,6 +32,7 @@
 #include "chown-recursive.h"
 #include "copy.h"
 #include "data-fd-util.h"
+#include "dev-setup.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -353,15 +354,9 @@ static int setup_input(
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
                         return -errno;
 
-                /* Try to make this the controlling tty, if it is a tty, and reset it */
-                if (isatty(STDIN_FILENO)) {
+                /* Try to make this the controlling tty, if it is a tty */
+                if (isatty(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-
-                        if (context->tty_reset)
-                                (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ true);
-
-                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDIN_FILENO, /* tty_path= */ NULL);
-                }
 
                 return STDIN_FILENO;
         }
@@ -388,10 +383,6 @@ static int setup_input(
                                           USEC_INFINITY);
                 if (tty_fd < 0)
                         return tty_fd;
-
-                r = exec_context_apply_tty_size(context, tty_fd, tty_fd, tty_path);
-                if (r < 0)
-                        return r;
 
                 r = move_fd(tty_fd, STDIN_FILENO, /* cloexec= */ false);
                 if (r < 0)
@@ -554,7 +545,6 @@ static int setup_output(
                 if (is_terminal_input(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
-                /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_KMSG:
@@ -4032,6 +4022,29 @@ static int send_handoff_timestamp(
         return 1;
 }
 
+static void terminal_setup(
+                const ExecContext *context,
+                ExecParameters *p) {
+
+        _cleanup_close_ int lock_fd = -EBADF;
+
+        assert(context);
+        assert(p);
+
+        if (context->tty_reset) {
+                /* When we are resetting the TTY, then let's create a lock first, to synchronize access. This
+                 * in particular matters as concurrent resets and the TTY size ANSI DSR logic done by the
+                 * exec_context_apply_tty_size() below might interfere */
+                lock_fd = lock_dev_console();
+                if (lock_fd < 0)
+                        log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
+
+                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        }
+
+        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4199,6 +4212,11 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to create new process session: %m");
         }
 
+        /* Now, reset the TTY associated to this service "destructively" (i.e. possibly even hang up or
+         * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
+         * open here, hence some of the settings made here might vanish again, depending on the TTY driver
+         * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
+         * will fix this. */
         exec_context_tty_reset(context, params);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
@@ -4381,6 +4399,12 @@ int exec_invoke(
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");
         }
+
+        /* Now that stdin/stdout are definiely opened, properly initialize it with our desired
+         * settings. Note: this is a "constructive" reset, it prepares things for us to use. This is
+         * different from the "destructive" TTY reset further up. Also note: we apply this on stdin/stdout in
+         * case this is a tty, regardless if we opened it ourselves or got it passed in pre-opened. */
+        terminal_setup(context, params);
 
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User
