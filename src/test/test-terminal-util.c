@@ -274,4 +274,12 @@ TEST(get_color_mode) {
         reset_terminal_feature_caches();
 }
 
+TEST(terminal_reset_defensive) {
+        int r;
+
+        r = terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ false);
+        if (r < 0)
+                log_notice_errno(r, "Failed to reset terminal: %m");
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
