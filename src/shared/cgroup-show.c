@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
