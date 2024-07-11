@@ -1057,11 +1057,11 @@ int getttyname_harder(int fd, char **ret) {
         return 0;
 }
 
-int get_ctty_devnr(pid_t pid, dev_t *d) {
-        int r;
+int get_ctty_devnr(pid_t pid, dev_t *ret) {
         _cleanup_free_ char *line = NULL;
-        const char *p;
         unsigned long ttynr;
+        const char *p;
+        int r;
 
         assert(pid >= 0);
 
@@ -1088,8 +1088,8 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         if (devnum_is_zero(ttynr))
                 return -ENXIO;
 
-        if (d)
-                *d = (dev_t) ttynr;
+        if (ret)
+                *ret = (dev_t) ttynr;
 
         return 0;
 }
