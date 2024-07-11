@@ -101,6 +101,7 @@ const char* exec_context_tty_path(const ExecContext *context) {
 
 static void exec_context_determine_tty_size(
                 const ExecContext *context,
+                int tty_fd,
                 const char *tty_path,
                 unsigned *ret_rows,
                 unsigned *ret_cols) {
@@ -114,14 +115,20 @@ static void exec_context_determine_tty_size(
         if (!tty_path)
                 tty_path = exec_context_tty_path(context);
 
+        /* Preferably use explicitly configured data*/
         rows = context->tty_rows;
         cols = context->tty_cols;
 
+        /* Fill in data from kernel command line if anything is unspecified */
         if (tty_path && (rows == UINT_MAX || cols == UINT_MAX))
                 (void) proc_cmdline_tty_size(
                                 tty_path,
                                 rows == UINT_MAX ? &rows : NULL,
                                 cols == UINT_MAX ? &cols : NULL);
+
+        /* If we got nothing and we are talking to a physical device, then let's query things interactively */
+        if (tty_fd >= 0 && rows == UINT_MAX && cols == UINT_MAX && terminal_is_pty_fd(tty_fd) == 0)
+                (void) terminal_get_size_by_dsr(tty_fd, tty_fd, &rows, &cols);
 
         *ret_rows = rows;
         *ret_cols = cols;
@@ -134,7 +141,7 @@ int exec_context_apply_tty_size(
 
         unsigned rows, cols;
 
-        exec_context_determine_tty_size(context, tty_path, &rows, &cols);
+        exec_context_determine_tty_size(context, tty_fd, tty_path, &rows, &cols);
 
         return terminal_set_size_fd(tty_fd, tty_path, rows, cols);
  }
