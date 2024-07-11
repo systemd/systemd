@@ -583,9 +583,10 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                 size_t size;
 
                 r = read_smbios11_field(i, CREDENTIALS_TOTAL_SIZE_MAX, &data, &size);
+                if (r == -ENOENT) /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
+                        break;
                 if (r < 0) {
-                        /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to read SMBIOS type #11 object %u, ignoring: %m", i);
+                        log_warning_errno(r, "Failed to read SMBIOS type #11 object %u, ignoring: %m", i);
                         break;
                 }
 
