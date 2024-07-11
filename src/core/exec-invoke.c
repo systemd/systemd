@@ -694,13 +694,15 @@ static int setup_confirm_stdio(
 }
 
 static void write_confirm_error_fd(int err, int fd, const char *unit_id) {
-        assert(err < 0);
+        assert(fd >= 0);
         assert(unit_id);
 
-        if (err == -ETIMEDOUT)
+        err = abs(err);
+
+        if (err == ETIMEDOUT)
                 dprintf(fd, "Confirmation question timed out for %s, assuming positive response.\n", unit_id);
         else {
-                errno = -err;
+                errno = err;
                 dprintf(fd, "Couldn't ask confirmation for %s: %m, assuming positive response.\n", unit_id);
         }
 }
