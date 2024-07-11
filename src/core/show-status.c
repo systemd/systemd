@@ -62,7 +62,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
          * but minimizes the time window the kernel might end up killing PID 1 due to SAK). It also makes things easier
          * for us so that we don't have to recover from hangups and suchlike triggered on the console. */
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC, 0);
         if (fd < 0)
                 return fd;
 
