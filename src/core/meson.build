@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 libcore_sources = files(
-        'apparmor-setup.c',
         'audit-fd.c',
         'automount.c',
         'bpf-devices.c',
@@ -39,11 +38,9 @@ libcore_sources = files(
         'execute.c',
         'execute-serialize.c',
         'generator-setup.c',
-        'ima-setup.c',
         'import-creds.c',
         'job.c',
         'kill.c',
-        'kmod-setup.c',
         'load-dropin.c',
         'load-fragment.c',
         'manager-dump.c',
@@ -54,11 +51,9 @@ libcore_sources = files(
         'path.c',
         'scope.c',
         'selinux-access.c',
-        'selinux-setup.c',
         'service.c',
         'show-status.c',
         'slice.c',
-        'smack-setup.c',
         'socket.c',
         'swap.c',
         'taint.c',
@@ -118,11 +113,9 @@ libcore_static = static_library(
         include_directories : includes,
         c_args : ['-fvisibility=default'],
         dependencies : [libacl,
-                        libapparmor,
                         libaudit,
                         libblkid,
                         libdl,
-                        libkmod_cflags,
                         libm,
                         libmount,
                         libpam,
@@ -150,6 +143,11 @@ systemd_sources = files(
         'main.c',
         'crash-handler.c',
         'clock-warp.c',
+        'kmod-setup.c',
+        'apparmor-setup.c',
+        'ima-setup.c',
+        'selinux-setup.c',
+        'smack-setup.c',
 )
 
 systemd_executor_sources = files(
@@ -178,7 +176,12 @@ executables += [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp,
+                'dependencies' : [
+                        libapparmor,
+                        libkmod_cflags,
+                        libseccomp,
+                        libselinux,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-executor',
