@@ -6,6 +6,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "async.h"
 #include "cgroup.h"
 #include "dbus-job.h"

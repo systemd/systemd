@@ -14,6 +14,7 @@
 
 #include "sd-device.h"
 
+#include "ansi-color.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "format-util.h"
