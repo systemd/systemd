@@ -477,12 +477,12 @@ static int manager_setup_timezone_change(Manager *m) {
         return 0;
 }
 
-static int enable_special_signals(Manager *m) {
+static int manager_enable_special_signals(Manager *m) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (!MANAGER_IS_SYSTEM(m) || MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers this will fail with EPERM (older) or
@@ -608,10 +608,7 @@ static int manager_setup_signals(Manager *m) {
         (void) sd_notify(/* unset_environment= */ false,
                          "X_SYSTEMD_SIGNALS_LEVEL=2");
 
-        if (MANAGER_IS_SYSTEM(m))
-                return enable_special_signals(m);
-
-        return 0;
+        return manager_enable_special_signals(m);
 }
 
 static char** sanitize_environment(char **l) {
