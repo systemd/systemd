@@ -515,6 +515,11 @@ static int context_show_version(Context *c, const char *version) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
+        /* Starting in v257, these fields would be automatically formatted with underscores. This would have
+         * been a breaking change, so to avoid that let's hard-code their original names. */
+        (void) table_set_json_field_name(t, 7, "tries-done");
+        (void) table_set_json_field_name(t, 8, "tries-left");
+
         /* Determine if the target will make use of partition/fs attributes for any of the transfers */
         for (size_t n = 0; n < c->n_transfers; n++) {
                 Transfer *tr = c->transfers[n];

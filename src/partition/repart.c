@@ -3043,6 +3043,10 @@ static int context_dump_partitions(Context *context) {
         if (!t)
                 return log_oom();
 
+        /* Starting in v257, these fields would be automatically formatted with underscores. This would have
+         * been a breaking change, so to avoid that let's hard-code their original names. */
+        table_set_json_field_name(t, 15, "drop-in_files");
+
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
