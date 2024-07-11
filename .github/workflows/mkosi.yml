@@ -59,40 +59,47 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
+            relabel: no
           - distro: debian
             release: testing
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: ubuntu
             release: noble
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: fedora
             release: "40"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: yes
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
+            relabel: yes
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: no
           - distro: centos
             release: "9"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
+            relabel: yes
 
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
-    - uses: systemd/mkosi@6b66aa9096948e0bc38154333687584e0351f450
+    - uses: systemd/mkosi@4681dd733a925cd048d0301af26221bce0c95eed
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
@@ -140,6 +147,9 @@ jobs:
                 SANITIZERS=${{ matrix.sanitizers }}
                 MESON_OPTIONS=--werror
                 LLVM=${{ matrix.llvm }}
+                SYSEXT=1
+
+        SELinuxRelabel=${{ matrix.relabel }}
 
         [Host]
         QemuMem=4G
@@ -187,7 +197,7 @@ jobs:
             -Dvmspawn=enabled
 
     - name: Build image
-      run: meson compile -C build mkosi
+      run: sudo meson compile -C build mkosi
 
     - name: Run integration tests
       run: sudo --preserve-env meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
