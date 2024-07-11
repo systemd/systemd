@@ -97,8 +97,9 @@ bool isatty_safe(int fd);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
-int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column);
 int terminal_reset_ansi_seq(int fd);
+
+int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
 
 int open_terminal(const char *name, int mode);
 
