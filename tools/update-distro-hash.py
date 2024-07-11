@@ -69,7 +69,7 @@ def update_distro(args, distro: str):
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
-    conf_dir = Path('mkosi.images/system/mkosi.conf.d')
+    conf_dir = Path('mkosi.conf.d')
     files = conf_dir.glob('*/*.conf')
     for file in files:
         s = file.read_text()

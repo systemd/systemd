@@ -208,7 +208,7 @@ BASICTOOLS=(
     mount
     mountpoint
     mv
-    nc
+    ncat
     nproc
     ping
     pkill

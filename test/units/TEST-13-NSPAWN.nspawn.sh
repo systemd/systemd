@@ -702,7 +702,7 @@ EOF
 testcase_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
     local root
-    local cmd='echo a | nc -U -u -w 1 /run/host/notify'
+    local cmd='echo a | ncat -U -u -w 1 /run/host/notify'
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_notification_socket.XXX)"
     create_dummy_container "$root"
