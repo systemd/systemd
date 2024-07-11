@@ -582,24 +582,20 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int open_vsock(void) {
-        _cleanup_close_ int vsock_fd = -EBADF;
-        int r;
         static const union sockaddr_union bind_addr = {
                 .vm.svm_family = AF_VSOCK,
                 .vm.svm_cid = VMADDR_CID_ANY,
                 .vm.svm_port = VMADDR_PORT_ANY,
         };
 
-        vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (vsock_fd < 0)
                 return log_error_errno(errno, "Failed to open AF_VSOCK socket: %m");
 
-        r = bind(vsock_fd, &bind_addr.sa, sizeof(bind_addr.vm));
-        if (r < 0)
+        if (bind(vsock_fd, &bind_addr.sa, sizeof(bind_addr.vm)) < 0)
                 return log_error_errno(errno, "Failed to bind to VSOCK address %u:%u: %m", bind_addr.vm.svm_cid, bind_addr.vm.svm_port);
 
-        r = listen(vsock_fd, SOMAXCONN_DELUXE);
-        if (r < 0)
+        if (listen(vsock_fd, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on VSOCK: %m");
 
         return TAKE_FD(vsock_fd);
