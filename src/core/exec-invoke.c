@@ -353,15 +353,9 @@ static int setup_input(
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
                         return -errno;
 
-                /* Try to make this the controlling tty, if it is a tty, and reset it */
-                if (isatty(STDIN_FILENO)) {
+                /* Try to make this the controlling tty, if it is a tty */
+                if (isatty(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-
-                        if (context->tty_reset)
-                                (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ true);
-
-                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDIN_FILENO, /* tty_path= */ NULL);
-                }
 
                 return STDIN_FILENO;
         }
@@ -388,10 +382,6 @@ static int setup_input(
                                           USEC_INFINITY);
                 if (tty_fd < 0)
                         return tty_fd;
-
-                r = exec_context_apply_tty_size(context, tty_fd, tty_fd, tty_path);
-                if (r < 0)
-                        return r;
 
                 r = move_fd(tty_fd, STDIN_FILENO, /* cloexec= */ false);
                 if (r < 0)
@@ -4199,6 +4189,11 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to create new process session: %m");
         }
 
+        /* Now, reset the TTY associated to this service "destructively" (i.e. possibly even hang up or
+         * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
+         * open here, hence some of the settings made here might vanish again, depending on the TTY driver
+         * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
+         * will fix this. */
         exec_context_tty_reset(context, params);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
@@ -4381,6 +4376,13 @@ int exec_invoke(
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");
         }
+
+        /* Now that stdin/stdout are opened, properly initialize it with our desired settings. (Note: this is
+         * a "constructive" reset, it prepares things for us to use. This is different from the "destructive"
+         * TTY reset further up.) */
+        if (context->tty_reset)
+                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
 
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User
