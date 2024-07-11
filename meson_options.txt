@@ -502,6 +502,8 @@ option('log-message-verification', type : 'feature', deprecated : { 'true' : 'en
        description : 'do fake printf() calls to verify format strings')
 option('integration-tests', type : 'boolean', value : false,
        description : 'run the integration tests')
+option('mkosi-depends', type : 'boolean', value : true,
+       description : 'Add dependencies on various systemd tools to the mkosi target')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',

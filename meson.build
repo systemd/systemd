@@ -2653,13 +2653,17 @@ if want_integration_tests and not mkosi.found()
         error('Could not find mkosi which is required to run the integration tests')
 endif
 
-mkosi_depends = public_programs
+if get_option('mkosi-depends')
+        mkosi_depends = public_programs
 
-foreach executable : ['systemd-journal-remote', 'systemd-measure']
-        if executable in executables_by_name
-                mkosi_depends += [executables_by_name[executable]]
-        endif
-endforeach
+        foreach executable : ['systemd-journal-remote', 'systemd-measure']
+                if executable in executables_by_name
+                        mkosi_depends += [executables_by_name[executable]]
+                endif
+        endforeach
+else
+        mkosi_depends = []
+endif
 
 if mkosi.found()
         custom_target('mkosi',
