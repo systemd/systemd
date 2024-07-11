@@ -150,9 +150,7 @@ static int agent_ask_password_tty(
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
-                r = reset_terminal_fd(tty_fd, true);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+                (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ true);
 
                 log_info("Starting password query on %s.", con);
         }
