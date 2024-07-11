@@ -2671,6 +2671,7 @@ if mkosi.found()
                         '--output-dir', meson.current_build_dir() / 'mkosi.output',
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
+                        '--extra-search-path', meson.current_build_dir(),
                         '--force',
                         'build',
                 ],
