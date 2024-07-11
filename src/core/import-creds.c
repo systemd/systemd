@@ -595,9 +595,11 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                         return log_oom();
 
                 r = read_virtual_file(p, sizeof(dmi_field_header) + CREDENTIALS_TOTAL_SIZE_MAX, (char**) &data, &size);
+                if (r == -ENOENT) /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
+                        break;
                 if (r < 0) {
                         /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to open '%s', ignoring: %m", p);
+                        log_warning_errno(r, "Failed to open '%s', ignoring: %m", p);
                         break;
                 }
 
