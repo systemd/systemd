@@ -32,10 +32,10 @@ disable auditd.service
 # systemd-timesyncd is not enabled by default in the default systemd preset so enable it here instead.
 enable systemd-timesyncd.service
 
-# Skipped if selinux is not enabled, required for TEST-06-SELINUX.
-enable autorelabel.service
-
 # Enabled by default on OpenSUSE and not conditioned out in containers, so let's disable these here instead.
 disable iscsi.service
 disable iscsid.socket
 disable iscsiuio.socket
+
+# mkosi relabels the image itself so no need to do it on boot.
+disable selinux-autorelabel-mark.service
