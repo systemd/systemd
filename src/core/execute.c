@@ -99,18 +99,21 @@ const char* exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-static void exec_context_determine_tty_size(
+int exec_context_apply_tty_size(
                 const ExecContext *context,
-                int tty_fd,
-                const char *tty_path,
-                unsigned *ret_rows,
-                unsigned *ret_cols) {
+                int input_fd,
+                int output_fd,
+                const char *tty_path) {
 
         unsigned rows, cols;
+        int r;
 
         assert(context);
-        assert(ret_rows);
-        assert(ret_cols);
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        if (!isatty_safe(output_fd))
+                return 0;
 
         if (!tty_path)
                 tty_path = exec_context_tty_path(context);
@@ -127,24 +130,14 @@ static void exec_context_determine_tty_size(
                                 cols == UINT_MAX ? &cols : NULL);
 
         /* If we got nothing and we are talking to a physical device, then let's query things interactively */
-        if (tty_fd >= 0 && rows == UINT_MAX && cols == UINT_MAX && terminal_is_pty_fd(tty_fd) == 0)
-                (void) terminal_get_size_by_dsr(tty_fd, tty_fd, &rows, &cols);
+        if (rows == UINT_MAX && cols == UINT_MAX && terminal_is_pty_fd(output_fd) == 0 && isatty_safe(input_fd)) {
+                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
+        }
 
-        *ret_rows = rows;
-        *ret_cols = cols;
+        return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
-
-int exec_context_apply_tty_size(
-                const ExecContext *context,
-                int tty_fd,
-                const char *tty_path) {
-
-        unsigned rows, cols;
-
-        exec_context_determine_tty_size(context, tty_fd, tty_path, &rows, &cols);
-
-        return terminal_set_size_fd(tty_fd, tty_path, rows, cols);
- }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
@@ -181,7 +174,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         if (context->tty_reset)
                 (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
 
-        (void) exec_context_apply_tty_size(context, fd, path);
+        (void) exec_context_apply_tty_size(context, fd, fd, path);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
