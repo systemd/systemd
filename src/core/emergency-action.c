@@ -2,6 +2,7 @@
 
 #include <sys/reboot.h>
 
+#include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
