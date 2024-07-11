@@ -111,6 +111,9 @@ typedef enum AcquireTerminalFlags {
         ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
 } AcquireTerminalFlags;
 
+int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
+int release_terminal(void);
+
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
         /* No colors, monochrome output. */
@@ -127,9 +130,6 @@ typedef enum ColorMode {
 
         _COLOR_INVALID = -EINVAL,
 } ColorMode;
-
-int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
-int release_terminal(void);
 
 int terminal_vhangup_fd(int fd);
 
