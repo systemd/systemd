@@ -56,7 +56,7 @@ fi
 
 MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
-    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(dirname "$(clang --print-file-name=libclang_rt.asan.so)")"
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
