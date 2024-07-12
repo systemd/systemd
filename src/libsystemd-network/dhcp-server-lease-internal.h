@@ -43,3 +43,5 @@ int dhcp_server_leases_file_get_server_address(
                 const char *path,
                 struct in_addr *ret_address,
                 uint8_t *ret_prefixlen);
+
+int json_dispatch_chaddr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
