@@ -4,25 +4,21 @@ set -e
 
 . mkosi.functions
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
-if [ ! -f "pkg/$ID/systemd.spec" ]; then
+if [[ ! -f "pkg/$ID/systemd.spec" ]]; then
     echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.19.91"; then
+if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.19.91'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
     # See https://github.com/rpm-software-management/rpm/issues/3042.
     tee --append /usr/lib/rpm/redhat/macros <<'EOF'

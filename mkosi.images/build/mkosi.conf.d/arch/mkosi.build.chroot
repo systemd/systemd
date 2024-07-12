@@ -2,14 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
-if [ ! -f "pkg/$ID/PKGBUILD" ]; then
+if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
@@ -65,7 +61,7 @@ EOF
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 rm /usr/share/makepkg/lint_pkgbuild/*
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"

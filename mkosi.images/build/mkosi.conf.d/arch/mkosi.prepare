@@ -1,0 +1,21 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+# shellcheck source=/dev/null
+. "$BUILDROOT/usr/lib/os-release"
+
+if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
+    echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+    exit 1
+fi
+
+# shellcheck source=/dev/null
+_systemd_UPSTREAM=1 . "pkg/$ID/PKGBUILD"
+
+# shellcheck disable=SC2154
+mkosi-install "${makedepends[@]}"

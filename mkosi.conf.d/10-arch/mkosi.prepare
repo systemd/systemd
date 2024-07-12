@@ -2,28 +2,32 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ "$1" = "build" ] || ((NO_BUILD)); then
+if [[ "$1" == "build" ]]; then
     exit 0
 fi
 
-# shellcheck source=/dev/null
-. "$BUILDROOT/usr/lib/os-release"
+DEPS=""
 
-if [ ! -f "pkg/$ID/PKGBUILD" ]; then
-    echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
-    exit 1
-fi
+while read -r PACKAGE; do
+    DEPS="$DEPS $(
+        pacman --sync --info "$PACKAGE" |
+            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
+            sed --quiet 's/^Depends On *: //p' # Filter out everything except "Depends On:" line and fetch dependencies from it.
+    )"
 
-# We get depends and optdepends from .SRCINFO as getting them from the PKGBUILD is rather complex.
-sed --expression 's/^[ \t]*//' "pkg/$ID/.SRCINFO" |
-    grep --regexp '^depends =' --regexp '^optdepends =' |
-    sed --expression 's/^depends = //' --expression 's/^optdepends = //' --expression 's/:.*//' --expression 's/=.*//' |
-    xargs --delimiter '\n' mkosi-install
+    DEPS="$DEPS $(
+        pacman --sync --info "$PACKAGE" |
+            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
+            sed --quiet '/Optional Deps/,/Conflicts With/{/Conflicts With/!p}' | # Get every line from "Optional Deps" (inclusive) until "Conflicts With" (exclusive).
+            sed 's/Optional Deps *: //' | # Drop "Optional Deps :" from first line.
+            sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
+            tr '\n' ' ' # Transform newlines to whitespace.
+    )"
+done < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
 
-# We get makedepends from the PKGBUILD as .SRCINFO can't encode conditional dependencies depending on
-# whether some environment variable is set or not.
-# shellcheck source=/dev/null
-_systemd_UPSTREAM=1 . "pkg/$ID/PKGBUILD"
-
-# shellcheck disable=SC2154
-mkosi-install "${makedepends[@]}"
+echo "$DEPS" |
+    xargs | # Remove extra whitespace.
+    tr ' ' '\n' |
+    grep --invert-match --regexp systemd --regexp None | # systemd packages will be installed later on.
+    sort --unique |
+    xargs --delimiter '\n' --no-run-if-empty mkosi-install
