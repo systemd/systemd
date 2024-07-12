@@ -419,7 +419,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         return RET_GATHER(ret, r);
 }
 
-int symlink_idempotent(const char *from, const char *to, bool make_relative) {
+int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative) {
         _cleanup_free_ char *relpath = NULL;
         int r;
 
@@ -434,13 +434,13 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
                 from = relpath;
         }
 
-        if (symlink(from, to) < 0) {
+        if (symlinkat(from, atfd, to) < 0) {
                 _cleanup_free_ char *p = NULL;
 
                 if (errno != EEXIST)
                         return -errno;
 
-                r = readlink_malloc(to, &p);
+                r = readlinkat_malloc(atfd, to, &p);
                 if (r == -EINVAL) /* Not a symlink? In that case return the original error we encountered: -EEXIST */
                         return -EEXIST;
                 if (r < 0) /* Any other error? In that case propagate it as is */
