@@ -32,7 +32,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
-__extension__ typedef enum sd_lldp_rx_event_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_rx_event_t) {
         SD_LLDP_RX_EVENT_ADDED,
         SD_LLDP_RX_EVENT_REMOVED,
         SD_LLDP_RX_EVENT_UPDATED,

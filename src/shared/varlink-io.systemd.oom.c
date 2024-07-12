@@ -7,18 +7,18 @@
  * Compare with io.systemd.ManagedOOM where the client/server roles of the service manager and oomd are
  * swapped! */
 
-VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ControlGroup,
-                VARLINK_DEFINE_FIELD(mode, VARLINK_STRING, 0),
-                VARLINK_DEFINE_FIELD(path, VARLINK_STRING, 0),
-                VARLINK_DEFINE_FIELD(property, VARLINK_STRING, 0),
-                VARLINK_DEFINE_FIELD(limit, VARLINK_INT, VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 ReportManagedOOMCGroups,
-                VARLINK_DEFINE_INPUT_BY_TYPE(cgroups, ControlGroup, VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(cgroups, ControlGroup, SD_VARLINK_ARRAY));
 
-VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_oom,
                 "io.systemd.oom",
                 &vl_method_ReportManagedOOMCGroups,

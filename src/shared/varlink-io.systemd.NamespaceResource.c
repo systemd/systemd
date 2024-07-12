@@ -2,48 +2,48 @@
 
 #include "varlink-io.systemd.NamespaceResource.h"
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 AllocateUserRange,
-                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, 0),
-                VARLINK_DEFINE_INPUT(size, VARLINK_INT, 0),
-                VARLINK_DEFINE_INPUT(target, VARLINK_INT, VARLINK_NULLABLE),
-                VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(size, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(target, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0));
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 RegisterUserNamespace,
-                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, 0),
-                VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0));
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 AddMountToUserNamespace,
-                VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, VARLINK_INT, 0),
-                VARLINK_DEFINE_INPUT(mountFileDescriptor, VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(mountFileDescriptor, SD_VARLINK_INT, 0));
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 AddControlGroupToUserNamespace,
-                VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, VARLINK_INT, 0),
-                VARLINK_DEFINE_INPUT(controlGroupFileDescriptor, VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(controlGroupFileDescriptor, SD_VARLINK_INT, 0));
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 AddNetworkToUserNamespace,
-                VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, VARLINK_INT, 0),
-                VARLINK_DEFINE_INPUT(networkNamespaceFileDescriptor, VARLINK_INT, 0),
-                VARLINK_DEFINE_INPUT(namespaceInterfaceName, VARLINK_STRING, VARLINK_NULLABLE),
-                VARLINK_DEFINE_INPUT(mode, VARLINK_STRING, 0),
-                VARLINK_DEFINE_OUTPUT(hostInterfaceName, VARLINK_STRING, 0),
-                VARLINK_DEFINE_OUTPUT(namespaceInterfaceName, VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(networkNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(namespaceInterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_OUTPUT(hostInterfaceName, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_OUTPUT(namespaceInterfaceName, SD_VARLINK_STRING, 0));
 
-static VARLINK_DEFINE_ERROR(UserNamespaceInterfaceNotSupported);
-static VARLINK_DEFINE_ERROR(NameExists);
-static VARLINK_DEFINE_ERROR(UserNamespaceExists);
-static VARLINK_DEFINE_ERROR(DynamicRangeUnavailable);
-static VARLINK_DEFINE_ERROR(NoDynamicRange);
-static VARLINK_DEFINE_ERROR(UserNamespaceNotRegistered);
-static VARLINK_DEFINE_ERROR(UserNamespaceWithoutUserRange);
-static VARLINK_DEFINE_ERROR(TooManyControlGroups);
-static VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
+static SD_VARLINK_DEFINE_ERROR(UserNamespaceInterfaceNotSupported);
+static SD_VARLINK_DEFINE_ERROR(NameExists);
+static SD_VARLINK_DEFINE_ERROR(UserNamespaceExists);
+static SD_VARLINK_DEFINE_ERROR(DynamicRangeUnavailable);
+static SD_VARLINK_DEFINE_ERROR(NoDynamicRange);
+static SD_VARLINK_DEFINE_ERROR(UserNamespaceNotRegistered);
+static SD_VARLINK_DEFINE_ERROR(UserNamespaceWithoutUserRange);
+static SD_VARLINK_DEFINE_ERROR(TooManyControlGroups);
+static SD_VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
 
-VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
                 "io.systemd.NamespaceResource",
                 &vl_method_AllocateUserRange,

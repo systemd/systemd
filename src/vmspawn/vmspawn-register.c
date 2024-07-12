@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -11,8 +12,8 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "varlink.h"
 #include "vmspawn-register.h"
+#include "varlink-util.h"
 
 int register_machine(
                 sd_bus *bus,
@@ -25,14 +26,14 @@ int register_machine(
                 const char *key_path,
                 bool keep_unit) {
 
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(machine_name);
         assert(service);
 
         /* First try to use varlink, as it provides more features (such as SSH support). */
-        r = varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
         if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 

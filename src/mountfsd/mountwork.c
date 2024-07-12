@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
+#include "sd-varlink.h"
 
 #include "argv-util.h"
 #include "bus-polkit.h"
@@ -21,7 +22,6 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
 #define ITERATIONS_MAX 64U
@@ -213,7 +213,7 @@ static int determine_image_policy(
         return image_policy_intersect(default_policy, client_policy, ret);
 }
 
-static int validate_userns(Varlink *link, int *userns_fd) {
+static int validate_userns(sd_varlink *link, int *userns_fd) {
         int r;
 
         assert(link);
@@ -230,7 +230,7 @@ static int validate_userns(Varlink *link, int *userns_fd) {
         if (r < 0)
                 return r;
         if (r == 0)
-                return varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
 
         /* Our own host user namespace? Then close the fd, and handle it as if none was specified. */
         r = is_our_namespace(*userns_fd, NAMESPACE_USER);
@@ -245,9 +245,9 @@ static int validate_userns(Varlink *link, int *userns_fd) {
 }
 
 static int vl_method_mount_image(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
-                VarlinkMethodFlags flags,
+                sd_varlink_method_flags_t flags,
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -284,22 +284,22 @@ static int vl_method_mount_image(
 
         sd_json_variant_sensitive(parameters); /* might contain passwords */
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.image_fd_idx != UINT_MAX) {
-                image_fd = varlink_peek_dup_fd(link, p.image_fd_idx);
+                image_fd = sd_varlink_peek_dup_fd(link, p.image_fd_idx);
                 if (image_fd < 0)
                         return log_debug_errno(image_fd, "Failed to peek image fd from client: %m");
         }
 
         if (p.userns_fd_idx != UINT_MAX) {
-                userns_fd = varlink_peek_dup_fd(link, p.userns_fd_idx);
+                userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
                 if (userns_fd < 0)
                         return log_debug_errno(userns_fd, "Failed to peek user namespace fd from client: %m");
         }
@@ -415,11 +415,11 @@ static int vl_method_mount_image(
                                 dissect_flags,
                                 &di);
                 if (r == -ENOPKG)
-                        return varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
-                        return varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
                 if (r == -ENXIO)
-                        return varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
                 if (r == -ERFKILL) {
                         /* The image policy refused this, let's retry after trying to get PolicyKit */
 
@@ -443,7 +443,7 @@ static int vl_method_mount_image(
                                 }
                         }
 
-                        return varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
                 }
                 if (r < 0)
                         return r;
@@ -466,13 +466,13 @@ static int vl_method_mount_image(
                         dissect_flags);
         if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
                            * key chain. That's great. */
-                return varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
         if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
                           * under the assumption that some errors are transitional. Which the errors might
                           * not actually be. After all retries failed we return EBUSY. Let's turn that into a
                           * generic Verity error. It's not very helpful, could mean anything, but at least it
                           * gives client a clear idea that this has to do with Verity. */
-                return varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
         if (r < 0)
                 return r;
 
@@ -502,7 +502,7 @@ static int vl_method_mount_image(
                                 return r;
                 }
 
-                fd_idx = varlink_push_fd(link, pp->fsmount_fd);
+                fd_idx = sd_varlink_push_fd(link, pp->fsmount_fd);
                 if (fd_idx < 0)
                         return fd_idx;
 
@@ -527,7 +527,7 @@ static int vl_method_mount_image(
 
         loop_device_relinquish(loop);
 
-        r = varlink_replybo(
+        r = sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
                         SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
@@ -540,9 +540,9 @@ static int vl_method_mount_image(
         return r;
 }
 
-static int process_connection(VarlinkServer *server, int _fd) {
+static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
-        _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
@@ -550,22 +550,22 @@ static int process_connection(VarlinkServer *server, int _fd) {
         if (r < 0)
                 return r;
 
-        r = varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(server, event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
-        r = varlink_server_add_connection(server, fd, &vl);
+        r = sd_varlink_server_add_connection(server, fd, &vl);
         if (r < 0)
                 return log_error_errno(r, "Failed to add connection: %m");
 
         TAKE_FD(fd);
-        vl = varlink_ref(vl);
+        vl = sd_varlink_ref(vl);
 
-        r = varlink_set_allow_fd_passing_input(vl, true);
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable fd passing for read: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable fd passing for write: %m");
 
@@ -573,7 +573,7 @@ static int process_connection(VarlinkServer *server, int _fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        r = varlink_server_detach_event(server);
+        r = sd_varlink_server_detach_event(server);
         if (r < 0)
                 return log_error_errno(r, "Failed to detach Varlink server from event loop: %m");
 
@@ -582,7 +582,7 @@ static int process_connection(VarlinkServer *server, int _fd) {
 
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
-        _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
@@ -604,23 +604,23 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = varlink_server_new(&server, VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate server: %m");
 
-        r = varlink_server_add_interface(server, &vl_interface_io_systemd_MountFileSystem);
+        r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_MountFileSystem);
         if (r < 0)
                 return log_error_errno(r, "Failed to add MountFileSystem interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         server,
                         "io.systemd.MountFileSystem.MountImage", vl_method_mount_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 
-        varlink_server_set_userdata(server, &polkit_registry);
+        sd_varlink_server_set_userdata(server, &polkit_registry);
 
-        r = varlink_server_set_exit_on_idle(server, true);
+        r = sd_varlink_server_set_exit_on_idle(server, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit-on-idle mode: %m");
 

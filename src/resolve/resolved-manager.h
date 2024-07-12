@@ -6,13 +6,13 @@
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "common-signal.h"
 #include "hashmap.h"
 #include "list.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
-#include "varlink.h"
 
 typedef struct Manager Manager;
 
@@ -153,8 +153,8 @@ struct Manager {
 
         Hashmap *polkit_registry;
 
-        VarlinkServer *varlink_server;
-        VarlinkServer *varlink_monitor_server;
+        sd_varlink_server *varlink_server;
+        sd_varlink_server *varlink_monitor_server;
 
         Set *varlink_subscription;
 

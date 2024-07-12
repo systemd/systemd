@@ -18,14 +18,14 @@ typedef struct LookupParameters {
         const char *service;
 } LookupParameters;
 
-static bool client_is_trusted(Varlink *link, Home *h) {
+static bool client_is_trusted(sd_varlink *link, Home *h) {
         uid_t peer_uid;
         int r;
 
         assert(link);
         assert(h);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0) {
                 log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
                 return false;
@@ -70,7 +70,7 @@ static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
         return true;
 }
 
-int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
@@ -90,12 +90,12 @@ int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, Varlin
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (uid_is_valid(p.uid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR(p.uid));
@@ -114,7 +114,7 @@ int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, Varlin
 
                         if (v) {
                                 /* An entry set from the previous iteration? Then send it now */
-                                r = varlink_notify(link, v);
+                                r = sd_varlink_notify(link, v);
                                 if (r < 0)
                                         return r;
 
@@ -129,16 +129,16 @@ int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, Varlin
                 }
 
                 if (!v)
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
         }
 
         if (!h)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
         if (!home_user_match_lookup_parameters(&p, h))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         trusted = client_is_trusted(link, h);
 
@@ -146,7 +146,7 @@ int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, Varlin
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
 static int build_group_json(Home *h, sd_json_variant **ret) {
@@ -183,7 +183,7 @@ static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
         return true;
 }
 
-int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
@@ -202,12 +202,12 @@ int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, Varli
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (gid_is_valid(p.gid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR((uid_t) p.gid));
@@ -221,7 +221,7 @@ int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, Varli
                                 continue;
 
                         if (v) {
-                                r = varlink_notify(link, v);
+                                r = sd_varlink_notify(link, v);
                                 if (r < 0)
                                         return r;
 
@@ -234,25 +234,25 @@ int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, Varli
                 }
 
                 if (!v)
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
         }
 
         if (!h)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
         if (!home_group_match_lookup_parameters(&p, h))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_group_json(h, &v);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
-int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
@@ -268,25 +268,25 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (p.user_name) {
                 const char *last = NULL;
 
                 h = hashmap_get(m->homes_by_name, p.user_name);
                 if (!h)
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
                 if (p.group_name) {
                         if (!strv_contains(h->record->member_of, p.group_name))
-                                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                        return varlink_replybo(
+                        return sd_varlink_replybo(
                                         link,
                                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
                                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
@@ -294,7 +294,7 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
 
                 STRV_FOREACH(i, h->record->member_of) {
                         if (last) {
-                                r = varlink_notifybo(
+                                r = sd_varlink_notifybo(
                                                 link,
                                                 SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
                                                 SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last)));
@@ -306,7 +306,7 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                 }
 
                 if (last)
-                        return varlink_replybo(
+                        return sd_varlink_replybo(
                                         link,
                                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(h->user_name)),
                                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last)));
@@ -320,7 +320,7 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                                 continue;
 
                         if (last) {
-                                r = varlink_notifybo(
+                                r = sd_varlink_notifybo(
                                                 link,
                                                 SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
                                                 SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
@@ -332,7 +332,7 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                 }
 
                 if (last)
-                        return varlink_replybo(
+                        return sd_varlink_replybo(
                                         link,
                                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last)),
                                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(p.group_name)));
@@ -345,7 +345,7 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
                                 if (last_user_name) {
                                         assert(last_group_name);
 
-                                        r = varlink_notifybo(
+                                        r = sd_varlink_notifybo(
                                                         link,
                                                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
                                                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
@@ -360,12 +360,12 @@ int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, Varlin
 
                 if (last_user_name) {
                         assert(last_group_name);
-                        return varlink_replybo(
+                        return sd_varlink_replybo(
                                         link,
                                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
                                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
                 }
         }
 
-        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }

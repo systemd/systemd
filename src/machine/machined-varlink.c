@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-varlink.h"
+
 #include "format-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
@@ -8,7 +10,6 @@
 #include "mkdir.h"
 #include "socket-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.UserDatabase.h"
 
@@ -142,7 +143,7 @@ static int user_lookup_name(Manager *m, const char *name, uid_t *ret_uid, char *
         return 0;
 }
 
-static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
@@ -163,21 +164,21 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (uid_is_valid(p.uid))
                 r = user_lookup_uid(m, p.uid, &found_name, &found_real_name);
         else if (p.user_name)
                 r = user_lookup_name(m, p.user_name, &found_uid, &found_real_name);
         else
-                return varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
                 return r;
 
@@ -185,13 +186,13 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
         un = found_name ?: p.user_name;
 
         if (!user_match_lookup_parameters(&p, un, uid))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_user_json(un, uid, found_real_name, &v);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
 static int build_group_json(const char *group_name, gid_t gid, const char *description, sd_json_variant **ret) {
@@ -308,7 +309,7 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char 
         return 0;
 }
 
-static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
@@ -329,21 +330,21 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (gid_is_valid(p.gid))
                 r = group_lookup_gid(m, p.gid, &found_name, &found_description);
         else if (p.group_name)
                 r = group_lookup_name(m, p.group_name, (uid_t*) &found_gid, &found_description);
         else
-                return varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
                 return r;
 
@@ -351,16 +352,16 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
         gn = found_name ?: p.group_name;
 
         if (!group_match_lookup_parameters(&p, gn, gid))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_group_json(gn, gid, found_description, &v);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
-static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
@@ -374,18 +375,18 @@ static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters,
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         /* We don't support auxiliary groups for machines. */
-        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static int list_machine_one(Varlink *link, Machine *m, bool more) {
+static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         int r;
 
         assert(link);
@@ -409,12 +410,12 @@ static int list_machine_one(Varlink *link, Machine *m, bool more) {
                 return r;
 
         if (more)
-                return varlink_notify(link, v);
+                return sd_varlink_notify(link, v);
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
-static int vl_method_list(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         const char *mn = NULL;
 
@@ -427,23 +428,23 @@ static int vl_method_list(Varlink *link, sd_json_variant *parameters, VarlinkMet
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, 0);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, 0);
         if (r != 0)
                 return r;
 
         if (mn) {
                 if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
-                        return varlink_error_invalid_parameter_name(link, "name");
+                        return sd_varlink_error_invalid_parameter_name(link, "name");
 
                 Machine *machine = hashmap_get(m->machines, mn);
                 if (!machine)
-                        return varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
 
-        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         Machine *previous = NULL, *i;
         HASHMAP_FOREACH(i, m->machines) {
@@ -459,11 +460,11 @@ static int vl_method_list(Varlink *link, sd_json_variant *parameters, VarlinkMet
         if (previous)
                 return list_machine_one(link, previous, /* more= */ false);
 
-        return varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 }
 
 static int manager_varlink_init_userdb(Manager *m) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -471,17 +472,17 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (m->varlink_userdb_server)
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        varlink_server_set_userdata(s, m);
+        sd_varlink_server_set_userdata(s, m);
 
-        r = varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
+        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
@@ -491,11 +492,11 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         (void) mkdir_p("/run/systemd/userdb", 0755);
 
-        r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666);
+        r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
-        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -504,7 +505,7 @@ static int manager_varlink_init_userdb(Manager *m) {
 }
 
 static int manager_varlink_init_machine(Manager *m) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -512,17 +513,17 @@ static int manager_varlink_init_machine(Manager *m) {
         if (m->varlink_machine_server)
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        varlink_server_set_userdata(s, m);
+        sd_varlink_server_set_userdata(s, m);
 
-        r = varlink_server_add_interface(s, &vl_interface_io_systemd_Machine);
+        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Machine);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Machine.Register", vl_method_register,
                         "io.systemd.Machine.List",     vl_method_list);
@@ -531,11 +532,11 @@ static int manager_varlink_init_machine(Manager *m) {
 
         (void) mkdir_p("/run/systemd/machine", 0755);
 
-        r = varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
+        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
-        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -560,6 +561,6 @@ int manager_varlink_init(Manager *m) {
 void manager_varlink_done(Manager *m) {
         assert(m);
 
-        m->varlink_userdb_server = varlink_server_unref(m->varlink_userdb_server);
-        m->varlink_machine_server = varlink_server_unref(m->varlink_machine_server);
+        m->varlink_userdb_server = sd_varlink_server_unref(m->varlink_userdb_server);
+        m->varlink_machine_server = sd_varlink_server_unref(m->varlink_machine_server);
 }

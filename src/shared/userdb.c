@@ -2,6 +2,8 @@
 
 #include <sys/auxv.h>
 
+#include "sd-varlink.h"
+
 #include "conf-files.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
@@ -18,9 +20,8 @@
 #include "user-util.h"
 #include "userdb-dropin.h"
 #include "userdb.h"
-#include "varlink.h"
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(link_hash_ops, void, trivial_hash_func, trivial_compare_func, Varlink, varlink_unref);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(link_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 
 typedef enum LookupWhat {
         LOOKUP_USER,
@@ -158,10 +159,10 @@ static void membership_data_done(struct membership_data *d) {
 }
 
 static int userdb_on_query_reply(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
                 const char *error_id,
-                VarlinkReplyFlags flags,
+                sd_varlink_reply_flags_t flags,
                 void *userdata) {
 
         UserDBIterator *iterator = ASSERT_PTR(userdata);
@@ -178,7 +179,7 @@ static int userdb_on_query_reply(
                         r = -EHOSTDOWN;
                 else if (streq(error_id, "io.systemd.UserDatabase.EnumerationNotSupported"))
                         r = -EOPNOTSUPP;
-                else if (streq(error_id, VARLINK_ERROR_TIMEOUT))
+                else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
                         r = -ETIMEDOUT;
                 else
                         r = -EIO;
@@ -237,7 +238,7 @@ static int userdb_on_query_reply(
                 iterator->n_found++;
 
                 /* More stuff coming? then let's just exit cleanly here */
-                if (FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
+                if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                         return 0;
 
                 /* Otherwise, let's remove this link and exit cleanly then */
@@ -291,7 +292,7 @@ static int userdb_on_query_reply(
                 iterator->found_group = TAKE_PTR(g);
                 iterator->n_found++;
 
-                if (FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
+                if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                         return 0;
 
                 r = 0;
@@ -318,7 +319,7 @@ static int userdb_on_query_reply(
                 iterator->found_group_name = TAKE_PTR(membership_data.group_name);
                 iterator->n_found++;
 
-                if (FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
+                if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                         return 0;
 
                 r = 0;
@@ -336,7 +337,7 @@ finish:
                 iterator->error = -r;
 
         assert_se(set_remove(iterator->links, link) == link);
-        link = varlink_unref(link);
+        link = sd_varlink_unref(link);
         return 0;
 }
 
@@ -347,18 +348,18 @@ static int userdb_connect(
                 bool more,
                 sd_json_variant *query) {
 
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(iterator);
         assert(path);
         assert(method);
 
-        r = varlink_connect_address(&vl, path);
+        r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
                 return log_debug_errno(r, "Unable to connect to %s: %m", path);
 
-        varlink_set_userdata(vl, iterator);
+        sd_varlink_set_userdata(vl, iterator);
 
         if (!iterator->event) {
                 r = sd_event_new(&iterator->event);
@@ -366,20 +367,20 @@ static int userdb_connect(
                         return log_debug_errno(r, "Unable to allocate event loop: %m");
         }
 
-        r = varlink_attach_event(vl, iterator->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(vl, iterator->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        (void) varlink_set_description(vl, path);
+        (void) sd_varlink_set_description(vl, path);
 
-        r = varlink_bind_reply(vl, userdb_on_query_reply);
+        r = sd_varlink_bind_reply(vl, userdb_on_query_reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to bind reply callback: %m");
 
         if (more)
-                r = varlink_observe(vl, method, query);
+                r = sd_varlink_observe(vl, method, query);
         else
-                r = varlink_invoke(vl, method, query);
+                r = sd_varlink_invoke(vl, method, query);
         if (r < 0)
                 return log_debug_errno(r, "Failed to invoke varlink method: %m");
 

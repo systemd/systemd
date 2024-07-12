@@ -2,14 +2,14 @@
 
 #include "varlink-io.systemd.Journal.h"
 
-static VARLINK_DEFINE_METHOD(Synchronize);
-static VARLINK_DEFINE_METHOD(Rotate);
-static VARLINK_DEFINE_METHOD(FlushToVar);
-static VARLINK_DEFINE_METHOD(RelinquishVar);
+static SD_VARLINK_DEFINE_METHOD(Synchronize);
+static SD_VARLINK_DEFINE_METHOD(Rotate);
+static SD_VARLINK_DEFINE_METHOD(FlushToVar);
+static SD_VARLINK_DEFINE_METHOD(RelinquishVar);
 
-static VARLINK_DEFINE_ERROR(NotSupportedByNamespaces);
+static SD_VARLINK_DEFINE_ERROR(NotSupportedByNamespaces);
 
-VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Journal,
                 "io.systemd.Journal",
                 &vl_method_Synchronize,
