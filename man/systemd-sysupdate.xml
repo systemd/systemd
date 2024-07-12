@@ -190,6 +190,17 @@
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>streams</option></term>
+
+        <listitem><para>Lists streams that can be updated. This enumerates the
+        <filename>/var/cache/systemd/sysupdate@*.d/</filename> and <filename>/usr/lib/sysupdate@*.d/</filename>
+        directories that contain transfer definitions. This command is useful to list possible parameters
+        for <option>--stream=</option> (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -226,7 +237,7 @@
         <filename>sysupdate.d/</filename> directory for these cases.</para>
 
         <para>This option may not be combined with <option>--definitions=</option> or
-        <option>--next</option>.</para>
+        <option>--stream=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -239,17 +250,20 @@
         <filename>/etc/sysupdate.d/*.conf</filename>, and <filename>/run/sysupdate.d/*.conf</filename>.</para>
 
         <para>This option may not be combined with <option>--component=</option> or
-        <option>--next</option>.</para>
+        <option>--stream=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--next</option></term>
+        <term><option>--stream=</option></term>
 
-        <listitem><para>If specified, the transfer definition lookup logic is changed to look in
-        <filename>/usr/lib/sysupdate-next.d/</filename> instead of <filename>/usr/lib/sysupdate.d/</filename>.
-        Note that administrator-controlled directories (i.e. <filename>/etc/sysupdate.d/</filename>) are
+        <listitem><para>Selects the update stream to use. Takes a stream name as argument. This alters
+        the search logic for transfer definitions to look in
+        <filename>/usr/lib/sysupdate@<replaceable>stream</replaceable>.d/</filename> and
+        <filename>/var/cache/systemd/sysupdate@<replaceable>stream</replaceable>.d/</filename> instead of
+        <filename>/usr/lib/sysupdate.d</filename>.
+        Note that administrator-controlled directories (i.e. <filename>/etc/sysupdate.d/</filename>, etc) are
         still loaded as usual.</para>
 
         <para>This option may not be combined with <option>--definitions=</option> or
