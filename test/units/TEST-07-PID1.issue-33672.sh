@@ -37,5 +37,4 @@ systemctl unmask "$UNIT"
 assert_eq $(systemctl show -P NeedDaemonReload "$UNIT") no
 
 systemctl mask "$UNIT"
-# FIXME: should be "no"
-assert_eq $(systemctl show -P NeedDaemonReload "$UNIT") yes
+assert_eq $(systemctl show -P NeedDaemonReload "$UNIT") no
