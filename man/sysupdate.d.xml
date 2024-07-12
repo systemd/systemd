@@ -65,6 +65,17 @@
     <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
+    <para>Sometimes, distributions need to update certain parts of themselves independently from the normal
+    update cycle.
+    For example, the <ulink url="https://github.com/rhboot/shim">UEFI Shim loader</ulink> (necessary for
+    UEFI Secure Boot support in many cases) has its own release cycle, requires code signatures from a
+    third-party, and in general is not tied to a distribution's update cycle.
+    Support for this scenario is provided by "components", which allow distributions to define transfer
+    definitions that receive updates independently from the base OS.
+    Components are defined in <filename>/usr/lib/sysupdate.<replaceable>component</replaceable>.d/</filename>,
+    and have corresponding override directories for administrators (i.e.
+    <filename>/etc/sysupdate.<replaceable>component</replaceable>.d/</filename>, etc).</para>
+
     <para>Each <filename>*.transfer</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
   </refsect1>
 
