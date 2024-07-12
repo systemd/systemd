@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "json-util.h"
+#include "iovec-util.h"
 #include "mkdir.h"
 #include "tmpfile-util.h"
 
@@ -218,7 +219,10 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_va
                         ret,
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientId", lease->client_id.raw, lease->client_id.size),
                         JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("HardwareAddressType", lease->htype),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("HardwareAddressLength", lease->hlen),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("HardwareAddress", lease->chaddr, sizeof(lease->chaddr)));
 }
 
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
@@ -346,11 +350,30 @@ failure:
         return r;
 }
 
+static int json_dispatch_chaddr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint8_t* address = ASSERT_PTR(userdata);
+        _cleanup_(iovec_done) struct iovec iov = {};
+        int r;
+
+        r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
+        if (r < 0)
+                return r;
+
+        if (iov.iov_len != 16)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+
+        memcpy(address, iov.iov_base, iov.iov_len);
+        return 0;
+}
+
 static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, bool use_boottime) {
         static const sd_json_dispatch_field dispatch_table_boottime[] = {
                 { "ClientId",               SD_JSON_VARIANT_ARRAY,         json_dispatch_client_id, offsetof(sd_dhcp_server_lease, client_id),  SD_JSON_MANDATORY },
                 { "Address",                SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,   offsetof(sd_dhcp_server_lease, address),    SD_JSON_MANDATORY },
                 { "Hostname",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(sd_dhcp_server_lease, hostname),   0                 },
+                { "HardwareAddressType",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(sd_dhcp_server_lease, htype),      0                 },
+                { "HardwareAddressLength",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(sd_dhcp_server_lease, hlen),       0                 },
+                { "HardwareAddress",        SD_JSON_VARIANT_ARRAY,         json_dispatch_chaddr,    offsetof(sd_dhcp_server_lease, chaddr),     0                 },
                 { "ExpirationUSec",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(sd_dhcp_server_lease, expiration), SD_JSON_MANDATORY },
                 { "ExpirationRealtimeUSec", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                    0,                                          SD_JSON_MANDATORY },
                 {}
@@ -358,6 +381,9 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, 
                 { "ClientId",               SD_JSON_VARIANT_ARRAY,         json_dispatch_client_id, offsetof(sd_dhcp_server_lease, client_id),  SD_JSON_MANDATORY },
                 { "Address",                SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,   offsetof(sd_dhcp_server_lease, address),    SD_JSON_MANDATORY },
                 { "Hostname",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(sd_dhcp_server_lease, hostname),   0                 },
+                { "HardwareAddressType",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(sd_dhcp_server_lease, htype),      0                 },
+                { "HardwareAddressLength",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(sd_dhcp_server_lease, hlen),       0                 },
+                { "HardwareAddress",        SD_JSON_VARIANT_ARRAY,         json_dispatch_chaddr,    offsetof(sd_dhcp_server_lease, chaddr),     0                 },
                 { "ExpirationUSec",         _SD_JSON_VARIANT_TYPE_INVALID, NULL,                    0,                                          SD_JSON_MANDATORY },
                 { "ExpirationRealtimeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(sd_dhcp_server_lease, expiration), SD_JSON_MANDATORY },
                 {}
