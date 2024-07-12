@@ -130,6 +130,17 @@ Deprecations and removals:
 
 Features:
 
+* generic interface for varlink for setting log level and stuff that all our daemons can implement
+
+* use pty ioctl to get peer wherever possible (TIOCGPTPEER)
+
+* maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
+  just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
+  chattr bit. This is useful as protection against early uses of /var/ or /tmp/
+  before their contents is mounted.
+
+* use c23 in headers to force enum size in public headers
+
 * go through all uses of table_new() in our codebase, and make sure we support
   all three of:
   1. --no-legend properly
