@@ -912,6 +912,11 @@ static int list_images(int argc, char *argv[], void *userdata) {
         (void) table_hide_column_from_display(t, 8);
         (void) table_hide_column_from_display(t, 10);
 
+        /* Starting in v257, these fields would be automatically formatted with underscores. However, this
+         * command was introduced in v256, so changing the field name would be a breaking change. */
+        (void) table_set_json_field_name(t, 8, "usage-exclusive");
+        (void) table_set_json_field_name(t, 10, "limit-exclusive");
+
         for (;;) {
                 uint64_t crtime, mtime, usage, usage_exclusive, limit, limit_exclusive;
                 const char *class, *name, *type, *path;
