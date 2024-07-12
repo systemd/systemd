@@ -80,7 +80,7 @@ typedef struct Context {
 
         sd_event *event;
         sd_bus *bus;
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
         Hashmap *polkit_registry;
 } Context;
 
@@ -102,7 +102,7 @@ static void context_destroy(Context *c) {
         hashmap_free(c->polkit_registry);
         sd_event_unref(c->event);
         sd_bus_flush_close_unref(c->bus);
-        varlink_server_unref(c->varlink_server);
+        sd_varlink_server_unref(c->varlink_server);
 }
 
 static void context_read_etc_hostname(Context *c) {
@@ -1601,7 +1601,7 @@ static int connect_bus(Context *c) {
         return 0;
 }
 
-static int vl_method_describe(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -1614,7 +1614,7 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         assert(link);
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -1638,7 +1638,7 @@ static int vl_method_describe(Varlink *link, sd_json_variant *parameters, Varlin
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
 static int connect_varlink(Context *c) {
@@ -1648,31 +1648,31 @@ static int connect_varlink(Context *c) {
         assert(c->event);
         assert(!c->varlink_server);
 
-        r = varlink_server_new(&c->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&c->varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        varlink_server_set_userdata(c->varlink_server, c);
+        sd_varlink_server_set_userdata(c->varlink_server, c);
 
-        r = varlink_server_add_interface(c->varlink_server, &vl_interface_io_systemd_Hostname);
+        r = sd_varlink_server_add_interface(c->varlink_server, &vl_interface_io_systemd_Hostname);
         if (r < 0)
-                return log_error_errno(r, "Failed to add Hostname interface to varlink server: %m");
+                return log_error_errno(r, "Failed to add Hostname interface to Varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
                         "io.systemd.Hostname.Describe", vl_method_describe);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
 
-        r = varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
-        r = varlink_server_listen_auto(c->varlink_server);
+        r = sd_varlink_server_listen_auto(c->varlink_server);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Hostname", 0666);
+                r = sd_varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Hostname", 0666);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to Varlink socket: %m");
         }
@@ -1683,7 +1683,7 @@ static int connect_varlink(Context *c) {
 static bool context_check_idle(void *userdata) {
         Context *c = ASSERT_PTR(userdata);
 
-        return varlink_server_current_connections(c->varlink_server) == 0 &&
+        return sd_varlink_server_current_connections(c->varlink_server) == 0 &&
                 hashmap_isempty(c->polkit_registry);
 }
 

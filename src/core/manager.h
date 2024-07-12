@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "common-signal.h"
 #include "cgroup-util.h"
@@ -16,7 +17,6 @@
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
-#include "varlink.h"
 
 struct libmnt_monitor;
 typedef struct Unit Unit;
@@ -486,12 +486,12 @@ struct Manager {
         unsigned sigchldgen;
         unsigned notifygen;
 
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
          * we're a user manager, this object manages the client connection from the user manager to
          * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
-        Varlink *managed_oom_varlink;
+        sd_varlink *managed_oom_varlink;
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;

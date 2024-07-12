@@ -293,7 +293,7 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->public_keys);
 
-        varlink_server_unref(m->varlink_server);
+        sd_varlink_server_unref(m->varlink_server);
         free(m->userdb_service);
 
         free(m->default_file_system_type);
@@ -1008,17 +1008,17 @@ static int manager_bind_varlink(Manager *m) {
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
+        r = sd_varlink_server_new(&m->varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        varlink_server_set_userdata(m->varlink_server, m);
+        sd_varlink_server_set_userdata(m->varlink_server, m);
 
-        r = varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_UserDatabase);
+        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
@@ -1039,11 +1039,11 @@ static int manager_bind_varlink(Manager *m) {
         } else
                 socket_path = "/run/systemd/userdb/io.systemd.Home";
 
-        r = varlink_server_listen_address(m->varlink_server, socket_path, 0666);
+        r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
-        r = varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 

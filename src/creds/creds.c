@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "build.h"
 #include "bus-polkit.h"
@@ -29,7 +30,6 @@
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "verbs.h"
 
@@ -1056,7 +1056,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
                 arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         arg_varlink = r;
@@ -1126,7 +1126,7 @@ static void method_encrypt_parameters_done(MethodEncryptParameters *p) {
 }
 
 static int settle_scope(
-                Varlink *link,
+                sd_varlink *link,
                 CredentialScope *scope,
                 uid_t *uid,
                 CredentialFlags *flags,
@@ -1140,7 +1140,7 @@ static int settle_scope(
         assert(uid);
         assert(flags);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1163,13 +1163,13 @@ static int settle_scope(
         } else {
                 assert(*scope == CREDENTIAL_SYSTEM);
                 if (uid_is_valid(*uid))
-                        return varlink_error_invalid_parameter_name(link, "uid");
+                        return sd_varlink_error_invalid_parameter_name(link, "uid");
         }
 
         return 0;
 }
 
-static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodEncryptParameters, name),      0 },
@@ -1197,28 +1197,28 @@ static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, Varlink
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.name && !credential_name_valid(p.name))
-                return varlink_error_invalid_parameter_name(link, "name");
+                return sd_varlink_error_invalid_parameter_name(link, "name");
         /* Specifying both or neither the text string and the binary data is not allowed */
         if (!!p.text == !!p.data.iov_base)
-                return varlink_error_invalid_parameter_name(link, "data");
+                return sd_varlink_error_invalid_parameter_name(link, "data");
         if (p.timestamp == UINT64_MAX) {
                 p.timestamp = now(CLOCK_REALTIME);
                 timestamp_fresh = true;
         } else
                 timestamp_fresh = timestamp_is_fresh(p.timestamp);
         if (p.not_after != UINT64_MAX && p.not_after < p.timestamp)
-                return varlink_error_invalid_parameter_name(link, "notAfter");
+                return sd_varlink_error_invalid_parameter_name(link, "notAfter");
 
         r = settle_scope(link, &p.scope, &p.uid, &cflags, /* any_scope_after_polkit= */ NULL);
         if (r < 0)
                 return r;
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1251,7 +1251,7 @@ static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, Varlink
                         cflags,
                         &output);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r < 0)
                 return r;
 
@@ -1264,7 +1264,7 @@ static int vl_method_encrypt(Varlink *link, sd_json_variant *parameters, Varlink
         /* Let's also mark the (theoretically encrypted) reply as sensitive, in case the NULL encryption scheme was used. */
         sd_json_variant_sensitive(reply);
 
-        return varlink_reply(link, reply);
+        return sd_varlink_reply(link, reply);
 }
 
 typedef struct MethodDecryptParameters {
@@ -1281,7 +1281,7 @@ static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
         iovec_done_erase(&p->blob);
 }
 
-static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),      0                 },
@@ -1306,12 +1306,12 @@ static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, Varlink
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.name && !credential_name_valid(p.name))
-                return varlink_error_invalid_parameter_name(link, "name");
+                return sd_varlink_error_invalid_parameter_name(link, "name");
         if (p.timestamp == UINT64_MAX) {
                 p.timestamp = now(CLOCK_REALTIME);
                 timestamp_fresh = true;
@@ -1322,7 +1322,7 @@ static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, Varlink
         if (r < 0)
                 return r;
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1363,15 +1363,15 @@ static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, Varlink
         }
 
         if (r == -EBADMSG)
-                return varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
         if (r == -EREMOTE)
-                return varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
         if (r == -ESTALE)
-                return varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r == -EMEDIUMTYPE)
-                return varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
         if (r < 0)
                 return r;
 
@@ -1383,7 +1383,7 @@ static int vl_method_decrypt(Varlink *link, sd_json_variant *parameters, Varlink
 
         sd_json_variant_sensitive(reply);
 
-        return varlink_reply(link, reply);
+        return sd_varlink_reply(link, reply);
 }
 
 static int run(int argc, char *argv[]) {
@@ -1396,29 +1396,29 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
                 _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.Credentials.Encrypt", vl_method_encrypt,
                                 "io.systemd.Credentials.Decrypt", vl_method_decrypt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                varlink_server_set_userdata(varlink_server, &polkit_registry);
+                sd_varlink_server_set_userdata(varlink_server, &polkit_registry);
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 

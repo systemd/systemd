@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "build-path.h"
@@ -40,8 +41,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-util.h"
 #include "web-util.h"
 
 typedef struct Transfer Transfer;
@@ -97,7 +98,7 @@ struct Transfer {
 struct Manager {
         sd_event *event;
         sd_bus *bus;
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
 
         uint32_t current_transfer_id;
         Hashmap *transfers;
@@ -126,7 +127,7 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, Varlink, varlink_unref);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)
@@ -622,7 +623,7 @@ static Manager *manager_unref(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
-        m->varlink_server = varlink_server_unref(m->varlink_server);
+        m->varlink_server = sd_varlink_server_unref(m->varlink_server);
 
         sd_event_unref(m->event);
 
@@ -1786,7 +1787,7 @@ static int make_transfer_json(Transfer *t, sd_json_variant **ret) {
         return 0;
 }
 
-static int vl_method_list_transfers(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         struct p {
                 ImageClass class;
@@ -1805,12 +1806,12 @@ static int vl_method_list_transfers(Varlink *link, sd_json_variant *parameters, 
         assert(link);
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         Transfer *previous = NULL, *t;
         HASHMAP_FOREACH(t, m->transfers) {
@@ -1825,7 +1826,7 @@ static int vl_method_list_transfers(Varlink *link, sd_json_variant *parameters, 
                         if (r < 0)
                                 return r;
 
-                        r = varlink_notify(link, v);
+                        r = sd_varlink_notify(link, v);
                         if (r < 0)
                                 return r;
                 }
@@ -1840,16 +1841,16 @@ static int vl_method_list_transfers(Varlink *link, sd_json_variant *parameters, 
                 if (r < 0)
                         return r;
 
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
         }
 
-        return varlink_error(link, "io.systemd.Import.NoTransfers", NULL);
+        return sd_varlink_error(link, "io.systemd.Import.NoTransfers", NULL);
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, import_verify_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_type, ImportType, import_type_from_string);
 
-static int vl_method_pull(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         struct p {
                 const char *remote, *local;
@@ -1883,15 +1884,15 @@ static int vl_method_pull(Varlink *link, sd_json_variant *parameters, VarlinkMet
         assert(link);
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote))
-                return varlink_error_invalid_parameter_name(link, "remote");
+                return sd_varlink_error_invalid_parameter_name(link, "remote");
 
         if (p.local && !image_name_is_valid(p.local))
-                return varlink_error_invalid_parameter_name(link, "local");
+                return sd_varlink_error_invalid_parameter_name(link, "local");
 
         uint64_t transfer_flags = (p.force * IMPORT_FORCE) | (p.read_only * IMPORT_READ_ONLY) | (p.keep_download * IMPORT_PULL_KEEP_DOWNLOAD);
 
@@ -1902,7 +1903,7 @@ static int vl_method_pull(Varlink *link, sd_json_variant *parameters, VarlinkMet
         assert(tt >= 0);
 
         if (manager_find(m, tt, p.remote))
-                return varlink_errorbo(link, "io.systemd.Import.AlreadyInProgress", SD_JSON_BUILD_PAIR_STRING("remote", p.remote));
+                return sd_varlink_errorbo(link, "io.systemd.Import.AlreadyInProgress", SD_JSON_BUILD_PAIR_STRING("remote", p.remote));
 
         r = varlink_verify_polkit_async(
                         link,
@@ -1944,17 +1945,17 @@ static int vl_method_pull(Varlink *link, sd_json_variant *parameters, VarlinkMet
                 return r;
 
         /* If more was not set, just return the download id, and be done with it */
-        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_replybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
 
         /* Otherwise add this connection to the set of subscriptions, return the id, but keep the thing running */
         r = set_ensure_put(&t->varlink_subscribed, &varlink_hash_ops, link);
         if (r < 0)
                 return r;
 
-        varlink_ref(link);
+        sd_varlink_ref(link);
 
-        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
         if (r < 0)
                 return r;
 
@@ -1969,32 +1970,32 @@ static int manager_connect_varlink(Manager *m) {
         assert(m->event);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&m->varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        varlink_server_set_userdata(m->varlink_server, m);
+        sd_varlink_server_set_userdata(m->varlink_server, m);
 
-        r = varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
+        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Import interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.Import.ListTransfers", vl_method_list_transfers,
                         "io.systemd.Import.Pull",          vl_method_pull);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
 
-        r = varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
-        r = varlink_server_listen_auto(m->varlink_server);
+        r = sd_varlink_server_listen_auto(m->varlink_server);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = varlink_server_listen_address(m->varlink_server, "/run/systemd/io.systemd.Import", 0666);
+                r = sd_varlink_server_listen_address(m->varlink_server, "/run/systemd/io.systemd.Import", 0666);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to Varlink socket: %m");
         }
@@ -2007,7 +2008,7 @@ static bool manager_check_idle(void *userdata) {
 
         return hashmap_isempty(m->transfers) &&
                 hashmap_isempty(m->polkit_registry) &&
-                varlink_server_current_connections(m->varlink_server) == 0;
+                sd_varlink_server_current_connections(m->varlink_server) == 0;
 }
 
 static void manager_parse_env(Manager *m) {

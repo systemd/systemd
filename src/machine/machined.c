@@ -298,10 +298,10 @@ static bool check_idle(void *userdata) {
         if (m->operations)
                 return false;
 
-        if (varlink_server_current_connections(m->varlink_userdb_server) > 0)
+        if (sd_varlink_server_current_connections(m->varlink_userdb_server) > 0)
                 return false;
 
-        if (varlink_server_current_connections(m->varlink_machine_server) > 0)
+        if (sd_varlink_server_current_connections(m->varlink_machine_server) > 0)
                 return false;
 
         if (!hashmap_isempty(m->polkit_registry))
