@@ -101,6 +101,11 @@ if [ -f "$TRIES_FILE" ]; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
+    if [ -f "$LOADER_ENTRY" ]; then
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous loader entry '$LOADER_ENTRY' without boot counting." >&2
+        rm -f "$LOADER_ENTRY" "${LOADER_ENTRY%.conf}+"*.conf
+    fi
     LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
 fi
 
