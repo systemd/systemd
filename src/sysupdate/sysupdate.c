@@ -38,6 +38,7 @@
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
+bool arg_next = true;
 bool arg_sync = true;
 uint64_t arg_instances_max = UINT64_MAX;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
@@ -183,6 +184,25 @@ static int context_read_definitions(Context *c, const char* node) {
 
         if (arg_definitions)
                 dirs = strv_new(arg_definitions);
+        else if (arg_next)
+                /* Ultimately we end up with a search path along the lines of: /etc/sysupdate.d,
+                 * /run/sysupdate.d, /usr/lib/sysupdate-next.d. This is very unusual! It seems wrong! But
+                 * this is the correct behavior. When a `systemd-sysupdate --next` update is completed,
+                 * /usr/lib/sysupdate-next.d turns into /usr/lib/sysupdate.d, but the admin overrides remain
+                 * untouched. So if we did this any differently, we'd end up in a situation where the admin's
+                 * settings are ignored when first installing a major upgrade but then suddenly considered
+                 * again once the update is completed. In my opinion, that behavior would be more unexpected
+                 * and dangerous than what is implemented here
+                 *
+                 * Is this a big and surprising footgun for the admin? Yes. But frankly, so is overriding
+                 * anything relating to sysupdate. If an admin has overrides that do anything other than
+                 * turning on/off optional features, they've already aimed a ballistic missile at their
+                 * installation. It'll detonate either immediately when trying to install a major OS upgrade
+                 * (as implemented now), or when updating to the first patch of the new major release (the
+                 * alternative) - the installation is doomed either way. And failing immediately during a
+                 * major OS upgrade seems a lot more preferable, and something that admins will be more
+                 * prepared for, than a security patch randomly bricking installations. */
+                dirs = strv_new(CONF_PATHS_ADMIN("sysupdate.d"), CONF_PATHS_SYSTEM("sysupdate-next.d"));
         else if (arg_component) {
                 char **l = CONF_PATHS_STRV("");
                 size_t i = 0;
@@ -1654,6 +1674,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "\n%3$sOptions:%4$s\n"
                "  -C --component=NAME     Select component to update\n"
                "     --definitions=DIR    Find transfer definitions in specified directory\n"
+               "     --next               Load definitions of next major OS version\n"
                "     --root=PATH          Operate on an alternate filesystem root\n"
                "     --image=PATH         Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY\n"
@@ -1686,6 +1707,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_SYNC,
                 ARG_DEFINITIONS,
+                ARG_NEXT,
                 ARG_JSON,
                 ARG_ROOT,
                 ARG_IMAGE,
@@ -1701,6 +1723,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
+                { "next",              no_argument,       NULL, ARG_NEXT              },
                 { "instances-max",     required_argument, NULL, 'm'                   },
                 { "sync",              required_argument, NULL, ARG_SYNC              },
                 { "json",              required_argument, NULL, ARG_JSON              },
@@ -1754,6 +1777,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_definitions);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_NEXT:
+                        arg_next = true;
                         break;
 
                 case ARG_JSON:
@@ -1834,6 +1861,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
+
+        if (arg_definitions && arg_next)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --next switches may not be combined.");
+
+        if (arg_component && arg_next)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --component= and --next switches may not be combined.");
 
         return 1;
 }

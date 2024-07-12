@@ -225,7 +225,8 @@
         updated together in a synchronous fashion. Simply define multiple transfer files within the same
         <filename>sysupdate.d/</filename> directory for these cases.</para>
 
-        <para>This option may not be combined with <option>--definitions=</option>.</para>
+        <para>This option may not be combined with <option>--definitions=</option> or
+        <option>--next</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -237,9 +238,24 @@
         are read from this directory instead of <filename>/usr/lib/sysupdate.d/*.conf</filename>,
         <filename>/etc/sysupdate.d/*.conf</filename>, and <filename>/run/sysupdate.d/*.conf</filename>.</para>
 
-        <para>This option may not be combined with <option>--component=</option>.</para>
+        <para>This option may not be combined with <option>--component=</option> or
+        <option>--next</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--next</option></term>
+
+        <listitem><para>If specified, the transfer definition lookup logic is changed to look in
+        <filename>/usr/lib/sysupdate-next.d/</filename> instead of <filename>/usr/lib/sysupdate.d/</filename>.
+        Note that administrator-controlled directories (i.e. <filename>/etc/sysupdate.d/</filename>) are
+        still loaded as usual.</para>
+
+        <para>This option may not be combined with <option>--definitions=</option> or
+        <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
