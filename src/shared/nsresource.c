@@ -2,6 +2,8 @@
 
 #include <sys/prctl.h>
 
+#include "sd-varlink.h"
+
 #include "fd-util.h"
 #include "format-util.h"
 #include "json-util.h"
@@ -9,7 +11,6 @@
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "process-util.h"
-#include "varlink.h"
 
 static int make_pid_name(char **ret) {
         char comm[TASK_COMM_LEN];
@@ -40,7 +41,7 @@ static int make_pid_name(char **ret) {
 }
 
 int nsresource_allocate_userns(const char *name, uint64_t size) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -59,11 +60,11 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
         if (size <= 0 || size > UINT64_C(0x100000000)) /* Note: the server actually only allows allocating 1 or 64K right now */
                 return -EINVAL;
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
 
@@ -71,12 +72,12 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to acquire empty user namespace: %m");
 
-        userns_fd_idx = varlink_push_dup_fd(vl, userns_fd);
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
                 return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.NamespaceResource.AllocateUserRange",
                         &reply,
@@ -87,13 +88,13 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AllocateUserRange() varlink call: %m");
         if (error_id)
-                return log_debug_errno(varlink_error_to_errno(error_id, reply), "Failed to allocate user namespace with %" PRIu64 " users: %s", size, error_id);
+                return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to allocate user namespace with %" PRIu64 " users: %s", size, error_id);
 
         return TAKE_FD(userns_fd);
 }
 
 int nsresource_register_userns(const char *name, int userns_fd) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_close_ int _userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -117,20 +118,20 @@ int nsresource_register_userns(const char *name, int userns_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-        userns_fd_idx = varlink_push_dup_fd(vl, userns_fd);
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
                 return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.NamespaceResource.RegisterUserNamespace",
                         &reply,
@@ -140,13 +141,13 @@ int nsresource_register_userns(const char *name, int userns_fd) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to call RegisterUserNamespace() varlink call: %m");
         if (error_id)
-                return log_debug_errno(varlink_error_to_errno(error_id, reply), "Failed to register user namespace: %s", error_id);
+                return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to register user namespace: %s", error_id);
 
         return 0;
 }
 
 int nsresource_add_mount(int userns_fd, int mount_fd) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_close_ int _userns_fd = -EBADF;
         int r, userns_fd_idx, mount_fd_idx;
         const char *error_id;
@@ -161,24 +162,24 @@ int nsresource_add_mount(int userns_fd, int mount_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to namespace resource manager: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-        userns_fd_idx = varlink_push_dup_fd(vl, userns_fd);
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
                 return log_error_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
 
-        mount_fd_idx = varlink_push_dup_fd(vl, mount_fd);
+        mount_fd_idx = sd_varlink_push_dup_fd(vl, mount_fd);
         if (mount_fd_idx < 0)
                 return log_error_errno(mount_fd_idx, "Failed to push mount fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.NamespaceResource.AddMountToUserNamespace",
                         &reply,
@@ -192,13 +193,13 @@ int nsresource_add_mount(int userns_fd, int mount_fd) {
                 return 0;
         }
         if (error_id)
-                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to mount image: %s", error_id);
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to mount image: %s", error_id);
 
         return 1;
 }
 
 int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_close_ int _userns_fd = -EBADF;
         int r, userns_fd_idx, cgroup_fd_idx;
         const char *error_id;
@@ -213,24 +214,24 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-        userns_fd_idx = varlink_push_dup_fd(vl, userns_fd);
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
                 return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
 
-        cgroup_fd_idx = varlink_push_dup_fd(vl, cgroup_fd);
+        cgroup_fd_idx = sd_varlink_push_dup_fd(vl, cgroup_fd);
         if (cgroup_fd_idx < 0)
                 return log_debug_errno(userns_fd_idx, "Failed to push cgroup fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.NamespaceResource.AddControlGroupToUserNamespace",
                         &reply,
@@ -244,7 +245,7 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
                 return 0;
         }
         if (error_id)
-                return log_debug_errno(varlink_error_to_errno(error_id, reply), "Failed to add cgroup to user namespace: %s", error_id);
+                return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add cgroup to user namespace: %s", error_id);
 
         return 1;
 }
@@ -257,7 +258,7 @@ int nsresource_add_netif(
                 char **ret_namespace_ifname) {
 
         _cleanup_close_ int _userns_fd = -EBADF, _netns_fd = -EBADF;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, userns_fd_idx, netns_fd_idx;
         const char *error_id;
 
@@ -277,24 +278,24 @@ int nsresource_add_netif(
                 netns_fd = _netns_fd;
         }
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-        userns_fd_idx = varlink_push_dup_fd(vl, userns_fd);
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
                 return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
 
-        netns_fd_idx = varlink_push_dup_fd(vl, netns_fd);
+        netns_fd_idx = sd_varlink_push_dup_fd(vl, netns_fd);
         if (netns_fd_idx < 0)
                 return log_debug_errno(netns_fd_idx, "Failed to push netns fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.NamespaceResource.AddNetworkToUserNamespace",
                         &reply,
@@ -310,7 +311,7 @@ int nsresource_add_netif(
                 return 0;
         }
         if (error_id)
-                return log_debug_errno(varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
+                return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
 
         _cleanup_free_ char *host_interface_name = NULL, *namespace_interface_name = NULL;
         r = sd_json_dispatch(

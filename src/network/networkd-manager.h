@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
+#include "sd-varlink.h"
 
 #include "dhcp-duid-internal.h"
 #include "firewall-util.h"
@@ -17,7 +18,6 @@
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
-#include "varlink.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -26,7 +26,7 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
