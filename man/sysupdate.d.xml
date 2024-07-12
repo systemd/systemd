@@ -65,6 +65,17 @@
     <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
+    <para>System Administrators must take <emphasis>extreme</emphasis> care when overriding any transfer or
+    optional feature definitions, other than to turn on or off features!
+    As with any configuration defined in <filename>/usr</filename> and overridden in
+    <filename>/etc</filename>, an update to the host system can break the administrator overrides.
+    However, <command>systemd-sysupdate</command> is uniquely destructive: a broken configuration could
+    prevent the system from updating (best case), or completely destroy an installation by wiping the wrong
+    partition.
+    Distributions must take care to avoid breaking systems where overrides exist only to turn on or off
+    optional features; supporting (or not) everything else is up to distribution policy.
+    <emphasis>You have been warned.</emphasis></para>
+
     <para>Each <filename>*.transfer</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
   </refsect1>
 
