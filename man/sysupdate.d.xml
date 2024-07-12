@@ -487,6 +487,38 @@
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ChangeLog=</varname></term>
+
+        <listitem><para>Optionally takes a human-presentable URL to a website containing a change-log of
+        the resource being updated.</para>
+
+        <para>This may be set multiple times in a single transfer definition. If set multiple times, the
+        values are gathered into a list of URLs. Adding a value of the empty string will clear the existing
+        list of all values.</para>
+
+        <para>This setting supports specifier expansion. See below for details on supported
+        specifiers. This setting will also expand the <literal>@v</literal> wildcard pattern. See above
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AppStream=</varname></term>
+
+        <listitem><para>Optionally takes a URL to an
+        <ulink url="https://www.freedesktop.org/software/appstream/docs/chap-CatalogData.html">AppStream catalog</ulink>
+        XML file. This may be used by software centers (such as GNOME Software or KDE Discover) to present
+        rich metadata about the resources being updated. This includes display names, changelogs, icons,
+        and more. The specified catalog must include <ulink url="https://systemd.io/APPSTREAM_BUNDLE">special metadata</ulink>
+        to be correctly associated with <command>systemd-sysupdate</command> by the software centers.</para>
+
+        <para>This setting supports specifier expansion. See below for details on supported
+        specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
