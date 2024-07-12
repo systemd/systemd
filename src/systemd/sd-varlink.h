@@ -51,20 +51,20 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_varlink sd_varlink;
 typedef struct sd_varlink_server sd_varlink_server;
 
-__extension__ typedef enum sd_varlink_reply_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_reply_flags_t) {
         SD_VARLINK_REPLY_ERROR     = 1 << 0,
         SD_VARLINK_REPLY_CONTINUES = 1 << 1,
         SD_VARLINK_REPLY_LOCAL     = 1 << 2,
         _SD_ENUM_FORCE_S64(SD_VARLINK_REPLY)
 } sd_varlink_reply_flags_t;
 
-__extension__ typedef enum sd_varlink_method_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_method_flags_t) {
         SD_VARLINK_METHOD_ONEWAY = 1 << 0,
         SD_VARLINK_METHOD_MORE   = 2 << 1,
         _SD_ENUM_FORCE_S64(SD_VARLINK_METHOD)
 } sd_varlink_method_flags_t;
 
-__extension__ typedef enum sd_varlink_server_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
         SD_VARLINK_SERVER_ROOT_ONLY        = 1 << 0, /* Only accessible by root */
         SD_VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         SD_VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
@@ -73,7 +73,7 @@ __extension__ typedef enum sd_varlink_server_flags_t {
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;
 
-__extension__ typedef enum sd_varlink_invocation_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_invocation_flags_t) {
         SD_VARLINK_ALLOW_LISTEN = 1 << 0,
         SD_VARLINK_ALLOW_ACCEPT = 1 << 1,
         _SD_ENUM_FORCE_S64(SD_VARLINK_INVOCATION)
