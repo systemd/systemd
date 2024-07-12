@@ -34,7 +34,7 @@ _SD_BEGIN_DECLARATIONS;
  * format on-the-fly. Can also parse the textual format back to C structures. Validates the interface
  * definitions for internal consistency and validates JSON objects against the interface definitions. */
 
-__extension__ typedef enum sd_varlink_symbol_type_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_type_t) {
         SD_VARLINK_ENUM_TYPE,
         SD_VARLINK_STRUCT_TYPE,
         SD_VARLINK_METHOD,
@@ -46,7 +46,7 @@ __extension__ typedef enum sd_varlink_symbol_type_t {
         _SD_ENUM_FORCE_S64(SD_VARLINK_SYMBOL)
 } sd_varlink_symbol_type_t;
 
-__extension__ typedef enum sd_varlink_field_type_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_type_t) {
         _SD_VARLINK_FIELD_TYPE_END_MARKER = 0, /* zero type means: this is the last entry in the fields[] array of VarlinkSymbol */
         SD_VARLINK_STRUCT,
         SD_VARLINK_ENUM,
@@ -63,7 +63,7 @@ __extension__ typedef enum sd_varlink_field_type_t {
         _SD_ENUM_FORCE_S64(SD_VARLINK_FIELD)
 } sd_varlink_field_type_t;
 
-__extension__ typedef enum sd_varlink_field_direction_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_direction_t) {
         SD_VARLINK_REGULAR,
         SD_VARLINK_INPUT,
         SD_VARLINK_OUTPUT,
@@ -72,7 +72,7 @@ __extension__ typedef enum sd_varlink_field_direction_t {
         _SD_ENUM_FORCE_S64(SD_VARLINK_FIELD_DIRECTION)
 } sd_varlink_field_direction_t;
 
-__extension__ typedef enum sd_varlink_field_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_flags_t) {
         SD_VARLINK_ARRAY                = 1 << 0,
         SD_VARLINK_MAP                  = 1 << 1,
         SD_VARLINK_NULLABLE             = 1 << 2,
@@ -189,7 +189,7 @@ struct sd_varlink_interface {
                 .symbol_type = _SD_VARLINK_INTERFACE_COMMENT,           \
         }
 
-__extension__ typedef enum sd_varlink_idl_format_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_idl_format_flags_t) {
         SD_VARLINK_IDL_FORMAT_COLOR      = 1 << 0,
         SD_VARLINK_IDL_FORMAT_COLOR_AUTO = 1 << 1,
         _SD_ENUM_FORCE_S64(SD_VARLINK_IDL_FORMAT)

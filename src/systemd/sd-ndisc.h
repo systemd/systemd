@@ -37,7 +37,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_ndisc sd_ndisc;
 
-__extension__ typedef enum sd_ndisc_event_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_ndisc_event_t) {
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
         SD_NDISC_EVENT_NEIGHBOR,
