@@ -11,10 +11,13 @@ if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
 fi
 
 # We can't configure the source or build directory so we use symlinks instead to make sure they are in the
-# expected locations.
+# expected locations. Because we run with --noextract we are responsible for making sure the source files
+# appear in src/. This means not only the systemd source directory, but also the patches and configuration
+# files that are shipped in the packaging repository. To achieve this, instead of symlinking the systemd
+# sources and build directory directly into "pkg/$ID/src", we symlink them into "pkg/$ID" and then symlink
+# "pkg/$ID" to "pkg/$ID/src".
 ln --symbolic "$SRCDIR" "pkg/$ID/systemd"
 ln --symbolic "$BUILDDIR" "pkg/$ID/build"
-# Because we run with --noextract we are responsible for making sure the source files appear in src/.
 ln --symbolic . "pkg/$ID/src"
 
 MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
