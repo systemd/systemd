@@ -5,6 +5,7 @@
 #if HAVE_QRENCODE
 #include <qrencode.h>
 
+#include "ansi-color.h"
 #include "dlfcn-util.h"
 #include "locale-util.h"
 #include "log.h"
@@ -52,7 +53,7 @@ static void print_border(FILE *output, unsigned width, unsigned row, unsigned co
                 if (fd < 0)
                         return (void)log_debug_errno(errno, "Failed to get file descriptor from the file stream: %m");
 
-                r = set_terminal_cursor_position(fd, row, column);
+                r = terminal_set_cursor_position(fd, row, column);
                 if (r < 0)
                         log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
@@ -64,7 +65,7 @@ static void print_border(FILE *output, unsigned width, unsigned row, unsigned co
                                 fputs(UNICODE_FULL_BLOCK, output);
 
                         fputs(ANSI_NORMAL "\n", output);
-                        r = set_terminal_cursor_position(fd, row + 1, column);
+                        r = terminal_set_cursor_position(fd, row + 1, column);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
                 }
@@ -96,7 +97,7 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned in
                 if (fd < 0)
                         return (void)log_debug_errno(errno, "Failed to get file descriptor from the file stream: %m");
 
-                r = set_terminal_cursor_position(fd, row + move_down, column);
+                r = terminal_set_cursor_position(fd, row + move_down, column);
                 if (r < 0)
                         log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
@@ -127,7 +128,7 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned in
 
                         for (unsigned x = 0; x < 4; x++)
                                 fputs(UNICODE_FULL_BLOCK, output);
-                        r = set_terminal_cursor_position(fd, row + move_down, column);
+                        r = terminal_set_cursor_position(fd, row + move_down, column);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
                         move_down += 1;
@@ -206,7 +207,7 @@ int print_qrcode_full(FILE *out, const char *header, const char *string, unsigne
                         row = tty_height - (qr_code_height / 2 ) - 1;
 
                 if (header) {
-                        r = set_terminal_cursor_position(fd, row - 2, tty_width - qr_code_width - 2);
+                        r = terminal_set_cursor_position(fd, row - 2, tty_width - qr_code_width - 2);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
