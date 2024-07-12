@@ -93,7 +93,7 @@ static void combine_measured_flag(int *value, int measured) {
 
 /* Combine initrds by concatenation in memory */
 static EFI_STATUS combine_initrds(
-                struct iovec initrds[], size_t n_initrds,
+                const struct iovec initrds[], size_t n_initrds,
                 Pages *ret_initrd_pages, size_t *ret_initrd_size) {
 
         size_t n = 0;
@@ -320,7 +320,7 @@ static void named_addon_free_many(NamedAddon *a, size_t n) {
 
 static void install_addon_devicetrees(
                 struct devicetree_state *dt_state,
-                NamedAddon *addons,
+                const NamedAddon *addons,
                 size_t n_addons,
                 int *parameters_measured) {
 
@@ -370,7 +370,7 @@ static inline void iovec_array_extend(struct iovec **arr, size_t *n_arr, struct 
 static void measure_and_append_ucode_addons(
                 struct iovec **all_initrds,
                 size_t *n_all_initrds,
-                NamedAddon *ucode_addons,
+                const NamedAddon *ucode_addons,
                 size_t n_ucode_addons,
                 int *sections_measured) {
 
@@ -406,7 +406,7 @@ static void measure_and_append_ucode_addons(
 }
 
 static void extend_initrds(
-                struct iovec initrds[static _INITRD_MAX],
+                const struct iovec initrds[static _INITRD_MAX],
                 struct iovec **all_initrds,
                 size_t *n_all_initrds) {
 
@@ -734,7 +734,7 @@ static void generate_sidecar_initrds(
 
 static void generate_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
                 struct iovec initrds[static _INITRD_MAX]) {
 
         assert(loaded_image);
@@ -778,7 +778,7 @@ static void generate_embedded_initrds(
 
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
                 struct iovec initrds[static _INITRD_MAX]) {
 
         assert(loaded_image);
