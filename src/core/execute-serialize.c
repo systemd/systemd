@@ -3348,7 +3348,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 c->apparmor_profile_ignore = true;
                                 val++;
                         } else
-                                c->apparmor_profile_ignore = true;
+                                c->apparmor_profile_ignore = false;
 
                         r = free_and_strdup(&c->apparmor_profile, val);
                         if (r < 0)
