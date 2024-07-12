@@ -3576,7 +3576,7 @@ static int apply_mount_namespace(
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
 
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
-                .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
+                .mount_nosuid = needs_sandboxing && context->no_new_privileges && !use_selinux,
 
                 .protect_home = needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                 .protect_hostname = needs_sandboxing ? context->protect_hostname : PROTECT_HOSTNAME_NO,
