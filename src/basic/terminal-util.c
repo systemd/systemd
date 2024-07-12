@@ -1813,6 +1813,6 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        (void) tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios);
+        RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios)));
         return r;
 }
