@@ -14,10 +14,6 @@
 #include "string-util.h"
 
 int reset_all_signal_handlers(void) {
-        static const struct sigaction sa = {
-                .sa_handler = SIG_DFL,
-                .sa_flags = SA_RESTART,
-        };
         int ret = 0, r;
 
         for (int sig = 1; sig < _NSIG; sig++) {
@@ -28,7 +24,7 @@ int reset_all_signal_handlers(void) {
 
                 /* On Linux the first two RT signals are reserved by glibc, and sigaction() will return
                  * EINVAL for them. */
-                r = RET_NERRNO(sigaction(sig, &sa, NULL));
+                r = RET_NERRNO(sigaction(sig, &sigaction_default, NULL));
                 if (r != -EINVAL)
                         RET_GATHER(ret, r);
         }
@@ -295,3 +291,13 @@ void propagate_signal(int sig, siginfo_t *siginfo) {
         if (rt_tgsigqueueinfo(p, gettid(), sig, siginfo) < 0)
                 assert_se(kill(p, sig) >= 0);
 }
+
+const struct sigaction sigaction_ignore = {
+        .sa_handler = SIG_IGN,
+        .sa_flags = SA_RESTART,
+};
+
+const struct sigaction sigaction_default = {
+        .sa_handler = SIG_DFL,
+        .sa_flags = SA_RESTART,
+};

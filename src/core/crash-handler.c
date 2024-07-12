@@ -85,10 +85,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 else if (pid == 0) {
                         /* Enable default signal handler for core dump */
 
-                        sa = (struct sigaction) {
-                                .sa_handler = SIG_DFL,
-                        };
-                        (void) sigaction(sig, &sa, NULL);
+                        (void) sigaction(sig, &sigaction_default, NULL);
 
                         /* Don't limit the coredump size */
                         (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));
