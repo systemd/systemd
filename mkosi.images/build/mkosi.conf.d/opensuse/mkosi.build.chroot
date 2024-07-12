@@ -4,20 +4,16 @@ set -e
 
 . mkosi.functions
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 ID="${ID%-*}"
 
-if [ ! -f "pkg/$ID/systemd.spec" ]; then
+if [[ ! -f "pkg/$ID/systemd.spec" ]]; then
     echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
@@ -28,7 +24,7 @@ fi
 # extension.
 find "pkg/$ID" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
 
-if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.20"; then
+if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.20'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated.
     tee --append /usr/lib/rpm/suse/macros <<'EOF'
 %install %{debug_package}\
@@ -122,7 +118,7 @@ build() {
 }
 
 if ! build; then
-    if [ ! -s /tmp/unpackaged-files ]; then
+    if [[ ! -s /tmp/unpackaged-files ]]; then
         exit 1
     fi
 
