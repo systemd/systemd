@@ -9,13 +9,13 @@
  *
  * Compare with io.systemd.oom where the client/server roles of oomd and the service manager are swapped! */
 
-static VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD(
                 SubscribeManagedOOMCGroups,
-                VARLINK_DEFINE_OUTPUT_BY_TYPE(cgroups, ControlGroup, VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(cgroups, ControlGroup, SD_VARLINK_ARRAY));
 
-static VARLINK_DEFINE_ERROR(SubscriptionTaken);
+static SD_VARLINK_DEFINE_ERROR(SubscriptionTaken);
 
-VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_ManagedOOM,
                 "io.systemd.ManagedOOM",
                 &vl_method_SubscribeManagedOOMCGroups,

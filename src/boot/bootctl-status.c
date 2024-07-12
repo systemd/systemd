@@ -835,7 +835,7 @@ int verb_unlink(int argc, char *argv[], void *userdata) {
         return verb_list(argc, argv, userdata);
 }
 
-int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
@@ -843,10 +843,10 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
-        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ false,
@@ -876,7 +876,7 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
         for (size_t i = 0; i < config.n_entries; i++) {
                 if (previous) {
-                        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
                         if (r < 0)
                                 return r;
 
@@ -889,7 +889,7 @@ int vl_method_list_boot_entries(Varlink *link, sd_json_variant *parameters, Varl
         }
 
         if (!previous)
-                return varlink_error(link, "io.systemd.BootControl.NoSuchBootEntry", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.NoSuchBootEntry", NULL);
 
-        return varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
 }

@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-varlink.h"
+
 #include "errno-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journalctl.h"
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
-#include "varlink.h"
+#include "varlink-util.h"
 
-static int varlink_connect_journal(Varlink **ret) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+static int varlink_connect_journal(sd_varlink **ret) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         const char *address;
         int r;
 
@@ -19,19 +21,19 @@ static int varlink_connect_journal(Varlink **ret) {
                   strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
                   "/run/systemd/journal/io.systemd.journal";
 
-        r = varlink_connect_address(&vl, address);
+        r = sd_varlink_connect_address(&vl, address);
         if (r < 0)
                 return r;
 
-        (void) varlink_set_description(vl, "journal");
-        (void) varlink_set_relative_timeout(vl, USEC_INFINITY);
+        (void) sd_varlink_set_description(vl, "journal");
+        (void) sd_varlink_set_relative_timeout(vl, USEC_INFINITY);
 
         *ret = TAKE_PTR(vl);
         return 0;
 }
 
 int action_flush_to_var(void) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(arg_action == ACTION_FLUSH);
@@ -54,7 +56,7 @@ int action_flush_to_var(void) {
 }
 
 int action_relinquish_var(void) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(arg_action == ACTION_RELINQUISH_VAR);
@@ -72,7 +74,7 @@ int action_relinquish_var(void) {
 }
 
 int action_rotate(void) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(IN_SET(arg_action, ACTION_ROTATE, ACTION_ROTATE_AND_VACUUM));
@@ -121,7 +123,7 @@ int action_rotate_and_vacuum(void) {
 }
 
 int action_sync(void) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(arg_action == ACTION_SYNC);
