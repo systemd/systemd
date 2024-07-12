@@ -63,6 +63,12 @@ const BusLocator* const bus_systemd_mgr = &(BusLocator){
         .interface = "org.freedesktop.systemd1.Manager"
 };
 
+const BusLocator* const bus_sysupdate_mgr = &(BusLocator){
+        .destination = "org.freedesktop.sysupdate1",
+        .path = "/org/freedesktop/sysupdate1",
+        .interface = "org.freedesktop.sysupdate1.Manager"
+};
+
 const BusLocator* const bus_timedate = &(BusLocator){
         .destination = "org.freedesktop.timedate1",
         .path = "/org/freedesktop/timedate1",
