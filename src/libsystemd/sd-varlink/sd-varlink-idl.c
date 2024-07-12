@@ -482,7 +482,7 @@ _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface,
 
         int r;
 
-        assert(interface);
+        assert_return(interface, -EINVAL);
 
         if (!f)
                 f = stdout;
