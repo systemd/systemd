@@ -1438,9 +1438,12 @@ static int os_release_status(void) {
 }
 
 static int setup_os_release(RuntimeScope scope) {
-        _cleanup_free_ char *os_release_dst = NULL;
+        char os_release_dst[STRLEN("/run/user//systemd/propagate/.os-release-stage/os-release") + DECIMAL_STR_MAX(uid_t)] =
+                "/run/systemd/propagate/.os-release-stage/os-release";
         const char *os_release_src = "/etc/os-release";
         int r;
+
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
 
         if (access("/etc/os-release", F_OK) < 0) {
                 if (errno != ENOENT)
@@ -1449,22 +1452,17 @@ static int setup_os_release(RuntimeScope scope) {
                 os_release_src = "/usr/lib/os-release";
         }
 
-        if (scope == RUNTIME_SCOPE_SYSTEM) {
-                os_release_dst = strdup("/run/systemd/propagate/.os-release-stage/os-release");
-                if (!os_release_dst)
-                        return log_oom_debug();
-        } else {
-                if (asprintf(&os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid()) < 0)
-                        return log_oom_debug();
-        }
+        if (scope == RUNTIME_SCOPE_USER)
+                xsprintf(os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid());
 
         r = mkdir_parents_label(os_release_dst, 0755);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to create parent directory of '%s', ignoring: %m", os_release_dst);
 
         r = copy_file_atomic(os_release_src, os_release_dst, 0644, COPY_MAC_CREATE|COPY_REPLACE);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to copy '%s' to '%s', ignoring: %m",
+                                       os_release_src, os_release_dst);
 
         return 0;
 }
