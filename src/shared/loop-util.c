@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "data-fd-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -251,7 +252,7 @@ static int loop_configure(
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
-        uint64_t diskseq = 0;
+        uint64_t diskseq;
         dev_t devno;
         int r;
 
@@ -352,8 +353,9 @@ static int loop_configure(
                         return r;
         }
 
-        r = fd_get_diskseq(loop_with_fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
+        /* Don't verify since the current diskseq value doesn't match the value stored in the db anymore. */
+        r = device_get_diskseq(dev, loop_with_fd, &diskseq);
+        if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
 
         switch (lock_op & ~LOCK_NB) {
@@ -866,7 +868,7 @@ int loop_device_open(
         dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
         ino_t backing_inode = 0;
-        uint64_t diskseq = 0;
+        uint64_t diskseq;
         LoopDevice *d;
         const char *s;
         int r, nr = -1;
@@ -906,8 +908,8 @@ int loop_device_open(
                 backing_inode = info.lo_inode;
         }
 
-        r = fd_get_diskseq(fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
+        r = device_get_diskseq(dev, fd, &diskseq);
+        if (r < 0)
                 return r;
 
         uint32_t sector_size;
