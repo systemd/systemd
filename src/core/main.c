@@ -2444,6 +2444,11 @@ static int initialize_runtime(
                                 log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 }
 
+                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+                 * not affect the permitted and effective sets which are important for the manager itself to
+                 * operate. */
+                (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+
                 break;
         }
 
@@ -3127,11 +3132,6 @@ int main(int argc, char *argv[]) {
 
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
-
-                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
-                 * not affect the permitted and effective sets which are important for the manager itself to
-                 * operate. */
-                capability_ambient_set_apply(0, /* also_inherit= */ false);
 
                 if (mac_init() < 0) {
                         error_message = "Failed to initialize MAC support";
