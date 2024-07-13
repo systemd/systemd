@@ -2435,11 +2435,15 @@ static int initialize_runtime(
                                                 "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
                 }
 
-                (void) mkdir_p_label(p, 0755);
-                (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
-                r = setup_os_release(RUNTIME_SCOPE_USER);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
+                if (!skip_setup) {
+                        (void) mkdir_p_label(p, 0755);
+                        (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+
+                        r = setup_os_release(RUNTIME_SCOPE_USER);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
+                }
+
                 break;
         }
 
