@@ -880,19 +880,14 @@ int import_credentials(void) {
                 RET_GATHER(r, merge_credentials_trusted(received_creds_dir));
 
         } else {
-                _cleanup_free_ char *v = NULL;
+                bool import;
 
-                r = proc_cmdline_get_key("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX, &v);
+                r = proc_cmdline_get_bool("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &import);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to check if 'systemd.import_credentials=' kernel command line option is set, ignoring: %m");
-                else if (r > 0) {
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse 'systemd.import_credentials=' parameter, ignoring: %m");
-                        else if (r == 0) {
-                                log_notice("systemd.import_credentials=no is set, skipping importing of credentials.");
-                                return 0;
-                        }
+                        log_debug_errno(r, "Failed to check systemd.import_credentials= kernel command line option, proceeding: %m");
+                else if (!import) {
+                        log_notice("systemd.import_credentials=no is set, skipping importing of credentials.");
+                        return 0;
                 }
 
                 r = import_credentials_boot();
