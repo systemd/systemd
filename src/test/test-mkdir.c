@@ -75,7 +75,7 @@ TEST(mkdir_p_safe) {
         assert_se(is_dir(q, false) > 0);
         assert_se(is_dir(q, true) > 0);
 
-        assert_se(mkdir_p_safe(tmp, "/tmp/test-mkdir-outside", 0755, UID_INVALID, GID_INVALID, 0) == -ENOTDIR);
+        ASSERT_ERROR(mkdir_p_safe(tmp, "/tmp/test-mkdir-outside", 0755, UID_INVALID, GID_INVALID, 0), EINVAL);
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "zero-mode/should-fail-to-create-child"));
