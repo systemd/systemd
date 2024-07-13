@@ -2392,6 +2392,33 @@ static int initialize_runtime(
                 if (r < 0)
                         log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
 
+                if (!cap_test_all(arg_capability_bounding_set)) {
+                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
+                                return log_struct_errno(LOG_EMERG, r,
+                                                        LOG_MESSAGE("Failed to drop capability bounding set of usermode helpers: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR);
+                        }
+
+                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to drop capability bounding set";
+                                return log_struct_errno(LOG_EMERG, r,
+                                                        LOG_MESSAGE("Failed to drop capability bounding set: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_STR);
+                        }
+                }
+
+                if (arg_no_new_privs) {
+                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                                *ret_error_message = "Failed to disable new privileges";
+                                return log_struct_errno(LOG_EMERG, errno,
+                                                        LOG_MESSAGE("Failed to disable new privileges: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
+                        }
+                }
+
                 break;
 
         case RUNTIME_SCOPE_USER: {
@@ -2423,36 +2450,6 @@ static int initialize_runtime(
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
                         log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-
-                if (!cap_test_all(arg_capability_bounding_set)) {
-                        r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
-                        if (r < 0) {
-                                *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
-                                return log_struct_errno(LOG_EMERG, r,
-                                                        LOG_MESSAGE("Failed to drop capability bounding set of usermode helpers: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR);
-                        }
-
-                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
-                        if (r < 0) {
-                                *ret_error_message = "Failed to drop capability bounding set";
-                                return log_struct_errno(LOG_EMERG, r,
-                                                        LOG_MESSAGE("Failed to drop capability bounding set: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_STR);
-                        }
-                }
-
-                if (arg_no_new_privs) {
-                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
-                                *ret_error_message = "Failed to disable new privileges";
-                                return log_struct_errno(LOG_EMERG, errno,
-                                                        LOG_MESSAGE("Failed to disable new privileges: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
-                        }
-                }
-        }
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
