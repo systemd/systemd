@@ -1369,18 +1369,6 @@ static int bump_rlimit_memlock(const struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static void test_usr(void) {
-
-        /* Check that /usr is either on the same file system as / or mounted already. */
-
-        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) <= 0)
-                return;
-
-        log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult https://systemd.io/SEPARATE_USR_IS_BROKEN for more information.");
-}
-
 static int enforce_syscall_archs(Set *archs) {
 #if HAVE_SECCOMP
         int r;
@@ -1438,9 +1426,12 @@ static int os_release_status(void) {
 }
 
 static int setup_os_release(RuntimeScope scope) {
-        _cleanup_free_ char *os_release_dst = NULL;
+        char os_release_dst[STRLEN("/run/user//systemd/propagate/.os-release-stage/os-release") + DECIMAL_STR_MAX(uid_t)] =
+                "/run/systemd/propagate/.os-release-stage/os-release";
         const char *os_release_src = "/etc/os-release";
         int r;
+
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
 
         if (access("/etc/os-release", F_OK) < 0) {
                 if (errno != ENOENT)
@@ -1449,22 +1440,17 @@ static int setup_os_release(RuntimeScope scope) {
                 os_release_src = "/usr/lib/os-release";
         }
 
-        if (scope == RUNTIME_SCOPE_SYSTEM) {
-                os_release_dst = strdup("/run/systemd/propagate/.os-release-stage/os-release");
-                if (!os_release_dst)
-                        return log_oom_debug();
-        } else {
-                if (asprintf(&os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid()) < 0)
-                        return log_oom_debug();
-        }
+        if (scope == RUNTIME_SCOPE_USER)
+                xsprintf(os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid());
 
         r = mkdir_parents_label(os_release_dst, 0755);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to create parent directory of '%s', ignoring: %m", os_release_dst);
 
         r = copy_file_atomic(os_release_src, os_release_dst, 0644, COPY_MAC_CREATE|COPY_REPLACE);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to copy '%s' to '%s', ignoring: %m",
+                                       os_release_src, os_release_dst);
 
         return 0;
 }
@@ -2341,6 +2327,7 @@ static int initialize_runtime(
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
                 const char **ret_error_message) {
+
         int r;
 
         assert(ret_error_message);
@@ -2365,20 +2352,29 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
+                        /* Check that /usr/ is either on the same file system as / or mounted already. */
+                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup = */ true) > 0) {
+                                *ret_error_message = "Refusing to run in unsupported environment where /usr/ is not populated";
+                                return -ENOEXEC;
+                        }
+
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
                         (void) import_credentials();
 
                         (void) os_release_status();
-                        (void) hostname_setup(true);
+                        (void) hostname_setup(/* really = */ true);
+                        (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
+                                                (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
+                                                (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
+                                                /* ret_machine_id = */ NULL);
 
-                        machine_id_setup(/* root= */ NULL, arg_machine_id, (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
-                                        (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0), /* ret_machine_id = */ NULL);
                         (void) loopback_setup();
+
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
-                        test_usr();
+
                         write_container_id();
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
@@ -2391,40 +2387,6 @@ static int initialize_runtime(
                 r = watchdog_set_device(arg_watchdog_device);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
-
-                break;
-
-        case RUNTIME_SCOPE_USER: {
-                _cleanup_free_ char *p = NULL;
-
-                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
-                 * user mode. In system mode mount_setup() already did that. */
-
-                r = xdg_user_runtime_dir(&p, "/systemd");
-                if (r < 0) {
-                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
-                        return log_struct_errno(LOG_EMERG, r,
-                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
-                }
-
-                (void) mkdir_p_label(p, 0755);
-                (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
-                r = setup_os_release(RUNTIME_SCOPE_USER);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
-                break;
-        }
-
-        default:
-                assert_not_reached();
-        }
-
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
 
                 if (!cap_test_all(arg_capability_bounding_set)) {
                         r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
@@ -2452,7 +2414,47 @@ static int initialize_runtime(
                                                         "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
                         }
                 }
+
+                break;
+
+        case RUNTIME_SCOPE_USER: {
+                _cleanup_free_ char *p = NULL;
+
+                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
+                 * user mode. In system mode mount_setup() already did that. */
+
+                r = xdg_user_runtime_dir(&p, "/systemd");
+                if (r < 0) {
+                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
+                        return log_struct_errno(LOG_EMERG, r,
+                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
+                }
+
+                if (!skip_setup) {
+                        (void) mkdir_p_label(p, 0755);
+                        (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+
+                        r = setup_os_release(RUNTIME_SCOPE_USER);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
+                }
+
+                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+                 * not affect the permitted and effective sets which are important for the manager itself to
+                 * operate. */
+                (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+
+                break;
         }
+
+        default:
+                assert_not_reached();
+        }
+
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
+                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
@@ -3126,11 +3128,6 @@ int main(int argc, char *argv[]) {
 
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
-
-                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
-                 * not affect the permitted and effective sets which are important for the manager itself to
-                 * operate. */
-                capability_ambient_set_apply(0, /* also_inherit= */ false);
 
                 if (mac_init() < 0) {
                         error_message = "Failed to initialize MAC support";
