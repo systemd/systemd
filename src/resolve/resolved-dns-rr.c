@@ -2097,21 +2097,25 @@ DnsSvcParam *dns_svc_params_copy(DnsSvcParam *first) {
         return copy;
 }
 
-int dns_txt_item_new_empty(DnsTxtItem **ret) {
+
+int dns_txt_item_new(DnsTxtItem **ret, size_t len) {
         DnsTxtItem *i;
 
         assert(ret);
 
-        /* RFC 6763, section 6.1 suggests to treat
-         * empty TXT RRs as equivalent to a TXT record
-         * with a single empty string. */
-
-        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+        i = malloc0(offsetof(DnsTxtItem, data) + len + 1); /* for safety reasons we add an extra NUL byte */
         if (!i)
                 return -ENOMEM;
-
+        i->length = len;
         *ret = i;
         return 0;
+}
+
+/* RFC 6763, section 6.1 suggests to treat
+* empty TXT RRs as equivalent to a TXT record
+* with a single empty string. */
+int dns_txt_item_new_empty(DnsTxtItem **ret) {
+        return dns_txt_item_new(ret, 0);
 }
 
 int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size) {

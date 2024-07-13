@@ -11,6 +11,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Supported on GCC >= 10 and clang */
+#ifndef __has_builtin
+  #define __has_builtin(x) 0
+#endif
+/* Supported on GCC >= 14 and clang */
+#ifndef __has_feature
+  #define __has_feature(x) 0
+#endif
+/* Supported on GCC >= 14 and clang */
+#ifndef __has_extension
+  #define __has_extension __has_feature
+#endif
+/* Supported on GCC >= 5 and clang */
+#ifndef __has_attribute
+  #define __has_attribute(x) 0
+#endif
+
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
         _Pragma("GCC diagnostic push");                                 \
@@ -84,6 +101,12 @@
 #  define _fallthrough_ __attribute__((__fallthrough__))
 #else
 #  define _fallthrough_
+#endif
+
+#if __has_attribute(counted_by)
+#  define _counted_by_(n) __attribute__((__counted_by__(n)))
+#else
+#  define _counted_by_(n)
 #endif
 
 #define XSTRINGIFY(x) #x

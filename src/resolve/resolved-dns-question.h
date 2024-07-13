@@ -21,7 +21,7 @@ struct DnsQuestionItem {
 struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
-        DnsQuestionItem items[];
+        DnsQuestionItem items[] _counted_by_(n_allocated);
 };
 
 DnsQuestion *dns_question_new(size_t n);

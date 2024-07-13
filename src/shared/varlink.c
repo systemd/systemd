@@ -104,7 +104,7 @@ struct VarlinkJsonQueueItem {
         LIST_FIELDS(VarlinkJsonQueueItem, queue);
         sd_json_variant *data;
         size_t n_fds;
-        int fds[];
+        int fds[] _counted_by_(n_fds);
 };
 
 struct Varlink {

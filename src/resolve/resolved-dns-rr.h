@@ -89,7 +89,7 @@ struct DnsResourceKey {
 struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
-        uint8_t data[];
+        uint8_t data[] _counted_by_(length);
 };
 
 struct DnsSvcParam {
@@ -397,6 +397,7 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
+int dns_txt_item_new(DnsTxtItem **ret, size_t len);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
 DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *i);
