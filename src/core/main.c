@@ -1369,18 +1369,6 @@ static int bump_rlimit_memlock(const struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static void test_usr(void) {
-
-        /* Check that /usr is either on the same file system as / or mounted already. */
-
-        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) <= 0)
-                return;
-
-        log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult https://systemd.io/SEPARATE_USR_IS_BROKEN for more information.");
-}
-
 static int enforce_syscall_archs(Set *archs) {
 #if HAVE_SECCOMP
         int r;
@@ -2339,6 +2327,7 @@ static int initialize_runtime(
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
                 const char **ret_error_message) {
+
         int r;
 
         assert(ret_error_message);
@@ -2363,6 +2352,12 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
+                        /* Check that /usr/ is either on the same file system as / or mounted already. */
+                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup = */ true) > 0) {
+                                *ret_error_message = "Refusing to run in unsupported environment where /usr/ is not populated";
+                                return -ENOEXEC;
+                        }
+
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
@@ -2376,9 +2371,10 @@ static int initialize_runtime(
                                                 /* ret_machine_id = */ NULL);
 
                         (void) loopback_setup();
+
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
-                        test_usr();
+
                         write_container_id();
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
