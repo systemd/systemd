@@ -416,6 +416,11 @@ static int write_requires_after(FILE *f, const char *where, const char *opts) {
                                 "x-systemd.requires\0", STRV_MAKE_CONST("Requires", "After"));
 }
 
+static int write_wants_after(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.wants\0", STRV_MAKE_CONST("Wants", "After"));
+}
+
 static int write_before(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
                                 "x-systemd.before\0", STRV_MAKE_CONST("Before"));
@@ -466,6 +471,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
                 return r;
 
         r = write_requires_after(f, where, opts);
+        if (r < 0)
+                return r;
+
+        r = write_wants_after(f, where, opts);
         if (r < 0)
                 return r;
 
