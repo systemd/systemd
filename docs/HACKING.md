@@ -29,7 +29,7 @@ For some components (most importantly, systemd/PID 1 itself) this is not possibl
 In order to simplify testing for cases like this we provide a set of `mkosi` config files directly in the source tree.
 [mkosi](https://mkosi.systemd.io/)
 is a tool for building clean OS images from an upstream distribution in combination with a fresh build of the project in the local working directory.
-To make use of this, please install `mkosi` v19 or newer using your distribution's package manager or from the
+To make use of this, please install `mkosi` v23 or newer using your distribution's package manager or from the
 [GitHub repository](https://github.com/systemd/mkosi).
 `mkosi` will build an image for the host distro by default.
 First, run `mkosi genkey` to generate a key and certificate to be used for secure boot and verity signing.
@@ -76,8 +76,8 @@ pid1 or `systemctl soft-reboot` to restart everything.
 Putting this all together, here's a series of commands for preparing a patch for systemd:
 
 ```sh
-$ git clone https://github.com/systemd/mkosi.git  # If mkosi v19 or newer is not packaged by your distribution
-$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v19 or newer is not packaged by your distribution
+$ git clone https://github.com/systemd/mkosi.git  # If mkosi v23 or newer is not packaged by your distribution
+$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v23 or newer is not packaged by your distribution
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
