@@ -4,7 +4,7 @@
 #include "string-util.h"
 #include "sysupdate-update-set.h"
 
-UpdateSet *update_set_free(UpdateSet *us) {
+UpdateSet* update_set_free(UpdateSet *us) {
         if (!us)
                 return NULL;
 

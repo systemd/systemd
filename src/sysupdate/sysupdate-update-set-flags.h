@@ -9,6 +9,6 @@ typedef enum UpdateSetFlags {
         UPDATE_PROTECTED = 1 << 4,
 } UpdateSetFlags;
 
-const char *update_set_flags_to_color(UpdateSetFlags flags);
-const char *update_set_flags_to_glyph(UpdateSetFlags flags);
-const char *update_set_flags_to_string(UpdateSetFlags flags);
+const char* update_set_flags_to_color(UpdateSetFlags flags);
+const char* update_set_flags_to_glyph(UpdateSetFlags flags);
+const char* update_set_flags_to_string(UpdateSetFlags flags);
