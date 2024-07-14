@@ -795,7 +795,7 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         overall = (unsigned) ((base + scaled) / 100);
         assert(overall <= 100);
 
-        log_debug("Transfer %" PRIu64 "/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
+        log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
         return sd_notifyf(/* unset= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
