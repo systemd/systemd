@@ -17,5 +17,5 @@ struct UpdateSet {
         size_t n_instances;
 };
 
-UpdateSet *update_set_free(UpdateSet *us);
+UpdateSet* update_set_free(UpdateSet *us);
 int update_set_cmp(UpdateSet *const*a, UpdateSet *const*b);

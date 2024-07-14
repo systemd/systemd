@@ -4,7 +4,7 @@
 #include "sysupdate-update-set-flags.h"
 #include "terminal-util.h"
 
-const char *update_set_flags_to_color(UpdateSetFlags flags) {
+const char* update_set_flags_to_color(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return (flags & UPDATE_NEWEST) ? ansi_highlight_grey() : ansi_grey();
@@ -21,7 +21,7 @@ const char *update_set_flags_to_color(UpdateSetFlags flags) {
         return NULL;
 }
 
-const char *update_set_flags_to_glyph(UpdateSetFlags flags) {
+const char* update_set_flags_to_glyph(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return special_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
@@ -38,7 +38,7 @@ const char *update_set_flags_to_glyph(UpdateSetFlags flags) {
         return " ";
 }
 
-const char *update_set_flags_to_string(UpdateSetFlags flags) {
+const char* update_set_flags_to_string(UpdateSetFlags flags) {
 
         switch ((unsigned) flags) {
 

@@ -67,7 +67,7 @@ typedef struct Context {
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 } Context;
 
-static Context *context_free(Context *c) {
+static Context* context_free(Context *c) {
         if (!c)
                 return NULL;
 
@@ -86,7 +86,7 @@ static Context *context_free(Context *c) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 
-static Context *context_new(void) {
+static Context* context_new(void) {
         /* For now, no fields to initialize non-zero */
         return new0(Context, 1);
 }
@@ -411,7 +411,7 @@ static int context_show_table(Context *c) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static UpdateSet *context_update_set_by_version(Context *c, const char *version) {
+static UpdateSet* context_update_set_by_version(Context *c, const char *version) {
         assert(c);
         assert(version);
 
