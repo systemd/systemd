@@ -2718,7 +2718,6 @@ static int manager_get_units_for_pidref(Manager *m, const PidRef *pidref, Unit *
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_fdset_free_ FDSet *fds = NULL;
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
                 .iov_base = buf,
@@ -2732,13 +2731,8 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-
-        struct cmsghdr *cmsg;
-        struct ucred *ucred = NULL;
-        _cleanup_strv_free_ char **tags = NULL;
-        int r, *fd_array = NULL;
-        size_t n_fds = 0;
         ssize_t n;
+        int r;
 
         assert(m->notify_fd == fd);
 
@@ -2751,7 +2745,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
         if (n == -EXFULL) {
-                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                log_warning_errno(n, "Got message with truncated control data (too many fds sent?), ignoring.");
                 return 0;
         }
         if (n < 0)
@@ -2761,20 +2755,28 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                  * socket. */
                 return log_error_errno(n, "Failed to receive notification message: %m");
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+        struct ucred *ucred = NULL;
+        int *fd_array = NULL;
+        size_t n_fds = 0;
 
+        struct cmsghdr *cmsg;
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_RIGHTS) {
                         assert(!fd_array);
                         fd_array = CMSG_TYPED_DATA(cmsg, int);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                } else if (cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                 }
+        }
+
+        _cleanup_fdset_free_ FDSet *fds = NULL;
 
         if (n_fds > 0) {
                 assert(fd_array);
@@ -2782,7 +2784,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 r = fdset_new_array(&fds, fd_array, n_fds);
                 if (r < 0) {
                         close_many(fd_array, n_fds);
-                        log_oom();
+                        log_oom_warning();
                         return 0;
                 }
         }
@@ -2806,9 +2808,10 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         /* Make sure it's NUL-terminated, then parse it to obtain the tags list. */
         buf[n] = 0;
-        tags = strv_split_newlines(buf);
+
+        _cleanup_strv_free_ char **tags = strv_split_newlines(buf);
         if (!tags) {
-                log_oom();
+                log_oom_warning();
                 return 0;
         }
 
