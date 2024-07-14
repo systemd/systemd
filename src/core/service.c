@@ -4320,44 +4320,44 @@ static void service_force_watchdog(Service *s) {
         service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid) {
+static bool service_notify_message_authorized(Service *s, PidRef *pid) {
         assert(s);
-        assert(pid_is_valid(pid));
+        assert(pidref_is_set(pid));
 
         switch (service_get_notify_access(s)) {
 
         case NOTIFY_NONE:
                 /* Warn level only if no notifications are expected */
-                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid->pid);
                 return false;
 
         case NOTIFY_ALL:
                 return true;
 
         case NOTIFY_MAIN:
-                if (pid == s->main_pid.pid)
+                if (pidref_equal(pid, &s->main_pid))
                         return true;
 
                 if (pidref_is_set(&s->main_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid->pid, s->main_pid.pid);
                 else
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid->pid);
 
                 return false;
 
         case NOTIFY_EXEC:
-                if (pid == s->main_pid.pid || pid == s->control_pid.pid)
+                if (pidref_equal(pid, &s->main_pid) || pidref_equal(pid, &s->control_pid))
                         return true;
 
                 if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                       pid, s->main_pid.pid, s->control_pid.pid);
+                                       pid->pid, s->main_pid.pid, s->control_pid.pid);
                 else if (pidref_is_set(&s->main_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid->pid, s->main_pid.pid);
                 else if (pidref_is_set(&s->control_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid->pid, s->control_pid.pid);
                 else
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid->pid);
 
                 return false;
 
@@ -4368,6 +4368,7 @@ static bool service_notify_message_authorized(Service *s, pid_t pid) {
 
 static void service_notify_message(
                 Unit *u,
+                PidRef *pidref,
                 const struct ucred *ucred,
                 char * const *tags,
                 FDSet *fds) {
@@ -4375,14 +4376,15 @@ static void service_notify_message(
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
+        assert(pidref_is_set(pidref));
         assert(ucred);
 
-        if (!service_notify_message_authorized(s, ucred->pid))
+        if (!service_notify_message_authorized(s, pidref))
                 return;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", ucred->pid, empty_to_na(cc));
+                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", pidref->pid, empty_to_na(cc));
         }
 
         usec_t monotonic_usec = USEC_INFINITY;
