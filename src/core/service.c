@@ -4324,24 +4324,31 @@ static bool service_notify_message_authorized(Service *s, pid_t pid) {
         assert(s);
         assert(pid_is_valid(pid));
 
-        NotifyAccess notify_access = service_get_notify_access(s);
+        switch (service_get_notify_access(s)) {
 
-        if (notify_access == NOTIFY_NONE) {
+        case NOTIFY_NONE:
                 /* Warn level only if no notifications are expected */
                 log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
                 return false;
-        }
 
-        if (notify_access == NOTIFY_MAIN && pid != s->main_pid.pid) {
+        case NOTIFY_ALL:
+                return true;
+
+        case NOTIFY_MAIN:
+                if (pid == s->main_pid.pid)
+                        return true;
+
                 if (pidref_is_set(&s->main_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
                 else
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
 
                 return false;
-        }
 
-        if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
+        case NOTIFY_EXEC:
+                if (pid == s->main_pid.pid || pid == s->control_pid.pid)
+                        return true;
+
                 if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
                                        pid, s->main_pid.pid, s->control_pid.pid);
@@ -4353,9 +4360,10 @@ static bool service_notify_message_authorized(Service *s, pid_t pid) {
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
 
                 return false;
-        }
 
-        return true;
+        default:
+                assert_not_reached();
+        }
 }
 
 static void service_notify_message(
