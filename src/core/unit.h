@@ -630,7 +630,7 @@ typedef struct UnitVTable {
         void (*notify_cgroup_oom)(Unit *u, bool managed_oom);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, const struct ucred *ucred, char * const *tags, FDSet *fds);
+        void (*notify_message)(Unit *u, PidRef *pidref, const struct ucred *ucred, char * const *tags, FDSet *fds);
 
         /* Called whenever we learn a handoff timestamp */
         void (*notify_handoff_timestamp)(Unit *u, const struct ucred *ucred, const dual_timestamp *ts);

@@ -1104,6 +1104,11 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable SO_PASSCRED for notify socket: %m");
 
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+                if (r < 0 && r != -ENOPROTOOPT)
+                        log_warning_errno(r, "Failed to enable SO_PASSPIDFD for notify socket, ignoring: %m");
+                // TODO: maybe enforce SO_PASSPIDFD?
+
                 m->notify_fd = TAKE_FD(fd);
 
                 log_debug("Using notification socket %s", m->notify_socket);
@@ -2638,13 +2643,16 @@ static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
 static void manager_invoke_notify_message(
                 Manager *m,
                 Unit *u,
+                PidRef *pidref,
                 const struct ucred *ucred,
                 char * const *tags,
                 FDSet *fds) {
 
         assert(m);
         assert(u);
+        assert(pidref_is_set(pidref));
         assert(ucred);
+        assert(pidref->pid == ucred->pid);
         assert(tags);
 
         if (u->notifygen == m->notifygen) /* Already invoked on this same unit in this same iteration? */
@@ -2652,7 +2660,7 @@ static void manager_invoke_notify_message(
         u->notifygen = m->notifygen;
 
         if (UNIT_VTABLE(u)->notify_message)
-                UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
+                UNIT_VTABLE(u)->notify_message(u, pidref, ucred, tags, fds);
 
         else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *joined = strv_join(tags, ", ");
@@ -2723,7 +2731,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 .iov_base = buf,
                 .iov_len = sizeof(buf)-1,
         };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) /* SCM_PIDFD */ +
                          CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
@@ -2755,6 +2763,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                  * socket. */
                 return log_error_errno(n, "Failed to receive notification message: %m");
 
+        _cleanup_close_ int pidfd = -EBADF;
         struct ucred *ucred = NULL;
         int *fd_array = NULL;
         size_t n_fds = 0;
@@ -2773,6 +2782,9 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                } else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(pidfd < 0);
+                        pidfd = *CMSG_TYPED_DATA(cmsg, int);
                 }
         }
 
@@ -2791,6 +2803,28 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         if (!ucred || !pid_is_valid(ucred->pid)) {
                 log_warning("Received notify message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+        if (pidfd >= 0)
+                r = pidref_set_pidfd_consume(&pidref, TAKE_FD(pidfd));
+        else
+                r = pidref_set_pid(&pidref, ucred->pid);
+        if (r < 0) {
+                if (r == -ESRCH)
+                        log_debug_errno(r, "Notify sender died before message is processed. Ignoring.");
+                else
+                        log_warning_errno(r, "Failed to pin notify sender, ignoring message: %m");
+                return 0;
+        }
+
+        if (pidref.pid != ucred->pid) {
+                assert(pidref.fd >= 0);
+
+                log_warning("Got SCM_PIDFD for process " PID_FMT " but SCM_CREDENTIALS for process " PID_FMT ". Ignoring.",
+                            pidref.pid, ucred->pid);
                 return 0;
         }
 
@@ -2824,9 +2858,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
 
-        /* Generate lookup key from the PID (we have no pidfd here, after all) */
-        PidRef pidref = PIDREF_MAKE_FROM_PID(ucred->pid);
-
         /* Notify every unit that might be interested, which might be multiple. */
         _cleanup_free_ Unit **array = NULL;
 
@@ -2841,7 +2872,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
                  * duplicate units – making sure we only invoke each unit's handler once. */
                 FOREACH_ARRAY(u, array, n_array)
-                        manager_invoke_notify_message(m, *u, ucred, tags, fds);
+                        manager_invoke_notify_message(m, *u, &pidref, ucred, tags, fds);
 
         if (!fdset_isempty(fds))
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
