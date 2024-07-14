@@ -35,31 +35,34 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-repart</command> grows and adds partitions to a partition table, based on the
-    configuration files described in
+    <para><command>systemd-repart</command> creates partition tables, and adds or grows partitions,
+    based on the configuration files described in
     <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it operates on the block device backing the root file system
-    partition of the running OS, thus growing and adding partitions of the booted OS image itself. If
-    <varname>--image=</varname> is used it will operate on the specified image file. When called in the
-    initrd it operates on the block device backing <filename>/sysroot/</filename> instead, i.e. on the block
-    device the system will soon transition into. The <filename>systemd-repart.service</filename> service is
-    generally run at boot in the initrd, in order to augment the partition table of the OS before its
-    partitions are mounted. <command>systemd-repart</command> (mostly) operates in a purely incremental mode:
-    it only grows existing and adds new partitions; it does not shrink, delete or move existing partitions.
-    The service is intended to be run on every boot, but when it detects that the partition table already
-    matches the installed <filename>repart.d/*.conf</filename> configuration files, it executes no
-    operation.</para>
+    <para><command>systemd-repart</command> is used when <emphasis>building</emphasis> OS images, and also
+    when <emphasis>deploying</emphasis> images to automatically adjust them, during boot, to the system they
+    are running on. This way the image can be minimal in size and may be augmented automatically at boot,
+    taking possession of the disk space available.</para>
 
-    <para><command>systemd-repart</command> is intended to be used when deploying OS images, to automatically
-    adjust them to the system they are running on, during first boot. This way the deployed image can be
-    minimal in size and may be augmented automatically at boot when needed, taking possession of disk space
-    available but not yet used. Specifically the following use cases are among those covered:</para>
+    <para>If invoked with no arguments, <command>systemd-repart</command> operates on the block device
+    backing the root file system partition of the running OS, thus adding and growing partitions of the
+    booted OS itself. When called in the initrd, it operates on the block device backing
+    <filename>/sysroot/</filename> instead, i.e. on the block device the system will soon transition into. If
+    <varname>--image=</varname> is used, it will operate on the specified device or image file. The
+    <filename>systemd-repart.service</filename> service is generally run at boot in the initrd, in order to
+    augment the partition table of the OS before its partitions are mounted.</para>
+
+    <para><command>systemd-repart</command> operations are mostly incremental: it grows existing partitions
+    or adds new ones, but does not shrink, delete, or move existing partitions. The service is intended to be
+    run on every boot, but when it detects that the partition table already matches the installed
+    <filename>repart.d/*.conf</filename> configuration files, it executes no operation.</para>
+
+    <para>The following use cases are among those covered:</para>
 
     <itemizedlist>
       <listitem><para>The root partition may be grown to cover the whole available disk space.</para></listitem>
-      <listitem><para>A <filename>/home/</filename>, swap or <filename>/srv/</filename> partition can be
+      <listitem><para>A <filename>/home/</filename>, swap, or <filename>/srv/</filename> partition can be
       added.</para></listitem>
       <listitem><para>A second (or third, …) root partition may be added, to cover A/B style setups
       where a second version of the root file system is alternatingly used for implementing update
@@ -70,22 +73,21 @@
     <para>The algorithm executed by <command>systemd-repart</command> is roughly as follows:</para>
 
     <orderedlist>
-      <listitem><para>The <filename>repart.d/*.conf</filename> configuration files are loaded and parsed,
-      and ordered by filename (without the directory prefix). For each configuration file,
-      drop-in files are looked for in directories with same name as the configuration file
-      with a suffix ".d" added.</para></listitem>
-
-      <listitem><para>The partition table already existing on the block device is loaded and
-      parsed.</para></listitem>
-
-      <listitem><para>The existing partitions in the partition table are matched up with the
-      <filename>repart.d/*.conf</filename> files by GPT partition type UUID. The first existing partition
-      of a specific type is assigned the first configuration file declaring the same type. The second
-      existing partition of a specific type is then assigned the second configuration file declaring the same
-      type, and so on. After this iterative assigning is complete any left-over existing partitions that have
-      no matching configuration file are considered "foreign" and left as they are. And any configuration
-      files for which no partition currently exists are understood as a request to create such a partition.
+      <listitem><para>The <filename>repart.d/*.conf</filename> configuration files are loaded and parsed, and
+      ordered by filename (without the directory prefix). For each configuration file, drop-in files are
+      loaded from directories with same name as the configuration file with the suffix ".d" added.
       </para></listitem>
+
+      <listitem><para>The partition table on the block device is loaded and parsed, if present.
+      </para></listitem>
+
+      <listitem><para>The existing partitions in the partition table are matched with the
+      <filename>repart.d/*.conf</filename> files by GPT partition type UUID. The first existing partition of
+      a specific type is assigned the first configuration file declaring the same type. The second existing
+      partition of a specific type is then assigned the second configuration file declaring the same type,
+      and so on. After this iterative assigning is complete, any existing partitions that have no matching
+      configuration file are considered "foreign" and left as they are. And any configuration files for which
+      no partition was matched are treated as requests to create a partition.</para></listitem>
 
       <listitem><para>Partitions that shall be created are now allocated on the disk, taking the size
       constraints and weights declared in the configuration files into account. Free space is used within the
@@ -124,12 +126,11 @@
       partition table.</para></listitem>
     </orderedlist>
 
-    <para>As exception to the normally strictly incremental operation, when called in a special "factory
-    reset" mode, <command>systemd-repart</command> may also be used to erase existing partitions to
-    reset an installation back to vendor defaults. This mode of operation is used when either the
-    <option>--factory-reset=yes</option> switch is passed on the tool's command line, or the
-    <option>systemd.factory_reset=yes</option> option specified on the kernel command line, or the
-    <varname>FactoryReset</varname> EFI variable (vendor UUID
+    <para>As an exception to the normal incremental operation, when called in a special "factory reset" mode,
+    <command>systemd-repart</command> may be used to erase existing partitions to reset an installation back
+    to vendor defaults. This mode of operation is used when either the <option>--factory-reset=yes</option>
+    switch is passed on the tool's command line, or the <option>systemd.factory_reset=yes</option> option is
+    specified on the kernel command line, or the <varname>FactoryReset</varname> EFI variable (vendor UUID
     <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm above
     slightly: between the 3rd and the 4th step above any partition marked explicitly via the
     <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
@@ -153,11 +154,9 @@
     from a common seed images prepared with this tool become reproducible and the result of the algorithm
     above deterministic.</para>
 
-    <para>The positional argument should specify the block device to operate on. Instead of a block device
-    node path a regular file may be specified too, in which case the command operates on it like it would if
-    a loopback block device node was specified with the file attached. If <option>--empty=create</option> is
-    specified the specified path is created as regular file, which is useful for generating disk images from
-    scratch.</para>
+    <para>The positional argument should specify the block device or a regular file to operate on. If
+    <option>--empty=create</option> is specified, the specified path is created as regular file, which is
+    useful for generating disk images from scratch.</para>
   </refsect1>
 
   <refsect1>
@@ -168,6 +167,7 @@
     <variablelist>
       <varlistentry>
         <term><option>--dry-run=</option></term>
+
         <listitem><para>Takes a boolean. If this switch is not specified <option>--dry-run=yes</option> is
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
@@ -179,6 +179,7 @@
 
       <varlistentry>
         <term><option>--empty=</option></term>
+
         <listitem><para>Takes one of <literal>refuse</literal>, <literal>allow</literal>,
         <literal>require</literal>, <literal>force</literal> or <literal>create</literal>. Controls how to
         operate on block devices that are entirely empty, i.e. carry no partition table/disk label yet. If
@@ -633,7 +634,7 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+    <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
   </refsect1>
 
   <refsect1>
@@ -645,15 +646,19 @@
       <para>The following creates a configuration extension DDI (confext) for an
       <filename>/etc/motd</filename> update:</para>
 
-      <programlisting>mkdir tree tree/etc tree/etc/extension-release.d
-echo "Hello World" > tree/etc/motd
-cat > tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
+      <programlisting>mkdir -p tree/etc/extension-release.d
+echo "Hello World" >tree/etc/motd
+cat >tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
 ID=fedora
 VERSION_ID=38
 IMAGE_ID=my-motd
 IMAGE_VERSION=7
 EOF
-systemd-repart -C --private-key=privkey.pem --certificate=cert.crt -s tree/ /var/lib/confexts/my-motd.confext.raw
+systemd-repart -C \
+  --private-key=privkey.pem \
+  --certificate=cert.crt \
+  -s tree/ \
+  /var/lib/confexts/my-motd.confext.raw
 systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
@@ -666,15 +671,20 @@ systemd-confext refresh</programlisting>
       <para>The following creates a system extension DDI (sysext) for an
       <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
 
-      <programlisting>mkdir tree tree/usr tree/usr/lib/extension-release.d
-echo "Hello World" > tree/usr/foo
-cat > tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
+      <programlisting>mkdir -p tree/usr/lib/extension-release.d
+echo "Hello World" >tree/usr/foo
+cat >tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
 ID=fedora
 VERSION_ID=38
 IMAGE_ID=my-foo
 IMAGE_VERSION=7
 EOF
-systemd-repart --make-ddi=sysext --private-key-source=engine:pkcs11 --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
+systemd-repart --make-ddi=sysext \
+  --private-key-source=engine:pkcs11 \
+  --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" \
+  --certificate=cert.crt \
+  -s tree/ \
+  /var/lib/extensions/my-foo.sysext.raw
 systemd-sysext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
