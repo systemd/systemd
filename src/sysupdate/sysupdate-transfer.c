@@ -38,7 +38,7 @@
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
 
-Transfer *transfer_free(Transfer *t) {
+Transfer* transfer_free(Transfer *t) {
         if (!t)
                 return NULL;
 
@@ -61,7 +61,7 @@ Transfer *transfer_free(Transfer *t) {
         return mfree(t);
 }
 
-Transfer *transfer_new(Context *ctx) {
+Transfer* transfer_new(Context *ctx) {
         Transfer *t;
 
         t = new(Transfer, 1);

@@ -54,9 +54,9 @@ struct Transfer {
 
 typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
 
-Transfer *transfer_new(Context *ctx);
+Transfer* transfer_new(Context *ctx);
 
-Transfer *transfer_free(Transfer *t);
+Transfer* transfer_free(Transfer *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
 
 int transfer_read_definition(Transfer *t, const char *path);
