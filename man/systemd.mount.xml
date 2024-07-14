@@ -194,18 +194,20 @@
 
       <varlistentry>
         <term><option>x-systemd.requires=</option></term>
+        <term><option>x-systemd.wants=</option></term>
 
-        <listitem><para>Configures a <varname>Requires=</varname> and
-        an <varname>After=</varname> dependency between the created
-        mount unit and another systemd unit, such as a device or mount
-        unit. The argument should be a unit name, or an absolute path
-        to a device node or mount point.  This option may be specified
-        more than once. This option is particularly useful for mount
-        point declarations that need an additional device to be around
-        (such as an external journal device for journal file systems)
-        or an additional mount to be in place (such as an overlay file
-        system that merges multiple mount points). See
-        <varname>After=</varname> and <varname>Requires=</varname> in
+        <listitem><para>Configures an <varname>After=</varname> and a
+        <varname>Requires=</varname> or <varname>Wants=</varname>
+        dependency between the created mount unit and another systemd
+        unit, such as a device or mount unit. The argument should be a
+        unit name, or an absolute path to a device node or mount point.
+        This option may be specified more than once. This option is
+        particularly useful for mount point declarations that need an
+        additional device to be around (such as an external journal
+        device for journal file systems) or an additional mount to be
+        in place (such as an overlay file system that merges multiple
+        mount points). See <varname>After=</varname>,
+        <varname>Requires=</varname> and <varname>Wants=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para>
 
