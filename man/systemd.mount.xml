@@ -217,6 +217,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.wants=</option></term>
+
+        <listitem><para>Configures a <varname>Wants=</varname> and
+        an <varname>After=</varname> dependency between the created
+        mount unit and another systemd unit, similar to the
+        <varname>x-systemd.requires=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.before=</option></term>
         <term><option>x-systemd.after=</option></term>
 
