@@ -25,7 +25,7 @@ def add_drive(i: int, serial: str) -> None:
             "Options": "cache=unsafe",
         }
     ]
-    config["QemuArgs"] += ["-device", f"nvme,drive={id},serial={serial},num_queues=8"]
+    config["QemuArgs"] += ["-device", f"nvme,drive={id},serial={serial},max_ioqpairs=8"]
 
 for i in range(5):
     add_drive(i, serial=f"deadbeef{i}")
