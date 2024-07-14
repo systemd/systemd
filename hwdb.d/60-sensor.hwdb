@@ -1026,13 +1026,6 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrSCH12i.WJ210Z.Kt
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
-# StarLabs Systems
-#########################################
-# StarLite
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnStarLabs:pnStarLite:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-#########################################
 # Teclast
 #########################################
 # Teclast F5
