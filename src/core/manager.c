@@ -1081,7 +1081,7 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
-                fd_increase_rxbuf(fd, NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(fd, NOTIFY_RCVBUF_SIZE);
 
                 m->notify_socket = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/notify");
                 if (!m->notify_socket)
@@ -1098,11 +1098,11 @@ static int manager_setup_notify(Manager *m) {
 
                 r = mac_selinux_bind(fd, &sa.sa, sa_len);
                 if (r < 0)
-                        return log_error_errno(r, "bind(%s) failed: %m", m->notify_socket);
+                        return log_error_errno(r, "Failed to bind notify fd to '%s': %m", m->notify_socket);
 
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        return log_error_errno(r, "SO_PASSCRED failed: %m");
+                        return log_error_errno(r, "Failed to enable SO_PASSCRED for notify socket: %m");
 
                 m->notify_fd = TAKE_FD(fd);
 
@@ -2042,7 +2042,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                  * containers. */
                 manager_distribute_fds(m, fds);
 
-                /* We might have deserialized the notify fd, but if we didn't then let's create the bus now */
+                /* We might have deserialized the notify fd, but if we didn't then let's create it now */
                 r = manager_setup_notify(m);
                 if (r < 0)
                         /* No sense to continue without notifications, our children would fail anyway. */
