@@ -5,10 +5,23 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "format-table.h"
+#include "parse-util.h"
+
+static int table_add_capability(Table *table, int c) {
+        int r;
+
+        r = table_add_many(table,
+                           TABLE_STRING, capability_to_name(c) ?: "cap_???",
+                           TABLE_UINT, c);
+        if (r < 0)
+                return table_log_add_error(r);
+        return r;
+}
 
 int verb_capabilities(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         unsigned last_cap;
+        uint64_t cap_mask;
         int r;
 
         table = table_new("name", "number");
@@ -20,15 +33,30 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
         /* Determine the maximum of the last cap known by the kernel and by us */
         last_cap = MAX((unsigned) CAP_LAST_CAP, cap_last_cap());
 
-        if (strv_isempty(strv_skip(argv, 1)))
+        if (argc == 1)
                 for (unsigned c = 0; c <= last_cap; c++) {
-                        r = table_add_many(table,
-                                           TABLE_STRING, capability_to_name(c) ?: "cap_???",
-                                           TABLE_UINT, c);
+                        r = table_add_capability(table, c);
                         if (r < 0)
-                                return table_log_add_error(r);
+                                return r;
                 }
-        else {
+        else if (argc == 2 && safe_atoux64(argv[1], &cap_mask) >= 0) {
+                int c = 0;
+
+                while (cap_mask != 0) {
+                        if (cap_mask & 1) {
+                                if ((unsigned) c > last_cap)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Capability %d not known.", c);
+
+                                r = table_add_capability(table, c);
+                                if (r < 0)
+                                        return r;
+                        }
+                        ++c;
+                        cap_mask >>= 1;
+                }
+
+                (void) table_set_sort(table, (size_t) 1);
+        } else {
                 for (int i = 1; i < argc; i++) {
                         int c;
 
@@ -36,11 +64,9 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
                         if (c < 0 || (unsigned) c > last_cap)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Capability \"%s\" not known.", argv[i]);
 
-                        r = table_add_many(table,
-                                           TABLE_STRING, capability_to_name(c) ?: "cap_???",
-                                           TABLE_UINT, (unsigned) c);
+                        r = table_add_capability(table, c);
                         if (r < 0)
-                                return table_log_add_error(r);
+                                return r;
                 }
 
                 (void) table_set_sort(table, (size_t) 1);
