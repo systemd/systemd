@@ -11,6 +11,7 @@
 #include "sd-id128.h"
 
 #include "efivars-fundamental.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define EFI_VENDOR_LOADER       SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
@@ -47,6 +48,7 @@
 
 int efi_get_variable(const char *variable, uint32_t *attribute, void **ret_value, size_t *ret_size);
 int efi_get_variable_string(const char *variable, char **ret);
+int efi_get_variable_path(const char *variable, char **ret);
 int efi_set_variable(const char *variable, const void *value, size_t size);
 int efi_set_variable_string(const char *variable, const char *p);
 
@@ -65,6 +67,10 @@ static inline int efi_get_variable(const char *variable, uint32_t *attribute, vo
 }
 
 static inline int efi_get_variable_string(const char *variable, char **ret) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_variable_path(const char *variable, char **ret) {
         return -EOPNOTSUPP;
 }
 
@@ -100,3 +106,7 @@ static inline int systemd_efi_options_efivarfs_if_newer(char **line) {
         return -ENODATA;
 }
 #endif
+
+static inline char *efi_tilt_backslashes(char *s) {
+        return string_replace_char(s, '\\', '/');
+}
