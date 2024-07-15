@@ -578,6 +578,9 @@ static int terminal_reset_ansi_seq(int fd) {
         if (getenv_terminal_is_dumb())
                 return 0;
 
+        if (!isatty_safe(fd))
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
         r = fd_nonblock(fd, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
