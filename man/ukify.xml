@@ -133,6 +133,20 @@
     </refsect2>
 
     <refsect2>
+      <title><command>sign</command></title>
+
+      <para>This command signs an existing UKI. It uses the same signing and key arguments as
+      <command>build</command> and also similarly calculates PCR values and signs the output UKI.
+      It leaves all other sections including the existing stub intact, with the exception of
+      the cmdline section. If <option>--cmdline=</option> is specified, the section is replaced.
+      Additionally, if <option>--append-cmdline=</option> is specified, it is instead appended to the section.
+      </para>
+
+      <para>The output files must not exist.</para>
+      <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+    </refsect2>
+
+    <refsect2>
       <title><command>inspect</command></title>
 
       <para>Display information about the sections in a given binary or binaries.
@@ -504,6 +518,17 @@
           been signed, the signature will be appended anyway.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>AppendCmdline=<replaceable>BOOL</replaceable></varname></term>
+          <term><option>--append-cmdline</option></term>
+          <term><option>--no-append-cmdline</option></term>
+
+          <listitem><para>Only used for <command>sign</command>. If specified, the cmdline given binary
+          <varname>Cmdline=</varname>/<option>--cmdline=</option> is appended to the existing cmdline section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
