@@ -151,15 +151,13 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         if (prefix) {
                 p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
                 if (!p)
-                        return -ENOTDIR;
-        } else
-                p = path;
+                        return -EINVAL;
 
-        if (prefix) {
                 fd = open(prefix, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return -errno;
-        }
+        } else
+                p = path;
 
         return mkdirat_parents_internal(fd, p, mode, uid, gid, flags, _mkdirat);
 }
