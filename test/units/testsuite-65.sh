@@ -105,6 +105,15 @@ systemd-analyze capability cap_chown CAP_KILL
 systemd-analyze capability 0 1 {30..32}
 (! systemd-analyze capability cap_chown CAP_KILL "hello*")
 (! systemd-analyze capability --global)
+systemd-analyze capability -m 0000000000003c00
+(! systemd-analyze capability -m 8000000000000000)
+cap="$(systemd-analyze capability -m 0000000000003c00)"
+[[ $cap != *cap_linux_immutable* ]]
+[[ $cap == *cap_net_bind_service* ]]
+[[ $cap == *cap_net_broadcast* ]]
+[[ $cap == *cap_net_admin* ]]
+[[ $cap == *cap_net_raw* ]]
+[[ $cap != *cap_ipc_lock* ]]
 # condition
 mkdir -p /run/systemd/system
 UNIT_NAME="analyze-condition-$RANDOM.service"
