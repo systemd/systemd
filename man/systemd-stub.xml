@@ -501,6 +501,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StubDevicePartUUID</varname></term>
+        <term><varname>StubImageIdentifier</varname></term>
+
+        <listitem><para>Similar to <varname>LoaderDevicePartUUID</varname> and
+        <varname>StubImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
+        binary rather than the the location of the boot loader binary, regardless if booted via a boot loader
+        or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>StubInfo</varname></term>
 
         <listitem><para>Brief stub information. Use
