@@ -18,7 +18,13 @@ typedef enum DotMode {
         DEP_REQUIRE,
 } DotMode;
 
+typedef enum CapabilityMode {
+        CAPABILITY_LITERAL,
+        CAPABILITY_MASK,
+} CapabilityMode;
+
 extern DotMode arg_dot;
+extern CapabilityMode arg_capability;
 extern char **arg_dot_from_patterns, **arg_dot_to_patterns;
 extern usec_t arg_fuzz;
 extern PagerFlags arg_pager_flags;
