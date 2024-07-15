@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "build.h"
 #include "efi-loader.h"
@@ -18,7 +19,6 @@
 #include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.PCRExtend.h"
 
 static bool arg_graceful = false;
@@ -167,7 +167,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_file_system && arg_machine_id)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system= and --machine-id may not be combined.");
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
@@ -258,7 +258,7 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
         iovec_done(&p->data);
 }
 
-static int vl_method_extend(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "pcr",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),  SD_JSON_MANDATORY },
@@ -273,27 +273,27 @@ static int vl_method_extend(Varlink *link, sd_json_variant *parameters, VarlinkM
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!TPM2_PCR_INDEX_VALID(p.pcr))
-                return varlink_error_invalid_parameter_name(link, "pcr");
+                return sd_varlink_error_invalid_parameter_name(link, "pcr");
 
         if (p.text) {
                 /* Specifying both the text string and the binary data is not allowed */
                 if (p.data.iov_base)
-                        return varlink_error_invalid_parameter_name(link, "data");
+                        return sd_varlink_error_invalid_parameter_name(link, "data");
 
                 r = extend_now(p.pcr, p.text, strlen(p.text), _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         } else if (p.data.iov_base)
                 r = extend_now(p.pcr, p.data.iov_base, p.data.iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         else
-                return varlink_error_invalid_parameter_name(link, "text");
+                return sd_varlink_error_invalid_parameter_name(link, "text");
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -308,23 +308,23 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRExtend);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRExtend);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method(varlink_server, "io.systemd.PCRExtend.Extend", vl_method_extend);
+                r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PCRExtend.Extend", vl_method_extend);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink method: %m");
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 

@@ -15,6 +15,8 @@ _systemd_headers = [
         'sd-login.h',
         'sd-messages.h',
         'sd-path.h',
+        'sd-varlink.h',
+        'sd-varlink-idl.h',
 ]
 
 # https://github.com/mesonbuild/meson/issues/1633

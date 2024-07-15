@@ -139,8 +139,6 @@ Features:
   chattr bit. This is useful as protection against early uses of /var/ or /tmp/
   before their contents is mounted.
 
-* use c23 in headers to force enum size in public headers
-
 * go through all uses of table_new() in our codebase, and make sure we support
   all three of:
   1. --no-legend properly
@@ -294,12 +292,6 @@ Features:
   this together: downloads a suitable image if not done so yet, starts it in
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
-
-* make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
-  header file to sd-varlink.h. This of course also means we have to make json.h
-  public the same way. Convert the function param checks from assert() to
-  assert_ret(). Only export the stuff we are sure about, and keep some symbols
-  internally where things are not clear whether we want other projects to use.
 
 * importd/…: define per-user dirs for container/VM images too.
 

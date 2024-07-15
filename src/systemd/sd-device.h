@@ -34,7 +34,7 @@ typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
 typedef struct sd_device_monitor sd_device_monitor;
 
-__extension__ typedef enum sd_device_action_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_device_action_t) {
         SD_DEVICE_ADD,
         SD_DEVICE_REMOVE,
         SD_DEVICE_CHANGE,

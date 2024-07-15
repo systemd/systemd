@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-varlink.h"
+
 #include "blockdev-util.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
@@ -22,7 +24,6 @@
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "utf8.h"
-#include "varlink.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "verbs.h"
 #include "virt.h"
@@ -432,7 +433,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0) {
@@ -485,19 +486,19 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                                 "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
@@ -505,7 +506,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 

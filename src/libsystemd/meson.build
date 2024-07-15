@@ -73,6 +73,17 @@ sd_json_sources = files(
 
 ############################################################
 
+sd_varlink_sources = files(
+        'sd-varlink/sd-varlink-idl.c',
+        'sd-varlink/sd-varlink.c',
+        'sd-varlink/varlink-idl-util.c',
+        'sd-varlink/varlink-io.systemd.c',
+        'sd-varlink/varlink-org.varlink.service.c',
+        'sd-varlink/varlink-util.c',
+)
+
+############################################################
+
 libsystemd_sources = files(
         'sd-bus/bus-common-errors.c',
         'sd-bus/bus-container.c',
@@ -116,7 +127,7 @@ libsystemd_sources = files(
         'sd-network/sd-network.c',
         'sd-path/sd-path.c',
         'sd-resolve/sd-resolve.c',
-) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources + sd_json_sources
+) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources + sd_json_sources + sd_varlink_sources
 
 libsystemd_c_args = ['-fvisibility=default']
 

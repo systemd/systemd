@@ -38,7 +38,7 @@ int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
-int vl_method_set_reboot_to_firmware(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_set_reboot_to_firmware(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "state", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
                 {}
@@ -46,30 +46,30 @@ int vl_method_set_reboot_to_firmware(Varlink *link, sd_json_variant *parameters,
         bool b;
         int r;
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &b);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &b);
         if (r != 0)
                 return r;
 
         r = efi_set_reboot_to_firmware(b);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return varlink_error(link, "io.systemd.BootControl.RebootToFirmwareNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.RebootToFirmwareNotSupported", NULL);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
-int vl_method_get_reboot_to_firmware(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_get_reboot_to_firmware(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         r = efi_get_reboot_to_firmware();
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return varlink_error(link, "io.systemd.BootControl.RebootToFirmwareNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.RebootToFirmwareNotSupported", NULL);
         if (r < 0)
                 return r;
 
-        return varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("state", r));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("state", r));
 }

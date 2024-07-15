@@ -7,6 +7,7 @@
 
 #include "sd-device.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "ask-password-api.h"
 #include "blockdev-util.h"
@@ -51,7 +52,6 @@
 #include "unaligned.h"
 #include "unit-name.h"
 #include "utf8.h"
-#include "varlink.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "verbs.h"
 
@@ -5163,7 +5163,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0) {
@@ -5213,7 +5213,7 @@ static int pcrlock_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint64_t recnum = 0;
         int r;
@@ -5221,7 +5221,7 @@ static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, 
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         el = event_log_new();
         if (!el)
@@ -5236,7 +5236,7 @@ static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
 
                 if (rec_cel) {
-                        r = varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
                         if (r < 0)
                                 return r;
 
@@ -5248,14 +5248,14 @@ static int vl_method_read_event_log(Varlink *link, sd_json_variant *parameters, 
                         return r;
         }
 
-        return varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
 }
 
 typedef struct MethodMakePolicyParameters {
         bool force;
 } MethodMakePolicyParameters;
 
-static int vl_method_make_policy(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_make_policy(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "force", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MethodMakePolicyParameters, force), 0 },
                 {}
@@ -5265,7 +5265,7 @@ static int vl_method_make_policy(Varlink *link, sd_json_variant *parameters, Var
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
@@ -5273,24 +5273,24 @@ static int vl_method_make_policy(Varlink *link, sd_json_variant *parameters, Var
         if (r < 0)
                 return r;
         if (r == 0)
-                return varlink_error(link, "io.systemd.PCRLock.NoChange", NULL);
+                return sd_varlink_error(link, "io.systemd.PCRLock.NoChange", NULL);
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
-static int vl_method_remove_policy(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         r = remove_policy();
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -5303,19 +5303,19 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRLock);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRLock);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.PCRLock.ReadEventLog", vl_method_read_event_log,
                                 "io.systemd.PCRLock.MakePolicy",   vl_method_make_policy,
@@ -5323,7 +5323,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 
