@@ -34,7 +34,7 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
 
                         c = capability_from_name(argv[i]);
                         if (c < 0 || (unsigned) c > last_cap)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Capability \"%s\" not known.", argv[i]);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Capability \"%s\" is not known.", argv[i]);
 
                         r = table_add_many(table,
                                            TABLE_STRING, capability_to_name(c) ?: "cap_???",
