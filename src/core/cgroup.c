@@ -5131,10 +5131,11 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         if (current == objective)
                 next = freezer_state_finish(next);
-        else if (IN_SET(next, FREEZER_FROZEN, FREEZER_FROZEN_BY_PARENT, FREEZER_RUNNING)) {
-                /* We're transitioning into a finished state, which implies that the cgroup's
-                 * current state already matches the objective and thus we'd return 0. But, reality
-                 * shows otherwise. This indicates that our freezer_state tracking has diverged
+        else if (next == freezer_state_finish(next)) {
+                /* We're directly transitioning into a finished state, which in theory means that
+                 * the cgroup's current state already matches the objective and thus we'd return 0.
+                 * But, reality shows otherwise (such case would have been handled by current == objective
+                 * branch above). This indicates that our freezer_state tracking has diverged
                  * from the real state of the cgroup, which can happen if someone meddles with the
                  * cgroup from underneath us. This really shouldn't happen during normal operation,
                  * though. So, let's warn about it and fix up the state to be valid */
