@@ -384,7 +384,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
-                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets ESP information"                                   },
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets loader partition information"                      },
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
                         { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
@@ -394,6 +394,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
+                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub sets stub partition information"                        },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
