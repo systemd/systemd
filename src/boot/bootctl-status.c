@@ -298,12 +298,24 @@ fail:
         return r;
 }
 
-static void read_efi_var(const char *variable, char **ret) {
+static int efi_get_variable_string_and_warn(const char *variable, char **ret) {
         int r;
 
         r = efi_get_variable_string(variable, ret);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read EFI variable '%s', ignoring: %m", variable);
+                return log_warning_errno(r, "Failed to read EFI variable '%s', ignoring: %m", variable);
+
+        return r;
+}
+
+static int efi_get_variable_path_and_warn(const char *variable, char **ret) {
+        int r;
+
+        r = efi_get_variable_path(variable, ret);
+        if (r < 0 && r != -ENOENT)
+                return log_warning_errno(r, "Failed to read EFI variable '%s', ignoring: %m", variable);
+
+        return r;
 }
 
 static void print_yes_no_line(bool first, bool good, const char *name) {
@@ -401,19 +413,14 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 Tpm2Support s;
                 int have;
 
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareInfo), &fw_info);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderInfo), &loader);
-                read_efi_var(EFI_LOADER_VARIABLE(StubInfo), &stub);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
-                read_efi_var(EFI_LOADER_VARIABLE(StubImageIdentifier), &stub_path);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareInfo), &fw_info);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderInfo), &loader);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(StubInfo), &stub);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(StubImageIdentifier), &stub_path);
                 (void) efi_loader_get_features(&loader_features);
                 (void) efi_stub_get_features(&stub_features);
-
-                if (loader_path)
-                        efi_tilt_backslashes(loader_path);
-                if (stub_path)
-                        efi_tilt_backslashes(stub_path);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
