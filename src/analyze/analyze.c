@@ -91,6 +91,7 @@
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;
+CapabilityMode arg_capability = CAPABILITY_LITERAL;
 char **arg_dot_from_patterns = NULL, **arg_dot_to_patterns = NULL;
 usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
@@ -358,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 { "tldr",             no_argument,       NULL, ARG_TLDR             },
+                { "mask",             no_argument,       NULL, 'm'                  },
                 {}
         };
 
@@ -366,7 +368,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -551,6 +553,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_cat_flags = CAT_TLDR;
                         break;
 
+                case 'm':
+                        arg_capability = CAPABILITY_MASK;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -613,6 +619,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_table && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--table and --json= are mutually exclusive.");
+
+        if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
 
         return 1; /* work to do */
 }
