@@ -16,12 +16,14 @@
 #include "build.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
+#include "efi-loader.h"
 #include "escape.h"
 #include "find-esp.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
@@ -38,6 +40,8 @@ char *arg_esp_path = NULL;
 char *arg_xbootldr_path = NULL;
 bool arg_print_esp_path = false;
 bool arg_print_dollar_boot_path = false;
+bool arg_print_loader_path = false;
+bool arg_print_stub_path = false;
 unsigned arg_print_root_device = 0;
 bool arg_touch_variables = true;
 bool arg_install_random_seed = true;
@@ -133,6 +137,71 @@ int acquire_xbootldr(
         return 1;
 }
 
+static int print_loader_or_stub_path(void) {
+        _cleanup_free_ char *p = NULL;
+        sd_id128_t uuid;
+        int r;
+
+        if (arg_print_loader_path) {
+                r = efi_loader_get_device_part_uuid(&uuid);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "No loader partition UUID passed.");
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine loader partition UUID: %m");
+
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &p);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "No loader EFI binary path passed.");
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine loader EFI binary path: %m");
+        } else {
+                assert(arg_print_stub_path);
+
+                r = efi_stub_get_device_part_uuid(&uuid);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "No stub partition UUID passed.");
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine stub partition UUID: %m");
+
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE(StubImageIdentifier), &p);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "No stub EFI binary path passed.");
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine stub EFI binary path: %m");
+        }
+
+        sd_id128_t esp_uuid;
+        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false,
+                        /* ret_part= */ NULL, /* ret_pstart= */ NULL, /* ret_psize= */ NULL,
+                        &esp_uuid, /* ret_devid= */ NULL);
+        if (r < 0)
+                return r;
+
+        const char *found_path = NULL;
+        if (sd_id128_equal(esp_uuid, uuid))
+                found_path = arg_esp_path;
+        else if (arg_print_stub_path) { /* In case of the stub, also look for things in the xbootldr partition */
+                sd_id128_t xbootldr_uuid;
+
+                r = acquire_xbootldr(/* unprivileged_mode= */ false, &xbootldr_uuid, /* ret_devid= */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (sd_id128_equal(xbootldr_uuid, uuid))
+                        found_path = arg_xbootldr_path;
+        }
+
+        if (!found_path)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to discover partition " SD_ID128_FORMAT_STR " among mounted boot partitions.", SD_ID128_FORMAT_VAL(uuid));
+
+        _cleanup_free_ char *j = path_join(found_path, p);
+        if (!j)
+                return log_oom();
+
+        puts(j);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -182,6 +251,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Where to pick files when using --root=/--image=\n"
                "  -p --print-esp-path  Print path to the EFI System Partition mount point\n"
                "  -x --print-boot-path Print path to the $BOOT partition mount point\n"
+               "     --print-loader-path\n"
+               "                       Print path to currently booted boot loader binary\n"
+               "     --print-stub-path Print path to currently booted unified kernel binary\n"
                "  -R --print-root-device\n"
                "                       Print path to the block device node backing the\n"
                "                       root file system (returns e.g. /dev/nvme0n1p5)\n"
@@ -235,6 +307,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
                 ARG_DRY_RUN,
+                ARG_PRINT_LOADER_PATH,
+                ARG_PRINT_STUB_PATH,
         };
 
         static const struct option options[] = {
@@ -250,6 +324,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-esp-path",              no_argument,       NULL, 'p'                             },
                 { "print-path",                  no_argument,       NULL, 'p'                             }, /* Compatibility alias */
                 { "print-boot-path",             no_argument,       NULL, 'x'                             },
+                { "print-loader-path",           no_argument,       NULL, ARG_PRINT_LOADER_PATH           },
+                { "print-stub-path",             no_argument,       NULL, ARG_PRINT_STUB_PATH             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
                 { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
                 { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
@@ -330,6 +406,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'x':
                         arg_print_dollar_boot_path = true;
+                        break;
+
+                case ARG_PRINT_LOADER_PATH:
+                        arg_print_loader_path = true;
+                        break;
+
+                case ARG_PRINT_STUB_PATH:
+                        arg_print_stub_path = true;
                         break;
 
                 case 'R':
@@ -414,9 +498,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) > 1)
+        if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R cannot be combined.");
+                                                       "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R, --print-loader-path, --print-stub-path cannot be combined.");
 
         if ((arg_root || arg_image) && argv[optind] && !STR_IN_SET(argv[optind], "status", "list",
                         "install", "update", "remove", "is-installed", "random-seed", "unlink", "cleanup"))
@@ -540,6 +624,9 @@ static int run(int argc, char *argv[]) {
                 puts(path);
                 return 0;
         }
+
+        if (arg_print_loader_path || arg_print_stub_path)
+                return print_loader_or_stub_path();
 
         /* Open up and mount the image */
         if (arg_image) {
