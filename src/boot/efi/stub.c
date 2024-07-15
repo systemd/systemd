@@ -153,6 +153,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_CMDLINE_SMBIOS |           /* We support extending kernel cmdline from SMBIOS Type #11 */
                 EFI_STUB_FEATURE_DEVICETREE_ADDONS |        /* We pick up .dtb addons */
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
+                EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 0;
 
         assert(loaded_image);
@@ -164,6 +165,18 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, 0);
 
         (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubProfile", profile, 0);
+
+        if (loaded_image->DeviceHandle) {
+                _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
+                if (uuid)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, 0);
+        }
+
+        if (loaded_image->FilePath) {
+                _cleanup_free_ char16_t *s = NULL;
+                if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubImageIdentifier", s, 0);
+        }
 }
 
 static bool parse_profile_from_cmdline(char16_t **cmdline, unsigned *ret_profile) {
