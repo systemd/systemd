@@ -2182,7 +2182,6 @@ install_locales() {
         inst_recursive /usr/share/i18n/charmaps
         inst_recursive /usr/share/i18n/locales
         inst_recursive /usr/share/locale/en*
-        inst_recursive /usr/share/locale/de*
         image_install /usr/share/locale/locale.alias
         # locale-gen might either generate each locale separately or merge them
         # into a single archive
