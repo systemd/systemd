@@ -981,11 +981,6 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         if (r < 0)
                 return log_bus_error(r, NULL, op->target_id, "listen for PropertiesChanged");
 
-        /* Register for notification when the job ends */
-        r = bus_match_signal_async(
-                        op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_finished, NULL, op);
-        if (r < 0)
-                return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
         TAKE_PTR(op); /* update_finished/update_interrupted take ownership of the data */
 
         return 0;
@@ -1032,6 +1027,12 @@ static int verb_update(int argc, char **argv, void *userdata) {
                 op = operation_new(map, bus, &remaining, target_paths[i], targets[i]);
                 if (!op)
                         return log_oom();
+
+                /* Sign up for notification when the associated job finishes */
+                r = bus_match_signal_async(
+                                op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_finished, NULL, op);
+                if (r < 0)
+                        return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
 
                 r = sd_bus_call_method_async(
                                 bus,
