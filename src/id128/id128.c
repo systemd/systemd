@@ -21,6 +21,7 @@ static bool arg_value = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static bool arg_var_partition_uuid = false;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -122,11 +123,23 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "'show --app-specific=' can only be used with explicit UUID input.");
 
-                for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
-                        r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
+                if (arg_var_partition_uuid) {
+                        /* The DPS says that the UUID for /var/ should be keyed with machine-id. */
+                        sd_id128_t uuid;
+
+                        r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate machine-specific UUID: %m");
+
+                        r = show_one(&table, "var-uuid", uuid, /* first= */ false);
                         if (r < 0)
                                 return r;
-                }
+                } else
+                        for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
+                                r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
+                                if (r < 0)
+                                        return r;
+                        }
         } else
                 STRV_FOREACH(p, argv) {
                         sd_id128_t uuid;
@@ -194,6 +207,8 @@ static int help(void) {
                "  -P --value              Only print the value\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
+               "     --var-partition-uuid Make the 'show' verb print the UUID for the\n"
+               "                          /var/ partition\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -213,18 +228,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_JSON,
+                ARG_VAR_PARTITION_UUID,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
-                { "json",         required_argument, NULL, ARG_JSON         },
-                { "pretty",       no_argument,       NULL, 'p'              },
-                { "value",        no_argument,       NULL, 'P'              },
-                { "app-specific", required_argument, NULL, 'a'              },
-                { "uuid",         no_argument,       NULL, 'u'              },
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, ARG_VERSION            },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
+                { "json",               required_argument, NULL, ARG_JSON               },
+                { "pretty",             no_argument,       NULL, 'p'                    },
+                { "value",              no_argument,       NULL, 'P'                    },
+                { "app-specific",       required_argument, NULL, 'a'                    },
+                { "uuid",               no_argument,       NULL, 'u'                    },
+                { "var-partition-uuid", no_argument,       NULL, ARG_VAR_PARTITION_UUID },
                 {},
         };
 
@@ -281,6 +298,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_mode = ID128_PRINT_UUID;
+                        break;
+
+                case ARG_VAR_PARTITION_UUID:
+                        arg_var_partition_uuid = true;
                         break;
 
                 case '?':
