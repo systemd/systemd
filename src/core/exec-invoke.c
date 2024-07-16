@@ -3010,7 +3010,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_image,
                               &pick_filter_image_raw,
-                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              PICK_ABI|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
                         return r;
@@ -3030,7 +3030,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_directory,
                               &pick_filter_image_dir,
-                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              PICK_ABI|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
                         return r;
