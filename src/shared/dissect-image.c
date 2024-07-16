@@ -647,21 +647,21 @@ static int open_partition(
         return TAKE_FD(fd);
 }
 
-static int compare_arch(Architecture a, Architecture b) {
+static int compare_abi(Abi a, Abi b) {
         if (a == b)
                 return 0;
 
-        if (a == native_architecture())
+        if (a == native_abi())
                 return 1;
 
-        if (b == native_architecture())
+        if (b == native_abi())
                 return -1;
 
-#ifdef ARCHITECTURE_SECONDARY
-        if (a == ARCHITECTURE_SECONDARY)
+#ifdef ABI_SECONDARY
+        if (a == ABI_SECONDARY)
                 return 1;
 
-        if (b == ARCHITECTURE_SECONDARY)
+        if (b == ABI_SECONDARY)
                 return -1;
 #endif
 
@@ -862,7 +862,7 @@ static int dissect_image(
                                 .found = true,
                                 .rw = !m->verity_ready && !fstype_is_ro(fstype),
                                 .partno = -1,
-                                .architecture = _ARCHITECTURE_INVALID,
+                                .abi = _ABI_INVALID,
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
@@ -1230,7 +1230,7 @@ static int dissect_image(
                                          * let the newest version win. This permits a simple A/B versioning
                                          * scheme in OS images. */
 
-                                        c = compare_arch(type.arch, m->partitions[type.designator].architecture);
+                                        c = compare_abi(type.abi, m->partitions[type.designator].abi);
                                         if (c < 0) /* the arch we already found is better than the one we found now */
                                                 continue;
                                         if (c == 0 && /* same arch? then go by version in label */
@@ -1276,7 +1276,7 @@ static int dissect_image(
                                         .partno = nr,
                                         .rw = rw,
                                         .growfs = growfs,
-                                        .architecture = type.arch,
+                                        .abi = type.abi,
                                         .node = TAKE_PTR(n),
                                         .fstype = TAKE_PTR(t),
                                         .label = TAKE_PTR(l),
@@ -1354,7 +1354,7 @@ static int dissect_image(
                                         .partno = nr,
                                         .rw = true,
                                         .growfs = false,
-                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .abi = _ABI_INVALID,
                                         .node = TAKE_PTR(n),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
@@ -1387,12 +1387,12 @@ static int dissect_image(
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
                 return -EADDRNOTAVAIL;
 
-        /* If root and /usr are combined then insist that the architecture matches */
+        /* If root and /usr are combined then insist that the abi matches */
         if (m->partitions[PARTITION_ROOT].found &&
             m->partitions[PARTITION_USR].found &&
-            (m->partitions[PARTITION_ROOT].architecture >= 0 &&
-             m->partitions[PARTITION_USR].architecture >= 0 &&
-             m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
+            (m->partitions[PARTITION_ROOT].abi >= 0 &&
+             m->partitions[PARTITION_USR].abi >= 0 &&
+             m->partitions[PARTITION_ROOT].abi != m->partitions[PARTITION_USR].abi))
                 return -EADDRNOTAVAIL;
 
         if (!m->partitions[PARTITION_ROOT].found &&
@@ -1445,7 +1445,7 @@ static int dissect_image(
                                         .rw = generic_rw,
                                         .growfs = generic_growfs,
                                         .partno = generic_nr,
-                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .abi = _ABI_INVALID,
                                         .node = TAKE_PTR(n),
                                         .uuid = generic_uuid,
                                         .mount_options = TAKE_PTR(o),
@@ -3771,18 +3771,18 @@ finish:
         return r;
 }
 
-Architecture dissected_image_architecture(DissectedImage *img) {
+Abi dissected_image_abi(DissectedImage *img) {
         assert(img);
 
         if (img->partitions[PARTITION_ROOT].found &&
-            img->partitions[PARTITION_ROOT].architecture >= 0)
-                return img->partitions[PARTITION_ROOT].architecture;
+            img->partitions[PARTITION_ROOT].abi >= 0)
+                return img->partitions[PARTITION_ROOT].abi;
 
         if (img->partitions[PARTITION_USR].found &&
-            img->partitions[PARTITION_USR].architecture >= 0)
-                return img->partitions[PARTITION_USR].architecture;
+            img->partitions[PARTITION_USR].abi >= 0)
+                return img->partitions[PARTITION_USR].abi;
 
-        return _ARCHITECTURE_INVALID;
+        return _ABI_INVALID;
 }
 
 int dissect_loop_device(
@@ -4207,7 +4207,7 @@ int get_common_dissect_directory(char **ret) {
 
 #if HAVE_BLKID
 
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_architecture, Architecture, architecture_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_abi, Abi, abi_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_partition_designator, PartitionDesignator, partition_designator_from_string);
 
 typedef struct PartitionFields {
@@ -4215,7 +4215,7 @@ typedef struct PartitionFields {
         bool rw;
         bool growfs;
         unsigned partno;
-        Architecture architecture;
+        Abi abi;
         sd_id128_t uuid;
         char *fstype;
         char *label;
@@ -4339,7 +4339,7 @@ int mountfsd_mount_image(
 
                 _cleanup_(partition_fields_done) PartitionFields pp = {
                         .designator = _PARTITION_DESIGNATOR_INVALID,
-                        .architecture = _ARCHITECTURE_INVALID,
+                        .abi = _ABI_INVALID,
                         .size = UINT64_MAX,
                         .offset = UINT64_MAX,
                         .fsmount_fd_idx = UINT_MAX,
@@ -4350,7 +4350,7 @@ int mountfsd_mount_image(
                         { "writable",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(struct PartitionFields, rw),               SD_JSON_MANDATORY },
                         { "growFileSystem",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(struct PartitionFields, growfs),           SD_JSON_MANDATORY },
                         { "partitionNumber",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(struct PartitionFields, partno),           0                 },
-                        { "architecture",        SD_JSON_VARIANT_STRING,        dispatch_architecture,         offsetof(struct PartitionFields, architecture),     0                 },
+                        { "architecture",        SD_JSON_VARIANT_STRING,        dispatch_abi,                  offsetof(struct PartitionFields, abi),              0                 },
                         { "partitionUuid",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(struct PartitionFields, uuid),             0                 },
                         { "fileSystemType",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(struct PartitionFields, fstype),           SD_JSON_MANDATORY },
                         { "partitionLabel",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(struct PartitionFields, label),            0                 },
@@ -4389,7 +4389,7 @@ int mountfsd_mount_image(
                         .rw = pp.rw,
                         .growfs = pp.growfs,
                         .partno = pp.partno,
-                        .architecture = pp.architecture,
+                        .abi = pp.abi,
                         .uuid = pp.uuid,
                         .fstype = TAKE_PTR(pp.fstype),
                         .label = TAKE_PTR(pp.label),
