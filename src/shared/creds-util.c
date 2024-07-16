@@ -8,6 +8,7 @@
 
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "blockdev-util.h"
 #include "capability-util.h"
@@ -36,7 +37,6 @@
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "user-util.h"
-#include "varlink.h"
 
 #define PUBLIC_KEY_MAX (UINT32_C(1024) * UINT32_C(1024))
 
@@ -1526,18 +1526,18 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 #endif
 
 int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(input && iovec_is_valid(input));
         assert(ret);
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to io.systemd.Credentials: %m");
 
         /* Mark anything we get from the service as sensitive, given that it might use a NULL cypher, at least in theory */
-        r = varlink_set_input_sensitive(vl);
+        r = sd_varlink_set_input_sensitive(vl);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable sensitive Varlink input: %m");
 
@@ -1551,7 +1551,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
         const char *error_id = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.Credentials.Encrypt",
                         &reply,
@@ -1568,7 +1568,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                 if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
                         return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
 
-                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to encrypt: %s", error_id);
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to encrypt: %s", error_id);
         }
 
         r = sd_json_dispatch(
@@ -1586,17 +1586,17 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 }
 
 int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(input && iovec_is_valid(input));
         assert(ret);
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to io.systemd.Credentials: %m");
 
-        r = varlink_set_input_sensitive(vl);
+        r = sd_varlink_set_input_sensitive(vl);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable sensitive Varlink input: %m");
 
@@ -1611,7 +1611,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
         const char *error_id = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.Credentials.Decrypt",
                         &reply,
@@ -1635,7 +1635,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 if (streq(error_id, "io.systemd.Credentials.BadScope"))
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
 
-                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
 
         r = sd_json_dispatch(

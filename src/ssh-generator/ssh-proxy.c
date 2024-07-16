@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "fd-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -14,7 +16,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "varlink.h"
+#include "varlink-util.h"
 
 static int process_vsock_cid(unsigned cid, const char *port) {
         int r;
@@ -138,13 +140,13 @@ static int process_vsock_mux(const char *path, const char *port) {
 }
 
 static int process_machine(const char *machine, const char *port) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(machine);
         assert(port);
 
-        r = varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
 

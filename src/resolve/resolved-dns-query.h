@@ -2,9 +2,9 @@
 #pragma once
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "set.h"
-#include "varlink.h"
 
 typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
@@ -97,7 +97,7 @@ struct DnsQuery {
 
         /* Bus + Varlink client information */
         sd_bus_message *bus_request;
-        Varlink *varlink_request;
+        sd_varlink *varlink_request;
         int request_family;
         union in_addr_union request_address;
         unsigned block_all_complete;

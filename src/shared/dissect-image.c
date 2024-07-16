@@ -21,6 +21,7 @@
 #include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "architecture.h"
 #include "ask-password-api.h"
@@ -77,7 +78,6 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "xattr-util.h"
 
 /* how many times to wait for the device nodes to appear */
@@ -4269,7 +4269,7 @@ int mountfsd_mount_image(
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_close_ int image_fd = -EBADF;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_free_ char *ps = NULL;
         unsigned max_fd = UINT_MAX;
         const char *error_id;
@@ -4278,15 +4278,15 @@ int mountfsd_mount_image(
         assert(path);
         assert(ret);
 
-        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
-        r = varlink_set_allow_fd_passing_input(vl, true);
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
 
@@ -4294,12 +4294,12 @@ int mountfsd_mount_image(
         if (image_fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
-        r = varlink_push_dup_fd(vl, image_fd);
+        r = sd_varlink_push_dup_fd(vl, image_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
 
         if (userns_fd >= 0) {
-                r = varlink_push_dup_fd(vl, userns_fd);
+                r = sd_varlink_push_dup_fd(vl, userns_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
         }
@@ -4311,7 +4311,7 @@ int mountfsd_mount_image(
         }
 
         sd_json_variant *reply = NULL;
-        r = varlink_callbo(
+        r = sd_varlink_callbo(
                         vl,
                         "io.systemd.MountFileSystem.MountImage",
                         &reply,
@@ -4325,7 +4325,7 @@ int mountfsd_mount_image(
         if (r < 0)
                 return log_error_errno(r, "Failed to call MountImage() varlink call: %m");
         if (!isempty(error_id))
-                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to call MountImage() varlink call: %s", error_id);
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to call MountImage() varlink call: %s", error_id);
 
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -4368,7 +4368,7 @@ int mountfsd_mount_image(
                         if (max_fd == UINT_MAX || pp.fsmount_fd_idx > max_fd)
                                 max_fd = pp.fsmount_fd_idx;
 
-                        fsmount_fd = varlink_take_fd(vl, pp.fsmount_fd_idx);
+                        fsmount_fd = sd_varlink_take_fd(vl, pp.fsmount_fd_idx);
                         if (fsmount_fd < 0)
                                 return fsmount_fd;
                 }
