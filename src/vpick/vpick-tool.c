@@ -18,7 +18,7 @@
 
 static char *arg_filter_basename = NULL;
 static char *arg_filter_version = NULL;
-static Architecture arg_filter_architecture = _ARCHITECTURE_INVALID;
+static Abi arg_filter_abi = _ABI_INVALID;
 static char *arg_filter_suffix = NULL;
 static uint32_t arg_filter_type_mask = 0;
 static enum {
@@ -31,7 +31,7 @@ static enum {
         PRINT_ALL,
         _PRINT_INVALID = -EINVAL,
 } arg_print = _PRINT_INVALID;
-static PickFlags arg_flags = PICK_ARCHITECTURE|PICK_TRIES;
+static PickFlags arg_flags = PICK_ABI|PICK_TRIES;
 
 STATIC_DESTRUCTOR_REGISTER(arg_filter_basename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_version, freep);
@@ -128,21 +128,27 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'A':
                         if (streq(optarg, "native"))
-                                arg_filter_architecture = native_architecture();
+                                arg_filter_abi = native_abi();
                         else if (streq(optarg, "secondary")) {
-#ifdef ARCHITECTURE_SECONDARY
-                                arg_filter_architecture = ARCHITECTURE_SECONDARY;
+#ifdef ABI_SECONDARY
+                                arg_filter_abi = ABI_SECONDARY;
 #else
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Local architecture has no secondary architecture.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Local abi has no secondary abi.");
+#endif
+                        } else if (streq(optarg, "tertiary")) {
+#ifdef ABI_TERTIARY
+                                arg_filter_abi = ABI_TERTIARY;
+#else
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Local abi has no tertiary abi.");
 #endif
                         } else if (streq(optarg, "uname"))
-                                arg_filter_architecture = uname_architecture();
+                                arg_filter_abi = uname_abi();
                         else if (streq(optarg, "auto"))
-                                arg_filter_architecture = _ARCHITECTURE_INVALID;
+                                arg_filter_abi = _ABI_INVALID;
                         else {
-                                arg_filter_architecture = architecture_from_string(optarg);
-                                if (arg_filter_architecture < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown architecture: %s", optarg);
+                                arg_filter_abi = abi_from_string(optarg);
+                                if (arg_filter_abi < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown abi: %s", optarg);
                         }
                         break;
 
@@ -238,7 +244,7 @@ static int run(int argc, char *argv[]) {
                               &(PickFilter) {
                                       .basename = arg_filter_basename,
                                       .version = arg_filter_version,
-                                      .architecture = arg_filter_architecture,
+                                      .abi = arg_filter_abi,
                                       .suffix = STRV_MAKE(arg_filter_suffix),
                                       .type_mask = arg_filter_type_mask,
                               },
@@ -284,10 +290,10 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 case PRINT_ARCHITECTURE:
-                        if (result.architecture < 0)
+                        if (result.abi < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No architecture information discovered.");
 
-                        puts(architecture_to_string(result.architecture));
+                        puts(abi_to_string(result.abi));
                         break;
 
                 case PRINT_TRIES:
@@ -315,7 +321,7 @@ static int run(int argc, char *argv[]) {
                                         TABLE_FIELD, "Type",
                                         TABLE_STRING, result.st.st_mode == MODE_INVALID ? NULL : inode_type_to_string(result.st.st_mode),
                                         TABLE_FIELD, "Architecture",
-                                        TABLE_STRING, result.architecture < 0 ? NULL : architecture_to_string(result.architecture));
+                                        TABLE_STRING, result.abi < 0 ? NULL : abi_to_string(result.abi));
                         if (r < 0)
                                 return table_log_add_error(r);
 
