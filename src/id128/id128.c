@@ -125,6 +125,20 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
                         if (r < 0)
                                 return r;
+
+                        /* The DPS says that the GUID for /var/ should be keyed with machine-id, so
+                         * as a special case also show "var-keyed" after "var". */
+                        if (e->designator == PARTITION_VAR) {
+                                sd_id128_t uuid;
+
+                                r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &uuid);
+                                if (r < 0)
+                                        return r;
+
+                                r = show_one(&table, "var-keyed", uuid, /* first= */ false);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         else
                 STRV_FOREACH(p, argv) {
@@ -138,13 +152,22 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         if (have_uuid)
                                 id = gpt_partition_type_uuid_to_string(uuid) ?: "XYZ";
                         else {
-                                GptPartitionType type;
+                                /* The DPS says that the GUID for /var/ should be keyed with machine-id, so
+                                 * as a special case show that if we are asked for "var-keyed". */
+                                if (streq(*p, "var-keyed")) {
+                                        r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &uuid);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        GptPartitionType type;
 
-                                r = gpt_partition_type_from_string(*p, &type);
-                                if (r < 0)
-                                        return log_error_errno(r, "Unknown identifier \"%s\".", *p);
+                                        r = gpt_partition_type_from_string(*p, &type);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Unknown identifier \"%s\".", *p);
 
-                                uuid = type.uuid;
+                                        uuid = type.uuid;
+                                }
+
                                 id = *p;
                         }
 

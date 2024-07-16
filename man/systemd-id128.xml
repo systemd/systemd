@@ -80,7 +80,11 @@
     arguments are specified, they may be the identifiers or ID values of one or more known IDs, which are
     then printed with their name, or arbitrary IDs, which are then printed with a placeholder name. Combine
     with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT partition type UUIDs are
-    usually shown.</para>
+    usually shown. This verb also shows a <literal>var-keyed</literal> entry, which, following the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    Partitions Specification</ulink>, should be used as the GPT partition UUID for
+    <filename>/var/</filename>, being derived from the GPT partition type, keyed by the local
+    <filename>/etc/machine-id</filename>.</para>
 
     <para><command>machine-id</command>, <command>boot-id</command>, and <command>show</command> may be
     combined with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to generate
