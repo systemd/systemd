@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# FIXME: test that kernel cmdline reached us properly
+# FIXME: make sure systemd-measure worked
+
 bootctl
 
 CURRENT_UKI=$(bootctl --print-stub-path)
