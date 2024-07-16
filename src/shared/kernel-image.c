@@ -14,6 +14,7 @@
 static const char * const kernel_image_type_table[_KERNEL_IMAGE_TYPE_MAX] = {
         [KERNEL_IMAGE_TYPE_UNKNOWN] = "unknown",
         [KERNEL_IMAGE_TYPE_UKI]     = "uki",
+        [KERNEL_IMAGE_TYPE_ADDON]   = "addon",
         [KERNEL_IMAGE_TYPE_PE]      = "pe",
 };
 
@@ -158,6 +159,16 @@ int inspect_kernel(
                         return r;
 
                 t = KERNEL_IMAGE_TYPE_UKI;
+                goto done;
+        } else if (pe_is_addon(pe_header, sections)) {
+                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, /* ret_pretty_name= */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (ret_pretty_name)
+                        *ret_pretty_name = NULL;
+
+                t = KERNEL_IMAGE_TYPE_ADDON;
                 goto done;
         } else
                 t = KERNEL_IMAGE_TYPE_PE;
