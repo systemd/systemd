@@ -61,18 +61,18 @@ int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
         return 0;
 }
 
-int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
-        _cleanup_free_ char *p = NULL;
+static int get_device_part_uuid(const char *variable, sd_id128_t *ret) {
         int r;
-        unsigned parsed[16];
 
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), &p);
+        _cleanup_free_ char *p = NULL;
+        r = efi_get_variable_string(variable, &p);
         if (r < 0)
                 return r;
 
+        unsigned parsed[16];
         if (sscanf(p, SD_ID128_UUID_FORMAT_STR,
                    &parsed[0], &parsed[1], &parsed[2], &parsed[3],
                    &parsed[4], &parsed[5], &parsed[6], &parsed[7],
@@ -81,10 +81,18 @@ int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
                 return -EIO;
 
         if (ret)
-                for (unsigned i = 0; i < ELEMENTSOF(parsed); i++)
+                for (size_t i = 0; i < ELEMENTSOF(parsed); i++)
                         ret->bytes[i] = parsed[i];
 
         return 0;
+}
+
+int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
+        return get_device_part_uuid(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), ret);
+}
+
+int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
+        return get_device_part_uuid(EFI_LOADER_VARIABLE(StubDevicePartUUID), ret);
 }
 
 int efi_loader_get_entries(char ***ret) {

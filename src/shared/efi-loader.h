@@ -11,6 +11,7 @@
 #if ENABLE_EFI
 
 int efi_loader_get_device_part_uuid(sd_id128_t *ret);
+int efi_stub_get_device_part_uuid(sd_id128_t *ret);
 int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader);
 
 int efi_loader_get_entries(char ***ret);
