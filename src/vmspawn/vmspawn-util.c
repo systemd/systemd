@@ -31,6 +31,8 @@
 static const char* const architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_ARM64]       = "aarch64",     /* differs from our name */
         [ARCHITECTURE_ARM]         = "arm",
+        [ARCHITECTURE_ARMEL]       = "arm",
+        [ARCHITECTURE_ARMHF]       = "arm",
         [ARCHITECTURE_ALPHA]       = "alpha",
         [ARCHITECTURE_X86_64]      = "x86_64",      /* differs from our name */
         [ARCHITECTURE_X86]         = "i386",        /* differs from our name */
