@@ -96,10 +96,16 @@ jobs:
             llvm: 0
             cflags: "-Og"
             relabel: yes
+          - distro: centos
+            release: "10"
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: yes
 
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
-    - uses: systemd/mkosi@4681dd733a925cd048d0301af26221bce0c95eed
+    - uses: systemd/mkosi@7e975957a6af65c2e70428b6cda0c163ca7e1adc
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location

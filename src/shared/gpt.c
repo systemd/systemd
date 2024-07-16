@@ -339,6 +339,18 @@ bool gpt_partition_type_knows_no_auto(GptPartitionType type) {
                       PARTITION_SWAP);
 }
 
+bool gpt_partition_type_has_filesystem(GptPartitionType type) {
+        return IN_SET(type.designator,
+                      PARTITION_ROOT,
+                      PARTITION_USR,
+                      PARTITION_HOME,
+                      PARTITION_SRV,
+                      PARTITION_ESP,
+                      PARTITION_XBOOTLDR,
+                      PARTITION_TMP,
+                      PARTITION_VAR);
+}
+
 bool gpt_header_has_signature(const GptHeader *p) {
         assert(p);
 
