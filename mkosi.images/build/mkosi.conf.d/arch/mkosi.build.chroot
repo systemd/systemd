@@ -2,23 +2,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
-if [ ! -f "pkg/$ID/PKGBUILD" ]; then
+if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
 
 # We can't configure the source or build directory so we use symlinks instead to make sure they are in the
-# expected locations.
+# expected locations. Because we run with --noextract we are responsible for making sure the source files
+# appear in src/. This means not only the systemd source directory, but also the patches and configuration
+# files that are shipped in the packaging repository. To achieve this, instead of symlinking the systemd
+# sources and build directory directly into "pkg/$ID/src", we symlink them into "pkg/$ID" and then symlink
+# "pkg/$ID" to "pkg/$ID/src".
 ln --symbolic "$SRCDIR" "pkg/$ID/systemd"
 ln --symbolic "$BUILDDIR" "pkg/$ID/build"
-# Because we run with --noextract we are responsible for making sure the source files appear in src/.
 ln --symbolic . "pkg/$ID/src"
 
 MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
@@ -29,7 +28,7 @@ fi
 
 MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
-    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
@@ -65,7 +64,7 @@ EOF
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 rm /usr/share/makepkg/lint_pkgbuild/*
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"

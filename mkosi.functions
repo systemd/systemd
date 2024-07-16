@@ -38,7 +38,15 @@ EOF
 
     rm -f "$BUILDDIR"/systemd.raw
 
-    env --unset=SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT \
+    local fstype
+
+    if command -v mkfs.erofs; then
+        fstype=erofs
+    else
+        fstype=squashfs
+    fi
+
+    env SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT="$fstype" \
     "$BUILDDIR"/systemd-repart \
         --make-ddi=sysext-unsigned \
         --copy-source="$1" \

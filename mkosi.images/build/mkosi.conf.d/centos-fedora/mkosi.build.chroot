@@ -4,25 +4,21 @@ set -e
 
 . mkosi.functions
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
-if [ ! -f "pkg/$ID/systemd.spec" ]; then
+if [[ ! -f "pkg/$ID/systemd.spec" ]]; then
     echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-if systemd-analyze compare-versions "$(rpm --version | cut -d ' ' -f3)" lt "4.19.91"; then
+if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.19.91'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
     # See https://github.com/rpm-software-management/rpm/issues/3042.
     tee --append /usr/lib/rpm/redhat/macros <<'EOF'
@@ -34,10 +30,6 @@ fi
 
 VERSION="$(cat meson.version)"
 RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
-
-DIST="$(rpm --eval %dist)"
-ARCH="$(rpm --eval %_arch)"
-SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
 COMMON_MACRO_OVERRIDES=(
     --define "toolchain $( ((LLVM)) && echo clang || echo gcc)"
@@ -51,7 +43,7 @@ COMMON_MACRO_OVERRIDES=(
 # TODO: Drop -U_FORTIFY_SOURCE when we switch to CentOS Stream 10.
 MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
 if ((WITH_DEBUG)); then
-    MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=/usr/src/debug/systemd"
 fi
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
@@ -60,7 +52,7 @@ fi
 
 MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
-    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(dirname "$(clang --print-file-name=libclang_rt.asan.so)")"
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
@@ -109,6 +101,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "__brp_check_rpaths %{nil}" \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
+    --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
     --define "_fixperms true" \
     --undefine _package_note_flags \

@@ -14,6 +14,11 @@ if [[ -d "$PKG_SUBDIR/.git" ]]; then
         exit 0
     fi
 
+    if ! git -C "$PKG_SUBDIR" show-ref --quiet "origin/$GIT_BRANCH"; then
+        git -C "$PKG_SUBDIR" remote set-url origin "$GIT_URL"
+        git -C "$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
+    fi
+
     # If work is being done on the packaging rules in a separate branch, don't touch the checkout.
     if ! git -C "$PKG_SUBDIR" merge-base --is-ancestor HEAD "origin/$GIT_BRANCH"; then
         EXIT_STATUS=$?

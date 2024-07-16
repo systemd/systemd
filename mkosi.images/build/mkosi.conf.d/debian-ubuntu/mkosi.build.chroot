@@ -2,14 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if ((NO_BUILD)); then
-    exit 0
-fi
-
 # shellcheck source=/dev/null
 . /usr/lib/os-release
 
-if [ ! -d "pkg/$ID/debian" ]; then
+if [[ ! -d "pkg/$ID/debian" ]]; then
     echo "deb rules not found at pkg/$ID/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
@@ -25,7 +21,7 @@ rm -rf "$SRCDIR"/debian/patches/*
 DEB_HOST_GNU_TYPE="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)"
 mount --mkdir --bind "$BUILDDIR" "$SRCDIR/obj-$DEB_HOST_GNU_TYPE"
 
-if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
     TS="$(git show --no-patch --format=%ct HEAD)"
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
@@ -52,7 +48,7 @@ fi
 
 MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
-    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(clang --print-file-name="")lib/linux"
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
@@ -116,7 +112,7 @@ if ! build; then
     # by meson install.
     (cd debian/tmp/ && find . ! -type d ! -path "*dh-exec*" -printf '%P\n') >/tmp/installed-files
 
-    if [ -f debian/not-installed ]; then
+    if [[ -f debian/not-installed ]]; then
         grep --invert-match "^#" debian/not-installed >>/tmp/installed-files
     fi
 
@@ -126,7 +122,7 @@ if ! build; then
     # not in the packaged file.
     comm -23 /tmp/installed-files /tmp/packaged-files > /tmp/unpackaged-files
     # If there are no unpackaged files something else went wrong.
-    if [ ! -s /tmp/unpackaged-files ]; then
+    if [[ ! -s /tmp/unpackaged-files ]]; then
         exit 1
     fi
 
