@@ -62,6 +62,7 @@ Architecture uname_architecture(void) {
                 { "i586",       ARCHITECTURE_X86      },
                 { "i486",       ARCHITECTURE_X86      },
                 { "i386",       ARCHITECTURE_X86      },
+                { "x32",        ARCHITECTURE_X32      },
 
 #elif defined(__ia64__)
                 { "ia64",       ARCHITECTURE_IA64     },
@@ -150,6 +151,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_CRIS]        = "cris",
         [ARCHITECTURE_X86_64]      = "x86-64",
         [ARCHITECTURE_X86]         = "x86",
+        [ARCHITECTURE_X32]         = "x32",
         [ARCHITECTURE_IA64]        = "ia64",
         [ARCHITECTURE_LOONGARCH64] = "loongarch64",
         [ARCHITECTURE_M68K]        = "m68k",
