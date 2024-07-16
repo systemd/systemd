@@ -267,7 +267,8 @@
         <term><option>kernel-identify</option> <replaceable>kernel</replaceable></term>
 
         <listitem><para>Takes a kernel image as argument. Checks what kind of kernel the image is. Returns
-        one of <literal>uki</literal>, <literal>pe</literal>, and <literal>unknown</literal>.
+        one of <literal>uki</literal>, <literal>addon</literal>, <literal>pe</literal>, and
+        <literal>unknown</literal>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
