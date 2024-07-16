@@ -408,7 +408,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                         { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub sets stub partition information"                        },
                 };
-                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL;
+                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 Tpm2Support s;
                 int have;
@@ -421,6 +422,9 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(StubImageIdentifier), &stub_path);
                 (void) efi_loader_get_features(&loader_features);
                 (void) efi_stub_get_features(&stub_features);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntrySelected), &current_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &oneshot_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryDefault), &default_entry);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -478,6 +482,14 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         bool have_loader_partition_uuid = efi_loader_get_device_part_uuid(&loader_partition_uuid) >= 0;
 
                         print_yes_no_line(false, have_loader_partition_uuid, "Boot loader set ESP information");
+
+                        if (current_entry)
+                                printf("Current Entry: %s\n", current_entry);
+                        if (default_entry)
+                                printf("Default Entry: %s\n", default_entry);
+                        if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
+                                printf("OneShot Entry: %s\n", oneshot_entry);
+
                         if (have_loader_partition_uuid && !sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
                                 printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
