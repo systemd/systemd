@@ -1892,10 +1892,14 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1);
+        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
+        sigset_t mask_chld;
+        assert_se(sigemptyset(&mask_chld) == 0);
+        assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
+        r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to mask SIGCHILD: %m");
-
+                return log_error_errno(r, "Failed to mask SIGCHLD: %m");
+        
         r = manager_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
