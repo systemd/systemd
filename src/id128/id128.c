@@ -21,6 +21,7 @@ static bool arg_value = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static bool arg_var_partition_uuid = false;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -194,6 +195,7 @@ static int help(void) {
                "  -P --value              Only print the value\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
+               "     --var-partition-uuid Print the UUID for the /var/ partition\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -213,18 +215,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_JSON,
+                ARG_VAR_PARTITION_UUID,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
-                { "json",         required_argument, NULL, ARG_JSON         },
-                { "pretty",       no_argument,       NULL, 'p'              },
-                { "value",        no_argument,       NULL, 'P'              },
-                { "app-specific", required_argument, NULL, 'a'              },
-                { "uuid",         no_argument,       NULL, 'u'              },
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, ARG_VERSION            },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
+                { "json",               required_argument, NULL, ARG_JSON               },
+                { "pretty",             no_argument,       NULL, 'p'                    },
+                { "value",              no_argument,       NULL, 'P'                    },
+                { "app-specific",       required_argument, NULL, 'a'                    },
+                { "uuid",               no_argument,       NULL, 'u'                    },
+                { "var-partition-uuid", no_argument,       NULL, ARG_VAR_PARTITION_UUID },
                 {},
         };
 
@@ -283,6 +287,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mode = ID128_PRINT_UUID;
                         break;
 
+                case ARG_VAR_PARTITION_UUID:
+                        arg_var_partition_uuid = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -315,6 +323,29 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_var_partition_uuid) {
+                /* The DPS says that the UUID for /var/ should be keyed with machine-id. */
+                _cleanup_(table_unrefp) Table *table = NULL;
+                sd_id128_t uuid;
+
+                if (!sd_id128_is_null(arg_app))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "'show --app-specific=' can only be used with explicit UUID input.");
+
+                r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &uuid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate machine-specific UUID: %m");
+
+                r = show_one(&table, "var-uuid", uuid, /* first= */ false);
+                if (r < 0)
+                        return r;
+
+                if (table)
+                        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+
+                return 0;
+        }
 
         return id128_main(argc, argv);
 }
