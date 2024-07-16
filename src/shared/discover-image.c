@@ -664,7 +664,7 @@ int image_find(ImageClass class,
                                 PickFilter filter = {
                                         .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                         .basename = name,
-                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .abi = _ABI_INVALID,
                                         .suffix = STRV_MAKE(suffix),
                                 };
 
@@ -673,7 +673,7 @@ int image_find(ImageClass class,
                                               /* toplevel_fd= */ AT_FDCWD,
                                               vp,
                                               &filter,
-                                              PICK_ARCHITECTURE|PICK_TRIES,
+                                              PICK_ABI|PICK_TRIES,
                                               &result);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to pick versioned image on '%s', skipping: %m", vp);
@@ -832,7 +832,7 @@ int image_discover(
                                         PickFilter filter = {
                                                 .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                                 .basename = pretty,
-                                                .architecture = _ARCHITECTURE_INVALID,
+                                                .abi = _ABI_INVALID,
                                                 .suffix = STRV_MAKE(suffix),
                                         };
 
@@ -841,7 +841,7 @@ int image_discover(
                                                       /* toplevel_fd= */ AT_FDCWD,
                                                       vp,
                                                       &filter,
-                                                      PICK_ARCHITECTURE|PICK_TRIES,
+                                                      PICK_ABI|PICK_TRIES,
                                                       &result);
                                         if (r < 0) {
                                                 log_debug_errno(r, "Failed to pick versioned image on '%s', skipping: %m", vp);
