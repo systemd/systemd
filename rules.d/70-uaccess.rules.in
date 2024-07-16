@@ -34,6 +34,8 @@ SUBSYSTEM=="sound", TAG+="uaccess", \
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
 SUBSYSTEM=="media", TAG+="uaccess"
+# libcamera software ISP used with some cams requires udmabuf access
+KERNEL=="udmabuf", TAG+="uaccess"
 
 # industrial cameras, some webcams, camcorders, set-top boxes, TV sets, audio devices, and more
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", TAG+="uaccess"
@@ -59,7 +61,7 @@ ENV{ID_SECURITY_TOKEN}=="?*", TAG+="uaccess"
 
 # PDA devices
 ENV{ID_PDA}=="?*", TAG+="uaccess"
-
+`
 # Programmable remote control
 ENV{ID_REMOTE_CONTROL}=="1", TAG+="uaccess"
 
