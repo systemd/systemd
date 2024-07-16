@@ -76,6 +76,7 @@
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "varlink.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
 #define DEFAULT_MIN_SIZE (10ULL*1024ULL*1024ULL)
