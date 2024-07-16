@@ -33,7 +33,8 @@ def read_config(distro: str):
     text = subprocess.check_output(cmd, text=True)
 
     data = json.loads(text)
-    return data['Images'][-1]
+    images = {image["Image"]: image for image in data["Images"]}
+    return images["build"]
 
 def commit_file(distro: str, file: Path, commit: str, changes: str):
     message = '\n'.join((
@@ -69,7 +70,7 @@ def update_distro(args, distro: str):
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
-    conf_dir = Path('mkosi.conf.d')
+    conf_dir = Path('mkosi.images/build/mkosi.conf.d')
     files = conf_dir.glob('*/*.conf')
     for file in files:
         s = file.read_text()
