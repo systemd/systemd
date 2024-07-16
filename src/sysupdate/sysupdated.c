@@ -1888,9 +1888,8 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mask SIGCHILD: %m");
+        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
