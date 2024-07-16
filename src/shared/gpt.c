@@ -144,6 +144,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loong64"), /* Alias: must be listed after loongarch64 */
+        _GPT_ARCH_SEXTET(M68K,        "m68k"),
         _GPT_ARCH_SEXTET(MIPS,        "mips"),
         _GPT_ARCH_SEXTET(MIPS64,      "mips64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
@@ -161,7 +162,10 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
         _GPT_ARCH_SEXTET(S390X,       "s390x"),
+        _GPT_ARCH_SEXTET(SPARC64,     "sparc64"),
+        _GPT_ARCH_SEXTET(SH,          "sh4"),
         _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
+        _GPT_ARCH_SEXTET(X32,         "x32"),
         _GPT_ARCH_SEXTET(X86,         "x86"),
         _GPT_ARCH_SEXTET(X86,         "i386"), /* Alias: must be listed after x86 */
         _GPT_ARCH_SEXTET(X86,         "i486"), /* Alias: must be listed after x86 */
