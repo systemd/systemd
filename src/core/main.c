@@ -81,6 +81,7 @@
 #include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
+#include "rm-rf.h"
 #include "seccomp-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
@@ -2016,6 +2017,17 @@ static int do_reexecute(
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
+
+        /* Drop /run/systemd directory. Some of its content can be used as a flag indicating that systemd is
+         * the init system but we might be replacing it with something different. If systemd is used again it
+         * will recreate the directory and its content anyway. */
+        r = rm_rf("/run/systemd.pre-switch-root", REMOVE_ROOT|REMOVE_MISSING_OK);
+        if (r < 0)
+                log_warning_errno(r, "Failed to prepare /run/systemd.pre-switch-root, ignoring: %m");
+
+        r = RET_NERRNO(renameat(AT_FDCWD, "/run/systemd", AT_FDCWD, "/run/systemd.pre-switch-root"));
+        if (r < 0)
+                log_warning_errno(r, "Failed to move /run/systemd into /run/systemd.pre-switch-root, ignoring: %m");
 
         /* Reopen the console */
         (void) make_console_stdio();
