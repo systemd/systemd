@@ -14,9 +14,13 @@ typedef enum {
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
         ARCHITECTURE_ARM,
+        ARCHITECTURE_ARMEL,
+        ARCHITECTURE_ARMHF,
         ARCHITECTURE_ARM64,
         ARCHITECTURE_ARM64_BE,
         ARCHITECTURE_ARM_BE,
+        ARCHITECTURE_ARMEL_BE,
+        ARCHITECTURE_ARMHF_BE,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_IA64,
         ARCHITECTURE_LOONGARCH64,
@@ -41,6 +45,7 @@ typedef enum {
         ARCHITECTURE_SPARC,
         ARCHITECTURE_SPARC64,
         ARCHITECTURE_TILEGX,
+        ARCHITECTURE_X32,
         ARCHITECTURE_X86,
         ARCHITECTURE_X86_64,
         _ARCHITECTURE_MAX,
@@ -61,10 +66,11 @@ Architecture uname_architecture(void);
  */
 
 #if defined(__x86_64__)
-#  define native_architecture() ARCHITECTURE_X86_64
 #  if defined(__ILP32__)
+#    define native_architecture() ARCHITECTURE_X32
 #    define LIB_ARCH_TUPLE "x86_64-linux-gnux32"
 #  else
+#    define native_architecture() ARCHITECTURE_X86_64
 #    define LIB_ARCH_TUPLE "x86_64-linux-gnu"
 #  endif
 #  define ARCHITECTURE_SECONDARY ARCHITECTURE_X86
@@ -153,25 +159,29 @@ Architecture uname_architecture(void);
 #  endif
 #elif defined(__arm__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
-#    define native_architecture() ARCHITECTURE_ARM_BE
 #    if defined(__ARM_EABI__)
 #      if defined(__ARM_PCS_VFP)
+#        define native_architecture() ARCHITECTURE_ARMHF_BE
 #        define LIB_ARCH_TUPLE "armeb-linux-gnueabihf"
 #      else
+#        define native_architecture() ARCHITECTURE_ARMEL_BE
 #        define LIB_ARCH_TUPLE "armeb-linux-gnueabi"
 #      endif
 #    else
+#      define native_architecture() ARCHITECTURE_ARM_BE
 #      define LIB_ARCH_TUPLE "armeb-linux-gnu"
 #    endif
 #  else
-#    define native_architecture() ARCHITECTURE_ARM
 #    if defined(__ARM_EABI__)
 #      if defined(__ARM_PCS_VFP)
+#        define native_architecture() ARCHITECTURE_ARMHF
 #        define LIB_ARCH_TUPLE "arm-linux-gnueabihf"
 #      else
+#        define native_architecture() ARCHITECTURE_ARMEL
 #        define LIB_ARCH_TUPLE "arm-linux-gnueabi"
 #      endif
 #    else
+#      define native_architecture() ARCHITECTURE_ARM
 #      define LIB_ARCH_TUPLE "arm-linux-gnu"
 #    endif
 #  endif

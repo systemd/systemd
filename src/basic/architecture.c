@@ -18,7 +18,8 @@ Architecture uname_architecture(void) {
          * clean it up and break down the confusion on x86 and arm in particular.
          *
          * We try to distinguish CPUs, not CPU features, i.e. actual architectures that
-         * have genuinely different code. */
+         * have genuinely different code. This includes different userspace ABI, as used
+         * for LIB_ARCH_TUPLE and defined in https://wiki.debian.org/Multiarch/Tuples */
 
         static const struct {
                 const char *machine;
@@ -27,6 +28,47 @@ Architecture uname_architecture(void) {
 #if defined(__aarch64__) || defined(__arm__)
                 { "aarch64",    ARCHITECTURE_ARM64    },
                 { "aarch64_be", ARCHITECTURE_ARM64_BE },
+#  if defined(__ARM_EABI__)
+#    if defined(__ARM_PCS_VFP)
+                { "armv8l",     ARCHITECTURE_ARMHF    },
+                { "armv8b",     ARCHITECTURE_ARMHF_BE },
+                { "armv7ml",    ARCHITECTURE_ARMHF    },
+                { "armv7mb",    ARCHITECTURE_ARMHF_BE },
+                { "armv7l",     ARCHITECTURE_ARMHF    },
+                { "armv7b",     ARCHITECTURE_ARMHF_BE },
+                { "armv6l",     ARCHITECTURE_ARMHF    },
+                { "armv6b",     ARCHITECTURE_ARMHF_BE },
+                { "armv5tl",    ARCHITECTURE_ARMHF    },
+                { "armv5tel",   ARCHITECTURE_ARMHF    },
+                { "armv5tejl",  ARCHITECTURE_ARMHF    },
+                { "armv5tejb",  ARCHITECTURE_ARMHF_BE },
+                { "armv5teb",   ARCHITECTURE_ARMHF_BE },
+                { "armv5tb",    ARCHITECTURE_ARMHF_BE },
+                { "armv4tl",    ARCHITECTURE_ARMHF    },
+                { "armv4tb",    ARCHITECTURE_ARMHF_BE },
+                { "armv4l",     ARCHITECTURE_ARMHF    },
+                { "armv4b",     ARCHITECTURE_ARMHF_BE },
+#    else
+                { "armv8l",     ARCHITECTURE_ARMEL    },
+                { "armv8b",     ARCHITECTURE_ARMEL_BE },
+                { "armv7ml",    ARCHITECTURE_ARMEL    },
+                { "armv7mb",    ARCHITECTURE_ARMEL_BE },
+                { "armv7l",     ARCHITECTURE_ARMEL    },
+                { "armv7b",     ARCHITECTURE_ARMEL_BE },
+                { "armv6l",     ARCHITECTURE_ARMEL    },
+                { "armv6b",     ARCHITECTURE_ARMEL_BE },
+                { "armv5tl",    ARCHITECTURE_ARMEL    },
+                { "armv5tel",   ARCHITECTURE_ARMEL    },
+                { "armv5tejl",  ARCHITECTURE_ARMEL    },
+                { "armv5tejb",  ARCHITECTURE_ARMEL_BE },
+                { "armv5teb",   ARCHITECTURE_ARMEL_BE },
+                { "armv5tb",    ARCHITECTURE_ARMEL_BE },
+                { "armv4tl",    ARCHITECTURE_ARMEL    },
+                { "armv4tb",    ARCHITECTURE_ARMEL_BE },
+                { "armv4l",     ARCHITECTURE_ARMEL    },
+                { "armv4b",     ARCHITECTURE_ARMEL_BE },
+#    endif
+#  else
                 { "armv8l",     ARCHITECTURE_ARM      },
                 { "armv8b",     ARCHITECTURE_ARM_BE   },
                 { "armv7ml",    ARCHITECTURE_ARM      },
@@ -45,6 +87,7 @@ Architecture uname_architecture(void) {
                 { "armv4tb",    ARCHITECTURE_ARM_BE   },
                 { "armv4l",     ARCHITECTURE_ARM      },
                 { "armv4b",     ARCHITECTURE_ARM_BE   },
+#  endif
 
 #elif defined(__alpha__)
                 { "alpha" ,     ARCHITECTURE_ALPHA    },
@@ -57,7 +100,11 @@ Architecture uname_architecture(void) {
                 { "crisv32",    ARCHITECTURE_CRIS     },
 
 #elif defined(__i386__) || defined(__x86_64__)
+#  if defined(__ILP32__)
+                { "x86_64",     ARCHITECTURE_X32      },
+#  else
                 { "x86_64",     ARCHITECTURE_X86_64   },
+#  endif
                 { "i686",       ARCHITECTURE_X86      },
                 { "i586",       ARCHITECTURE_X86      },
                 { "i486",       ARCHITECTURE_X86      },
@@ -144,12 +191,17 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_ARM64_BE]    = "arm64-be",
         [ARCHITECTURE_ARM]         = "arm",
         [ARCHITECTURE_ARM_BE]      = "arm-be",
+        [ARCHITECTURE_ARMEL]       = "armel",
+        [ARCHITECTURE_ARMEL_BE]    = "armel-be",
+        [ARCHITECTURE_ARMHF]       = "armhf",
+        [ARCHITECTURE_ARMHF_BE]    = "armhf-be",
         [ARCHITECTURE_ALPHA]       = "alpha",
         [ARCHITECTURE_ARC]         = "arc",
         [ARCHITECTURE_ARC_BE]      = "arc-be",
         [ARCHITECTURE_CRIS]        = "cris",
         [ARCHITECTURE_X86_64]      = "x86-64",
         [ARCHITECTURE_X86]         = "x86",
+        [ARCHITECTURE_X32]         = "x32",
         [ARCHITECTURE_IA64]        = "ia64",
         [ARCHITECTURE_LOONGARCH64] = "loongarch64",
         [ARCHITECTURE_M68K]        = "m68k",
