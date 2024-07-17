@@ -1184,6 +1184,20 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         goto check;
                 }
 
+                case TABLE_SET_JSON_FIELD_NAME: {
+                        const char *n = va_arg(ap, const char*);
+                        size_t idx;
+                        if (t->vertical) {
+                                assert(TABLE_CELL_TO_INDEX(last_cell) >= t->n_columns);
+                                idx = TABLE_CELL_TO_INDEX(last_cell) / t->n_columns - 1;
+                        } else {
+                                idx = TABLE_CELL_TO_INDEX(last_cell);
+                                assert(idx < t->n_columns);
+                        }
+                        r = table_set_json_field_name(t, idx, n);
+                        goto check;
+                }
+
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
                         va_end(ap);
@@ -2881,18 +2895,39 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
         }
 }
 
-static char* string_to_json_field_name(const char *f) {
+char* table_mangle_to_json_field_name(const char *str) {
         /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
-         * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
-         * underscores and leave everything as is. */
+         * field name can be hence this is a bit vague and black magic. Here's what we do:
+         *  - Convert spaces to underscores
+         *  - Convert dashes to underscores (some JSON parsers don't like dealing with dashes)
+         *  - Convert most other symbols to underscores (for similar reasons)
+         *  - Make the first letter of each word lowercase (unless it looks like the whole word is uppercase)
+         */
 
-        char *c = strdup(f);
+        bool new_word = true;
+        char *c;
+
+        assert(str);
+
+        c = strdup(str);
         if (!c)
                 return NULL;
 
-        for (char *x = c; *x; x++)
-                if (isspace(*x))
+        for (char *x = c; *x; x++) {
+                if (!strchr(ALPHANUMERICAL, *x)) {
                         *x = '_';
+                        new_word = true;
+                        continue;
+                }
+
+                if (new_word) {
+                        if (ascii_tolower(*(x + 1)) == *(x + 1)) /* Heuristic: if next char is upper-case
+                                                                  * then we assume the whole word is all-caps
+                                                                  * and avoid lowercasing it. */
+                                *x = ascii_tolower(*x);
+                        new_word = false;
+                }
+        }
 
         return c;
 }
@@ -2913,7 +2948,7 @@ static int table_make_json_field_name(Table *t, TableData *d, char **ret) {
                         return -ENOMEM;
         }
 
-        mangled = string_to_json_field_name(n);
+        mangled = table_mangle_to_json_field_name(n);
         if (!mangled)
                 return -ENOMEM;
 

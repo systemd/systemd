@@ -364,18 +364,27 @@ TEST(json) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
 
-        assert_se(t = table_new("foo bar", "quux", "piep miau"));
+        assert_se(t = table_new_raw(4));
+
+        assert_se(table_add_many(t,
+                                 TABLE_HEADER, "foo bar",
+                                 TABLE_HEADER, "quux",
+                                 TABLE_HEADER, "piep miau",
+                                 TABLE_HEADER, "asdf",
+                                 TABLE_SET_JSON_FIELD_NAME, "asdf-custom") >= 0);
         assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
 
         assert_se(table_add_many(t,
                                  TABLE_STRING, "v1",
                                  TABLE_UINT64, UINT64_C(4711),
-                                 TABLE_BOOLEAN, true) >= 0);
+                                 TABLE_BOOLEAN, true,
+                                 TABLE_EMPTY) >= 0);
 
         assert_se(table_add_many(t,
                                  TABLE_STRV, STRV_MAKE("a", "b", "c"),
                                  TABLE_EMPTY,
-                                 TABLE_MODE, 0755) >= 0);
+                                 TABLE_MODE, 0755,
+                                 TABLE_EMPTY) >= 0);
 
         assert_se(table_to_json(t, &v) >= 0);
 
@@ -384,13 +393,47 @@ TEST(json) {
                                              SD_JSON_BUILD_OBJECT(
                                                              SD_JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
                                                              SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_UNSIGNED(4711)),
-                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_BOOLEAN(true))),
+                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_BOOLEAN(true)),
+                                                             SD_JSON_BUILD_PAIR("asdf-custom", SD_JSON_BUILD_NULL)),
                                              SD_JSON_BUILD_OBJECT(
                                                              SD_JSON_BUILD_PAIR("foo_bar", SD_JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
                                                              SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_NULL),
-                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_UNSIGNED(0755))))) >= 0);
+                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_UNSIGNED(0755)),
+                                                             SD_JSON_BUILD_PAIR("asdf-custom", SD_JSON_BUILD_NULL)))) >= 0);
 
         assert_se(sd_json_variant_equal(v, w));
+}
+
+TEST(json_mangling) {
+        static const struct {
+                const char *arg;
+                const char *exp;
+        } cases[] = {
+                /* Not Mangled */
+                { "foo", "foo" },
+                { "foo_bar", "foo_bar" },
+                { "fooBar", "fooBar" },
+                { "fooBar123", "fooBar123" },
+                { "foo_bar123", "foo_bar123" },
+                { ALPHANUMERICAL, ALPHANUMERICAL },
+                { "_123", "_123" },
+
+                /* Mangled */
+                { "Foo Bar", "foo_bar" },
+                { "Foo-Bar", "foo_bar" },
+                { "Foo@Bar", "foo_bar" },
+                { "Foo (Bar)", "foo__bar_"},
+                { "MixedCase ALLCAPS", "mixedCase_ALLCAPS" },
+                { "_X", "_x" },
+                { "_Foo", "_foo" },
+        };
+
+        FOREACH_ELEMENT(i, cases) {
+                _cleanup_free_ char *ret = NULL;
+                assert_se(ret = table_mangle_to_json_field_name(i->arg));
+                printf("\"%s\" -> \"%s\"\n", i->arg, ret);
+                assert_se(streq(ret, i->exp));
+        }
 }
 
 TEST(table) {
@@ -544,6 +587,7 @@ TEST(vertical) {
         assert_se(table_add_many(t,
                                  TABLE_FIELD, "pfft aa", TABLE_STRING, "foo",
                                  TABLE_FIELD, "uuu o", TABLE_SIZE, UINT64_C(1024),
+                                 TABLE_FIELD, "quux", TABLE_STRING, "asdf", TABLE_SET_JSON_FIELD_NAME, "custom-quux",
                                  TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj") >= 0);
 
         assert_se(table_set_json_field_name(t, 1, "dimpfelmoser") >= 0);
@@ -553,6 +597,7 @@ TEST(vertical) {
         assert_se(streq(formatted,
                         "     pfft aa: foo\n"
                         "       uuu o: 1K\n"
+                        "        quux: asdf\n"
                         "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
@@ -561,6 +606,7 @@ TEST(vertical) {
         assert_se(sd_json_build(&b, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("pfft_aa", SD_JSON_BUILD_STRING("foo")),
                                              SD_JSON_BUILD_PAIR("dimpfelmoser", SD_JSON_BUILD_UNSIGNED(1024)),
+                                             SD_JSON_BUILD_PAIR("custom-quux", SD_JSON_BUILD_STRING("asdf")),
                                              SD_JSON_BUILD_PAIR("lllllllllllo", SD_JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))) >= 0);
 
         assert_se(sd_json_variant_equal(a, b));
