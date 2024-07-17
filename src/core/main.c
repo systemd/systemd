@@ -1399,17 +1399,27 @@ static int os_release_status(void) {
                                       "Failed to read os-release file, ignoring: %m");
 
         const char *label = os_release_pretty_name(pretty_name, name);
+        const char *color = empty_to_null(ansi_color) ?: "1";
 
         if (show_status_on(arg_show_status)) {
-                if (log_get_show_color())
-                        status_printf(NULL, 0,
-                                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                                      empty_to_null(ansi_color) ?: "1",
-                                      label);
-                else
-                        status_printf(NULL, 0,
-                                      "\nWelcome to %s!\n",
-                                      label);
+                if (in_initrd()) {
+                        if (log_get_show_color())
+                                status_printf(NULL, 0,
+                                              ANSI_HIGHLIGHT "Booting initrd of " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "." ANSI_NORMAL,
+                                              color, label);
+                        else
+                                status_printf(NULL, 0,
+                                              "Booting initrd of %s...", label);
+                } else {
+                        if (log_get_show_color())
+                                status_printf(NULL, 0,
+                                              "\n" ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n",
+                                              color, label);
+                        else
+                                status_printf(NULL, 0,
+                                              "\nWelcome to %s!\n",
+                                              label);
+                }
         }
 
         if (support_end && os_release_support_ended(support_end, /* quiet */ false, NULL) > 0)
