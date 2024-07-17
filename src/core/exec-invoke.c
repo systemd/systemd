@@ -32,7 +32,6 @@
 #include "chown-recursive.h"
 #include "copy.h"
 #include "data-fd-util.h"
-#include "dev-setup.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
