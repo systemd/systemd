@@ -4,6 +4,7 @@
 
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "bus-polkit.h"
 #include "hostname-util.h"
@@ -15,7 +16,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "varlink.h"
+#include "varlink-util.h"
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_machine_class, MachineClass, machine_class_from_string);
 
@@ -121,7 +122,7 @@ static int machine_cid(const char *name, sd_json_variant *variant, sd_json_dispa
         return 0;
 }
 
-int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_(machine_freep) Machine *machine = NULL;
         int r;
@@ -146,7 +147,7 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
         if (r < 0)
                 return r;
 
-        r = varlink_dispatch(link, parameters, dispatch_table, machine);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, machine);
         if (r != 0)
                 return r;
 
@@ -168,7 +169,7 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)
-                return varlink_error(link, "io.systemd.Machine.MachineExists", NULL);
+                return sd_varlink_error(link, "io.systemd.Machine.MachineExists", NULL);
         if (r < 0)
                 return r;
 
@@ -185,5 +186,5 @@ int vl_method_register(Varlink *link, sd_json_variant *parameters, VarlinkMethod
         /* the manager will free this machine */
         TAKE_PTR(machine);
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }

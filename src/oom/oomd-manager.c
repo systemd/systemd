@@ -127,15 +127,15 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
 }
 
 static int process_managed_oom_request(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
-                VarlinkMethodFlags flags,
+                sd_varlink_method_flags_t flags,
                 void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
         int r;
 
-        r = varlink_get_peer_uid(link, &uid);
+        r = sd_varlink_get_peer_uid(link, &uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get varlink peer uid: %m");
 
@@ -143,10 +143,10 @@ static int process_managed_oom_request(
 }
 
 static int process_managed_oom_reply(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
                 const char *error_id,
-                VarlinkReplyFlags flags,
+                sd_varlink_reply_flags_t flags,
                 void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
@@ -158,7 +158,7 @@ static int process_managed_oom_reply(
                 goto finish;
         }
 
-        r = varlink_get_peer_uid(link, &uid);
+        r = sd_varlink_get_peer_uid(link, &uid);
         if (r < 0) {
                 log_error_errno(r, "Failed to get varlink peer uid: %m");
                 goto finish;
@@ -167,8 +167,8 @@ static int process_managed_oom_reply(
         r = process_managed_oom_message(m, uid, parameters);
 
 finish:
-        if (!FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
-                m->varlink_client = varlink_close_unref(link);
+        if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
+                m->varlink_client = sd_varlink_close_unref(link);
 
         return r;
 }
@@ -308,29 +308,29 @@ static int update_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroup
 }
 
 static int acquire_managed_oom_connect(Manager *m) {
-        _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(m);
         assert(m->event);
 
-        r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM);
+        r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to " VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM ": %m");
 
-        (void) varlink_set_userdata(link, m);
-        (void) varlink_set_description(link, "oomd");
-        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
+        (void) sd_varlink_set_userdata(link, m);
+        (void) sd_varlink_set_description(link, "oomd");
+        (void) sd_varlink_set_relative_timeout(link, USEC_INFINITY);
 
-        r = varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        r = varlink_bind_reply(link, process_managed_oom_reply);
+        r = sd_varlink_bind_reply(link, process_managed_oom_reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        r = varlink_observe(link, "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", NULL);
+        r = sd_varlink_observe(link, "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to observe varlink call: %m");
 
@@ -625,8 +625,8 @@ static int monitor_memory_pressure_contexts(Manager *m) {
 Manager* manager_free(Manager *m) {
         assert(m);
 
-        varlink_server_unref(m->varlink_server);
-        varlink_close_unref(m->varlink_client);
+        sd_varlink_server_unref(m->varlink_server);
+        sd_varlink_close_unref(m->varlink_client);
         sd_event_source_unref(m->swap_context_event_source);
         sd_event_source_unref(m->mem_pressure_context_event_source);
         sd_event_unref(m->event);
@@ -711,34 +711,34 @@ static int manager_connect_bus(Manager *m) {
 }
 
 static int manager_varlink_init(Manager *m, int fd) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        varlink_server_set_userdata(s, m);
+        sd_varlink_server_set_userdata(s, m);
 
-        r = varlink_server_add_interface(s, &vl_interface_io_systemd_oom);
+        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_oom);
         if (r < 0)
                 return log_error_errno(r, "Failed to add oom interface to varlink server: %m");
 
-        r = varlink_server_bind_method(s, "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request);
+        r = sd_varlink_server_bind_method(s, "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink method: %m");
 
         if (fd < 0)
-                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_USER, 0666);
+                r = sd_varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_USER, 0666);
         else
-                r = varlink_server_listen_fd(s, fd);
+                r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
-        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 

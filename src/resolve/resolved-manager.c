@@ -43,6 +43,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 

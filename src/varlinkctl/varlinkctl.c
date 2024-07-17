@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-varlink.h"
+
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,13 +15,14 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "terminal-util.h"
-#include "varlink.h"
+#include "varlink-idl-util.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
 
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
-static VarlinkMethodFlags arg_method_flags = 0;
+static sd_varlink_method_flags_t arg_method_flags = 0;
 static bool arg_collect = false;
 static bool arg_quiet = false;
 static char **arg_graceful = NULL;
@@ -122,11 +125,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MORE:
-                        arg_method_flags = (arg_method_flags & ~VARLINK_METHOD_ONEWAY) | VARLINK_METHOD_MORE;
+                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
                         break;
 
                 case ARG_ONEWAY:
-                        arg_method_flags = (arg_method_flags & ~VARLINK_METHOD_MORE) | VARLINK_METHOD_ONEWAY;
+                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_MORE) | SD_VARLINK_METHOD_ONEWAY;
                         break;
 
                 case ARG_COLLECT:
@@ -168,7 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         /* If more than one reply is expected, imply JSON-SEQ output */
-        if (FLAGS_SET(arg_method_flags, VARLINK_METHOD_MORE))
+        if (FLAGS_SET(arg_method_flags, SD_VARLINK_METHOD_MORE))
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
         strv_sort_uniq(arg_graceful);
@@ -176,7 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int varlink_connect_auto(Varlink **ret, const char *where) {
+static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         int r;
 
         assert(ret);
@@ -195,7 +198,7 @@ static int varlink_connect_auto(Varlink **ret, const char *where) {
 
                 /* Is this a socket in the fs? Then connect() to it. */
                 if (S_ISSOCK(st.st_mode)) {
-                        r = varlink_connect_address(ret, FORMAT_PROC_FD_PATH(fd));
+                        r = sd_varlink_connect_address(ret, FORMAT_PROC_FD_PATH(fd));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to '%s': %m", where);
 
@@ -204,7 +207,7 @@ static int varlink_connect_auto(Varlink **ret, const char *where) {
 
                 /* Is this an executable binary? Then fork it off. */
                 if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
-                        r = varlink_connect_exec(ret, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
+                        r = sd_varlink_connect_exec(ret, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to spawn '%s' process: %m", where);
 
@@ -215,7 +218,7 @@ static int varlink_connect_auto(Varlink **ret, const char *where) {
         }
 
         /* Otherwise assume this is an URL */
-        r = varlink_connect_url(ret, where);
+        r = sd_varlink_connect_url(ret, where);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
 
@@ -237,7 +240,7 @@ static void get_info_data_done(GetInfoData *d) {
 }
 
 static int verb_info(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
         int r;
 
@@ -319,7 +322,7 @@ typedef struct GetInterfaceDescriptionData {
 } GetInterfaceDescriptionData;
 
 static int verb_introspect(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_strv_free_ char **auto_interfaces = NULL;
         char **interfaces;
         const char *url;
@@ -380,7 +383,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };
-                        _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
+                        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
                         const char *description = NULL;
                         unsigned line = 0, column = 0;
 
@@ -402,8 +405,8 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 pager_open(arg_pager_flags);
                                 fputs_with_newline(stdout, description);
                         } else if (list_methods) {
-                                for (const VarlinkSymbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
-                                        if (symbol->symbol_type != VARLINK_METHOD)
+                                for (const sd_varlink_symbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
+                                        if (symbol->symbol_type != SD_VARLINK_METHOD)
                                                 continue;
 
                                         r = strv_extendf(&methods, "%s.%s", vi->name, symbol->name);
@@ -412,7 +415,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 }
                         } else {
                                 pager_open(arg_pager_flags);
-                                r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
+                                r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, on_tty() ? columns() : SIZE_MAX);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to format parsed interface description: %m");
                         }
@@ -444,10 +447,10 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
 }
 
 static int reply_callback(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
                 const char *error,
-                VarlinkReplyFlags flags,
+                sd_varlink_reply_flags_t flags,
                 void *userdata)  {
 
         int *ret = ASSERT_PTR(userdata), r;
@@ -476,7 +479,7 @@ static int reply_callback(
 
 static int verb_call(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
         unsigned line = 0, column = 0;
         int r;
@@ -524,7 +527,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
-                r = varlink_collect(vl, method, jp, &reply, &error);
+                r = sd_varlink_collect(vl, method, jp, &reply, &error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
                 if (error) {
@@ -548,42 +551,42 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
 
-        } else if (arg_method_flags & VARLINK_METHOD_ONEWAY) {
-                r = varlink_send(vl, method, jp);
+        } else if (arg_method_flags & SD_VARLINK_METHOD_ONEWAY) {
+                r = sd_varlink_send(vl, method, jp);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
-                r = varlink_flush(vl);
+                r = sd_varlink_flush(vl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to flush Varlink connection: %m");
 
-        } else if (arg_method_flags & VARLINK_METHOD_MORE) {
+        } else if (arg_method_flags & SD_VARLINK_METHOD_MORE) {
 
                 int ret = 0;
-                varlink_set_userdata(vl, &ret);
+                sd_varlink_set_userdata(vl, &ret);
 
-                r = varlink_bind_reply(vl, reply_callback);
+                r = sd_varlink_bind_reply(vl, reply_callback);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind reply callback: %m");
 
-                r = varlink_observe(vl, method, jp);
+                r = sd_varlink_observe(vl, method, jp);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
                 for (;;) {
-                        r = varlink_is_idle(vl);
+                        r = sd_varlink_is_idle(vl);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check if varlink connection is idle: %m");
                         if (r > 0)
                                 break;
 
-                        r = varlink_process(vl);
+                        r = sd_varlink_process(vl);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to process varlink connection: %m");
                         if (r != 0)
                                 continue;
 
-                        r = varlink_wait(vl, USEC_INFINITY);
+                        r = sd_varlink_wait(vl, USEC_INFINITY);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wait for varlink connection events: %m");
                 }
@@ -593,7 +596,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 sd_json_variant *reply = NULL;
                 const char *error = NULL;
 
-                r = varlink_call(vl, method, jp, &reply, &error);
+                r = sd_varlink_call(vl, method, jp, &reply, &error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
@@ -625,7 +628,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_validate_idl(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_interface_freep) VarlinkInterface *vi = NULL;
+        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
         unsigned line = 1, column = 1;
@@ -666,7 +669,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = varlink_idl_dump(stdout, /* use_colors= */ -1, on_tty() ? columns() : SIZE_MAX, vi);
+        r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, on_tty() ? columns() : SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to format parsed interface description: %m");
 
