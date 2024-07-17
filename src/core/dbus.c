@@ -49,24 +49,24 @@
 
 static void destroy_bus(Manager *m, sd_bus **bus);
 
-int bus_send_pending_reload_message(Manager *m) {
+void bus_send_pending_reload_message(Manager *m) {
         int r;
 
         assert(m);
 
         if (!m->pending_reload_message)
-                return 0;
+                return;
 
         /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
          * to queue another message. */
 
         r = sd_bus_send(NULL, m->pending_reload_message, NULL);
         if (r < 0)
-                log_warning_errno(r, "Failed to send queued message, ignoring: %m");
+                log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
         m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
 
-        return 0;
+        return;
 }
 
 int bus_forward_agent_released(Manager *m, const char *path) {
@@ -857,7 +857,7 @@ int bus_init_api(Manager *m) {
         return 0;
 }
 
-static int bus_setup_system(Manager *m, sd_bus *bus) {
+static void bus_setup_system(Manager *m, sd_bus *bus) {
         int r;
 
         assert(m);
@@ -878,7 +878,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
         }
 
         log_debug("Successfully connected to system bus.");
-        return 0;
+        return;
 }
 
 int bus_init_system(Manager *m) {
@@ -905,9 +905,7 @@ int bus_init_system(Manager *m) {
                         return r;
         }
 
-        r = bus_setup_system(m, bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up system bus: %m");
+        bus_setup_system(m, bus);
 
         m->system_bus = TAKE_PTR(bus);
 
