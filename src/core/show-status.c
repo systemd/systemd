@@ -72,8 +72,14 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
                 int c;
 
                 c = fd_columns(fd);
-                if (c <= 0)
-                        c = 80;
+                if (c <= 0) {
+                        const char *env = getenv("COLUMNS");
+                        if (env)
+                                (void) safe_atoi(env, &c);
+
+                        if (c <= 0)
+                                c = 80;
+                }
 
                 sl = status ? strlen(status_indent) : 0;
 
