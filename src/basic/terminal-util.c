@@ -1828,8 +1828,9 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC);
-        char buf[256];
+        char buf[15]; /* shortest possible reply, i.e. \x1B]11;rgb:0/0/0\x07 */
         size_t buf_full = 0;
+        bool first = true;
         BackgroundColorContext context = {};
 
         for (;;) {
@@ -1849,7 +1850,10 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                                 goto finish;
                         }
 
-                        ssize_t l = read(STDIN_FILENO, buf, sizeof(buf));
+                        /* On the first read, read a multiple characters, i.e. the shortest valid
+                         * reply. Afterwards read byte-wise, since we don't want to read too much, and drop
+                         * it from the input queue */
+                        ssize_t l = read(STDIN_FILENO, buf, first ? sizeof(buf) : 1);
                         if (l < 0) {
                                 r = -errno;
                                 goto finish;
@@ -1857,6 +1861,8 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
 
                         assert((size_t) l <= sizeof(buf));
                         buf_full = l;
+
+                        first = false;
                 }
 
                 size_t processed;
