@@ -144,6 +144,18 @@
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--var-partition-uuid</option></term>
+
+        <listitem><para>Print a UUID which, following the <ulink
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+        Partitions Specification</ulink>, should be used as the GPT partition UUID for
+        <filename>/var/</filename>, being derived from the GPT partition type, keyed by the local
+        <filename>/etc/machine-id</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
