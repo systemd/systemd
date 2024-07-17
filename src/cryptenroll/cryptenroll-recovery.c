@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "ansi-color.h"
 #include "cryptenroll-recovery.h"
 #include "glyph-util.h"
 #include "json-util.h"
