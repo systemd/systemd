@@ -1146,5 +1146,11 @@ int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
         if (r < 0)
                 return -ENOMEM;
 
+        /* Try to suppress writes if the value is already set correctly (simply because memory management of
+         * environment variables sucks a bit. */
+        const char *existing = getenv(name);
+        if (existing && streq(existing, value))
+                return 0;
+
         return RET_NERRNO(setenv(name, value, overwrite));
 }

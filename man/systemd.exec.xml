@@ -3322,7 +3322,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>TTYReset=</varname></term>
 
         <listitem><para>Reset the terminal device specified with <varname>TTYPath=</varname> before and after
-        execution. Defaults to <literal>no</literal>.</para></listitem>
+        execution. This does not erase the screen (see <varname>TTYVTDisallocate=</varname> below for
+        that). Defaults to <literal>no</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3333,11 +3334,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TTYRows=</varname></term>
         <term><varname>TTYColumns=</varname></term>
+        <term><varname>TTYRows=</varname></term>
 
         <listitem><para>Configure the size of the TTY specified with <varname>TTYPath=</varname>. If unset or
-        set to the empty string, the kernel default is used.</para>
+        set to the empty string, it is attempted to retrieve the dimensions of the terminal screen via ANSI
+        sequences, and if that fails the kernel defaults (typically 80x24) are used.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -3345,9 +3347,10 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       <varlistentry>
         <term><varname>TTYVTDisallocate=</varname></term>
 
-        <listitem><para>If the terminal device specified with <varname>TTYPath=</varname> is a virtual console
-        terminal, try to deallocate the TTY before and after execution. This ensures that the screen and scrollback
-        buffer is cleared. Defaults to <literal>no</literal>.</para></listitem>
+        <listitem><para>If the terminal device specified with <varname>TTYPath=</varname> is a virtual
+        console terminal, try to deallocate the TTY before and after execution. This ensures that the screen
+        and scrollback buffer is cleared. If the terminal device is of any other type of TTY an attempt is
+        made to clear the screen via ANSI sequences. Defaults to <literal>no</literal>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

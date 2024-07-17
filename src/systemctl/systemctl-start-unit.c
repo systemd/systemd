@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "ansi-color.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
