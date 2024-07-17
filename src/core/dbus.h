@@ -5,7 +5,7 @@
 
 #include "manager.h"
 
-int bus_send_pending_reload_message(Manager *m);
+void bus_send_pending_reload_message(Manager *m);
 
 int bus_init_private(Manager *m);
 int bus_init_api(Manager *m);
