@@ -825,6 +825,8 @@ int bus_init_api(Manager *m) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        assert(m);
+
         if (m->api_bus)
                 return 0;
 
@@ -932,22 +934,16 @@ int bus_init_private(Manager *m) {
 
                 r = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
         } else {
-                _cleanup_free_ char *joined = NULL;
-                const char *e;
+                _cleanup_free_ char *p = NULL;
 
-                e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "XDG_RUNTIME_DIR is not set, refusing.");
-
-                joined = path_join(e, "/systemd/private");
-                if (!joined)
+                p = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/private");
+                if (!p)
                         return log_oom();
 
-                r = sockaddr_un_set_path(&sa.un, joined);
+                r = sockaddr_un_set_path(&sa.un, p);
         }
         if (r < 0)
-                return log_error_errno(r, "Can't set path for AF_UNIX socket to bind to: %m");
+                return log_error_errno(r, "Failed set socket path for private bus: %m");
         sa_len = r;
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
