@@ -1991,7 +1991,7 @@ bool unit_can_isolate(Unit *u) {
  */
 int unit_stop(Unit *u) {
         UnitActiveState state;
-        Unit *following;
+        Unit *following, *other;
 
         assert(u);
 
@@ -2011,6 +2011,10 @@ int unit_stop(Unit *u) {
 
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
+
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START)
+                if (UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
+                        log_warning("Stopping %s due to start of conflicting %s.", u->id, other->id);
 
         unit_add_to_dbus_queue(u);
 
