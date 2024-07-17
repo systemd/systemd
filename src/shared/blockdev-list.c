@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "ansi-color.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "device-util.h"
