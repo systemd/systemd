@@ -855,7 +855,7 @@ int fd_columns(int fd) {
                 return -errno;
 
         if (ws.ws_col <= 0)
-                return -EIO;
+                return -ENODATA; /* some tty types come up with invalid row/column initially, return a recognizable error for that */
 
         return ws.ws_col;
 }
@@ -892,7 +892,7 @@ int fd_lines(int fd) {
                 return -errno;
 
         if (ws.ws_row <= 0)
-                return -EIO;
+                return -ENODATA; /* some tty types come up with invalid row/column initially, return a recognizable error for that */
 
         return ws.ws_row;
 }
