@@ -1824,7 +1824,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
         char buf[15]; /* shortest possible reply, i.e. \x1B]11;rgb:0/0/0\x07 */
         size_t buf_full = 0;
         bool first = true;
