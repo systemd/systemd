@@ -69,8 +69,9 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                         return r;
                 if (r == 0) {
                         /* Skip units which have no on-disk counterpart, but propagate the error to the
-                         * user */
-                        rc = -ENOENT;
+                         * user (if --force is set, eat the error, just like unit_find_paths()) */
+                        if (!arg_force)
+                                rc = -ENOENT;
                         continue;
                 }
 
