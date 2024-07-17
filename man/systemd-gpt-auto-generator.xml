@@ -129,7 +129,12 @@
             <entry><constant>4d21b016-b534-45c2-a9fb-5c16e091fd2d</constant></entry>
             <entry>Variable Data Partition</entry>
             <entry><filename>/var/</filename></entry>
-            <entry>The first partition with this type UUID on the same disk as the root partition is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the root partition is mounted
+            to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit
+            of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the
+            installation stored in
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This can be generated using <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</entry>
           </row>
           <row>
             <entry><constant>SD_GPT_TMP</constant></entry>

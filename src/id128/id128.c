@@ -71,6 +71,22 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         return id128_pretty_print(id, arg_mode);
 }
 
+static int verb_var_uuid(int argc, char **argv, void *userdata) {
+        sd_id128_t id;
+        int r;
+
+        if (!sd_id128_is_null(arg_app))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"var-partition-uuid\" cannot be combined with --app-specific=.");
+
+        /* The DPS says that the UUID for /var/ should be keyed with machine-id. */
+        r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate machine-specific /var/ UUID: %m");
+
+        return id128_pretty_print(id, arg_mode);
+}
+
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
         int r;
 
@@ -180,6 +196,7 @@ static int help(void) {
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
+               "  var-partition-uuid      Print the UUID for the /var/ partition\n"
                "  show [NAME|UUID]        Print one or more UUIDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
@@ -295,12 +312,13 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int id128_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "new",            VERB_ANY, 1,        0,  verb_new           },
-                { "machine-id",     VERB_ANY, 1,        0,  verb_machine_id    },
-                { "boot-id",        VERB_ANY, 1,        0,  verb_boot_id       },
-                { "invocation-id",  VERB_ANY, 1,        0,  verb_invocation_id },
-                { "show",           VERB_ANY, VERB_ANY, 0,  verb_show          },
-                { "help",           VERB_ANY, VERB_ANY, 0,  verb_help          },
+                { "new",                VERB_ANY, 1,        0,  verb_new           },
+                { "machine-id",         VERB_ANY, 1,        0,  verb_machine_id    },
+                { "boot-id",            VERB_ANY, 1,        0,  verb_boot_id       },
+                { "invocation-id",      VERB_ANY, 1,        0,  verb_invocation_id },
+                { "var-partition-uuid", VERB_ANY, 1,        0,  verb_var_uuid      },
+                { "show",               VERB_ANY, VERB_ANY, 0,  verb_show          },
+                { "help",               VERB_ANY, VERB_ANY, 0,  verb_help          },
                 {}
         };
 
