@@ -86,7 +86,6 @@ int varlink_callb_and_log(
         return varlink_call_and_log(v, method, parameters, ret_parameters);
 }
 
-
 int varlink_many_notifyb(Set *s, ...) {
         int r;
 
@@ -103,12 +102,12 @@ int varlink_many_notifyb(Set *s, ...) {
         if (r < 0)
                 return r;
 
-        int ret = 1;
+        r = 1;
         sd_varlink *link;
         SET_FOREACH(link, s)
-                RET_GATHER(ret, sd_varlink_notify(link, parameters));
+                RET_GATHER(r, sd_varlink_notify(link, parameters));
 
-        return ret;
+        return r;
 }
 
 int varlink_many_reply(Set *s, sd_json_variant *parameters) {
