@@ -2299,6 +2299,28 @@ static int vl_method_relinquish_var(Varlink *link, sd_json_variant *parameters, 
         return varlink_reply(link, NULL);
 }
 
+static int vl_subscribe(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        const char *log_level;
+        JsonVariant *log_level_key;
+
+        Server *s = ASSERT_PTR(userdata);
+
+        assert(link);
+
+        if (s->namespace)
+                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+
+        log_level_key = json_variant_by_key(parameters, "log_level");
+        if (!log_level_key || !json_variant_is_string(log_level_key))
+                return varlink_error(link, "io.system.Journal.InvalidArguments", NULL);
+
+        log_level = json_variant_string(log_level_key);
+
+        printf("Successfully received client's request to subscribe to messages of log_level: %s\n", log_level);
+
+        return 0;
+}
+
 static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
@@ -2339,7 +2361,8 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
                         "io.systemd.Journal.Synchronize",   vl_method_synchronize,
                         "io.systemd.Journal.Rotate",        vl_method_rotate,
                         "io.systemd.Journal.FlushToVar",    vl_method_flush_to_var,
-                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var);
+                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var,
+                        "io.systemd.Journal.Subscribe",     vl_subscribe);
         if (r < 0)
                 return r;
 
