@@ -18,23 +18,6 @@
 #include "umask-util.h"
 #include "user-util.h"
 
-int lock_dev_console(void) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
-         * pty in /dev/console, in which case it should be fine to lock the target TTY. */
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0)
-                return r;
-
-        return TAKE_FD(fd);
-}
-
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =
                 "-/proc/kcore\0"     "/dev/core\0"
