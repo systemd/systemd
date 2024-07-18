@@ -116,6 +116,8 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*pnSpinSP111-34:*
 # Aquarius
 #########################################
 
+# Aquarius Cmp NS483
+sensor:modalias:acpi:MXC4005*:dmi:*:svnAquarius*:pnCmp*NS483:*
 # Aquarius NS483
 sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnNS483:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
