@@ -44,7 +44,31 @@ char* sysctl_normalize(char *s) {
         return s;
 }
 
-int sysctl_write(const char *property, const char *value) {
+static int shadow_update(Hashmap **shadow, const char *property, const char *value) {
+        _cleanup_free_ char *k = NULL, *v = NULL, *cur_k = NULL, *cur_v = NULL;
+        int r;
+
+        k = strdup(property);
+        if (!k)
+                return -ENOMEM;
+
+        v = strdup(value);
+        if (!v)
+                return -ENOMEM;
+
+        cur_v = hashmap_remove2(*shadow, k, (void**)&cur_k);
+
+        r = hashmap_ensure_put(shadow, &path_hash_ops_free_free, k, v);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(k);
+        TAKE_PTR(v);
+
+        return 0;
+}
+
+int sysctl_write_full(const char *property, const char *value, Hashmap **shadow) {
         char *p;
 
         assert(property);
@@ -57,6 +81,14 @@ int sysctl_write(const char *property, const char *value) {
                 return -EINVAL;
 
         log_debug("Setting '%s' to '%s'", p, value);
+
+        if (shadow) {
+                int r;
+
+                r = shadow_update(shadow, p, value);
+                if (r < 0)
+                        return r;
+        }
 
         return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL);
 }
@@ -76,7 +108,7 @@ int sysctl_writef(const char *property, const char *format, ...) {
         return sysctl_write(property, v);
 }
 
-int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value) {
+int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value, Hashmap **shadow) {
         const char *p;
 
         assert(property);
@@ -93,10 +125,10 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
         } else
                 p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
 
-        return sysctl_write(p, value);
+        return sysctl_write_full(p, value, shadow);
 }
 
-int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *property, const char *value) {
+int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *property, const char *value, Hashmap **shadow) {
         const char *p;
 
         assert(property);
@@ -113,7 +145,7 @@ int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *pr
         } else
                 p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/default/", property);
 
-        return sysctl_write(p, value);
+        return sysctl_write_full(p, value, shadow);
 }
 
 int sysctl_read(const char *property, char **ret) {
