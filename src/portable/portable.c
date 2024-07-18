@@ -615,10 +615,14 @@ static int extract_image_and_extensions(
                         const char *path = *p;
 
                         if (path_is_absolute(*p)) {
+                                /* Ensure we pick extensions with the same ABI as the root */
+                                PickFilter filter = pick_filter_image_any;
+                                filter.abi = result.abi;
+
                                 r = path_pick(/* toplevel_path= */ NULL,
                                               /* toplevel_fd= */ AT_FDCWD,
                                               *p,
-                                              &pick_filter_image_any,
+                                              &filter,
                                               PICK_ABI|PICK_TRIES|PICK_RESOLVE,
                                               &ext_result);
                                 if (r < 0)
