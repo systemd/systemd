@@ -44,6 +44,24 @@ or:
 $ mkosi qemu
 ```
 
+By default, the tools from your host system are used to build the image. To have
+`mkosi` use the systemd tools from the `build/` directory, add the following to
+`mkosi.local.conf`:
+
+```conf
+[Host]
+ExtraSearchPaths=build/
+```
+
+And if you want `mkosi` to build a tools image and use the tools from there
+instead of looking for tools on the host, add the following to
+`mkosi.local.conf`:
+
+```conf
+[Host]
+ToolsTree=default
+```
+
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
 all current changes you made to the project tree. To avoid having to build a new
 image all the time when iterating on a patch, add the following to
