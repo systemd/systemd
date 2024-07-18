@@ -130,6 +130,23 @@ Deprecations and removals:
 
 Features:
 
+* homed: allow login via username + realm on getty/login prompt. Then rewrite
+  the user name in the PAM stack
+
+* homed/userdb: add "aliases" field to user record, which can alternatively be
+  used for logging in. Rewrite user name in the PAM stack once acquired.
+
+* confext/sysext: instead of mounting the overlayfs directly on /etc/ + /usr/,
+  insert an intermediary bind mount on itself there. This has the benefit that
+  services where mount propagation from the root fs is off, an still have
+  confext/sysext propagated in.
+
+* marry pcrlock + signed pcr policies for FDE/credentials by letting each
+  unlock "half" of the volume key, so that the combination of both must be
+  XOR'ed to get the actual volume key
+
+* support F_DUDFD_QUERY for comparing fds in same_fd (requires kernel 6.10)
+
 * generic interface for varlink for setting log level and stuff that all our daemons can implement
 
 * use pty ioctl to get peer wherever possible (TIOCGPTPEER)
