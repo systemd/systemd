@@ -253,6 +253,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pnM17xR3:*
  KEYBOARD_KEY_89=ejectcd
 
 ###########################################################
+# Aquarius
+###########################################################
+
+# Aquarius Cmp NS483
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAquarius*:pnCmp*NS483*:*
+ KEYBOARD_KEY_56=backslash
+ KEYBOARD_KEY_76=f21					# Touchpad Toggle
+
+###########################################################
 # Asus
 ###########################################################
 
