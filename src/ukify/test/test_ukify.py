@@ -689,7 +689,7 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
+        '--pcr-banks=sha384',   # sha1 might not be allowed, use something else
         f'--pcr-private-key={priv.name}',
     ] + arg_tools
 
@@ -732,8 +732,8 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         assert open(tmp_path / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
         sig = open(tmp_path / 'out.pcrsig').read()
         sig = json.loads(sig)
-        assert list(sig.keys()) == ['sha1']
-        assert len(sig['sha1']) == 4   # four items for four phases
+        assert list(sig.keys()) == ['sha384']
+        assert len(sig['sha384']) == 4   # four items for four phases
 
     shutil.rmtree(tmp_path)
 
@@ -765,7 +765,7 @@ def test_pcr_signing2(kernel_initrd, tmp_path):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',
+        '--pcr-banks=sha384',
         f'--pcrpkey={pub2.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
@@ -805,8 +805,8 @@ def test_pcr_signing2(kernel_initrd, tmp_path):
 
     sig = open(tmp_path / 'out.pcrsig').read()
     sig = json.loads(sig)
-    assert list(sig.keys()) == ['sha1']
-    assert len(sig['sha1']) == 6   # six items for six phases paths
+    assert list(sig.keys()) == ['sha384']
+    assert len(sig['sha384']) == 6   # six items for six phases paths
 
     shutil.rmtree(tmp_path)
 
