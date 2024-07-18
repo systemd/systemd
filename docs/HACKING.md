@@ -29,8 +29,7 @@ For some components (most importantly, systemd/PID 1 itself) this is not possibl
 In order to simplify testing for cases like this we provide a set of `mkosi` config files directly in the source tree.
 [mkosi](https://mkosi.systemd.io/)
 is a tool for building clean OS images from an upstream distribution in combination with a fresh build of the project in the local working directory.
-To make use of this, please install `mkosi` v19 or newer using your distribution's package manager or from the
-[GitHub repository](https://github.com/systemd/mkosi).
+To make use of this, please install `mkosi` from the [GitHub repository](https://github.com/systemd/mkosi#running-mkosi-from-the-repository).
 `mkosi` will build an image for the host distro by default.
 First, run `mkosi genkey` to generate a key and certificate to be used for secure boot and verity signing.
 After that is done, it is sufficient to type `mkosi` in the systemd project directory to generate a disk image you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
@@ -43,6 +42,24 @@ or:
 
 ```sh
 $ mkosi qemu
+```
+
+By default, the tools from your host system are used to build the image. To have
+`mkosi` use the systemd tools from the `build/` directory, add the following to
+`mkosi.local.conf`:
+
+```conf
+[Host]
+ExtraSearchPaths=build/
+```
+
+And if you want `mkosi` to build a tools image and use the tools from there
+instead of looking for tools on the host, add the following to
+`mkosi.local.conf`:
+
+```conf
+[Host]
+ToolsTree=default
 ```
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
@@ -76,8 +93,8 @@ pid1 or `systemctl soft-reboot` to restart everything.
 Putting this all together, here's a series of commands for preparing a patch for systemd:
 
 ```sh
-$ git clone https://github.com/systemd/mkosi.git  # If mkosi v19 or newer is not packaged by your distribution
-$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v19 or newer is not packaged by your distribution
+$ git clone https://github.com/systemd/mkosi.git
+$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
