@@ -1504,7 +1504,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _cleanup_free_ char *tap_name = NULL;
                 struct ether_addr mac_vm = {};
 
-                tap_name = strjoin("tp-", arg_machine);
+                tap_name = strjoin("vt-", arg_machine);
                 if (!tap_name)
                         return log_oom();
 
@@ -1521,7 +1521,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,downscript=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
                 if (r < 0)
                         return log_oom();
         } else if (arg_network_stack == NETWORK_STACK_USER)
