@@ -7,7 +7,7 @@
 #include "hashmap.h"
 #include "user-util.h"
 
-typedef enum PolkitFLags {
+typedef enum PolkitFlags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */
         POLKIT_ALWAYS_QUERY      = 1 << 1, /* Query polkit even if client is privileged */
         POLKIT_DEFAULT_ALLOW     = 1 << 2, /* If polkit is not around, assume "allow" rather than the usual "deny" */
