@@ -516,7 +516,7 @@ static int append_extensions(
                               /* toplevel_fd= */ AT_FDCWD,
                               m->source,
                               &pick_filter_image_raw,
-                              PICK_ARCHITECTURE|PICK_TRIES,
+                              PICK_ABI|PICK_TRIES,
                               &result);
                 if (r < 0)
                         return r;
@@ -584,7 +584,7 @@ static int append_extensions(
                               /* toplevel_fd= */ AT_FDCWD,
                               e,
                               &pick_filter_image_dir,
-                              PICK_ARCHITECTURE|PICK_TRIES,
+                              PICK_ABI|PICK_TRIES,
                               &result);
                 if (r < 0)
                         return r;
