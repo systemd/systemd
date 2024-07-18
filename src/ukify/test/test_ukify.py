@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# The tests can be called via pytest:
+#   PATH=build/:$PATH pytest -v src/ukify/test/test_ukify.py
+# or directly:
+#   PATH=build/:$PATH src/ukify/test/test_ukify.py
+# or via the meson test machinery output:
+#   meson test -C build test-ukify -v
+# or without verbose output:
+#   meson test -C build test-ukify
+
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
 # pylint: disable=protected-access,redefined-outer-name
