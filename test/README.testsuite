@@ -14,6 +14,24 @@ We also need to make sure the required meson options are enabled:
 $ meson setup --reconfigure build -Dremote=enabled
 ```
 
+By default, the `mkosi` target which builds the integration test image depends on
+various systemd tools that are used to build the image to make sure they are up-to-date.
+If you instead want the already installed systemd tools to be used, you can set the
+`mkosi-depends` meson option to `false` to make sure no dependencies are added to the
+`mkosi` target. Similarly, to make sure `mkosi` doesn't try to build systemd from source
+during the image build process, you can add the following to `mkosi.local.conf`:
+
+```
+[Content]
+Environment=NO_BUILD=1
+```
+
+You might also want to use the `PackageDirectories=` or `Repositories=` option to provide
+mkosi with a directory or repository containing the systemd packages that should be installed
+instead. If the repository containing the systemd packages is not a builtin repository known
+by mkosi, you can use the `PackageManagerTrees=` option to write an extra repository definition
+to /etc which is used when building the image instead.
+
 Next, we can build the integration test image:
 
 ```shell
