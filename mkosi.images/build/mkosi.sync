@@ -3,7 +3,7 @@
 set -e
 set -o nounset
 
-if ((${NO_SYNC:-0})); then
+if ((${NO_SYNC:-0})) || ((${NO_BUILD:-0})); then
     exit 0
 fi
 
