@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# The tests can be called via pytest:
+#   PATH=build/:$PATH pytest -v src/ukify/test/test_ukify.py
+# or directly:
+#   PATH=build/:$PATH src/ukify/test/test_ukify.py
+# or via the meson test machinery output:
+#   meson test -C build test-ukify -v
+# or without verbose output:
+#   meson test -C build test-ukify
+
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
 # pylint: disable=protected-access,redefined-outer-name
 
 import base64
+import glob
 import json
 import os
 import pathlib
@@ -389,28 +399,17 @@ def test_help_error(capsys):
 
 @pytest.fixture(scope='session')
 def kernel_initrd():
-    opts = ukify.create_parser().parse_args(arg_tools)
-    bootctl = ukify.find_tool('bootctl', opts=opts)
-    if bootctl is None:
+    items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
+    if not items:
         return None
 
-    try:
-        text = subprocess.check_output([bootctl, 'list', '--json=short'],
-                                       text=True)
-    except subprocess.CalledProcessError:
-        return None
+    # This doesn't necessarilly give us the latest version, since we're just
+    # using alphanumeric ordering. But this is fine, a predictable result is
+    # enough.
+    linux = items[-1]
 
-    items = json.loads(text)
-
-    for item in items:
-        try:
-            linux = f"{item['root']}{item['linux']}"
-            initrd = f"{item['root']}{item['initrd'][0].split(' ')[0]}"
-        except (KeyError, IndexError):
-            continue
-        return ['--linux', linux, '--initrd', initrd]
-    else:
-        return None
+    # We don't look _into_ the initrd. Any file is OK.
+    return ['--linux', linux, '--initrd', ukify.__file__]
 
 def test_check_splash():
     try:
@@ -699,7 +698,7 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
+        '--pcr-banks=sha384',   # sha1 might not be allowed, use something else
         f'--pcr-private-key={priv.name}',
     ] + arg_tools
 
@@ -742,8 +741,8 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         assert open(tmp_path / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
         sig = open(tmp_path / 'out.pcrsig').read()
         sig = json.loads(sig)
-        assert list(sig.keys()) == ['sha1']
-        assert len(sig['sha1']) == 4   # four items for four phases
+        assert list(sig.keys()) == ['sha384']
+        assert len(sig['sha384']) == 4   # four items for four phases
 
     shutil.rmtree(tmp_path)
 
@@ -775,7 +774,7 @@ def test_pcr_signing2(kernel_initrd, tmp_path):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',
+        '--pcr-banks=sha384',
         f'--pcrpkey={pub2.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
@@ -815,8 +814,8 @@ def test_pcr_signing2(kernel_initrd, tmp_path):
 
     sig = open(tmp_path / 'out.pcrsig').read()
     sig = json.loads(sig)
-    assert list(sig.keys()) == ['sha1']
-    assert len(sig['sha1']) == 6   # six items for six phases paths
+    assert list(sig.keys()) == ['sha384']
+    assert len(sig['sha384']) == 6   # six items for six phases paths
 
     shutil.rmtree(tmp_path)
 
