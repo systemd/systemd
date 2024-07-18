@@ -43,9 +43,9 @@ static int format_fname(
          *  or:
          *        <basename>_<version><suffix>
          *  or:
-         *        <basename>_<version>_<architecture><suffix>
+         *        <basename>_<version>_<abi><suffix>
          *  or:
-         *        <basename>_<architecture><suffix>
+         *        <basename>_<abi><suffix>
          *
          * (Note that basename can be empty, in which case the leading "_" is suppressed)
          *
@@ -57,9 +57,9 @@ static int format_fname(
          * fields).
          *
          * This is very close to Debian's way to name packages, but allows arbitrary suffixes, and makes the
-         * architecture field redundant.
+         * abi field redundant.
          *
-         * Compare with RPM's "NEVRA" concept. Here we have "BVAS" (basename, version, architecture, suffix).
+         * Compare with RPM's "NEVRA" concept. Here we have "BVAS" (basename, version, abi, suffix).
          */
 
         if (filter->basename) {
@@ -77,8 +77,8 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (FLAGS_SET(flags, PICK_ARCHITECTURE) && filter->architecture >= 0) {
-                const char *as = ASSERT_PTR(architecture_to_string(filter->architecture));
+        if (FLAGS_SET(flags, PICK_ABI) && filter->abi >= 0) {
+                const char *as = ASSERT_PTR(abi_to_string(filter->abi));
                 if (isempty(fn)) {
                         r = free_and_strdup(&fn, as);
                         if (r < 0)
@@ -174,7 +174,7 @@ static int pin_choice(
         _cleanup_(pick_result_done) PickResult result = {
                 .fd = TAKE_FD(inode_fd),
                 .st = st,
-                .architecture = filter->architecture,
+                .abi = filter->abi,
                 .tries_left = tries_left,
                 .tries_done = tries_done,
         };
@@ -251,21 +251,21 @@ static int make_choice(
                 PickFlags flags,
                 PickResult *ret) {
 
-        static const Architecture local_architectures[] = {
+        static const Abi local_abis[] = {
                 /* In order of preference */
-                native_architecture(),
-#ifdef ARCHITECTURE_SECONDARY
-                ARCHITECTURE_SECONDARY,
+                native_abi(),
+#ifdef ABI_SECONDARY
+                ABI_SECONDARY,
 #endif
-                _ARCHITECTURE_INVALID, /* accept any arch, as last resort */
+                _ABI_INVALID, /* accept any arch, as last resort */
         };
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         _cleanup_free_ char *best_version = NULL, *best_filename = NULL, *p = NULL, *j = NULL;
         _cleanup_close_ int dir_fd = -EBADF, object_fd = -EBADF, inode_fd = TAKE_FD(_inode_fd);
-        const Architecture *architectures;
+        const Abi *abis;
         unsigned best_tries_left = UINT_MAX, best_tries_done = UINT_MAX;
-        size_t n_architectures, best_architecture_index = SIZE_MAX;
+        size_t n_abis, best_abi_index = SIZE_MAX;
         int r;
 
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
@@ -322,18 +322,18 @@ static int make_choice(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s': %m", prefix_roota(toplevel_path, inode_path));
 
-        if (filter->architecture < 0) {
-                architectures = local_architectures;
-                n_architectures = ELEMENTSOF(local_architectures);
+        if (filter->abi < 0) {
+                abis = local_abis;
+                n_abis = ELEMENTSOF(local_abis);
         } else {
-                architectures = &filter->architecture;
-                n_architectures = 1;
+                abis = &filter->abi;
+                n_abis = 1;
         }
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
                 _cleanup_free_ char *dname = NULL;
-                size_t found_architecture_index = SIZE_MAX;
+                size_t found_abi_index = SIZE_MAX;
                 const char *e;
 
                 dname = strdup((*entry)->d_name);
@@ -371,24 +371,24 @@ static int make_choice(
                         }
                 }
 
-                if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
+                if (FLAGS_SET(flags, PICK_ABI)) {
                         char *underscore = strrchr(e, '_');
-                        Architecture a;
+                        Abi a;
 
-                        a = underscore ? architecture_from_string(underscore + 1) : _ARCHITECTURE_INVALID;
+                        a = underscore ? abi_from_string(underscore + 1) : _ABI_INVALID;
 
-                        for (size_t i = 0; i < n_architectures; i++)
-                                if (architectures[i] == a) {
-                                        found_architecture_index = i;
+                        for (size_t i = 0; i < n_abis; i++)
+                                if (abis[i] == a) {
+                                        found_abi_index = i;
                                         break;
                                 }
 
-                        if (found_architecture_index == SIZE_MAX) { /* No matching arch found */
-                                log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.", a < 0 ? "any" : architecture_to_string(a));
+                        if (found_abi_index == SIZE_MAX) { /* No matching arch found */
+                                log_debug("Found entry with abi '%s' which is not what we are looking for, ignoring entry.", a < 0 ? "any" : abi_to_string(a));
                                 continue;
                         }
 
-                        /* Chop off architecture from string */
+                        /* Chop off abi from string */
                         if (underscore)
                                 *underscore = 0;
                 }
@@ -414,11 +414,11 @@ static int make_choice(
                         if (d == 0)
                                 d = strverscmp_improved(e, best_version);
 
-                        /* Third, prefer native architectures over secondary architectures */
+                        /* Third, prefer native abis over secondary abis */
                         if (d == 0 &&
-                            FLAGS_SET(flags, PICK_ARCHITECTURE) &&
-                            found_architecture_index != SIZE_MAX && best_architecture_index != SIZE_MAX)
-                                d = -CMP(found_architecture_index, best_architecture_index);
+                            FLAGS_SET(flags, PICK_ABI) &&
+                            found_abi_index != SIZE_MAX && best_abi_index != SIZE_MAX)
+                                d = -CMP(found_abi_index, best_abi_index);
 
                         /* Fourth, prefer entries with more tries left */
                         if (FLAGS_SET(flags, PICK_TRIES)) {
@@ -448,7 +448,7 @@ static int make_choice(
                 if (r < 0)
                         return r;
 
-                best_architecture_index = found_architecture_index;
+                best_abi_index = found_abi_index;
                 best_tries_left = found_tries_left;
                 best_tries_done = found_tries_done;
         }
@@ -477,7 +477,7 @@ static int make_choice(
                                 .type_mask = filter->type_mask,
                                 .basename = filter->basename,
                                 .version = empty_to_null(best_version),
-                                .architecture = best_architecture_index != SIZE_MAX ? architectures[best_architecture_index] : _ARCHITECTURE_INVALID,
+                                .abi = best_abi_index != SIZE_MAX ? abis[best_abi_index] : _ABI_INVALID,
                                 .suffix = filter->suffix,
                         },
                         flags,
@@ -614,7 +614,7 @@ int path_pick(
                                 .type_mask = filter_type_mask,
                                 .basename = filter_bname,
                                 .version = filter->version,
-                                .architecture = filter->architecture,
+                                .abi = filter->abi,
                                 .suffix = filter_suffix_strv ?: STRV_MAKE(filter_suffix),
                         },
                         flags,
@@ -683,17 +683,17 @@ int path_pick_update_warn(
 
 const PickFilter pick_filter_image_raw = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
-        .architecture = _ARCHITECTURE_INVALID,
+        .abi = _ABI_INVALID,
         .suffix = STRV_MAKE(".raw"),
 };
 
 const PickFilter pick_filter_image_dir = {
         .type_mask = UINT32_C(1) << DT_DIR,
-        .architecture = _ARCHITECTURE_INVALID,
+        .abi = _ABI_INVALID,
 };
 
 const PickFilter pick_filter_image_any = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_DIR),
-        .architecture = _ARCHITECTURE_INVALID,
+        .abi = _ABI_INVALID,
         .suffix = STRV_MAKE(".raw", ""),
 };
