@@ -15,6 +15,7 @@
 # pylint: disable=protected-access,redefined-outer-name
 
 import base64
+import glob
 import json
 import os
 import pathlib
@@ -398,28 +399,17 @@ def test_help_error(capsys):
 
 @pytest.fixture(scope='session')
 def kernel_initrd():
-    opts = ukify.create_parser().parse_args(arg_tools)
-    bootctl = ukify.find_tool('bootctl', opts=opts)
-    if bootctl is None:
+    items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
+    if not items:
         return None
 
-    try:
-        text = subprocess.check_output([bootctl, 'list', '--json=short'],
-                                       text=True)
-    except subprocess.CalledProcessError:
-        return None
+    # This doesn't necessarilly give us the latest version, since we're just
+    # using alphanumeric ordering. But this is fine, a predictable result is
+    # enough.
+    linux = items[-1]
 
-    items = json.loads(text)
-
-    for item in items:
-        try:
-            linux = f"{item['root']}{item['linux']}"
-            initrd = f"{item['root']}{item['initrd'][0].split(' ')[0]}"
-        except (KeyError, IndexError):
-            continue
-        return ['--linux', linux, '--initrd', initrd]
-    else:
-        return None
+    # We don't look _into_ the initrd. Any file is OK.
+    return ['--linux', linux, '--initrd', ukify.__file__]
 
 def test_check_splash():
     try:
