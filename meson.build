@@ -1994,14 +1994,11 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-command = ['sh', '-c',
-           vcs_tag and fs.exists(project_source_root / '.git') ?
-                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
         fallback : '',
-        command : command,
+        command : [vcs_tag ? 'tools/vcs-tag.sh' : 'true', get_option('mode')],
 )
 
 shared_lib_tag = get_option('shared-lib-tag')
