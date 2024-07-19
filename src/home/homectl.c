@@ -2438,7 +2438,7 @@ static int create_interactively(void) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ false);
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
 
         for (;;) {
                 username = mfree(username);
