@@ -235,7 +235,7 @@ static MachineCredentialContext arg_credentials = {};
 static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
-static Architecture arg_architecture = _ARCHITECTURE_INVALID;
+static Abi arg_abi = _ABI_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
 static char *arg_background = NULL;
 static bool arg_privileged = false;
@@ -2970,53 +2970,53 @@ static int pick_paths(void) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = pick_filter_image_dir;
 
-                filter.architecture = arg_architecture;
+                filter.abi = arg_abi;
 
                 r = path_pick_update_warn(
                                 &arg_directory,
                                 &filter,
-                                PICK_ARCHITECTURE|PICK_TRIES,
+                                PICK_ABI|PICK_TRIES,
                                 &result);
                 if (r < 0) {
                         /* Accept ENOENT here so that the --template= logic can work */
                         if (r != -ENOENT)
                                 return r;
                 } else
-                        arg_architecture = result.architecture;
+                        arg_abi = result.abi;
         }
 
         if (arg_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = pick_filter_image_raw;
 
-                filter.architecture = arg_architecture;
+                filter.abi = arg_abi;
 
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &filter,
-                                PICK_ARCHITECTURE|PICK_TRIES,
+                                PICK_ABI|PICK_TRIES,
                                 &result);
                 if (r < 0)
                         return r;
 
-                arg_architecture = result.architecture;
+                arg_abi = result.abi;
         }
 
         if (arg_template) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = pick_filter_image_dir;
 
-                filter.architecture = arg_architecture;
+                filter.abi = arg_abi;
 
                 r = path_pick_update_warn(
                                 &arg_template,
                                 &filter,
-                                PICK_ARCHITECTURE,
+                                PICK_ABI,
                                 &result);
                 if (r < 0)
                         return r;
 
-                arg_architecture = result.architecture;
+                arg_abi = result.abi;
         }
 
         return 0;
@@ -3428,16 +3428,28 @@ static int inner_child(
                 r = safe_personality(arg_personality);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
-#ifdef ARCHITECTURE_SECONDARY
-        } else if (arg_architecture == ARCHITECTURE_SECONDARY) {
+#ifdef ABI_SECONDARY
+        } else if (arg_abi == ABI_SECONDARY) {
                 r = safe_personality(PER_LINUX32);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
 #endif
-        } else if (!arg_quiet && arg_architecture >= 0 && arg_architecture != native_architecture())
+#ifdef ABI_TERTIARY
+        } else if (arg_abi == ABI_TERTIARY) {
+                r = safe_personality(PER_LINUX32);
+                if (r < 0)
+                        return log_error_errno(r, "personality() failed: %m");
+#endif
+#ifdef ABI_QUATERNARY
+        } else if (arg_abi == ABI_QUATERNARY) {
+                r = safe_personality(PER_LINUX32);
+                if (r < 0)
+                        return log_error_errno(r, "personality() failed: %m");
+#endif
+        } else if (!arg_quiet && arg_abi >= 0 && arg_abi != native_abi())
                 log_notice("Selected architecture '%s' not supported natively on the local CPU, assuming "
                            "invocation with qemu userspace emulator (or equivalent) in effect.",
-                           architecture_to_string(arg_architecture));
+                           abi_to_string(arg_abi));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)
@@ -6207,8 +6219,8 @@ static int run(int argc, char *argv[]) {
                 if (remove_image && unlink(arg_image) >= 0)
                         remove_image = false;
 
-                if (arg_architecture < 0)
-                        arg_architecture = dissected_image_architecture(dissected_image);
+                if (arg_abi < 0)
+                        arg_abi = dissected_image_abi(dissected_image);
         }
 
         r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
