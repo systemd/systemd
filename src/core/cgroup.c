@@ -2685,7 +2685,7 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
         if (crt && streq_ptr(crt->cgroup_path, path))
                 return 0;
 
-        unit_release_cgroup(u);
+        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
 
         crt = unit_setup_cgroup_runtime(u);
         if (!crt)
@@ -3483,7 +3483,7 @@ int unit_realize_cgroup(Unit *u) {
         return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
-void unit_release_cgroup(Unit *u) {
+void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime) {
         assert(u);
 
         /* Forgets all cgroup details for this cgroup — but does *not* destroy the cgroup. This is hence OK to call
@@ -3514,7 +3514,8 @@ void unit_release_cgroup(Unit *u) {
                 crt->cgroup_memory_inotify_wd = -1;
         }
 
-        *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
+        if (drop_cgroup_runtime)
+                *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
 }
 
 int unit_cgroup_is_empty(Unit *u) {
@@ -3535,22 +3536,24 @@ int unit_cgroup_is_empty(Unit *u) {
         return r;
 }
 
-bool unit_maybe_release_cgroup(Unit *u) {
+static bool unit_maybe_release_cgroup(Unit *u) {
         int r;
 
-        assert(u);
+        /* Releases the cgroup only if it is recursively empty.
+         * Returns true if the cgroup was released, false otherwise. */
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return true;
+        assert(u);
 
         /* Don't release the cgroup if there are still processes under it. If we get notified later when all
          * the processes exit (e.g. the processes were in D-state and exited after the unit was marked as
          * failed) we need the cgroup paths to continue to be tracked by the manager so they can be looked up
          * and cleaned up later. */
         r = unit_cgroup_is_empty(u);
-        if (r == 1) {
-                unit_release_cgroup(u);
+        if (r > 0) {
+                /* Do not free CGroupRuntime when called from unit_prune_cgroup. Various accounting data
+                 * we should keep, especially CPU usage and *_peak ones which would be shown even after
+                 * the unit stops. */
+                unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
                 return true;
         }
 
@@ -3558,8 +3561,8 @@ bool unit_maybe_release_cgroup(Unit *u) {
 }
 
 void unit_prune_cgroup(Unit *u) {
-        int r;
         bool is_root_slice;
+        int r;
 
         assert(u);
 
@@ -3597,9 +3600,8 @@ void unit_prune_cgroup(Unit *u) {
         if (!unit_maybe_release_cgroup(u)) /* Returns true if the cgroup was released */
                 return;
 
-        crt = unit_get_cgroup_runtime(u); /* The above might have destroyed the runtime object, let's see if it's still there */
-        if (!crt)
-                return;
+        assert(crt == unit_get_cgroup_runtime(u));
+        assert(!crt->cgroup_path);
 
         crt->cgroup_realized = false;
         crt->cgroup_realized_mask = 0;
@@ -4646,11 +4648,11 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
                 return -ENODATA;
 
-        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
                 return -ENODATA;
 
         r = unit_get_cpu_usage_raw(u, &ns);
@@ -4694,7 +4696,7 @@ int unit_get_ip_accounting(
                 return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!crt)
                 return -ENODATA;
 
         fd = IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_INGRESS_PACKETS) ?
@@ -4869,7 +4871,7 @@ int unit_get_io_accounting(
                 return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
+        if (!crt)
                 return -ENODATA;
 
         if (allow_cache && crt->io_accounting_last[metric] != UINT64_MAX)
