@@ -525,6 +525,15 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v256</constant></term>
+
+          <listitem><para>Added support for ethernet devicetree aliases pointing to switch ports.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
