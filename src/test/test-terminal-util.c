@@ -3,10 +3,13 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -176,6 +179,77 @@ TEST(get_default_background_color) {
                 log_notice("R=%g G=%g B=%g", red, green, blue);
 }
 
+TEST(terminal_get_size_by_dsr) {
+        unsigned rows, columns;
+        int r;
+
+        r = terminal_get_size_by_dsr(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        if (r < 0)
+                log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
+        else {
+                log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+
+                struct winsize ws = {};
+
+                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                        log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+                else
+                        log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+        }
+}
+
+TEST(terminal_fix_size) {
+        int r;
+
+        r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+        if (r < 0)
+                log_warning_errno(r, "Failed to fix terminal size: %m");
+        else if (r == 0)
+                log_notice("Not fixing terminal size, nothing to do.");
+        else
+                log_notice("Fixed terminal size.");
+}
+
+TEST(terminal_is_pty_fd) {
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_free_ char *peer = NULL;
+        int r;
+
+        fd1 = openpt_allocate(O_RDWR, &peer);
+        assert_se(fd1 >= 0);
+        assert_se(terminal_is_pty_fd(fd1) > 0);
+
+        fd2 = open_terminal(peer, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd2 >= 0);
+        assert_se(terminal_is_pty_fd(fd2) > 0);
+
+        fd1 = safe_close(fd1);
+        fd2 = safe_close(fd2);
+
+        fd1 = open("/dev/null", O_RDONLY|O_CLOEXEC);
+        assert_se(fd1 >= 0);
+        assert_se(terminal_is_pty_fd(fd1) == 0);
+
+        /* In container managers real tty devices might be weird, avoid them. */
+        r = path_is_read_only_fs("/sys");
+        if (r != 0)
+                return;
+
+        FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1") {
+                _cleanup_close_ int tfd = -EBADF;
+
+                tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
+                if (tfd == -ENOENT)
+                        continue;
+                if (tfd < 0)  {
+                        log_notice_errno(tfd, "Failed to open '%s', skipping: %m", p);
+                        continue;
+                }
+
+                assert_se(terminal_is_pty_fd(tfd) <= 0);
+        }
+}
+
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
         ASSERT_OK(setenv(key, val, true));
         reset_terminal_feature_caches();
@@ -207,6 +281,14 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("COLORTERM", "42",        terminal_is_dumb() ? COLOR_OFF : COLOR_256);
         unsetenv("COLORTERM");
         reset_terminal_feature_caches();
+}
+
+TEST(terminal_reset_defensive) {
+        int r;
+
+        r = terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        if (r < 0)
+                log_notice_errno(r, "Failed to reset terminal: %m");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -25,7 +25,6 @@
 #include "cgroup-setup.h"
 #include "constants.h"
 #include "cpu-set-util.h"
-#include "dev-setup.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -99,56 +98,65 @@ const char* exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-static void exec_context_determine_tty_size(
+int exec_context_apply_tty_size(
                 const ExecContext *context,
-                const char *tty_path,
-                unsigned *ret_rows,
-                unsigned *ret_cols) {
+                int input_fd,
+                int output_fd,
+                const char *tty_path) {
 
         unsigned rows, cols;
+        int r;
 
         assert(context);
-        assert(ret_rows);
-        assert(ret_cols);
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        if (!isatty_safe(output_fd))
+                return 0;
 
         if (!tty_path)
                 tty_path = exec_context_tty_path(context);
 
+        /* Preferably use explicitly configured data */
         rows = context->tty_rows;
         cols = context->tty_cols;
 
+        /* Fill in data from kernel command line if anything is unspecified */
         if (tty_path && (rows == UINT_MAX || cols == UINT_MAX))
                 (void) proc_cmdline_tty_size(
                                 tty_path,
                                 rows == UINT_MAX ? &rows : NULL,
                                 cols == UINT_MAX ? &cols : NULL);
 
-        *ret_rows = rows;
-        *ret_cols = cols;
+        /* If we got nothing so far and we are talking to a physical device, and the TTY reset logic is on,
+         * then let's query dimensions from the ANSI driver. */
+        if (rows == UINT_MAX && cols == UINT_MAX &&
+            context->tty_reset &&
+            terminal_is_pty_fd(output_fd) == 0 &&
+            isatty_safe(input_fd)) {
+                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
+        }
+
+        return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
-
-int exec_context_apply_tty_size(
-                const ExecContext *context,
-                int tty_fd,
-                const char *tty_path) {
-
-        unsigned rows, cols;
-
-        exec_context_determine_tty_size(context, tty_path, &rows, &cols);
-
-        return terminal_set_size_fd(tty_fd, tty_path, rows, cols);
- }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
-        int fd;
+        int fd, r;
 
         assert(context);
 
+        /* Note that this is potentially a "destructive" reset of a TTY device. It's about getting rid of the
+         * remains of previous uses of the TTY. It's *not* about getting things set up for coming uses. We'll
+         * potentially invalidate the TTY here through hangups or VT disallocations, and hence do not keep a
+         * continous fd open. */
+
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0 && isatty_safe(p->stdin_fd))
-                fd = p->stdin_fd;
+        if (p && p->stdout_fd >= 0 && isatty_safe(p->stdout_fd))
+                fd = p->stdout_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
@@ -168,13 +176,19 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         else if (lock_fd < 0)
                 log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
 
+        if (context->tty_reset)
+                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
+
+        r = exec_context_apply_tty_size(context, fd, fd, path);
+        if (r < 0)
+                log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
+
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
 
-        if (context->tty_reset)
-                (void) reset_terminal_fd(fd, /* switch_to_text= */ true);
-
-        (void) exec_context_apply_tty_size(context, fd, path);
+        /* We don't need the fd anymore now, and it potentially points to a hungup TTY anyway, let's close it
+         * hence. */
+        _fd = safe_close(_fd);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
