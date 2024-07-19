@@ -821,30 +821,30 @@ UserState user_get_state(User *u) {
         if (!u->started || u->runtime_dir_job)
                 return USER_OPENING;
 
-        bool any = false, all_closing = true;
-        LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                SessionState state;
+        /* USER_GC_BY_PIN: Only pinning sessions count. None -> closing
+         * USER_GC_BY_ANY: 'manager' sessions also count. However, if lingering is enabled, 'lingering' state
+         *                 shall be preferred. 'online' if the manager is manually started by user. */
 
-                /* Ignore sessions that don't pin the user, i.e. are not supposed to have an effect on user state */
-                if (!SESSION_CLASS_PIN_USER(i->class))
+        bool has_pinning = false, all_closing = true;
+        LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                bool pinned = SESSION_CLASS_PIN_USER(i->class);
+
+                if (u->gc_mode == USER_GC_BY_PIN && !pinned)
                         continue;
 
-                state = session_get_state(i);
-                if (state == SESSION_ACTIVE)
+                has_pinning = has_pinning || pinned;
+
+                SessionState state = session_get_state(i);
+                if (state == SESSION_ACTIVE && pinned)
                         return USER_ACTIVE;
                 if (state != SESSION_CLOSING)
                         all_closing = false;
-
-                any = true;
         }
 
-        if (any)
-                return all_closing ? USER_CLOSING : USER_ONLINE;
-
-        if (user_check_linger_file(u) > 0 && user_unit_active(u))
+        if (!has_pinning && user_check_linger_file(u) > 0 && user_unit_active(u))
                 return USER_LINGERING;
 
-        return USER_CLOSING;
+        return all_closing ? USER_CLOSING : USER_ONLINE;
 }
 
 int user_kill(User *u, int signo) {

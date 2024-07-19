@@ -584,8 +584,9 @@ int vt_disallocate(const char *name) {
         (void) loop_write(fd2,
                           "\033[r"   /* clear scrolling region */
                           "\033[H"   /* move home */
-                          "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
-                          10);
+                          "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
+                          "\033c",   /* reset to initial state */
+                          SIZE_MAX);
         return 0;
 }
 
@@ -1558,7 +1559,6 @@ int terminal_reset_ansi_seq(int fd) {
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
         k = loop_write_full(fd,
-                            "\033c"        /* reset to initial state */
                             "\033[!p"      /* soft terminal reset */
                             "\033]104\007" /* reset colors */
                             "\033[?7h",    /* enable line-wrapping */
