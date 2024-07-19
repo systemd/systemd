@@ -497,6 +497,9 @@ static int setup_output(
         i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
+        // FIXME: we probably should spend some time here to verify that if we inherit an fd from stdin
+        // (possibly indirect via inheritance from stdout) it is actually opened for write!
+
         if (fileno == STDERR_FILENO) {
                 ExecOutput e;
                 e = fixup_output(context->std_error, socket_fd);
