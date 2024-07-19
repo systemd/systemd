@@ -56,6 +56,8 @@ if conf.get('ENABLE_LOCALED') == 1
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.locale1.policy',
                      install_dir : polkitpolicydir)
+        install_data('systemd-localed.rules',
+                     install_dir : polkitrulesdir)
         install_data('kbd-model-map',
                      'language-fallback-map',
                      install_dir : pkgdatadir)
