@@ -290,7 +290,8 @@ static int list_targets(sd_bus *bus) {
                 return log_oom();
 
         for (size_t i = 0; i < n; i++) {
-                char *version = NULL, *path = NULL;
+                char *version = NULL;
+                _cleanup_free_ char *path = NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
 
                 r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination,
