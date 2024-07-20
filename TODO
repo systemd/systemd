@@ -130,6 +130,12 @@ Deprecations and removals:
 
 Features:
 
+* replace all \x1b, \x1B, \033 C string escape sequences in our codebase with a
+  more readable \e. It's a GNU extension, but a ton more readable than the
+  others, and most importantly it doesn't result in confusing errors if you
+  suffix the escape sequence with one more decimal digit, because compilers
+  think you might actually specify a value outside the 8bit range with that.
+
 * homed: allow login via username + realm on getty/login prompt. Then rewrite
   the user name in the PAM stack
 
