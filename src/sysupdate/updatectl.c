@@ -824,9 +824,9 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
         Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const char *interface;
-        unsigned progress = UINT_MAX;
+        uint32_t progress = UINT32_MAX;
         const struct bus_properties_map prop_map[] = {
-                { "Progress", "u", NULL, PTR_TO_SIZE(&progress) },
+                { "Progress", "u", NULL, 0 },
                 {}
         };
         int r;
@@ -842,7 +842,7 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
         if (!streq(interface, "org.freedesktop.sysupdate1.Job"))
                 return 0;
 
-        r = bus_message_map_all_properties(m, prop_map, /* flags= */ 0, error, NULL);
+        r = bus_message_map_all_properties(m, prop_map, /* flags= */ 0, error, &progress);
         if (r < 0)
                 return 0; /* map_all_properties does the debug logging internally... */
 
