@@ -826,7 +826,7 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const char *interface;
         uint32_t progress = UINT32_MAX;
-        const struct bus_properties_map prop_map[] = {
+        static const struct bus_properties_map prop_map[] = {
                 { "Progress", "u", NULL, 0 },
                 {}
         };
