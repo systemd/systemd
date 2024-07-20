@@ -657,6 +657,29 @@ testcase_locale_gen_leading_space() {
 # running on.
 export SYSTEMD_KBD_MODEL_MAP=/usr/lib/systemd/tests/testdata/test-keymap-util/kbd-model-map
 
+# On Debian and derivatives writing calls to localed are blocked as other tools are used to change settings,
+# override that policy
+mkdir -p /etc/dbus-1/system.d/
+cat >/etc/dbus-1/system.d/systemd-localed-read-only.conf <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+        <policy user="root">
+                <allow send_member="SetLocale"/>
+                <allow send_member="SetVConsoleKeyboard"/>
+                <allow send_member="SetX11Keyboard"/>
+        </policy>
+        <policy context="default">
+                <allow send_member="SetLocale"/>
+                <allow send_member="SetVConsoleKeyboard"/>
+                <allow send_member="SetX11Keyboard"/>
+        </policy>
+</busconfig>
+EOF
+trap 'rm -f /etc/dbus-1/system.d/systemd-localed-read-only.conf' EXIT
+systemctl reload dbus.service
+
 enable_debug
 run_testcases
 
