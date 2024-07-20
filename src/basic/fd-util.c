@@ -1123,6 +1123,8 @@ int proc_fd_enoent_errno(void) {
         if (r == 0)
                 return -ENOSYS;  /* /proc/ is not available or not set up properly, we're most likely
                                     in some chroot environment. */
-        return r > 0 ? -EBADF : -ENOENT; /* If /proc/ is definitely around then this means the fd is
-                                            not valid, otherwise let's propagate the original ENOENT. */
+        if (r > 0)
+                return -EBADF;   /* If /proc/ is definitely around then this means the fd is not valid. */
+
+        return -ENOENT;          /* Otherwise let's propagate the original ENOENT. */
 }
