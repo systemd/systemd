@@ -39,7 +39,7 @@ static inline int pidref_set_self(PidRef *pidref) {
 bool pidref_is_self(const PidRef *pidref);
 
 void pidref_done(PidRef *pidref);
-PidRef *pidref_free(PidRef *pidref);
+PidRef* pidref_free(PidRef *pidref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
 
 int pidref_copy(const PidRef *pidref, PidRef *dest);
