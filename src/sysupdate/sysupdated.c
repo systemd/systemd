@@ -1597,7 +1597,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_freep) Target *t = NULL;
+                Target *t = NULL;
                 bool have = false;
 
                 if (IMAGE_IS_HOST(image))
@@ -1615,7 +1615,6 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
-                TAKE_PTR(t); /* Now owned by m->targets */
         }
 
         return 0;
