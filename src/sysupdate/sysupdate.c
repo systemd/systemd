@@ -1543,7 +1543,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-        BLOCK_SIGNALS(SIGCHLD);
+	assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         return sysupdate_main(argc, argv);
 }
