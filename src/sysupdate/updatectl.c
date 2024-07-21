@@ -323,8 +323,7 @@ static int list_targets(sd_bus *bus) {
 static int parse_describe(sd_bus_message *reply, Version *ret) {
         Version v = {};
         char *version_json = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        sd_json_variant *contents_json = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *contents_json = NULL;
         bool newest = false, available = false, installed = false, obsolete = false, protected = false;
         int r;
 
