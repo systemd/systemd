@@ -254,7 +254,8 @@ EOF
     # testing for specific output, but this will at least catch obvious crashes
     # and allow updatectl to run under the various sanitizers. We create a
     # component so that updatectl has multiple targets to list.
-    install -Dm644 "$CONFIGDIR/01-first.conf" /run/sysupdate.test.d/01-first.conf
+    mkdir -p /run/sysupdate.test.d/
+    cp "$CONFIGDIR/01-first.conf" /run/sysupdate.test.d/01-first.conf
     updatectl list
     updatectl list host
     updatectl list host@v4
