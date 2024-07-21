@@ -332,7 +332,7 @@ static void device_catchup(Unit *u) {
         Device *d = ASSERT_PTR(DEVICE(u));
 
         /* Second, let's update the state with the enumerated state */
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        device_update_found_one(d, d->enumerated_found, _DEVICE_FOUND_MASK);
 }
 
 static const struct {
@@ -1097,7 +1097,7 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
         if (!syspath_old)
                 return (void) log_oom();
 
-        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
+        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, _DEVICE_FOUND_MASK);
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
@@ -1177,7 +1177,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 /* If we get notified that a device was removed by udev, then it's completely gone, hence
                  * unset all found bits. Note this affects all .device units still point to the removed
                  * device. */
-                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, _DEVICE_FOUND_MASK);
 
         /* These devices are found and ready now, set the udev found bit. Note, this is also necessary to do
          * on remove uevent, as some devlinks may be updated and now point to other device nodes. */
