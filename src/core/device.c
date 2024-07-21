@@ -54,8 +54,6 @@ static int device_by_path(Manager *m, const char *path, Unit **ret) {
 }
 
 static void device_unset_sysfs(Device *d) {
-        Hashmap *devices;
-
         assert(d);
 
         if (!d->sysfs)
@@ -63,7 +61,7 @@ static void device_unset_sysfs(Device *d) {
 
         /* Remove this unit from the chain of devices which share the same sysfs path. */
 
-        devices = UNIT(d)->manager->devices_by_sysfs;
+        Hashmap *devices = ASSERT_PTR(UNIT(d)->manager->devices_by_sysfs);
 
         if (d->same_sysfs_prev)
                 /* If this is not the first unit, then simply remove this unit. */
@@ -84,36 +82,35 @@ static void device_unset_sysfs(Device *d) {
 }
 
 static int device_set_sysfs(Device *d, const char *sysfs) {
-        _cleanup_free_ char *copy = NULL;
-        Device *first;
+        Unit *u = UNIT(ASSERT_PTR(d));
         int r;
-
-        assert(d);
 
         if (streq_ptr(d->sysfs, sysfs))
                 return 0;
 
-        r = hashmap_ensure_allocated(&UNIT(d)->manager->devices_by_sysfs, &path_hash_ops);
+        Hashmap **devices = &u->manager->devices_by_sysfs;
+
+        r = hashmap_ensure_allocated(devices, &path_hash_ops);
         if (r < 0)
                 return r;
 
-        copy = strdup(sysfs);
+        _cleanup_free_ char *copy = strdup(sysfs);
         if (!copy)
                 return -ENOMEM;
 
         device_unset_sysfs(d);
 
-        first = hashmap_get(UNIT(d)->manager->devices_by_sysfs, sysfs);
+        Device *first = hashmap_get(*devices, sysfs);
         LIST_PREPEND(same_sysfs, first, d);
 
-        r = hashmap_replace(UNIT(d)->manager->devices_by_sysfs, copy, first);
+        r = hashmap_replace(*devices, copy, first);
         if (r < 0) {
                 LIST_REMOVE(same_sysfs, first, d);
                 return r;
         }
 
         d->sysfs = TAKE_PTR(copy);
-        unit_add_to_dbus_queue(UNIT(d));
+        unit_add_to_dbus_queue(u);
 
         return 0;
 }
@@ -335,7 +332,7 @@ static void device_catchup(Unit *u) {
         Device *d = ASSERT_PTR(DEVICE(u));
 
         /* Second, let's update the state with the enumerated state */
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        device_update_found_one(d, d->enumerated_found, _DEVICE_FOUND_MASK);
 }
 
 static const struct {
@@ -350,13 +347,14 @@ static const struct {
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
         _cleanup_free_ char *s = NULL;
 
+        assert(flags >= 0);
         assert(ret);
 
-        for (size_t i = 0; i < ELEMENTSOF(device_found_map); i++) {
-                if (!FLAGS_SET(flags, device_found_map[i].flag))
+        FOREACH_ELEMENT(i, device_found_map) {
+                if (!FLAGS_SET(flags, i->flag))
                         continue;
 
-                if (!strextend_with_separator(&s, ",", device_found_map[i].name))
+                if (!strextend_with_separator(&s, ",", i->name))
                         return -ENOMEM;
         }
 
@@ -1099,7 +1097,7 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
         if (!syspath_old)
                 return (void) log_oom();
 
-        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
+        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, _DEVICE_FOUND_MASK);
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
@@ -1179,7 +1177,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 /* If we get notified that a device was removed by udev, then it's completely gone, hence
                  * unset all found bits. Note this affects all .device units still point to the removed
                  * device. */
-                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, _DEVICE_FOUND_MASK);
 
         /* These devices are found and ready now, set the udev found bit. Note, this is also necessary to do
          * on remove uevent, as some devlinks may be updated and now point to other device nodes. */
