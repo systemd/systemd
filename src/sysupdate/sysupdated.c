@@ -681,9 +681,6 @@ static Target *target_free(Target *t) {
         if (!t)
                 return NULL;
 
-        if (t->manager)
-                assert_se(hashmap_remove(t->manager->targets, t->id) == t);
-
         free(t->name);
         free(t->path);
         free(t->id);
