@@ -81,7 +81,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                         tmp = *cut;
                         *cut = '\0';
 
-                        flags = IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO;
+                        flags = IN_MOVE_SELF | IN_DELETE_SELF | IN_CREATE | IN_MOVED_TO;
                 } else {
                         cut = NULL;
                         flags = flags_table[s->type];

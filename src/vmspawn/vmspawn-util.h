@@ -40,6 +40,8 @@
 #  define QEMU_MACHINE_TYPE "s390-ccw-virtio"
 #elif defined(__powerpc__) || defined(__powerpc64__)
 #  define QEMU_MACHINE_TYPE "pseries"
+#elif defined(__mips__)
+#  define QEMU_MACHINE_TYPE "malta"
 #else
 #  error "No qemu machine defined for this architecture"
 #endif

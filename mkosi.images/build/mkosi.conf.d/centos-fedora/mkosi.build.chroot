@@ -4,11 +4,8 @@ set -e
 
 . mkosi.functions
 
-# shellcheck source=/dev/null
-. /usr/lib/os-release
-
-if [[ ! -f "pkg/$ID/systemd.spec" ]]; then
-    echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
+    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -78,7 +75,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     $( ((WITH_TESTS)) || echo "--nocheck") \
     $( ((WITH_DOCS))  || echo "--without=docs") \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$ID" \
+    --define "_sourcedir pkg/$PKG_SUBDIR" \
     --define "_rpmdir $OUTPUTDIR" \
     ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -106,7 +103,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "_fixperms true" \
     --undefine _package_note_flags \
     --noclean \
-    "pkg/$ID/systemd.spec"
+    "pkg/$PKG_SUBDIR/systemd.spec"
 
 (
     shopt -s nullglob
