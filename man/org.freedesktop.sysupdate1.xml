@@ -208,7 +208,8 @@ node /org/freedesktop/sysupdate1/target/host {
       <para><function>Vacuum()</function> deletes old installed versions of this target to free up space.
       It returns the number of instances that have been deleted.</para>
 
-      <para><function>GetAppStream()</function> returns a list of HTTP/HTTPS URLs to this target's <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream catalog</ulink>
+      <para><function>GetAppStream()</function> returns a list of HTTP/HTTPS URLs to this target's
+      <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream catalog</ulink>
       XML files. If this target has no appstream catalogs, the method will return an empty list. These
       catalog files can be used by software centers (such as GNOME Software or KDE Discover) to present rich
       metadata about the target, including a display name, changelog, icon, and more. The returned catalogs
@@ -233,7 +234,7 @@ node /org/freedesktop/sysupdate1/target/host {
       virtual machines managed by
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <literal>portable</literal> for <ulink url="https://systemd.io/PORTABLE_SERVICES">portable services</ulink>,
-      <literal>extension</literal> for system extensions managed by
+      <literal>sysext</literal> for system extensions managed by
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <literal>confext</literal> for configuration extensions managed by
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
