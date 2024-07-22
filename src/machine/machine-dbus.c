@@ -232,12 +232,12 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (streq(us, them))
                         return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
 
-                r = namespace_open(m->leader.pid,
-                                   /* ret_pidns_fd = */ NULL,
-                                   /* ret_mntns_fd = */ NULL,
-                                   &netns_fd,
-                                   /* ret_userns_fd = */ NULL,
-                                   /* ret_root_fd = */ NULL);
+                r = pidref_namespace_open(&m->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          /* ret_mntns_fd = */ NULL,
+                                          &netns_fd,
+                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_root_fd = */ NULL);
                 if (r < 0)
                         return r;
 
@@ -392,12 +392,12 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t child;
 
-                r = namespace_open(m->leader.pid,
-                                   &pidns_fd,
-                                   &mntns_fd,
-                                   /* ret_netns_fd = */ NULL,
-                                   /* ret_userns_fd = */ NULL,
-                                   &root_fd);
+                r = pidref_namespace_open(&m->leader,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
                 if (r < 0)
                         return r;
 
@@ -1100,12 +1100,12 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 pid_t child;
 
-                r = namespace_open(m->leader.pid,
-                                   /* ret_pidns_fd = */ NULL,
-                                   &mntns_fd,
-                                   /* ret_netns_fd = */ NULL,
-                                   /* ret_userns_fd = */ NULL,
-                                   &root_fd);
+                r = pidref_namespace_open(&m->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
                 if (r < 0)
                         return r;
 
