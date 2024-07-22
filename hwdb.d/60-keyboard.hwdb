@@ -253,6 +253,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pnM17xR3:*
  KEYBOARD_KEY_89=ejectcd
 
 ###########################################################
+# Aquarius
+###########################################################
+
+# Aquarius Cmp NS483
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAquarius*:pnCmp*NS483*:*
+ KEYBOARD_KEY_56=backslash
+ KEYBOARD_KEY_76=f21					# Touchpad Toggle
+
+###########################################################
 # Asus
 ###########################################################
 
@@ -465,6 +474,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
  KEYBOARD_KEY_88=wlan
  KEYBOARD_KEY_65=direction                              # Screen Rotate
 
+# Dell Pro Rugged microphone mute
+evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnDellProRugged*:*
 # Dell G16 microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnDellG16*:*
 # Dell Latitude microphone mute
@@ -1537,6 +1548,11 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
 
+# MSI Claw
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
+ KEYBOARD_KEY_b9=f15                                   # Right Face Button
+ KEYBOARD_KEY_ba=f16                                   # Left Face Button
+
 ##########################################
 # NEC
 ##########################################
@@ -2213,6 +2229,13 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
  KEYBOARD_KEY_7006c=prog2                               # Programmable button
  KEYBOARD_KEY_7006d=prog3                               # Programmable button
  KEYBOARD_KEY_7006e=prog4                               # Programmable button
+
+###########################################################
+# Multilaser
+###########################################################
+# Multilaser Ultra (UL154)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
+ KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
 
 ###########################################################
 # Other

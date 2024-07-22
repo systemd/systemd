@@ -432,8 +432,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         if (q->varlink_request) {
-                varlink_set_userdata(q->varlink_request, NULL);
-                varlink_unref(q->varlink_request);
+                sd_varlink_set_userdata(q->varlink_request, NULL);
+                sd_varlink_unref(q->varlink_request);
         }
 
         if (q->request_packet)

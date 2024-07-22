@@ -130,6 +130,54 @@ Deprecations and removals:
 
 Features:
 
+* replace all \x1b, \x1B, \033 C string escape sequences in our codebase with a
+  more readable \e. It's a GNU extension, but a ton more readable than the
+  others, and most importantly it doesn't result in confusing errors if you
+  suffix the escape sequence with one more decimal digit, because compilers
+  think you might actually specify a value outside the 8bit range with that.
+
+* homed: allow login via username + realm on getty/login prompt. Then rewrite
+  the user name in the PAM stack
+
+* homed/userdb: add "aliases" field to user record, which can alternatively be
+  used for logging in. Rewrite user name in the PAM stack once acquired.
+
+* confext/sysext: instead of mounting the overlayfs directly on /etc/ + /usr/,
+  insert an intermediary bind mount on itself there. This has the benefit that
+  services where mount propagation from the root fs is off, an still have
+  confext/sysext propagated in.
+
+* marry pcrlock + signed pcr policies for FDE/credentials by letting each
+  unlock "half" of the volume key, so that the combination of both must be
+  XOR'ed to get the actual volume key
+
+* support F_DUDFD_QUERY for comparing fds in same_fd (requires kernel 6.10)
+
+* generic interface for varlink for setting log level and stuff that all our daemons can implement
+
+* use pty ioctl to get peer wherever possible (TIOCGPTPEER)
+
+* maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
+  just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
+  chattr bit. This is useful as protection against early uses of /var/ or /tmp/
+  before their contents is mounted.
+
+* go through all uses of table_new() in our codebase, and make sure we support
+  all three of:
+  1. --no-legend properly
+  2. --json= properly
+  3. --no-pager properly
+
+* go through all --help texts in our codebases, and make sure:
+  1. the one sentence description of the tool is highlighted via ANSI how we
+     usually do it
+  2. If more than one or two commands are supported (as opposed to switches),
+     separate commands + switches from each other, using underlined --help sections.
+  3. If there are many switches, consider adding additional --help sections.
+
+* go through our codebase, and convert "vertical tables" (i.e. things such as
+  "systemctl status") to use table_new_vertical() for output
+
 * logind: when logging in use new tmpfs quota support to configure quota on
   /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
   is persistent and any persistent settings mean we don#t have to reapply them.
@@ -267,12 +315,6 @@ Features:
   this together: downloads a suitable image if not done so yet, starts it in
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
-
-* make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
-  header file to sd-varlink.h. This of course also means we have to make json.h
-  public the same way. Convert the function param checks from assert() to
-  assert_ret(). Only export the stuff we are sure about, and keep some symbols
-  internally where things are not clear whether we want other projects to use.
 
 * importd/…: define per-user dirs for container/VM images too.
 

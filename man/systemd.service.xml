@@ -162,11 +162,11 @@
 
           <itemizedlist>
             <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname>
-            is specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the
-            service manager will consider the unit started immediately after the main service process has
-            been forked off (i.e. immediately after <function>fork()</function>, and before various process
-            attributes have been configured and in particular before the new process has called
-            <function>execve()</function> to invoke the actual service binary). Typically,
+            is specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are, and
+            credentials are not used), the service manager will consider the unit started immediately after
+            the main service process has been forked off (i.e. immediately after <function>fork()</function>,
+            and before various process attributes have been configured and in particular before the new process
+            has called <function>execve()</function> to invoke the actual service binary). Typically,
             <varname>Type=</varname><option>exec</option> is the better choice, see below.</para>
 
             <para>It is expected that the process configured with <varname>ExecStart=</varname> is the main
@@ -188,7 +188,9 @@
             Note that this means <command>systemctl start</command> command lines for <option>exec</option>
             services will report failure when the service's binary cannot be invoked successfully (for
             example because the selected <varname>User=</varname> doesn't exist, or the service binary is
-            missing).</para></listitem>
+            missing). This type is implied if credentials are used (refer to <varname>LoadCredential=</varname>
+            in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details).</para></listitem>
 
             <listitem><para>If set to <option>forking</option>, the manager will consider the unit started
             immediately after the binary that forked off by the manager exits. <emphasis>The use of this type
@@ -727,8 +729,8 @@
         <listitem><para>Configures a maximum time for the service to run. If this is used and the service has been
         active for longer than the specified time it is terminated and put into a failure state. Note that this setting
         does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
-        activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
-        limit.</para>
+        activation completed (use <varname>TimeoutStartSec=</varname> to limit their activation).
+        Pass <literal>infinity</literal> (the default) to configure no runtime limit.</para>
 
         <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> sends
         <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause the runtime to be extended beyond

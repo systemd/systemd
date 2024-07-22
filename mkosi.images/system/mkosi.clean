@@ -1,5 +1,0 @@
-#!/bin/bash
-set -e
-set -o nounset
-
-rm -f "$OUTPUTDIR"/*.{rpm,deb,pkg.tar}

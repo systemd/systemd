@@ -81,6 +81,7 @@
 #include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
+#include "rm-rf.h"
 #include "seccomp-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
@@ -148,6 +149,7 @@ static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
 static sd_id128_t arg_machine_id;
+static bool arg_machine_id_from_firmware = false;
 static EmergencyAction arg_cad_burst_action;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
@@ -203,33 +205,58 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         return 0;
 }
 
-static int console_setup(void) {
-        _cleanup_close_ int tty_fd = -EBADF;
-        unsigned rows, cols;
+static int save_console_winsize_in_environment(int tty_fd) {
         int r;
 
-        tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        assert(tty_fd >= 0);
+
+        struct winsize ws = {};
+        if (ioctl(tty_fd, TIOCGWINSZ, &ws) < 0) {
+                log_debug_errno(errno, "Failed to acquire console window size, ignoring.");
+                goto unset;
+        }
+
+        if (ws.ws_col <= 0 && ws.ws_row <= 0) {
+                log_debug("No console window size set, ignoring.");
+                goto unset;
+        }
+
+        r = setenvf("COLUMNS", /* overwrite= */ true, "%u", ws.ws_col);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set $COLUMNS, ignoring: %m");
+                goto unset;
+        }
+
+        r = setenvf("LINES", /* overwrite= */ true, "%u", ws.ws_row);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set $LINES, ignoring: %m");
+                goto unset;
+        }
+
+        log_debug("Recorded console dimensions in environment: $COLUMNS=%u $LINES=%u.", ws.ws_col, ws.ws_row);
+        return 1;
+
+unset:
+        (void) unsetenv("COLUMNS");
+        (void) unsetenv("LINES");
+        return 0;
+}
+
+static int console_setup(void) {
+
+        if (getpid_cached() != 1)
+                return 0;
+
+        _cleanup_close_ int tty_fd = -EBADF;
+
+        tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
                 return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
 
-        /* We don't want to force text mode.  plymouth may be showing
-         * pictures already from initrd. */
-        r = reset_terminal_fd(tty_fd, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reset /dev/console: %m");
+        /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
+        reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);
 
-        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
-        if (r < 0)
-                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
-        else {
-                r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set /dev/console size, ignoring: %m");
-        }
-
-        r = terminal_reset_ansi_seq(tty_fd);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console using ANSI sequences, ignoring: %m");
+        save_console_winsize_in_environment(tty_fd);
 
         return 0;
 }
@@ -381,10 +408,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = id128_from_string_nonzero(value, &arg_machine_id);
-                if (r < 0)
-                        log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
-
+                if (streq(value, "firmware"))
+                        arg_machine_id_from_firmware = true;
+                else {
+                        r = id128_from_string_nonzero(value, &arg_machine_id);
+                        if (r < 0)
+                                log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
+                        else
+                                arg_machine_id_from_firmware = false;
+                }
         } else if (proc_cmdline_key_streq(key, "systemd.default_timeout_start_sec")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -1363,18 +1395,6 @@ static int bump_rlimit_memlock(const struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static void test_usr(void) {
-
-        /* Check that /usr is either on the same file system as / or mounted already. */
-
-        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) <= 0)
-                return;
-
-        log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult https://systemd.io/SEPARATE_USR_IS_BROKEN for more information.");
-}
-
 static int enforce_syscall_archs(Set *archs) {
 #if HAVE_SECCOMP
         int r;
@@ -1405,17 +1425,27 @@ static int os_release_status(void) {
                                       "Failed to read os-release file, ignoring: %m");
 
         const char *label = os_release_pretty_name(pretty_name, name);
+        const char *color = empty_to_null(ansi_color) ?: "1";
 
         if (show_status_on(arg_show_status)) {
-                if (log_get_show_color())
-                        status_printf(NULL, 0,
-                                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                                      empty_to_null(ansi_color) ?: "1",
-                                      label);
-                else
-                        status_printf(NULL, 0,
-                                      "\nWelcome to %s!\n",
-                                      label);
+                if (in_initrd()) {
+                        if (log_get_show_color())
+                                status_printf(NULL, 0,
+                                              ANSI_HIGHLIGHT "Booting initrd of " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "." ANSI_NORMAL,
+                                              color, label);
+                        else
+                                status_printf(NULL, 0,
+                                              "Booting initrd of %s...", label);
+                } else {
+                        if (log_get_show_color())
+                                status_printf(NULL, 0,
+                                              "\n" ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n",
+                                              color, label);
+                        else
+                                status_printf(NULL, 0,
+                                              "\nWelcome to %s!\n",
+                                              label);
+                }
         }
 
         if (support_end && os_release_support_ended(support_end, /* quiet */ false, NULL) > 0)
@@ -1432,9 +1462,12 @@ static int os_release_status(void) {
 }
 
 static int setup_os_release(RuntimeScope scope) {
-        _cleanup_free_ char *os_release_dst = NULL;
+        char os_release_dst[STRLEN("/run/user//systemd/propagate/.os-release-stage/os-release") + DECIMAL_STR_MAX(uid_t)] =
+                "/run/systemd/propagate/.os-release-stage/os-release";
         const char *os_release_src = "/etc/os-release";
         int r;
+
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
 
         if (access("/etc/os-release", F_OK) < 0) {
                 if (errno != ENOENT)
@@ -1443,22 +1476,17 @@ static int setup_os_release(RuntimeScope scope) {
                 os_release_src = "/usr/lib/os-release";
         }
 
-        if (scope == RUNTIME_SCOPE_SYSTEM) {
-                os_release_dst = strdup("/run/systemd/propagate/.os-release-stage/os-release");
-                if (!os_release_dst)
-                        return log_oom_debug();
-        } else {
-                if (asprintf(&os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid()) < 0)
-                        return log_oom_debug();
-        }
+        if (scope == RUNTIME_SCOPE_USER)
+                xsprintf(os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid());
 
         r = mkdir_parents_label(os_release_dst, 0755);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to create parent directory of '%s', ignoring: %m", os_release_dst);
 
         r = copy_file_atomic(os_release_src, os_release_dst, 0644, COPY_MAC_CREATE|COPY_REPLACE);
         if (r < 0)
-                return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
+                return log_debug_errno(r, "Failed to copy '%s' to '%s', ignoring: %m",
+                                       os_release_src, os_release_dst);
 
         return 0;
 }
@@ -2025,6 +2053,17 @@ static int do_reexecute(
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
 
+        /* Drop /run/systemd directory. Some of its content can be used as a flag indicating that systemd is
+         * the init system but we might be replacing it with something different. If systemd is used again it
+         * will recreate the directory and its content anyway. */
+        r = rm_rf("/run/systemd.pre-switch-root", REMOVE_ROOT|REMOVE_MISSING_OK);
+        if (r < 0)
+                log_warning_errno(r, "Failed to prepare /run/systemd.pre-switch-root/, ignoring: %m");
+
+        r = RET_NERRNO(rename("/run/systemd", "/run/systemd.pre-switch-root"));
+        if (r < 0)
+                log_warning_errno(r, "Failed to move /run/systemd/ to /run/systemd.pre-switch-root/, ignoring: %m");
+
         /* Reopen the console */
         (void) make_console_stdio();
 
@@ -2335,6 +2374,7 @@ static int initialize_runtime(
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
                 const char **ret_error_message) {
+
         int r;
 
         assert(ret_error_message);
@@ -2359,19 +2399,29 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
+                        /* Check that /usr/ is either on the same file system as / or mounted already. */
+                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup = */ true) > 0) {
+                                *ret_error_message = "Refusing to run in unsupported environment where /usr/ is not populated";
+                                return -ENOEXEC;
+                        }
+
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
                         (void) import_credentials();
 
                         (void) os_release_status();
-                        (void) hostname_setup(true);
-                        /* Force transient machine-id on first boot. */
-                        machine_id_setup(/* root= */ NULL, /* force_transient= */ first_boot, arg_machine_id, /* ret_machine_id */ NULL);
+                        (void) hostname_setup(/* really = */ true);
+                        (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
+                                                (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
+                                                (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
+                                                /* ret_machine_id = */ NULL);
+
                         (void) loopback_setup();
+
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
-                        test_usr();
+
                         write_container_id();
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
@@ -2384,40 +2434,6 @@ static int initialize_runtime(
                 r = watchdog_set_device(arg_watchdog_device);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
-
-                break;
-
-        case RUNTIME_SCOPE_USER: {
-                _cleanup_free_ char *p = NULL;
-
-                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
-                 * user mode. In system mode mount_setup() already did that. */
-
-                r = xdg_user_runtime_dir(&p, "/systemd");
-                if (r < 0) {
-                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
-                        return log_struct_errno(LOG_EMERG, r,
-                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
-                }
-
-                (void) mkdir_p_label(p, 0755);
-                (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
-                r = setup_os_release(RUNTIME_SCOPE_USER);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
-                break;
-        }
-
-        default:
-                assert_not_reached();
-        }
-
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
 
                 if (!cap_test_all(arg_capability_bounding_set)) {
                         r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
@@ -2445,7 +2461,47 @@ static int initialize_runtime(
                                                         "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
                         }
                 }
+
+                break;
+
+        case RUNTIME_SCOPE_USER: {
+                _cleanup_free_ char *p = NULL;
+
+                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
+                 * user mode. In system mode mount_setup() already did that. */
+
+                r = xdg_user_runtime_dir(&p, "/systemd");
+                if (r < 0) {
+                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
+                        return log_struct_errno(LOG_EMERG, r,
+                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
+                }
+
+                if (!skip_setup) {
+                        (void) mkdir_p_label(p, 0755);
+                        (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+
+                        r = setup_os_release(RUNTIME_SCOPE_USER);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
+                }
+
+                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+                 * not affect the permitted and effective sets which are important for the manager itself to
+                 * operate. */
+                (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+
+                break;
         }
+
+        default:
+                assert_not_reached();
+        }
+
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
+                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
@@ -2891,7 +2947,7 @@ static void setup_console_terminal(bool skip_setup) {
         (void) release_terminal();
 
         /* Reset the console, but only if this is really init and we are freshly booted */
-        if (getpid_cached() == 1 && !skip_setup)
+        if (!skip_setup)
                 (void) console_setup();
 }
 
@@ -3119,11 +3175,6 @@ int main(int argc, char *argv[]) {
 
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
-
-                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
-                 * not affect the permitted and effective sets which are important for the manager itself to
-                 * operate. */
-                capability_ambient_set_apply(0, /* also_inherit= */ false);
 
                 if (mac_init() < 0) {
                         error_message = "Failed to initialize MAC support";

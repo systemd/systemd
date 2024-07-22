@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "creds-util.h"
 #include "fd-util.h"

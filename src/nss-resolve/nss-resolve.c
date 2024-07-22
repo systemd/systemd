@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "env-util.h"
 #include "errno-util.h"
 #include "glyph-util.h"
@@ -19,7 +21,6 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "varlink.h"
 
 static sd_json_dispatch_flags_t json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;
 
@@ -47,12 +48,12 @@ static bool error_shall_fallback(const char *error_id) {
          * fallback module can be loaded. (These are mostly all Varlink-internal errors, as apparently we
          * then were unable to even do IPC with systemd-resolved.) */
         return STR_IN_SET(error_id,
-                          VARLINK_ERROR_DISCONNECTED,
-                          VARLINK_ERROR_TIMEOUT,
-                          VARLINK_ERROR_PROTOCOL,
-                          VARLINK_ERROR_INTERFACE_NOT_FOUND,
-                          VARLINK_ERROR_METHOD_NOT_FOUND,
-                          VARLINK_ERROR_METHOD_NOT_IMPLEMENTED);
+                          SD_VARLINK_ERROR_DISCONNECTED,
+                          SD_VARLINK_ERROR_TIMEOUT,
+                          SD_VARLINK_ERROR_PROTOCOL,
+                          SD_VARLINK_ERROR_INTERFACE_NOT_FOUND,
+                          SD_VARLINK_ERROR_METHOD_NOT_FOUND,
+                          SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED);
 }
 
 static bool error_shall_try_again(const char *error_id) {
@@ -65,15 +66,15 @@ static bool error_shall_try_again(const char *error_id) {
                           "io.systemd.Resolve.NetworkDown");
 }
 
-static int connect_to_resolved(Varlink **ret) {
-        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+static int connect_to_resolved(sd_varlink **ret) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         int r;
 
-        r = varlink_connect_address(&link, "/run/systemd/resolve/io.systemd.Resolve");
+        r = sd_varlink_connect_address(&link, "/run/systemd/resolve/io.systemd.Resolve");
         if (r < 0)
                 return r;
 
-        r = varlink_set_relative_timeout(link, SD_RESOLVED_QUERY_TIMEOUT_USEC);
+        r = sd_varlink_set_relative_timeout(link, SD_RESOLVED_QUERY_TIMEOUT_USEC);
         if (r < 0)
                 return r;
 
@@ -232,7 +233,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
         _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
         sd_json_variant *rparams, *entry;
@@ -264,7 +265,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
          * configuration can distinguish such executed but negative replies from complete failure to
          * talk to resolved). */
         const char *error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
+        r = sd_varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
@@ -392,7 +393,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
         _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
         sd_json_variant *rparams, *entry;
@@ -428,7 +429,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
 
         const char *error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
+        r = sd_varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
@@ -608,7 +609,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_(varlink_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
         _cleanup_(resolve_address_reply_destroy) ResolveAddressReply p = {};
         sd_json_variant *rparams, *entry;
@@ -648,7 +649,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
 
         const char* error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id);
+        r = sd_varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {

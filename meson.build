@@ -13,12 +13,19 @@ project('systemd', 'c',
         meson_version : '>= 0.60.0',
        )
 
+project_major_version = meson.project_version().split('.')[0].split('~')[0]
+if meson.project_version().contains('.')
+        project_minor_version = meson.project_version().split('.')[-1].split('~')[0]
+else
+        project_minor_version = '0'
+endif
+
 libsystemd_version = '0.39.0'
 libudev_version = '1.7.9'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
+conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
@@ -1095,6 +1102,9 @@ else
                         # Check if 'clang -target bpf' is supported.
                         clang_supports_bpf = run_command(clang, '-target', 'bpf', '--print-supported-cpus', check : false).returncode() == 0
                 endif
+                if bpf_framework.enabled() and not clang_supports_bpf
+                        error('bpf-framework was enabled but clang does not support bpf')
+                endif
         elif bpf_compiler == 'gcc'
                 bpf_gcc = find_program('bpf-gcc',
                                        'bpf-none-gcc',
@@ -1984,19 +1994,16 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-command = ['sh', '-c',
-           vcs_tag and fs.exists(project_source_root / '.git') ?
-                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
         fallback : '',
-        command : command,
+        command : [vcs_tag ? 'tools/vcs-tag.sh' : 'true', get_option('mode')],
 )
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version().split('~')[0]
+        shared_lib_tag = project_major_version
 endif
 
 #####################################################################
@@ -2062,7 +2069,8 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-json',
         'src/libsystemd/sd-netlink',
         'src/libsystemd/sd-network',
-        'src/libsystemd/sd-resolve')]
+        'src/libsystemd/sd-resolve',
+        'src/libsystemd/sd-varlink')]
 
 includes = [libsystemd_includes, include_directories('src/shared')]
 
@@ -2082,7 +2090,7 @@ libsystemd = shared_library(
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2248,7 +2256,7 @@ nss_template = {
         'link_with' : [
                 libsystemd_static,
                 libshared_static,
-                libbasic,
+                libbasic_static,
         ],
         'dependencies' : [
                 librt,
@@ -2665,6 +2673,7 @@ if mkosi.found()
                         '--output-dir', meson.current_build_dir() / 'mkosi.output',
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
+                        '--extra-search-path', meson.current_build_dir(),
                         '--force',
                         'build',
                 ],
@@ -2749,17 +2758,11 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
-                version = meson.project_version()
-                if name == 'udevadm'
-                        # For compatibility reasons we can't use the full version in udevadm.
-                        version = version.split('~')[0]
-                endif
-
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             version],
+                             project_major_version],
                      depends: exec)
         endif
 endforeach

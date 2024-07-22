@@ -179,6 +179,10 @@ elif [[ $1 == initgroups ]]; then
 fi
 EOF
     chmod +x "$root/bin/getent"
+    # The useradd is important here so the user is added to /etc/passwd. If the user is not in /etc/passwd,
+    # bash will end up loading libnss_systemd.so which breaks when libnss_systemd.so is built with sanitizers
+    # as bash isn't invoked with the necessary environment variables for that.
+    useradd --root="$root" --uid 1000 --user-group --create-home testuser
     systemd-nspawn --directory="$root" bash -xec '[[ $USER == root ]]'
     systemd-nspawn --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
 
@@ -672,8 +676,10 @@ fi
 EOF
     chmod +x "$root/bin/getent"
 
-    mkdir -p "$root/home/testuser"
-    chown 1010:1010 "$root/home/testuser"
+    # The useradd is important here so the user is added to /etc/passwd. If the user is not in /etc/passwd,
+    # bash will end up loading libnss_systemd.so which breaks when libnss_systemd.so is built with sanitizers
+    # as bash isn't invoked with the necessary environment variables for that.
+    useradd --root="$root" --uid 1010 --user-group --create-home testuser
 
     cmd='PERMISSIONS=$(stat -c "%u:%g" /home/testuser/file); if [[ $PERMISSIONS != "1010:1010" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /home/testuser/other_file'
     if ! SYSTEMD_LOG_TARGET=console \
@@ -702,7 +708,7 @@ EOF
 testcase_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
     local root
-    local cmd='echo a | nc -U -u -w 1 /run/host/notify'
+    local cmd='echo a | ncat -U -u -w 1 /run/host/notify'
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_notification_socket.XXX)"
     create_dummy_container "$root"

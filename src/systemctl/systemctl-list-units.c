@@ -2,6 +2,7 @@
 
 #include "sd-login.h"
 
+#include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "format-table.h"

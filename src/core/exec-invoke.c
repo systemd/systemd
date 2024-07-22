@@ -353,15 +353,9 @@ static int setup_input(
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
                         return -errno;
 
-                /* Try to make this the controlling tty, if it is a tty, and reset it */
-                if (isatty(STDIN_FILENO)) {
+                /* Try to make this the controlling tty, if it is a tty */
+                if (isatty(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-
-                        if (context->tty_reset)
-                                (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ true);
-
-                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, /* tty_path= */ NULL);
-                }
 
                 return STDIN_FILENO;
         }
@@ -388,10 +382,6 @@ static int setup_input(
                                           USEC_INFINITY);
                 if (tty_fd < 0)
                         return tty_fd;
-
-                r = exec_context_apply_tty_size(context, tty_fd, tty_path);
-                if (r < 0)
-                        return r;
 
                 r = move_fd(tty_fd, STDIN_FILENO, /* cloexec= */ false);
                 if (r < 0)
@@ -507,6 +497,9 @@ static int setup_output(
         i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
+        // FIXME: we probably should spend some time here to verify that if we inherit an fd from stdin
+        // (possibly indirect via inheritance from stdout) it is actually opened for write!
+
         if (fileno == STDERR_FILENO) {
                 ExecOutput e;
                 e = fixup_output(context->std_error, socket_fd);
@@ -554,7 +547,6 @@ static int setup_output(
                 if (is_terminal_input(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
-                /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_KMSG:
@@ -659,11 +651,11 @@ static int setup_confirm_stdio(
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
-        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3);
+        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
         if (saved_stdin < 0)
                 return -errno;
 
-        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
+        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
         if (saved_stdout < 0)
                 return -errno;
 
@@ -671,15 +663,19 @@ static int setup_confirm_stdio(
         if (fd < 0)
                 return fd;
 
+        _cleanup_close_ int lock_fd = lock_dev_console();
+        if (lock_fd < 0)
+                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
+
         r = chown_terminal(fd, getuid());
         if (r < 0)
                 return r;
 
-        r = reset_terminal_fd(fd, /* switch_to_text= */ true);
+        r = terminal_reset_defensive(fd, /* switch_to_text= */ true);
         if (r < 0)
                 return r;
 
-        r = exec_context_apply_tty_size(context, fd, vc);
+        r = exec_context_apply_tty_size(context, fd, fd, vc);
         if (r < 0)
                 return r;
 
@@ -694,15 +690,16 @@ static int setup_confirm_stdio(
 }
 
 static void write_confirm_error_fd(int err, int fd, const char *unit_id) {
-        assert(err < 0);
+        assert(err != 0);
+        assert(fd >= 0);
         assert(unit_id);
 
-        if (err == -ETIMEDOUT)
+        errno = abs(err);
+
+        if (errno == ETIMEDOUT)
                 dprintf(fd, "Confirmation question timed out for %s, assuming positive response.\n", unit_id);
-        else {
-                errno = -err;
-                dprintf(fd, "Couldn't ask confirmation for %s: %m, assuming positive response.\n", unit_id);
-        }
+        else
+                dprintf(fd, "Couldn't ask confirmation for %s, assuming positive response: %m\n", unit_id);
 }
 
 static void write_confirm_error(int err, const char *vc, const char *unit_id) {
@@ -750,7 +747,7 @@ static bool confirm_spawn_disabled(void) {
 }
 
 static int ask_for_confirmation(const ExecContext *context, const ExecParameters *params, const char *cmdline) {
-        int saved_stdout = -1, saved_stdin = -1, r;
+        int saved_stdout = -EBADF, saved_stdin = -EBADF, r;
         _cleanup_free_ char *e = NULL;
         char c;
 
@@ -4031,6 +4028,39 @@ static int send_handoff_timestamp(
         return 1;
 }
 
+static void prepare_terminal(
+                const ExecContext *context,
+                ExecParameters *p) {
+
+        _cleanup_close_ int lock_fd = -EBADF;
+
+        /* This is the "constructive" reset, i.e. is about preparing things for our invocation rather than
+         * cleaning up things from older invocations. */
+
+        assert(context);
+        assert(p);
+
+        /* We only try to reset things if we there's the chance our stdout points to a TTY */
+        if (!(is_terminal_output(context->std_output) ||
+              (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
+              context->std_output == EXEC_OUTPUT_NAMED_FD ||
+              p->stdout_fd >= 0))
+                return;
+
+        if (context->tty_reset) {
+                /* When we are resetting the TTY, then let's create a lock first, to synchronize access. This
+                 * in particular matters as concurrent resets and the TTY size ANSI DSR logic done by the
+                 * exec_context_apply_tty_size() below might interfere */
+                lock_fd = lock_dev_console();
+                if (lock_fd < 0)
+                        log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
+
+                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        }
+
+        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4198,6 +4228,11 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to create new process session: %m");
         }
 
+        /* Now, reset the TTY associated to this service "destructively" (i.e. possibly even hang up or
+         * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
+         * open here, hence some of the settings made here might vanish again, depending on the TTY driver
+         * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
+         * will fix this. */
         exec_context_tty_reset(context, params);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
@@ -4380,6 +4415,12 @@ int exec_invoke(
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");
         }
+
+        /* Now that stdin/stdout are definiely opened, properly initialize it with our desired
+         * settings. Note: this is a "constructive" reset, it prepares things for us to use. This is
+         * different from the "destructive" TTY reset further up. Also note: we apply this on stdin/stdout in
+         * case this is a tty, regardless if we opened it ourselves or got it passed in pre-opened. */
+        prepare_terminal(context, params);
 
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User

@@ -17,6 +17,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -443,6 +444,16 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else if (c == ']') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
                                 continue;
+                        } else if (c == 'c') {
+                                /* "Full reset" aka "Reset to initial state"*/
+                                r = insert_background_color(f, i+1);
+                                if (r < 0)
+                                        return r;
+
+                                i += r;
+
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                                continue;
                         }
                         break;
 
@@ -462,7 +473,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the CSI sequence is over */
 
-                                if (c == 'm') {
+                                if (c == 'p' && streq_ptr(f->csi_sequence, "!")) {
+
+                                        /* CSI ! p → "Soft Reset", let's immediately fix our bg color again */
+                                        r = insert_background_color(f, i+1);
+                                        if (r < 0)
+                                                return r;
+
+                                        i += r;
+                                } else if (c == 'm') {
                                         /* This is an "SGR" (Select Graphic Rendition) sequence. Patch in our background color. */
                                         r = insert_background_fix(f, i);
                                         if (r < 0)

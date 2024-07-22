@@ -48,6 +48,12 @@
     <cmdsynopsis>
       <command>systemd-id128</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">var-partition-uuid</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">show</arg>
       <arg choice="opt" rep="repeat">NAME|UUID</arg>
     </cmdsynopsis>
@@ -88,6 +94,12 @@
     <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for the discussion when this is useful. Support for <command>show --app-specific=</command> was added in
     version 255.</para>
+
+    <para><command>var-partition-uuid</command> prints a UUID which, following the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    Partitions Specification</ulink>, should be used as the GPT partition UUID for
+    <filename>/var/</filename>, being derived from the GPT partition type, keyed by the local
+    <filename>/etc/machine-id</filename>. Added in version 257.</para>
   </refsect1>
 
   <refsect1>

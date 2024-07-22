@@ -93,7 +93,7 @@ static void combine_measured_flag(int *value, int measured) {
 
 /* Combine initrds by concatenation in memory */
 static EFI_STATUS combine_initrds(
-                struct iovec initrds[], size_t n_initrds,
+                const struct iovec initrds[], size_t n_initrds,
                 Pages *ret_initrd_pages, size_t *ret_initrd_size) {
 
         size_t n = 0;
@@ -104,7 +104,6 @@ static EFI_STATUS combine_initrds(
 
         FOREACH_ARRAY(i, initrds, n_initrds) {
                 /* some initrds (the ones from UKI sections) need padding, pad all to be safe */
-
                 size_t initrd_size = ALIGN4(i->iov_len);
                 if (n > SIZE_MAX - initrd_size)
                         return EFI_OUT_OF_RESOURCES;
@@ -298,30 +297,30 @@ static void cmdline_append_and_measure_addons(
                 *cmdline_append = xasprintf("%ls %ls", tmp, copy);
 }
 
-typedef struct DevicetreeAddon {
+typedef struct NamedAddon {
         char16_t *filename;
         struct iovec blob;
-} DevicetreeAddon;
+} NamedAddon;
 
-static void devicetree_addon_done(DevicetreeAddon *a) {
+static void named_addon_done(NamedAddon *a) {
         assert(a);
 
         a->filename = mfree(a->filename);
         iovec_done(&a->blob);
 }
 
-static void devicetree_addon_free_many(DevicetreeAddon *a, size_t n) {
+static void named_addon_free_many(NamedAddon *a, size_t n) {
         assert(a || n == 0);
 
         FOREACH_ARRAY(i, a, n)
-                devicetree_addon_done(i);
+                named_addon_done(i);
 
         free(a);
 }
 
 static void install_addon_devicetrees(
                 struct devicetree_state *dt_state,
-                DevicetreeAddon *addons,
+                const NamedAddon *addons,
                 size_t n_addons,
                 int *parameters_measured) {
 
@@ -357,14 +356,78 @@ static void install_addon_devicetrees(
         }
 }
 
+static inline void iovec_array_extend(struct iovec **arr, size_t *n_arr, struct iovec elem) {
+        assert(arr);
+        assert(n_arr);
+
+        if (!iovec_is_set(&elem))
+                return;
+
+        *arr = xrealloc(*arr, *n_arr * sizeof(struct iovec), (*n_arr + 1)  * sizeof(struct iovec));
+        (*arr)[(*n_arr)++] = elem;
+}
+
+static void measure_and_append_ucode_addons(
+                struct iovec **all_initrds,
+                size_t *n_all_initrds,
+                const NamedAddon *ucode_addons,
+                size_t n_ucode_addons,
+                int *sections_measured) {
+
+        EFI_STATUS err;
+
+        assert(all_initrds);
+        assert(n_all_initrds);
+        assert(ucode_addons || n_ucode_addons == 0);
+        assert(sections_measured);
+
+        /* Ucode addons need to be measured and copied into all_initrds in reverse order,
+         * the kernel takes the first one it finds. */
+        for (ssize_t i = n_ucode_addons - 1; i >= 0; i--) {
+                bool m = false;
+                err = tpm_log_tagged_event(
+                                TPM2_PCR_KERNEL_CONFIG,
+                                POINTER_TO_PHYSICAL_ADDRESS(ucode_addons[i].blob.iov_base),
+                                ucode_addons[i].blob.iov_len,
+                                UCODE_ADDON_EVENT_TAG_ID,
+                                ucode_addons[i].filename,
+                                &m);
+                if (err != EFI_SUCCESS)
+                        return (void) log_error_status(
+                                        err,
+                                        "Unable to extend PCR %i with UCODE addon '%ls': %m",
+                                        TPM2_PCR_KERNEL_CONFIG,
+                                        ucode_addons[i].filename);
+
+                combine_measured_flag(sections_measured, m);
+
+                iovec_array_extend(all_initrds, n_all_initrds, ucode_addons[i].blob);
+        }
+}
+
+static void extend_initrds(
+                const struct iovec initrds[static _INITRD_MAX],
+                struct iovec **all_initrds,
+                size_t *n_all_initrds) {
+
+        assert(initrds);
+        assert(all_initrds);
+        assert(n_all_initrds);
+
+        FOREACH_ARRAY(i, initrds, _INITRD_MAX)
+                iovec_array_extend(all_initrds, n_all_initrds, *i);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *prefix,
                 const char *uname,
                 char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
-                DevicetreeAddon **devicetree_addons,        /* Ditto */
-                size_t *n_devicetree_addons) {
+                NamedAddon **devicetree_addons,             /* Ditto */
+                size_t *n_devicetree_addons,
+                NamedAddon **ucode_addons,                  /* Ditto */
+                size_t *n_ucode_addons) {
 
         _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_(file_closep) EFI_FILE *root = NULL;
@@ -429,11 +492,12 @@ static EFI_STATUS load_addons(
                 err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
                 if (err != EFI_SUCCESS ||
                     (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB))) {
+                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))) {
                         if (err == EFI_SUCCESS)
                                 err = EFI_NOT_FOUND;
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
@@ -463,15 +527,28 @@ static EFI_STATUS load_addons(
 
                 if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                         *devicetree_addons = xrealloc(*devicetree_addons,
-                                                      *n_devicetree_addons * sizeof(size_t),
-                                                      (*n_devicetree_addons + 1)  * sizeof(size_t));
+                                                      *n_devicetree_addons * sizeof(NamedAddon),
+                                                      (*n_devicetree_addons + 1) * sizeof(NamedAddon));
 
-                        *devicetree_addons[(*n_devicetree_addons)++] = (DevicetreeAddon) {
+                        (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].size),
                                         .iov_len = sections[UNIFIED_SECTION_DTB].size,
                                 },
-                                .filename =  xstrdup16(items[i]),
+                                .filename = xstrdup16(items[i]),
+                        };
+                }
+
+                if (ucode_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                        *ucode_addons = xrealloc(*ucode_addons,
+                                        *n_ucode_addons * sizeof(NamedAddon),
+                                        (*n_ucode_addons + 1)  * sizeof(NamedAddon));
+                        (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
+                                .blob = {
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].size),
+                                        .iov_len = sections[UNIFIED_SECTION_UCODE].size,
+                                },
+                                .filename = xstrdup16(items[i]),
                         };
                 }
         }
@@ -587,23 +664,6 @@ static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
                 iovec_done((*initrds) + i);
 }
 
-static bool initrds_need_combine(struct iovec initrds[static _INITRD_MAX]) {
-        assert(initrds);
-
-        /* Returns true if we have any initrds set that aren't the base initrd. In that case we need to
-         * merge, otherwise we can pass the embedded initrd as is */
-
-        for (size_t i = 0; i <  _INITRD_MAX; i++) {
-                if (i == INITRD_BASE)
-                        continue;
-
-                if (iovec_is_set(initrds + i))
-                        return true;
-        }
-
-        return false;
-}
-
 static void generate_sidecar_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 struct iovec initrds[static _INITRD_MAX],
@@ -674,7 +734,7 @@ static void generate_sidecar_initrds(
 
 static void generate_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
                 struct iovec initrds[static _INITRD_MAX]) {
 
         assert(loaded_image);
@@ -718,7 +778,7 @@ static void generate_embedded_initrds(
 
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                PeSectionVector sections[_UNIFIED_SECTION_MAX],
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
                 struct iovec initrds[static _INITRD_MAX]) {
 
         assert(loaded_image);
@@ -782,8 +842,10 @@ static void load_all_addons(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char *uname,
                 char16_t **cmdline_addons,
-                DevicetreeAddon **dt_addons,
-                size_t *n_dt_addons) {
+                NamedAddon **dt_addons,
+                size_t *n_dt_addons,
+                NamedAddon **ucode_addons,
+                size_t *n_ucode_addons) {
 
         EFI_STATUS err;
 
@@ -791,6 +853,8 @@ static void load_all_addons(
         assert(cmdline_addons);
         assert(dt_addons);
         assert(n_dt_addons);
+        assert(ucode_addons);
+        assert(n_ucode_addons);
 
         err = load_addons(
                         image,
@@ -799,7 +863,9 @@ static void load_all_addons(
                         uname,
                         cmdline_addons,
                         dt_addons,
-                        n_dt_addons);
+                        n_dt_addons,
+                        ucode_addons,
+                        n_ucode_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
@@ -815,7 +881,9 @@ static void load_all_addons(
                         uname,
                         cmdline_addons,
                         dt_addons,
-                        n_dt_addons);
+                        n_dt_addons,
+                        ucode_addons,
+                        n_ucode_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
 }
@@ -863,8 +931,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_free_ char *uname = NULL;
-        DevicetreeAddon *dt_addons = NULL;
-        size_t n_dt_addons = 0;
+        NamedAddon *dt_addons = NULL, *ucode_addons = NULL;
+        size_t n_dt_addons = 0, n_ucode_addons = 0;
+        _cleanup_free_ struct iovec *all_initrds = NULL;
+        size_t n_all_initrds = 0;
         EFI_STATUS err;
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
@@ -890,8 +960,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
-        CLEANUP_ARRAY(dt_addons, n_dt_addons, devicetree_addon_free_many);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons);
+        CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
+        CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
+        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
          * additions together, after the embedded options, but before the smbios ones, so that the order is
@@ -912,16 +983,20 @@ static EFI_STATUS run(EFI_HANDLE image) {
         generate_embedded_initrds(loaded_image, sections, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
+        /* Measures ucode addons and puts them into all_initrds */
+        measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
+        /* Adds all other initrds to all_initrds */
+        extend_initrds(initrds, &all_initrds, &n_all_initrds);
+
         /* Export variables indicating what we measured */
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
 
         /* Combine the initrds into one */
         _cleanup_pages_ Pages initrd_pages = {};
         struct iovec final_initrd;
-        if (initrds_need_combine(initrds)) {
-                /* If we have generated initrds dynamically or there is a microcode initrd, combine them with
-                 * the built-in initrd. */
-                err = combine_initrds(initrds, _INITRD_MAX, &initrd_pages, &final_initrd.iov_len);
+        if (n_all_initrds > 1) {
+                /* There will always be a base initrd, if this counter is higher, we need to combine them */
+                err = combine_initrds(all_initrds, n_all_initrds, &initrd_pages, &final_initrd.iov_len);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -930,7 +1005,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 /* Given these might be large let's free them explicitly before we pass control to Linux */
                 initrds_free(&initrds);
         } else
-                final_initrd = initrds[INITRD_BASE];
+                final_initrd = all_initrds[0];
 
         struct iovec kernel = IOVEC_MAKE(
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,

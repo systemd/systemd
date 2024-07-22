@@ -2,16 +2,17 @@
 #pragma once
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "hashmap.h"
 #include "user-util.h"
-#include "varlink.h"
 
-typedef enum PolkitFLags {
+typedef enum PolkitFlags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */
         POLKIT_ALWAYS_QUERY      = 1 << 1, /* Query polkit even if client is privileged */
         POLKIT_DEFAULT_ALLOW     = 1 << 2, /* If polkit is not around, assume "allow" rather than the usual "deny" */
         POLKIT_DONT_REPLY        = 1 << 3, /* Varlink: don't immediately propagate polkit error to the Varlink client */
+        _POLKIT_MASK_PUBLIC      = POLKIT_ALLOW_INTERACTIVE | POLKIT_ALWAYS_QUERY, /* polkit accepts these flags verbatim */
 } PolkitFlags;
 
 int bus_test_polkit(sd_bus_message *call, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
@@ -21,8 +22,8 @@ static inline int bus_verify_polkit_async(sd_bus_message *call, const char *acti
         return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, error);
 }
 
-int varlink_verify_polkit_async_full(Varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry);
-static inline int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const char *action, const char **details, Hashmap **registry) {
+int varlink_verify_polkit_async_full(sd_varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry);
+static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, const char *action, const char **details, Hashmap **registry) {
         return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, 0, registry);
 }
 
@@ -34,4 +35,4 @@ static inline int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const 
                 .type = SD_JSON_VARIANT_BOOLEAN,                 \
         }
 
-bool varlink_has_polkit_action(Varlink *link, const char *action, const char **details, Hashmap **registry);
+bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry);

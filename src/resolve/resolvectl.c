@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-json.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -46,7 +47,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
-#include "varlink.h"
+#include "varlink-util.h"
 #include "verb-log-control.h"
 #include "verbs.h"
 
@@ -1107,10 +1108,10 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
 static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -1265,10 +1266,10 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
 static int reset_statistics(int argc, char **argv, void *userdata) {
         sd_json_variant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -2799,10 +2800,10 @@ static void monitor_query_dump(sd_json_variant *v) {
 }
 
 static int monitor_reply(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
                 const char *error_id,
-                VarlinkReplyFlags flags,
+                sd_varlink_reply_flags_t flags,
                 void *userdata) {
 
         assert(link);
@@ -2810,13 +2811,13 @@ static int monitor_reply(
         if (error_id) {
                 bool disconnect;
 
-                disconnect = streq(error_id, VARLINK_ERROR_DISCONNECTED);
+                disconnect = streq(error_id, SD_VARLINK_ERROR_DISCONNECTED);
                 if (disconnect)
                         log_info("Disconnected.");
                 else
                         log_error("Varlink error: %s", error_id);
 
-                (void) sd_event_exit(ASSERT_PTR(varlink_get_event(link)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
+                (void) sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
                 return 0;
         }
 
@@ -2841,7 +2842,7 @@ static int monitor_reply(
 
 static int verb_monitor(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, c;
 
         r = sd_event_default(&event);
@@ -2852,23 +2853,23 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
+        r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink time-out: %m");
 
-        r = varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        r = varlink_bind_reply(vl, monitor_reply);
+        r = sd_varlink_bind_reply(vl, monitor_reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback to varlink connection: %m");
 
-        r = varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
+        r = sd_varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
 
@@ -2999,10 +3000,10 @@ static int dump_cache_scope(sd_json_variant *scope) {
 
 static int verb_show_cache(int argc, char *argv[], void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -3173,10 +3174,10 @@ static int dump_server_state(sd_json_variant *server) {
 
 static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 

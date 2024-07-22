@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 typedef struct Manager Manager;
 
@@ -14,7 +15,6 @@ typedef struct Manager Manager;
 #include "machine-dbus.h"
 #include "machine.h"
 #include "operation.h"
-#include "varlink.h"
 
 struct Manager {
         sd_event *event;
@@ -38,8 +38,8 @@ struct Manager {
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
 
-        VarlinkServer *varlink_userdb_server;
-        VarlinkServer *varlink_machine_server;
+        sd_varlink_server *varlink_userdb_server;
+        sd_varlink_server *varlink_machine_server;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);

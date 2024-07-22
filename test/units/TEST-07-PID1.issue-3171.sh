@@ -30,21 +30,21 @@ EOF
 systemctl start issue-3171.socket
 systemctl is-active issue-3171.socket
 [[ "$(stat --format='%G' /run/issue-3171.socket)" == adm ]]
-echo A | nc -w1 -U /run/issue-3171.socket
+echo A | ncat -w1 -U /run/issue-3171.socket
 
 mv $U ${U}.disabled
 systemctl daemon-reload
 systemctl is-active issue-3171.socket
 [[ "$(stat --format='%G' /run/issue-3171.socket)" == adm ]]
-echo B | nc -w1 -U /run/issue-3171.socket && exit 1
+echo B | ncat -w1 -U /run/issue-3171.socket && exit 1
 
 mv ${U}.disabled $U
 systemctl daemon-reload
 systemctl is-active issue-3171.socket
-echo C | nc -w1 -U /run/issue-3171.socket && exit 1
+echo C | ncat -w1 -U /run/issue-3171.socket && exit 1
 [[ "$(stat --format='%G' /run/issue-3171.socket)" == adm ]]
 
 systemctl restart issue-3171.socket
 systemctl is-active issue-3171.socket
-echo D | nc -w1 -U /run/issue-3171.socket
+echo D | ncat -w1 -U /run/issue-3171.socket
 [[ "$(stat --format='%G' /run/issue-3171.socket)" == adm ]]

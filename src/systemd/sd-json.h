@@ -58,7 +58,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_json_variant sd_json_variant;
 
-__extension__ typedef enum sd_json_variant_type_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_variant_type_t) {
         SD_JSON_VARIANT_STRING,
         SD_JSON_VARIANT_INTEGER,
         SD_JSON_VARIANT_UNSIGNED,
@@ -135,7 +135,7 @@ int sd_json_variant_is_sensitive_recursive(sd_json_variant *v);
 
 int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *reterr_column);
 
-__extension__ typedef enum sd_json_format_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_format_flags_t) {
         SD_JSON_FORMAT_NEWLINE          = 1 << 0, /* suffix with newline */
         SD_JSON_FORMAT_PRETTY           = 1 << 1, /* add internal whitespace to appeal to human readers */
         SD_JSON_FORMAT_PRETTY_AUTO      = 1 << 2, /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
@@ -182,7 +182,7 @@ int sd_json_variant_merge_objectb(sd_json_variant **v, ...);
 int sd_json_variant_sort(sd_json_variant **v);
 int sd_json_variant_normalize(sd_json_variant **v);
 
-__extension__ typedef enum sd_json_parse_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_parse_flags_t) {
         SD_JSON_PARSE_SENSITIVE = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
         _SD_ENUM_FORCE_S64(JSON_PARSE_FLAGS)
 } sd_json_parse_flags_t;
@@ -281,7 +281,7 @@ int sd_json_buildv(sd_json_variant **ret, va_list ap);
 /* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated
  * from the bit mask originally passed into sd_json_dispatch() and the individual bitmask associated with the
  * static sd_json_dispatch_field callout entry */
-typedef enum sd_json_dispatch_flags_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_dispatch_flags_t) {
         SD_JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
         SD_JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
         SD_JSON_LOG              = 1 << 2, /* Should the dispatcher log about errors? */
@@ -291,7 +291,8 @@ typedef enum sd_json_dispatch_flags_t {
         SD_JSON_RELAX            = 1 << 6, /* Use slightly more relaxed validation than usually (similar, for example: relaxed user name checking in json_dispatch_user_group_name()) */
         SD_JSON_ALLOW_EXTENSIONS = 1 << 7, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
         SD_JSON_NULLABLE         = 1 << 8, /* Allow both specified type and null for this field */
-        SD_JSON_REFUSE_NULL      = 1 << 9  /* Never allow null, even if type is otherwise not specified */
+        SD_JSON_REFUSE_NULL      = 1 << 9, /* Never allow null, even if type is otherwise not specified */
+        _SD_ENUM_FORCE_S64(JSON_DISPATCH_FLAGS)
 } sd_json_dispatch_flags_t;
 
 typedef int (*sd_json_dispatch_callback_t)(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

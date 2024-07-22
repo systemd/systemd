@@ -202,8 +202,8 @@ static int import_credentials_boot(void) {
                         continue;
                 }
 
-                for (size_t i = 0; i < de->n_entries; i++) {
-                        const struct dirent *d = de->entries[i];
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        const struct dirent *d = *i;
                         _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
                         _cleanup_free_ char *n = NULL;
                         const char *e;
@@ -583,9 +583,10 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                 size_t size;
 
                 r = read_smbios11_field(i, CREDENTIALS_TOTAL_SIZE_MAX, &data, &size);
+                if (r == -ENOENT) /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
+                        break;
                 if (r < 0) {
-                        /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to read SMBIOS type #11 object %u, ignoring: %m", i);
+                        log_warning_errno(r, "Failed to read SMBIOS type #11 object %u, ignoring: %m", i);
                         break;
                 }
 
@@ -847,7 +848,7 @@ static void report_credentials(void) {
 int import_credentials(void) {
         const char *received_creds_dir = NULL, *received_encrypted_creds_dir = NULL;
         bool envvar_set = false;
-        int r, q;
+        int r;
 
         r = get_credentials_dir(&received_creds_dir);
         if (r < 0 && r != -ENXIO) /* ENXIO → env var not set yet */
@@ -871,37 +872,26 @@ int import_credentials(void) {
                 else
                         r = 0;
 
-                if (received_encrypted_creds_dir) {
-                        q = symlink_credential_dir("ENCRYPTED_CREDENTIALS_DIRECTORY", received_encrypted_creds_dir, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY);
-                        if (r >= 0)
-                                r = q;
-                }
+                if (received_encrypted_creds_dir)
+                        RET_GATHER(r, symlink_credential_dir("ENCRYPTED_CREDENTIALS_DIRECTORY",
+                                                             received_encrypted_creds_dir,
+                                                             ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY));
 
-                q = merge_credentials_trusted(received_creds_dir);
-                if (r >= 0)
-                        r = q;
+                RET_GATHER(r, merge_credentials_trusted(received_creds_dir));
 
         } else {
-                _cleanup_free_ char *v = NULL;
+                bool import;
 
-                r = proc_cmdline_get_key("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX, &v);
+                r = proc_cmdline_get_bool("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &import);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to check if 'systemd.import_credentials=' kernel command line option is set, ignoring: %m");
-                else if (r > 0) {
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse 'systemd.import_credentials=' parameter, ignoring: %m");
-                        else if (r == 0) {
-                                log_notice("systemd.import_credentials=no is set, skipping importing of credentials.");
-                                return 0;
-                        }
+                        log_debug_errno(r, "Failed to check systemd.import_credentials= kernel command line option, proceeding: %m");
+                else if (!import) {
+                        log_notice("systemd.import_credentials=no is set, skipping importing of credentials.");
+                        return 0;
                 }
 
                 r = import_credentials_boot();
-
-                q = import_credentials_trusted();
-                if (r >= 0)
-                        r = q;
+                RET_GATHER(r, import_credentials_trusted());
         }
 
         report_credentials();

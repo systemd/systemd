@@ -1,0 +1,16 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
+apt-cache depends "${PACKAGES[@]}" |
+    grep --invert-match --regexp "<" --regexp "|" --regexp systemd | # Remove e.g. <python3:any> and |dbus-broker like results
+    grep --extended-regexp "Depends|Suggests|Recommends" |
+    sed --quiet 's/.*: //p' | # Get every line with ": " in it and strip it at the same time.
+    sort --unique |
+    xargs --delimiter '\n' --no-run-if-empty mkosi-install

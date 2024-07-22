@@ -1,0 +1,3 @@
+Package: *
+Pin: release l=mkosi
+Pin-Priority: 1100

@@ -19,6 +19,7 @@
 #include "sd-json.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bond-util.h"
@@ -73,7 +74,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "unit-def.h"
-#include "varlink.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -96,19 +97,19 @@ sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-static int varlink_connect_networkd(Varlink **ret_varlink) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+static int varlink_connect_networkd(sd_varlink **ret_varlink) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         sd_json_variant *reply;
         uint64_t id;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
-        (void) varlink_set_description(vl, "varlink-network");
+        (void) sd_varlink_set_description(vl, "varlink-network");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");
 
@@ -414,6 +415,9 @@ typedef struct LinkInfo {
         uint16_t priority;
         uint8_t mcast_igmp_version;
         uint8_t port_state;
+        uint32_t fdb_max_learned;
+        uint32_t fdb_n_learned;
+        bool has_fdb_learned;
 
         /* vxlan info */
         VxLanInfo vxlan_info;
@@ -521,6 +525,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
                 (void) sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &info->port_state);
+                if (sd_netlink_message_read_u32(m, IFLA_BR_FDB_MAX_LEARNED, &info->fdb_max_learned) >= 0 &&
+                    sd_netlink_message_read_u32(m, IFLA_BR_FDB_N_LEARNED, &info->fdb_n_learned) >= 0)
+                        info->has_fdb_learned = true;
         } if (streq(info->netdev_kind, "bond")) {
                 (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
@@ -1362,7 +1369,7 @@ static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
         {},
 };
 
-static int dump_lldp_neighbors(Varlink *vl, Table *table, int ifindex) {
+static int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex) {
         _cleanup_strv_free_ char **buf = NULL;
         sd_json_variant *reply;
         int r;
@@ -1685,7 +1692,7 @@ static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
-                Varlink *vl,
+                sd_varlink *vl,
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
@@ -1908,6 +1915,16 @@ static int link_status_one(
                                    TABLE_UINT32, info->cost);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                if (info->has_fdb_learned) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "FDB Learned",
+                                           TABLE_UINT32, info->fdb_n_learned,
+                                           TABLE_FIELD, "FDB Max Learned",
+                                           TABLE_UINT32, info->fdb_max_learned);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
                 if (info->port_state <= BR_STATE_BLOCKING) {
                         r = table_add_many(table,
@@ -2428,7 +2445,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
@@ -2590,7 +2607,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply;
         uint64_t all = 0;
@@ -2931,7 +2948,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         bool ready;
         int r;
 
@@ -2951,7 +2968,7 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
 
-                r = varlink_push_fd(vl, fd);
+                r = sd_varlink_push_fd(vl, fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to push file descriptor of /var/lib/systemd/network/ into varlink: %m");
 

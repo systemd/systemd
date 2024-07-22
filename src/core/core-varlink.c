@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-varlink.h"
+
 #include "core-varlink.h"
 #include "json-util.h"
 #include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 
@@ -147,11 +148,11 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (MANAGER_IS_SYSTEM(u->manager))
                 /* in system mode, oomd is our client, thus send out notifications as replies to the
                  * initiating method call from them. */
-                r = varlink_notify(u->manager->managed_oom_varlink, v);
+                r = sd_varlink_notify(u->manager->managed_oom_varlink, v);
         else
                 /* in user mode, we are oomd's client, thus send out notifications as method calls that do
                  * not expect a reply. */
-                r = varlink_send(u->manager->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
+                r = sd_varlink_send(u->manager->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
 
         return r;
 }
@@ -211,9 +212,9 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
 }
 
 static int vl_method_subscribe_managed_oom_cgroups(
-                Varlink *link,
+                sd_varlink *link,
                 sd_json_variant *parameters,
-                VarlinkMethodFlags flags,
+                sd_varlink_method_flags_t flags,
                 void *userdata) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -224,37 +225,37 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         assert(link);
 
-        r = varlink_get_peer_pid(link, &pid);
+        r = sd_varlink_get_peer_pid(link, &pid);
         if (r < 0)
                 return r;
 
         u = manager_get_unit_by_pid(m, pid);
         if (!u)
-                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         /* This is meant to be a deterrent and not actual security. The alternative is to check for the systemd-oom
          * user that this unit runs as, but NSS lookups are blocking and not allowed from PID 1. */
         if (!streq(u->id, "systemd-oomd.service"))
-                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
-        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink)
-                return varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) && m->managed_oom_varlink)
+                return sd_varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
 
         r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_reply(link, v);
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_reply(link, v);
 
         assert(!m->managed_oom_varlink);
-        m->managed_oom_varlink = varlink_ref(link);
-        return varlink_notify(m->managed_oom_varlink, v);
+        m->managed_oom_varlink = sd_varlink_ref(link);
+        return sd_varlink_notify(m->managed_oom_varlink, v);
 }
 
 static int manager_varlink_send_managed_oom_initial(Manager *m) {
@@ -272,10 +273,10 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
         if (r < 0)
                 return r;
 
-        return varlink_send(m->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
+        return sd_varlink_send(m->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
 }
 
-static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
@@ -296,12 +297,12 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (uid_is_valid(p.uid))
                 r = dynamic_user_lookup_uid(m, p.uid, &found_name);
@@ -321,7 +322,7 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
                                 continue;
 
                         if (v) {
-                                r = varlink_notify(link, v);
+                                r = sd_varlink_notify(link, v);
                                 if (r < 0)
                                         return r;
 
@@ -334,12 +335,12 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
                 }
 
                 if (!v)
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
         }
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
                 return r;
 
@@ -347,13 +348,13 @@ static int vl_method_get_user_record(Varlink *link, sd_json_variant *parameters,
         un = found_name ?: p.user_name;
 
         if (!user_match_lookup_parameters(&p, un, uid))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_user_json(un, uid, &v);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
 static int build_group_json(const char *group_name, gid_t gid, sd_json_variant **ret) {
@@ -381,7 +382,7 @@ static bool group_match_lookup_parameters(LookupParameters *p, const char *name,
         return true;
 }
 
-static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
@@ -402,12 +403,12 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (gid_is_valid(p.gid))
                 r = dynamic_user_lookup_uid(m, (uid_t) p.gid, &found_name);
@@ -429,7 +430,7 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
                                 continue;
 
                         if (v) {
-                                r = varlink_notify(link, v);
+                                r = sd_varlink_notify(link, v);
                                 if (r < 0)
                                         return r;
 
@@ -442,12 +443,12 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
                 }
 
                 if (!v)
-                        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
         }
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
                 return r;
 
@@ -455,16 +456,16 @@ static int vl_method_get_group_record(Varlink *link, sd_json_variant *parameters
         gn = found_name ?: p.group_name;
 
         if (!group_match_lookup_parameters(&p, gn, gid))
-                return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_group_json(gn, gid, &v);
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, v);
+        return sd_varlink_reply(link, v);
 }
 
-static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
@@ -478,48 +479,48 @@ static int vl_method_get_memberships(Varlink *link, sd_json_variant *parameters,
 
         assert(parameters);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         /* We don't support auxiliary groups with dynamic users. */
-        return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static void vl_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
+static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(link);
 
         if (link == m->managed_oom_varlink)
-                m->managed_oom_varlink = varlink_unref(link);
+                m->managed_oom_varlink = sd_varlink_unref(link);
 }
 
-static int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+static int manager_setup_varlink_server(Manager *m, sd_varlink_server **ret) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
         assert(ret);
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
-        varlink_server_set_userdata(s, m);
+        sd_varlink_server_set_userdata(s, m);
 
-        r = varlink_server_add_interface_many(
+        r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_UserDatabase,
                         &vl_interface_io_systemd_ManagedOOM);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
@@ -528,7 +529,7 @@ static int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
-        r = varlink_server_bind_disconnect(s, vl_disconnect);
+        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
 
@@ -537,7 +538,7 @@ static int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
 }
 
 static int manager_varlink_init_system(Manager *m) {
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -566,13 +567,13 @@ static int manager_varlink_init_system(Manager *m) {
                                                                "Failed to check if varlink socket '%s' exists: %m", address);
                         }
 
-                        r = varlink_server_listen_address(s, address, 0666);
+                        r = sd_varlink_server_listen_address(s, address, 0666);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
                 }
         }
 
-        r = varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
+        r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -580,18 +581,18 @@ static int manager_varlink_init_system(Manager *m) {
         return 1;
 }
 
-static int vl_reply(Varlink *link, sd_json_variant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+static int vl_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
         if (error_id)
                 log_debug("varlink systemd-oomd client error: %s", error_id);
 
-        if (FLAGS_SET(flags, VARLINK_REPLY_ERROR) && FLAGS_SET(flags, VARLINK_REPLY_LOCAL)) {
-                /* Varlink connection was closed, likely because of systemd-oomd restart. Let's try to
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR) && FLAGS_SET(flags, SD_VARLINK_REPLY_LOCAL)) {
+                /* sd_varlink connection was closed, likely because of systemd-oomd restart. Let's try to
                  * reconnect and send the initial ManagedOOM update again. */
 
-                m->managed_oom_varlink = varlink_unref(link);
+                m->managed_oom_varlink = sd_varlink_unref(link);
 
                 log_debug("Reconnecting to %s", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
 
@@ -604,7 +605,7 @@ static int vl_reply(Varlink *link, sd_json_variant *parameters, const char *erro
 }
 
 static int manager_varlink_init_user(Manager *m) {
-        _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(m);
@@ -615,7 +616,7 @@ static int manager_varlink_init_user(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+        r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
         if (r < 0) {
                 if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
                         log_debug("systemd-oomd varlink unix socket not found, skipping user manager varlink setup");
@@ -624,13 +625,13 @@ static int manager_varlink_init_user(Manager *m) {
                 return log_error_errno(r, "Failed to connect to %s: %m", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
         }
 
-        varlink_set_userdata(link, m);
+        sd_varlink_set_userdata(link, m);
 
-        r = varlink_bind_reply(link, vl_reply);
+        r = sd_varlink_bind_reply(link, vl_reply);
         if (r < 0)
                 return r;
 
-        r = varlink_attach_event(link, m->event, EVENT_PRIORITY_IPC);
+        r = sd_varlink_attach_event(link, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -653,8 +654,8 @@ void manager_varlink_done(Manager *m) {
          * the manager, and only then disconnect it — in two steps – so that we don't end up accidentally
          * unreffing it twice. After all, closing the connection might cause the disconnect handler we
          * installed (vl_disconnect() above) to be called, where we will unref it too. */
-        varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
+        sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
-        m->varlink_server = varlink_server_unref(m->varlink_server);
-        m->managed_oom_varlink = varlink_close_unref(m->managed_oom_varlink);
+        m->varlink_server = sd_varlink_server_unref(m->varlink_server);
+        m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
 }

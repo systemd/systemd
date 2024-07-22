@@ -2327,18 +2327,6 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-selinux-context-ignore", c->selinux_context_ignore);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-context-apparmor-profile-ignore", c->apparmor_profile_ignore);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-context-smack-process-label-ignore", c->smack_process_label_ignore);
-        if (r < 0)
-                return r;
-
         if (c->selinux_context) {
                 r = serialize_item_format(f, "exec-context-selinux-context",
                                           "%s%s",
@@ -3345,26 +3333,12 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->no_new_privileges = r;
-                } else if ((val = startswith(l, "exec-context-selinux-context-ignore="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->selinux_context_ignore = r;
-                } else if ((val = startswith(l, "exec-context-apparmor-profile-ignore="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->apparmor_profile_ignore = r;
-                } else if ((val = startswith(l, "exec-context-smack-process-label-ignore="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->smack_process_label_ignore = r;
                 } else if ((val = startswith(l, "exec-context-selinux-context="))) {
                         if (val[0] == '-') {
                                 c->selinux_context_ignore = true;
                                 val++;
-                        }
+                        } else
+                                c->selinux_context_ignore = false;
 
                         r = free_and_strdup(&c->selinux_context, val);
                         if (r < 0)
@@ -3373,7 +3347,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (val[0] == '-') {
                                 c->apparmor_profile_ignore = true;
                                 val++;
-                        }
+                        } else
+                                c->apparmor_profile_ignore = false;
 
                         r = free_and_strdup(&c->apparmor_profile, val);
                         if (r < 0)
@@ -3382,7 +3357,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (val[0] == '-') {
                                 c->smack_process_label_ignore = true;
                                 val++;
-                        }
+                        } else
+                                c->smack_process_label_ignore = false;
 
                         r = free_and_strdup(&c->smack_process_label, val);
                         if (r < 0)

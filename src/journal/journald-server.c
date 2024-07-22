@@ -2187,11 +2187,11 @@ static int server_connect_notify(Server *s) {
 }
 
 static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
-        Varlink *link = ASSERT_PTR(userdata);
+        sd_varlink *link = ASSERT_PTR(userdata);
         Server *s;
         int r;
 
-        assert_se(s = varlink_get_userdata(link));
+        assert_se(s = sd_varlink_get_userdata(link));
 
         /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
          * event source at a low priority to ensure the synchronization completes after all queued log
@@ -2205,14 +2205,14 @@ static int synchronize_second_half(sd_event_source *event_source, void *userdata
         if (r < 0)
                 return log_error_errno(r, "Failed to mark event source as non-floating: %m");
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static void synchronize_destroy(void *userdata) {
-        varlink_unref(userdata);
+        sd_varlink_unref(userdata);
 }
 
-static int vl_method_synchronize(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
         Server *s = ASSERT_PTR(userdata);
         int r;
@@ -2220,7 +2220,7 @@ static int vl_method_synchronize(Varlink *link, sd_json_variant *parameters, Var
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         log_info("Received client request to sync journal.");
 
@@ -2236,7 +2236,7 @@ static int vl_method_synchronize(Varlink *link, sd_json_variant *parameters, Var
         if (r < 0)
                 return log_error_errno(r, "Failed to set event source destroy callback: %m");
 
-        varlink_ref(link); /* The varlink object is now left to the destroy callback to unref */
+        sd_varlink_ref(link); /* The varlink object is now left to the destroy callback to unref */
 
         r = sd_event_source_set_priority(event_source, SD_EVENT_PRIORITY_NORMAL+15);
         if (r < 0)
@@ -2253,53 +2253,53 @@ static int vl_method_synchronize(Varlink *link, sd_json_variant *parameters, Var
         return 0;
 }
 
-static int vl_method_rotate(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
 
         log_info("Received client request to rotate journal, rotating.");
         server_full_rotate(s);
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
-static int vl_method_flush_to_var(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
         if (s->namespace)
-                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
         log_info("Received client request to flush runtime journal.");
         server_full_flush(s);
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
-static int vl_method_relinquish_var(Varlink *link, sd_json_variant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(link);
 
         if (sd_json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
+                return sd_varlink_error_invalid_parameter(link, parameters);
         if (s->namespace)
-                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
         log_info("Received client request to relinquish %s access.", s->system_storage.path);
         server_relinquish_var(s);
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
-static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
+static int vl_connect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(server);
@@ -2310,7 +2310,7 @@ static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
         return 0;
 }
 
-static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) {
+static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
         assert(server);
@@ -2324,17 +2324,17 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
 
         assert(s);
 
-        r = varlink_server_new(&s->varlink_server, VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s->varlink_server, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return r;
 
-        varlink_server_set_userdata(s->varlink_server, s);
+        sd_varlink_server_set_userdata(s->varlink_server, s);
 
-        r = varlink_server_add_interface(s->varlink_server, &vl_interface_io_systemd_Journal);
+        r = sd_varlink_server_add_interface(s->varlink_server, &vl_interface_io_systemd_Journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Journal interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         s->varlink_server,
                         "io.systemd.Journal.Synchronize",   vl_method_synchronize,
                         "io.systemd.Journal.Rotate",        vl_method_rotate,
@@ -2343,22 +2343,22 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
         if (r < 0)
                 return r;
 
-        r = varlink_server_bind_connect(s->varlink_server, vl_connect);
+        r = sd_varlink_server_bind_connect(s->varlink_server, vl_connect);
         if (r < 0)
                 return r;
 
-        r = varlink_server_bind_disconnect(s->varlink_server, vl_disconnect);
+        r = sd_varlink_server_bind_disconnect(s->varlink_server, vl_disconnect);
         if (r < 0)
                 return r;
 
         if (fd < 0)
-                r = varlink_server_listen_address(s->varlink_server, socket, 0600);
+                r = sd_varlink_server_listen_address(s->varlink_server, socket, 0600);
         else
-                r = varlink_server_listen_fd(s->varlink_server, fd);
+                r = sd_varlink_server_listen_fd(s->varlink_server, fd);
         if (r < 0)
                 return r;
 
-        r = varlink_server_attach_event(s->varlink_server, s->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(s->varlink_server, s->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return r;
 
@@ -2423,7 +2423,7 @@ static bool server_is_idle(Server *s) {
                 return false;
 
         /* We aren't idle if we have a varlink client */
-        if (varlink_server_current_connections(s->varlink_server) > 0)
+        if (sd_varlink_server_current_connections(s->varlink_server) > 0)
                 return false;
 
         /* If we have stdout streams we aren't idle */
@@ -2898,7 +2898,7 @@ Server* server_free(Server *s) {
 
         ordered_hashmap_free_with_destructor(s->user_journals, journal_file_offline_close);
 
-        varlink_server_unref(s->varlink_server);
+        sd_varlink_server_unref(s->varlink_server);
 
         sd_event_source_unref(s->syslog_event_source);
         sd_event_source_unref(s->native_event_source);

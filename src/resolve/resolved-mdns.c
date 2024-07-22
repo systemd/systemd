@@ -386,7 +386,10 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         if (r <= 0)
                 return r;
 
-        if (manager_packet_from_local_address(m, p))
+        /* Refuse traffic from the local host, to avoid query loops. However, allow legacy mDNS
+         * unicast queries through anyway (we never send those ourselves, hence no risk).
+         * i.e. check for the source port nr. */
+        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p))
                 return 0;
 
         scope = manager_find_scope(m, p);

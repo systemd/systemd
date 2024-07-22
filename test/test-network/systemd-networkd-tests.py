@@ -1590,12 +1590,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Priority: 9')
         self.assertRegex(output, 'STP: yes')
         self.assertRegex(output, 'Multicast IGMP Version: 3')
+        if 'FDB Max Learned' in output:
+            self.assertRegex(output, 'FDB Max Learned: 4')
 
         output = check_output('ip -d link show bridge99')
         print(output)
         self.assertIn('vlan_filtering 1 ', output)
         self.assertIn('vlan_protocol 802.1ad ', output)
         self.assertIn('vlan_default_pvid 9 ', output)
+        if 'fdb_max_learned' in output:
+            self.assertIn('fdb_max_learned 4 ', output)
 
     def test_bond(self):
         copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev', '25-bond-property.netdev')
@@ -7120,6 +7124,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertGreater(prefixInfo[0]['PreferredLifetimeUSec'], 0)
         self.assertGreater(prefixInfo[0]['ValidLifetimeUSec'], 0)
 
+    @unittest.skipUnless(shutil.which('dhcpd'), reason="dhcpd is not available on CentOS Stream 10")
     def test_dhcp6pd_no_address(self):
         # For issue #29979.
         copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream-no-address.network')
@@ -7136,6 +7141,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_dhcp6_prefix('veth99')
 
+    @unittest.skipUnless(shutil.which('dhcpd'), reason="dhcpd is not available on CentOS Stream 10")
     def test_dhcp6pd_no_assign(self):
         # Similar to test_dhcp6pd_no_assign(), but in this case UseAddress=yes (default),
         # However, the server does not provide IA_NA. For issue #31349.
@@ -7153,6 +7159,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_dhcp6_prefix('veth99')
 
+    @unittest.skipUnless(shutil.which('dhcpd'), reason="dhcpd is not available on CentOS Stream 10")
     def test_dhcp6pd(self):
         copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',

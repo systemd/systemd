@@ -28,6 +28,8 @@ systemd-id128 show --json=short
 systemd-id128 show --no-legend
 systemd-id128 show --no-pager --no-legend
 systemd-id128 show root -P -u
+[[ -n "$(systemd-id128 var-partition-uuid)" ]]
+[[ "$(systemd-id128 var-partition-uuid)" != "4d21b016b53445c2a9fb5c16e091fd2d" ]]
 
 [[ "$(systemd-id128 new | wc -c)" -eq 33 ]]
 systemd-id128 new -p

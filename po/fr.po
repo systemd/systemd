@@ -6,13 +6,13 @@
 # Julien Humbert <julroy67@gmail.com>, 2020, 2021.
 # Arnaud T. <listes.00@gmail.com>, 2021.
 # blutch112 <vincent.lefebvre59@gmail.com>, 2022.
-# Pierre GRASSER <pierre.grasser@proton.me>, 2023, 2024.
+# Léane GRASSER <leane.grasser@proton.me>, 2023, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-06-01 15:13+0900\n"
-"PO-Revision-Date: 2024-06-04 05:35+0000\n"
-"Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
+"PO-Revision-Date: 2024-07-11 11:38+0000\n"
+"Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
 "Language: fr\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.5.5\n"
+"X-Generator: Weblate 5.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1081,7 +1081,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
-"Spécifier si un espace de stockage persistent pour systemd-networkd est "
+"Spécifier si un espace de stockage persistant pour systemd-networkd est "
 "disponible"
 
 #: src/network/org.freedesktop.network1.policy:188

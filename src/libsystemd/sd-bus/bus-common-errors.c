@@ -34,6 +34,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_DISK_FULL,                    ENOSPC),
         SD_BUS_ERROR_MAP(BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED,
                                                                  EHOSTDOWN),
+        SD_BUS_ERROR_MAP(BUS_ERROR_FROZEN_BY_PARENT,             EDEADLK),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_MACHINE,              ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_IMAGE,                ENOENT),

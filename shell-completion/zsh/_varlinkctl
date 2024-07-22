@@ -1,0 +1,70 @@
+#compdef varlinkctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+local -a reply line
+
+_varlinkctl_interfaces() {
+  compadd "$@" -- \
+    "${(@f)$(_call_program varlink-interfaces varlinkctl list-interfaces $line[2])}"
+}
+
+_varlinkctl_methods() {
+  compadd "$@" -- \
+    "${(@f)$(_call_program varlink-methods varlinkctl list-methods $line[2])}"
+}
+
+local -a varlink_addr=(
+  /$'[^\0]#\0'/ ':varlink-addresses:varlink address:_files -g "*(=)"'
+)
+local -a varlink_interface=(
+  $varlink_addr
+  /$'[^\0]#\0'/ ':varlink-interfaces:varlink interface:_varlinkctl_interfaces'
+)
+local -a varlink_method=(
+  $varlink_addr
+  /$'[^\0]#\0'/ ':varlink-methods:varlink method:_varlinkctl_methods'
+)
+local -a varlink_call=($varlink_method /$'[^\0]#\0'/ ':argument:argument:()')
+local -a varlink_idl=(/$'[^\0]#\0'/ ':varlink-idl-file:idl file:_files')
+
+_regex_words varlink-commands 'varlink command' \
+  'info:show service information:$varlink_addr' \
+  'list-interfaces:List interfaces implemented by a service:$varlink_addr' \
+  'list-methods:List methods implemented by an interface:$varlink_interface' \
+  'introspect:show an interface definition:$varlink_interface' \
+  'call:invoke a method:$varlink_call' \
+  'validate-idl:validate an interface description:$varlink_idl' \
+  'help:show a help message'
+
+local -a varlinkcmd=( /$'[^\0]#\0'/ "$reply[@]" )
+_regex_arguments _varlinkctl_cmd "$varlinkcmd[@]"
+
+_varlinkctl_command() {
+  local varlink_command=varlinkctl
+  ((CURRENT > 2 )) && varlink_command=varlinkctl-$line[1]
+
+  local -a varlink_args
+  case "$line[1]" in
+    (info|list-interfaces)
+      varlink_args=(address) ;;
+    (introspect|list-methods)
+      varlink_args=(address interface) ;;
+    (call)
+      varlink_args=(address method arguments) ;;
+    (validate-idl)
+      varlink_args=(file) ;;
+  esac
+
+  curcontext="${curcontext%:*:*}:$varlink_command:$varlink_args[CURRENT-2]"
+  _varlinkctl_cmd "$@"
+}
+
+local -a opts=(
+  {-h,--help}'[Show a help message and exit]'
+  '--version[Show package version and exit]'
+  '--no-pager[Do not pipe output to a pager]'
+  '--more[Request multiple responses]'
+  '--collect[Collect multiple responses in a JSON array]'
+  {-j+,--json=}'[Output as json]:json-mode:(pretty short)'
+)
+_arguments -S $opts '*:: := _varlinkctl_command'

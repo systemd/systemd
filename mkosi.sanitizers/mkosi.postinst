@@ -1,0 +1,131 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+set -o nounset
+
+LIBSYSTEMD="$(mkosi-chroot ldconfig -p | grep libsystemd.so.0 | sed 's/[^/]*\//\//')"
+
+if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
+    exit 0
+fi
+
+# Sanitizers log to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
+# all the sanitizer logs. To rectify that, let's connect journald's stdout to kmsg so that the sanitizer
+# failures end up in the journal.
+if [[ -f "$BUILDROOT"/usr/lib/systemd/system/systemd-journald.service ]]; then
+    mkdir -p "$BUILDROOT"/etc/systemd/system/systemd-journald.service.d
+    cat >"$BUILDROOT"/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf <<EOF
+[Service]
+StandardOutput=kmsg
+EOF
+fi
+
+# ASAN and syscall filters aren't compatible with each other.
+find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
+
+# 'systemd-hwdb update' takes > 50s when built with sanitizers so let's not run it by default.
+systemctl --root="$BUILDROOT" mask systemd-hwdb-update.service
+
+ASAN_RT_PATH="$(grep libasan.so < <(mkosi-chroot ldd "$LIBSYSTEMD") | cut -d ' ' -f 3)"
+if [[ -z "$ASAN_RT_PATH" ]]; then
+    ASAN_RT_PATH="$(grep libclang_rt.asan < <(mkosi-chroot ldd "$LIBSYSTEMD") | cut -d ' ' -f 3)"
+
+    # As clang's ASan DSO is usually in a non-standard path, let's check if the RUNPATH is set accordingly.
+    if mkosi-chroot ldd "$LIBSYSTEMD" | grep -q "libclang_rt.asan.*not found"; then
+        echo >&2 "clang's ASan DSO libclang_rt.asan is not present in the runtime library path"
+        exit 1
+    fi
+fi
+if [[ -z "$ASAN_RT_PATH" ]]; then
+    echo >&2 "systemd is not linked against the ASan DSO"
+    echo >&2 "gcc does this by default, for clang compile with -shared-libasan"
+    exit 1
+fi
+
+wrap=(
+    /usr/lib/polkit-1/polkitd
+    /usr/libexec/polkit-1/polkitd
+    agetty
+    btrfs
+    capsh
+    chgrp
+    chown
+    cryptsetup
+    curl
+    dbus-broker-launch
+    dbus-daemon
+    delv
+    dhcpd
+    dig
+    dmsetup
+    dnsmasq
+    findmnt
+    getent
+    getfacl
+    id
+    integritysetup
+    iscsid
+    kpartx
+    logger
+    login
+    ls
+    lsblk
+    lvm
+    mdadm
+    mkfs.btrfs
+    mkfs.erofs
+    mkfs.ext4
+    mkfs.vfat
+    mkfs.xfs
+    mksquashfs
+    mkswap
+    multipath
+    multipathd
+    nvme
+    p11-kit
+    pkill
+    ps
+    setfacl
+    setpriv
+    sshd
+    stat
+    su
+    tar
+    tgtd
+    useradd
+    userdel
+    veritysetup
+)
+
+for bin in "${wrap[@]}"; do
+    if ! mkosi-chroot command -v "$bin" >/dev/null; then
+        continue
+    fi
+
+    if [[ "$bin" == getent ]]; then
+        enable_lsan=1
+    else
+        enable_lsan=0
+    fi
+
+    target="$(mkosi-chroot command -v "$bin")"
+
+    mv "$BUILDROOT/$target" "$BUILDROOT/$target.orig"
+
+    cat >"$BUILDROOT/$target" <<EOF
+#!/bin/bash
+# Preload the ASan runtime DSO, otherwise ASAn will complain
+export LD_PRELOAD="$ASAN_RT_PATH"
+# Disable LSan to speed things up, since we don't care about leak reports
+# from 'external' binaries
+export ASAN_OPTIONS=detect_leaks=$enable_lsan
+# Set argv[0] to the original binary name without the ".orig" suffix
+exec -a "\$0" -- "${target}.orig" "\$@"
+EOF
+    chmod +x "$BUILDROOT/$target"
+done
+
+cat >"$BUILDROOT"/usr/lib/systemd/systemd-asan-env <<EOF
+LD_PRELOAD=$ASAN_RT_PATH
+LSAN_OPTIONS=detect_leaks=0
+EOF

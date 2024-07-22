@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "extract-word.h"
 #include "macro.h"
@@ -287,8 +288,8 @@ int version(void) {
         if (colors_enabled())
                 b = systemd_features_with_color();
 
-        printf("%ssystemd " PROJECT_VERSION_FULL "%s (" GIT_VERSION ")\n%s\n",
-               ansi_highlight(), ansi_normal(),
+        printf("%ssystemd %i%s (" GIT_VERSION ")\n%s\n",
+               ansi_highlight(), PROJECT_VERSION, ansi_normal(),
                b ?: systemd_features);
         return 0;
 }
