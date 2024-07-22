@@ -61,6 +61,12 @@ if [ -f "$TRIES_FILE" ]; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
+    if [ -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" ]; then
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous UKI '$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi' without boot counting." >&2
+        rm -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*.efi
+    fi
+
     UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.efi"
 else
     UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"

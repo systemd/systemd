@@ -8,6 +8,9 @@ integration_tests += [
                 # Use 'auto' to automatically fallback on non-uefi architectures.
                 'firmware' : 'auto',
                 'vm' : true,
+                # Make sure we don't mount anything with virtiofs as otherwise fixfiles will try to relabel
+                # it.
+                'mkosi-args' : integration_test_template['mkosi-args'] + ['--runtime-build-sources=no'],
         },
 ]
 

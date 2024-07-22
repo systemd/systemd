@@ -173,13 +173,13 @@
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
     disabled. For example, <filename>reboot.target</filename> specifies
     <varname>Alias=ctrl-alt-del.target</varname>, so when enabled, the symlink
-    <filename>/etc/systemd/system/ctrl-alt-del.service</filename> pointing to the
+    <filename>/etc/systemd/system/ctrl-alt-del.target</filename> pointing to the
     <filename>reboot.target</filename> file will be created, and when
     <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> is invoked,
-    <command>systemd</command> will look for the <filename>ctrl-alt-del.service</filename> and execute
-    <filename>reboot.service</filename>. <command>systemd</command> does not look at the [Install] section at
-    all during normal operation, so any directives in that section only have an effect through the symlinks
-    created during enablement.</para>
+    <command>systemd</command> will look for <filename>ctrl-alt-del.target</filename>, follow the symlink to
+    <filename>reboot.target</filename>, and execute <filename>reboot.service</filename> as part of that target.
+    <command>systemd</command> does not look at the [Install] section at all during normal operation, so any
+    directives in that section only have an effect through the symlinks created during enablement.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, the directory
     <filename>foo.service.wants/</filename> may exist. All unit files symlinked from such a directory are
@@ -832,7 +832,7 @@
         type when precisely a unit has finished starting up. Most importantly, for service units start-up is
         considered completed for the purpose of <varname>Before=</varname>/<varname>After=</varname> when all
         its configured start-up commands have been invoked and they either failed or reported start-up
-        success. Note that this does includes <varname>ExecStartPost=</varname> (or
+        success. Note that this includes <varname>ExecStartPost=</varname> (or
         <varname>ExecStopPost=</varname> for the shutdown case).</para>
 
         <para>Note that those settings are independent of and orthogonal to the requirement dependencies as
