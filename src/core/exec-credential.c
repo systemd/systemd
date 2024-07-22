@@ -20,7 +20,7 @@
 #include "rm-rf.h"
 #include "tmpfile-util.h"
 
-ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
+ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)
                 return NULL;
 
@@ -29,7 +29,7 @@ ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
         return mfree(sc);
 }
 
-ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc) {
+ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc) {
         if (!lc)
                 return NULL;
 
@@ -38,15 +38,107 @@ ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc) {
         return mfree(lc);
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_set_credential_hash_ops,
         char, string_hash_func, string_compare_func,
         ExecSetCredential, exec_set_credential_free);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_load_credential_hash_ops,
         char, string_hash_func, string_compare_func,
         ExecLoadCredential, exec_load_credential_free);
+
+int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted) {
+        ExecLoadCredential *old;
+        int r;
+
+        assert(c);
+        assert(id);
+        assert(path);
+
+        old = hashmap_get(c->load_credentials, id);
+        if (old) {
+                r = free_and_strdup(&old->path, path);
+                if (r < 0)
+                        return r;
+
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                lc = new(ExecLoadCredential, 1);
+                if (!lc)
+                        return -ENOMEM;
+
+                *lc = (ExecLoadCredential) {
+                        .id = strdup(id),
+                        .path = strdup(path),
+                        .encrypted = encrypted,
+                };
+                if (!lc->id || !lc->path)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+
+                TAKE_PTR(lc);
+        }
+
+        return 0;
+}
+
+int exec_context_put_set_credential(
+                ExecContext *c,
+                const char *id,
+                void *data_consume,
+                size_t size,
+                bool encrypted) {
+
+        _cleanup_free_ void *data = data_consume;
+        ExecSetCredential *old;
+        int r;
+
+        /* Takes the ownership of data both on success and failure */
+
+        assert(c);
+        assert(id);
+        assert(data || size == 0);
+
+        old = hashmap_get(c->set_credentials, id);
+        if (old) {
+                free_and_replace(old->data, data);
+                old->size = size;
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
+
+                sc = new(ExecSetCredential, 1);
+                if (!sc)
+                        return -ENOMEM;
+
+                *sc = (ExecSetCredential) {
+                        .id = strdup(id),
+                        .data = TAKE_PTR(data),
+                        .size = size,
+                        .encrypted = encrypted,
+                };
+                if (!sc->id)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+
+                TAKE_PTR(sc);
+        }
+
+        return 0;
+}
 
 bool exec_params_need_credentials(const ExecParameters *p) {
         assert(p);
