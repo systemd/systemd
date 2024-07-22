@@ -44,7 +44,7 @@ static void test_should_fail(const char *p) {
                 log_info("\"%s\" → \"@%" PRI_USEC "\" (unexpected)", p, t);
         else
                 log_info("parse_timestamp() returns %d (expected)", r);
-        ASSERT_ERROR(r);
+        ASSERT_LT(r, 0);
 }
 
 static void test_one(const char *p) {

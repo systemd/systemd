@@ -30,29 +30,29 @@ int main(int argc, char *argv[]) {
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISREG(st.st_mode));
-        ASSERT_EQ((st.st_mode & 07777), 0000);
+        ASSERT_EQ((st.st_mode & 07777), 0000U);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/dir");
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISDIR(st.st_mode));
-        ASSERT_EQ((st.st_mode & 07777), 0000);
+        ASSERT_EQ((st.st_mode & 07777), 0000U);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/fifo");
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISFIFO(st.st_mode));
-        ASSERT_EQ((st.st_mode & 07777), 0000);
+        ASSERT_EQ((st.st_mode & 07777), 0000U);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/sock");
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISSOCK(st.st_mode));
-        ASSERT_EQ((st.st_mode & 07777), 0000);
+        ASSERT_EQ((st.st_mode & 07777), 0000U);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/chr");
         if (stat(f, &st) < 0)
                 ASSERT_EQ(errno, ENOENT);
         else {
                 ASSERT_TRUE(S_ISCHR(st.st_mode));
-                ASSERT_EQ((st.st_mode & 07777), 0000);
+                ASSERT_EQ((st.st_mode & 07777), 0000U);
         }
 
         f = prefix_roota(p, "/run/systemd/inaccessible/blk");
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
                 ASSERT_EQ(errno, ENOENT);
         else {
                 ASSERT_TRUE(S_ISBLK(st.st_mode));
-                ASSERT_EQ((st.st_mode & 07777), 0000);
+                ASSERT_EQ((st.st_mode & 07777), 0000U);
         }
 
         return EXIT_SUCCESS;
