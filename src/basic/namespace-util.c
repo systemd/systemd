@@ -17,7 +17,7 @@
 #include "stdio-util.h"
 #include "user-util.h"
 
-const struct namespace_info namespace_info[] = {
+const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
         [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,                          },
         [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                             },
         [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,                             },
