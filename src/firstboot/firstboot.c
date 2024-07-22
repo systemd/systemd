@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
@@ -18,6 +19,7 @@
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "dirent-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -1161,6 +1163,76 @@ static int process_root_account(int rfd) {
         return 0;
 }
 
+static int process_regular_accounts(int rfd) {
+        _cleanup_close_ int creds_dfd = -EBADF, dest_dfd = -EBADF;
+        _cleanup_closedir_ DIR *creds_dir = NULL;
+        int r;
+
+        creds_dfd = open_credentials_dir();
+        if (creds_dfd < 0)
+                return log_error_errno(creds_dfd, "Failed to open credentials dir: %m");
+
+        creds_dir = take_fdopendir(&creds_dfd);
+        if (!creds_dir)
+                return log_error_errno(errno, "Failed to reopen credentials dir: %m");
+
+        FOREACH_DIRENT(de, creds_dir, return log_error_errno(errno, "Failed to read credentials dir: %m")) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
+                _cleanup_close_ int dest_fd = -EBADF;
+                _cleanup_fclose_ FILE *dest = NULL;
+                _cleanup_free_ char *fn = NULL;
+                char *username;
+
+                username = startswith(de->d_name, "user.create.");
+                if (!username)
+                        continue;
+
+                if (!valid_user_group_name(username, 0)) {
+                        log_notice("Skipping over credential with name that is not a suitable user name: %s", de->d_name);
+                        continue;
+                }
+
+                 r = sd_json_parse_file_at(
+                                /* f= */ NULL,
+                                dirfd(creds_dir),
+                                de->d_name,
+                                /* flags= */ 0,
+                                &identity,
+                                /* ret_line= */ NULL,
+                                /* ret_column= */ NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse user record in credential '%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                fn = strjoin(username, ".user");
+                if (!fn)
+                        return log_oom();
+
+                if (dest_dfd < 0) {
+                        dest_dfd = open_mkdir_at(rfd, "/etc/userdb/", O_CLOEXEC, 0755);
+                        if (dest_dfd < 0)
+                                return log_error_errno(dest_dfd, "Failed to create userdb drop-in dir: %m");
+                }
+
+                dest_fd = openat(dest_dfd, fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                if (dest_fd < 0)
+                        return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
+
+                dest = take_fdopen(&dest_fd, "w");
+                if (!dest)
+                        return log_oom();
+
+                r = sd_json_variant_dump(identity, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_FLUSH, dest, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write /etc/userdb/%s: %m", fn);
+
+                log_info("Created %s from %s credential", fn, de->d_name);
+        }
+
+        return 0;
+}
+
 static int process_kernel_cmdline(int rfd) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
@@ -1756,6 +1828,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = process_root_account(rfd);
+        if (r < 0)
+                return r;
+
+        r = process_regular_accounts(rfd);
         if (r < 0)
                 return r;
 
