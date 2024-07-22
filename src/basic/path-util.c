@@ -669,6 +669,8 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
                 r = path_make_absolute_cwd(name, ret_filename);
                 if (r < 0)
                         return r;
+
+                path_simplify(*ret_filename);
         }
 
         if (ret_fd)
