@@ -505,6 +505,12 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         assert(a);
         assert(b);
 
+        /* This mimics a function of the same name in src/boot/efi/sd-boot.c */
+
+        r = CMP(a->tries_left == 0, b->tries_left == 0);
+        if (r != 0)
+                return r;
+
         r = CMP(!a->sort_key, !b->sort_key);
         if (r != 0)
                 return r;
@@ -523,7 +529,18 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                         return r;
         }
 
-        return -strverscmp_improved(a->id, b->id);
+        r = -strverscmp_improved(a->id, b->id);
+        if (r != 0)
+                return r;
+
+        if (a->tries_left != UINT_MAX || b->tries_left != UINT_MAX)
+                return 0;
+
+        r = -CMP(a->tries_left, b->tries_left);
+        if (r != 0)
+                return r;
+
+        return CMP(a->tries_done, b->tries_done);
 }
 
 static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
@@ -743,11 +760,11 @@ static int find_sections(
 
         r = pe_load_headers(fd, &dos_header, &pe_header);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse PE file '%s': %m", path);
+                return log_error_errno(r, "Failed to parse PE file '%s': %m", path);
 
         r = pe_load_sections(fd, dos_header, pe_header, &sections);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse PE sections of '%s': %m", path);
+                return log_error_errno(r, "Failed to parse PE sections of '%s': %m", path);
 
         if (ret_pe_header)
                 *ret_pe_header = TAKE_PTR(pe_header);
@@ -809,7 +826,7 @@ static int find_osrel_section(
 
         r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+                return log_error_errno(r, "Failed to read .osrel section of '%s': %m", path);
 
         return 0;
 }
@@ -829,7 +846,7 @@ static int find_uki_sections(
                 return r;
 
         if (!pe_is_uki(pe_header, sections))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
 
         r = find_osrel_section(fd, path, sections, pe_header, ret_osrelease);
         if (r < 0)

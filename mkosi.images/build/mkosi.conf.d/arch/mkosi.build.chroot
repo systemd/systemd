@@ -2,11 +2,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-# shellcheck source=/dev/null
-. /usr/lib/os-release
-
-if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
-    echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
+    echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
 
@@ -14,11 +11,11 @@ fi
 # expected locations. Because we run with --noextract we are responsible for making sure the source files
 # appear in src/. This means not only the systemd source directory, but also the patches and configuration
 # files that are shipped in the packaging repository. To achieve this, instead of symlinking the systemd
-# sources and build directory directly into "pkg/$ID/src", we symlink them into "pkg/$ID" and then symlink
-# "pkg/$ID" to "pkg/$ID/src".
-ln --symbolic "$SRCDIR" "pkg/$ID/systemd"
-ln --symbolic "$BUILDDIR" "pkg/$ID/build"
-ln --symbolic . "pkg/$ID/src"
+# sources and build directory directly into "pkg/$PKG_SUBDIR/src", we symlink them into "pkg/$PKG_SUBDIR" and
+# then symlink "pkg/$PKG_SUBDIR" to "pkg/$PKG_SUBDIR/src".
+ln --symbolic "$SRCDIR" "pkg/$PKG_SUBDIR/systemd"
+ln --symbolic "$BUILDDIR" "pkg/$PKG_SUBDIR/build"
+ln --symbolic . "pkg/$PKG_SUBDIR/src"
 
 MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
 if ((LLVM)); then
@@ -70,13 +67,13 @@ else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-sed --in-place "pkg/$ID/PKGBUILD" \
+sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
     --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
 # We get around makepkg's root check by setting EUID to something else.
 # shellcheck disable=SC2046
-env --chdir="pkg/$ID" \
+env --chdir="pkg/$PKG_SUBDIR" \
     EUID=123 \
     makepkg \
     --noextract \
@@ -84,7 +81,7 @@ env --chdir="pkg/$ID" \
     --force \
     _systemd_UPSTREAM=1 \
     _systemd_QUIET=$( ((MESON_VERBOSE)); echo $? ) \
-    BUILDDIR="$PWD/pkg/$ID" \
+    BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
     PKGDEST="$OUTPUTDIR" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"

@@ -6,17 +6,13 @@ if [[ "$1" == "build" ]]; then
     exit 0
 fi
 
-# shellcheck source=/dev/null
-. "$BUILDROOT/usr/lib/os-release"
-ID="${ID%-*}"
-
-if [[ ! -f "pkg/$ID/systemd.spec" ]]; then
-    echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
+    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
 # TODO: Drop when the spec is fixed (either the patch is adapted or not applied when building for upstream).
-sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$ID/systemd.spec"
+sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$PKG_SUBDIR/systemd.spec"
 
 mkosi-chroot \
     rpmspec \
@@ -24,8 +20,8 @@ mkosi-chroot \
     --query \
     --buildrequires \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$ID" \
-    "pkg/$ID/systemd.spec" |
+    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    "pkg/$PKG_SUBDIR/systemd.spec" |
         grep --invert-match --regexp systemd --regexp /bin/sh --regexp "rpmlib(" --regexp udev |
         sort --unique |
         tee /tmp/buildrequires |
@@ -37,9 +33,9 @@ until mkosi-chroot \
     --build-in-place \
     --with upstream \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$ID" \
+    --define "_sourcedir pkg/$PKG_SUBDIR" \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
-    "pkg/$ID/systemd.spec"
+    "pkg/$PKG_SUBDIR/systemd.spec"
 do
     EXIT_STATUS=$?
     if [[ $EXIT_STATUS -ne 11 ]]; then
