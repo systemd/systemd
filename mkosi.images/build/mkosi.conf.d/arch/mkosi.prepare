@@ -6,16 +6,13 @@ if [[ "$1" == "build" ]]; then
     exit 0
 fi
 
-# shellcheck source=/dev/null
-. "$BUILDROOT/usr/lib/os-release"
-
-if [[ ! -f "pkg/$ID/PKGBUILD" ]]; then
-    echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
+    echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
 
 # shellcheck source=/dev/null
-_systemd_UPSTREAM=1 . "pkg/$ID/PKGBUILD"
+_systemd_UPSTREAM=1 . "pkg/$PKG_SUBDIR/PKGBUILD"
 
 # shellcheck disable=SC2154
 mkosi-install "${makedepends[@]}"

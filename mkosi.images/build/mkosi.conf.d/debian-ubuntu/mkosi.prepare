@@ -6,13 +6,10 @@ if [[ "$1" == "build" ]]; then
     exit 0
 fi
 
-# shellcheck source=/dev/null
-. "$BUILDROOT/usr/lib/os-release"
-
-if [[ ! -d "pkg/$ID/debian" ]]; then
-    echo "deb rules not found at pkg/$ID/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
+if [[ ! -d "pkg/$PKG_SUBDIR/debian" ]]; then
+    echo "deb rules not found at pkg/$PKG_SUBDIR/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
 
-cd "pkg/$ID"
+cd "pkg/$PKG_SUBDIR"
 DEB_BUILD_PROFILES="pkg.systemd.upstream" apt-get build-dep .
