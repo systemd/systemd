@@ -69,7 +69,7 @@ image all the time when iterating on a patch, add the following to
 
 ```conf
 [Host]
-RuntimeBuildSources=yes
+@RuntimeBuildSources=yes
 ```
 
 After enabling this setting, the source and build directories will be mounted to
