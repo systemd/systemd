@@ -167,7 +167,7 @@ static GptPartitionType *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
-static Architecture arg_architecture = _ARCHITECTURE_INVALID;
+static Abi arg_abi = _ABI_INVALID;
 static int arg_offline = -1;
 static char **arg_copy_from = NULL;
 static char *arg_copy_source = NULL;
@@ -1280,8 +1280,8 @@ static int config_parse_type(
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
 
-        if (arg_architecture >= 0)
-                *type = gpt_partition_type_override_architecture(*type, arg_architecture);
+        if (arg_abi >= 0)
+                *type = gpt_partition_type_override_abi(*type, arg_abi);
 
         return 0;
 }
@@ -6981,7 +6981,7 @@ static int help(void) {
                "     --offline=BOOL       Whether to build the image offline\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
-               "     --architecture=ARCH  Set the generic architecture for the image\n"
+               "     --architecture=ABI   Set the generic ABI for the image\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
@@ -7458,11 +7458,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ARCHITECTURE:
-                        r = architecture_from_string(optarg);
+                        r = abi_from_string(optarg);
                         if (r < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", optarg);
 
-                        arg_architecture = r;
+                        arg_abi = r;
                         break;
 
                 case ARG_OFFLINE:
@@ -7669,12 +7669,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
 
-        if (arg_architecture >= 0) {
+        if (arg_abi >= 0) {
                 FOREACH_ARRAY(p, arg_filter_partitions, arg_n_filter_partitions)
-                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+                        *p = gpt_partition_type_override_abi(*p, arg_abi);
 
                 FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
-                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+                        *p = gpt_partition_type_override_abi(*p, arg_abi);
         }
 
         if (private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
