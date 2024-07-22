@@ -41,18 +41,18 @@ TEST(clock_is_localtime) {
         };
 
         /* without an adjtime file we default to UTC */
-        assert_se(clock_is_localtime("/nonexisting/adjtime") == 0);
+        ASSERT_FALSE(clock_is_localtime("/nonexisting/adjtime"));
 
-        assert_se(fmkostemp_safe(adjtime, "w", &f) == 0);
+        ASSERT_OK(fmkostemp_safe(adjtime, "w", &f));
         log_info("adjtime test file: %s", adjtime);
 
         for (size_t i = 0; i < ELEMENTSOF(scenarios); ++i) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
-                assert_se(ftruncate(fileno(f), 0) == 0);
-                assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
-                assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
+                ASSERT_OK_ERRNO(ftruncate(fileno(f), 0));
+                ASSERT_OK(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE));
+                ASSERT_TRUE(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
 }
 
@@ -65,10 +65,10 @@ TEST(clock_is_localtime_system) {
                 log_info("/etc/adjtime is readable, clock_is_localtime() == %i", r);
                 /* if /etc/adjtime exists we expect some answer, no error or
                  * crash */
-                assert_se(IN_SET(r, 0, 1));
+                ASSERT_TRUE(IN_SET(r, 0, 1));
         } else
                 /* default is UTC if there is no /etc/adjtime */
-                assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r));
+                ASSERT_TRUE(r == 0 || ERRNO_IS_PRIVILEGE(r));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
