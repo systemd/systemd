@@ -48,10 +48,8 @@ int polkit_agent_open(void) {
                        &agent_pid,
                        POLKIT_AGENT_BINARY_PATH,
                        POLKIT_AGENT_BINARY_PATH,
-                       "--notify-fd",
-                       notify_fd,
-                       "--fallback",
-                       NULL);
+                       "--notify-fd", notify_fd,
+                       "--fallback");
 
         /* Close the writing side, because that's the one for the agent */
         safe_close(pipe_fd[1]);
