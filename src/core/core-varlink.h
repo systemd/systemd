@@ -4,6 +4,7 @@
 #include "manager.h"
 
 int manager_varlink_init(Manager *m);
+int manager_varlink_listen_missing(Manager *m);
 void manager_varlink_done(Manager *m);
 
 /* The manager is expected to send an update to systemd-oomd if one of the following occurs:

@@ -7,6 +7,7 @@
 #include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
+#include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 
@@ -645,6 +646,35 @@ static int manager_varlink_init_user(Manager *m) {
 
 int manager_varlink_init(Manager *m) {
         return MANAGER_IS_SYSTEM(m) ? manager_varlink_init_system(m) : manager_varlink_init_user(m);
+}
+
+int manager_varlink_listen_missing(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = manager_varlink_init_system(m);
+        if (r <= 0)
+                return r;
+
+        FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
+                bool found = false;
+
+                LIST_FOREACH(sockets, ss, m->varlink_server->sockets)
+                        if (streq(ss->address, address)) {
+                                found = true;
+                                break;
+                        }
+
+                if (found)
+                        continue;
+
+                r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+        }
+
+        return 1;
 }
 
 void manager_varlink_done(Manager *m) {
