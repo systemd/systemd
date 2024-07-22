@@ -429,8 +429,8 @@ static int list_versions(sd_bus *bus, const char *target_path) {
                         "List",
                         &error,
                         &reply,
-                        "b",
-                        arg_offline);
+                        "t",
+                        arg_offline ? SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call List");
 
@@ -463,7 +463,17 @@ static int list_versions(sd_bus *bus, const char *target_path) {
                 if (!op)
                         return log_oom();
 
-                r = sd_bus_call_method_async(bus, NULL, bus_sysupdate_mgr->destination, target_path, SYSUPDATE_TARGET_INTERFACE, "Describe", list_versions_finished, op, "sb", *version, arg_offline);
+                r = sd_bus_call_method_async(bus,
+                                             NULL,
+                                             bus_sysupdate_mgr->destination,
+                                             target_path,
+                                             SYSUPDATE_TARGET_INTERFACE,
+                                             "Describe",
+                                             list_versions_finished,
+                                             op,
+                                             "st",
+                                             *version,
+                                             arg_offline ? SYSUPDATE_OFFLINE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to call Describe: %m");
                 TAKE_PTR(op);
@@ -496,9 +506,9 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                         "Describe",
                         &error,
                         &reply,
-                        "sb",
+                        "st",
                         version,
-                        arg_offline);
+                        arg_offline ? SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call Describe");
 
@@ -687,10 +697,17 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         if (isempty(new_version))
                 return 0;
 
-        r = sd_bus_call_method_async(op->bus, NULL, bus_sysupdate_mgr->destination,
-                                     op->target_path, SYSUPDATE_TARGET_INTERFACE, "Describe",
-                                     check_describe_finished, op,
-                                     "sb", new_version, arg_offline);
+        r = sd_bus_call_method_async(op->bus,
+                                     NULL,
+                                     bus_sysupdate_mgr->destination,
+                                     op->target_path,
+                                     SYSUPDATE_TARGET_INTERFACE,
+                                     "Describe",
+                                     check_describe_finished,
+                                     op,
+                                     "st",
+                                     new_version,
+                                     arg_offline ? SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to call Describe: %m");
         TAKE_PTR(op);

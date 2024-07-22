@@ -28,6 +28,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "sysupdate-util.h"
 
 typedef struct Manager {
         sd_event *event;
@@ -849,18 +850,19 @@ static int target_method_list_finish(
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
-        int offline, r;
+        int r;
+        uint64_t flags;
 
         assert(msg);
 
-        r = sd_bus_message_read(msg, "b", &offline);
+        r = sd_bus_message_read(msg, "t", &flags);
         if (r < 0)
                 return r;
 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
                 "name", t->name,
-                "offline", one_zero(offline),
+                "offline", one_zero(FLAGS_SET(flags, SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -879,7 +881,7 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        j->offline = offline;
+        j->offline = FLAGS_SET(flags, SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
@@ -910,11 +912,12 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
         const char *version;
-        int offline, r;
+        int r;
+        uint64_t flags;
 
         assert(msg);
 
-        r = sd_bus_message_read(msg, "sb", &version, &offline);
+        r = sd_bus_message_read(msg, "st", &version, &flags);
         if (r < 0)
                 return r;
 
@@ -925,7 +928,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
                 "class", target_class_to_string(t->class),
                 "name", t->name,
                 "version", version,
-                "offline", one_zero(offline),
+                "offline", one_zero(FLAGS_SET(flags, SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -948,7 +951,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         if (!j->version)
                 return log_oom();
 
-        j->offline = offline;
+        j->offline = FLAGS_SET(flags, SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
@@ -1362,13 +1365,13 @@ static const sd_bus_vtable target_vtable[] = {
                         SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("List",
-                                SD_BUS_ARGS("b", offline),
+                                SD_BUS_ARGS("t", flags),
                                 SD_BUS_RESULT("as", versions),
                                 target_method_list,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("Describe",
-                                SD_BUS_ARGS("s", version, "b", offline),
+                                SD_BUS_ARGS("s", version, "t", flags),
                                 SD_BUS_RESULT("s", json),
                                 target_method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
