@@ -1,0 +1,24 @@
+# This file is part of systemd.
+#
+# Database for Hardware Wallets that should be accessible to the seat owner.
+##
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+################
+# Trezor Hardware Wallets
+################
+
+# Trezor v1
+usb:v534Cp0001*
+ ID_HARDWARE_WALLET=1
+
+# Trezor v2
+usb:v1209p53C0*
+ ID_HARDWARE_WALLET=1
+
+usb:v1209p53C1*
+ ID_HARDWARE_WALLET=1
