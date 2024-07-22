@@ -247,6 +247,7 @@ int config_parse_bridge_fdb_max_learned(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Bridge *b = ASSERT_PTR(userdata);
         int r;
 
