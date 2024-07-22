@@ -111,10 +111,10 @@ node /org/freedesktop/sysupdate1 {
 node /org/freedesktop/sysupdate1/target/host {
   interface org.freedesktop.sysupdate1.Target {
     methods:
-      List(in  b offline,
+      List(in  t flags,
            out as versions);
       Describe(in  s version,
-               in  b offline,
+               in  t flags,
                out s json);
       CheckNew(out s new_version);
       Update(in  s new_version,
@@ -169,26 +169,28 @@ node /org/freedesktop/sysupdate1/target/host {
     <refsect2>
       <title>Methods</title>
 
-      <para><function>List()</function> returns a list of versions available for this target. When
-      <varname>offline</varname> is true, this method returns only the versions installed locally.
-      Otherwise, this method pulls metadata from the network and returns all versions available for this
-      target. Use <function>Describe()</function> to query more information about each version returned by
-      this method.</para>
+      <para><function>List()</function> returns a list of versions available for this target.  The
+      <varname>flags</varname> argument can be used to pass additional options, with bit 0 mapping to
+      <option>offline</option>.  When <option>offline</option> is true, this method returns only the versions
+      installed locally.  Otherwise, this method pulls metadata from the network and returns all versions
+      available for this target. Use <function>Describe()</function> to query more information about each
+      version returned by this method.</para>
 
-      <para><function>Describe()</function> returns all known information about a given version.  When
-      <varname>offline</varname> is true, this method avoids network access and will only return information
-      available about versions installed locally. Otherwise, this method pulls metadata from the network and
-      can return all available information about all available versions.  This method returns a JSON object
-      with the following known keys: <literal>version</literal> is a string that contains the version number,
-      <literal>newest</literal> is a boolean that indicates whether this is the latest version available for
-      the target, <literal>available</literal> is a boolean that indicates whether this version is available
-      for download via the network, <literal>installed</literal> is a boolean that indicates whether this
-      version is locally installed, <literal>obsolete</literal> is a boolean that indicates whether this
-      version is considered obsolete by the service and thus cannot be installed,
-      <literal>protected</literal> is a boolean that indicates whether this version is exempt from deletion
-      by a <function>Vacuum()</function> operation, and <literal>changelog_urls</literal> is a list of
-      strings that contain user-presentable URLs to a change-logs associated with this version. New keys may
-      be added in the future.</para>
+      <para><function>Describe()</function> returns all known information about a given version.  The
+      <varname>flags</varname> argument can be used to pass additional options, with bit 0 mapping to
+      <option>offline</option>.  When <varname>offline</varname> is true, this method avoids network access
+      and will only return information available about versions installed locally. Otherwise, this method
+      pulls metadata from the network and can return all available information about all available versions.
+      This method returns a JSON object with the following known keys: <literal>version</literal> is a string
+      that contains the version number, <literal>newest</literal> is a boolean that indicates whether this is
+      the latest version available for the target, <literal>available</literal> is a boolean that indicates
+      whether this version is available for download via the network, <literal>installed</literal> is a
+      boolean that indicates whether this version is locally installed, <literal>obsolete</literal> is a
+      boolean that indicates whether this version is considered obsolete by the service and thus cannot be
+      installed, <literal>protected</literal> is a boolean that indicates whether this version is exempt from
+      deletion by a <function>Vacuum()</function> operation, and <literal>changelog_urls</literal> is a list
+      of strings that contain user-presentable URLs to a change-logs associated with this version. New keys
+      may be added in the future.</para>
 
       <para><function>CheckNew()</function> checks if a newer version is available for this target. This
       method pulls metadata from the network. If a newer version is found, this method returns the
