@@ -238,12 +238,10 @@ static void job_on_ready(Job *j) {
 
         assert(j);
 
-        /* Some jobs run in the background as we return the job ID to the
-         * dbus caller (i.e. for the Update method). However, the worker
-         * will perform some sanity-checks on startup which would be valuable
-         * as dbus errors. So, we wait for the worker to signal via READY=1
-         * that it has completed its sanity-checks and we should continue
-         * the job in the background. */
+        /* Some jobs run in the background as we return the job ID to the dbus caller (i.e. for the Update
+         * method). However, the worker will perform some sanity-checks on startup which would be valuable
+         * as dbus errors. So, we wait for the worker to signal via READY=1 that it has completed its sanity
+         * checks and we should continue the job in the background. */
 
         if (!j->detach_cb)
                 return;
