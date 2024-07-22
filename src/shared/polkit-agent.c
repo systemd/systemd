@@ -43,16 +43,21 @@ int polkit_agent_open(void) {
         xsprintf(notify_fd, "%i", pipe_fd[1]);
 
         r = fork_agent("(polkit-agent)",
-                       &pipe_fd[1], 1,
+                       &pipe_fd[1],
+                       1,
                        &agent_pid,
                        POLKIT_AGENT_BINARY_PATH,
-                       POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
+                       POLKIT_AGENT_BINARY_PATH,
+                       "--notify-fd",
+                       notify_fd,
+                       "--fallback",
+                       NULL);
 
         /* Close the writing side, because that's the one for the agent */
         safe_close(pipe_fd[1]);
 
         if (r < 0)
-                log_error_errno(r, "Failed to fork TTY ask password agent: %m");
+                log_error_errno(r, "Failed to fork polkit agent: %m");
         else
                 /* Wait until the agent closes the fd */
                 (void) fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
