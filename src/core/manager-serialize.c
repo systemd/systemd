@@ -563,5 +563,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 }
         }
 
+        /* We have not received any varlink socket, this means we are deserializing from a version older
+         * than v252. Attach to the sockets now then. */
+        if (!deserialize_varlink_sockets) {
+                r = manager_varlink_listen_missing(m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to setup varlink sockets, ignoring: %m");
+        }
+
         return manager_deserialize_units(m, f, fds);
 }
