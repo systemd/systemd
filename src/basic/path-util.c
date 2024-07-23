@@ -653,7 +653,7 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
          * /usr/bin/sleep when find_executables is called. Hence, this function should be invoked when
          * needed to avoid unforeseen regression or other complicated changes. */
         if (root) {
-                 /* prefix root to name in case full paths are not specified */
+                /* prefix root to name in case full paths are not specified */
                 r = chase(name, root, CHASE_PREFIX_ROOT, &path_name, /* ret_fd= */ NULL);
                 if (r < 0)
                         return r;
@@ -669,6 +669,8 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
                 r = path_make_absolute_cwd(name, ret_filename);
                 if (r < 0)
                         return r;
+
+                path_simplify(*ret_filename);
         }
 
         if (ret_fd)
@@ -680,18 +682,41 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
 int find_executable_full(
                 const char *name,
                 const char *root,
-                char **exec_search_path,
+                char * const *exec_search_path,
                 bool use_path_envvar,
                 char **ret_filename,
                 int *ret_fd) {
 
         int last_error = -ENOENT, r = 0;
-        const char *p = NULL;
 
         assert(name);
 
         if (is_path(name))
                 return find_executable_impl(name, root, ret_filename, ret_fd);
+
+        if (exec_search_path) {
+                STRV_FOREACH(element, exec_search_path) {
+                        _cleanup_free_ char *full_path = NULL;
+
+                        if (!path_is_absolute(*element)) {
+                                log_debug("Exec search path '%s' isn't absolute, ignoring.", *element);
+                                continue;
+                        }
+
+                        full_path = path_join(*element, name);
+                        if (!full_path)
+                                return -ENOMEM;
+
+                        r = find_executable_impl(full_path, root, ret_filename, ret_fd);
+                        if (r >= 0)
+                                return 0;
+                        if (r != -EACCES)
+                                last_error = r;
+                }
+                return last_error;
+        }
+
+        const char *p = NULL;
 
         if (use_path_envvar)
                 /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
@@ -699,28 +724,6 @@ int find_executable_full(
                 p = getenv("PATH");
         if (!p)
                 p = default_PATH();
-
-        if (exec_search_path) {
-                STRV_FOREACH(element, exec_search_path) {
-                        _cleanup_free_ char *full_path = NULL;
-
-                        if (!path_is_absolute(*element))
-                                continue;
-
-                        full_path = path_join(*element, name);
-                        if (!full_path)
-                                return -ENOMEM;
-
-                        r = find_executable_impl(full_path, root, ret_filename, ret_fd);
-                        if (r < 0) {
-                                if (r != -EACCES)
-                                        last_error = r;
-                                continue;
-                        }
-                        return 0;
-                }
-                return last_error;
-        }
 
         /* Resolve a single-component name to a full path */
         for (;;) {
@@ -732,22 +735,20 @@ int find_executable_full(
                 if (r == 0)
                         break;
 
-                if (!path_is_absolute(element))
+                if (!path_is_absolute(element)) {
+                        log_debug("Exec search path '%s' isn't absolute, ignoring.", element);
                         continue;
+                }
 
                 if (!path_extend(&element, name))
                         return -ENOMEM;
 
                 r = find_executable_impl(element, root, ret_filename, ret_fd);
-                if (r < 0) {
-                        /* PATH entries which we don't have access to are ignored, as per tradition. */
-                        if (r != -EACCES)
-                                last_error = r;
-                        continue;
-                }
-
-                /* Found it! */
-                return 0;
+                if (r >= 0) /* Found it! */
+                        return 0;
+                /* PATH entries which we don't have access to are ignored, as per tradition. */
+                if (r != -EACCES)
+                        last_error = r;
         }
 
         return last_error;
