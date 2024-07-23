@@ -163,6 +163,9 @@ executables += [
                 'sources' : files('test-resolve-tables.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-answer.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-packet.c'),
         },
         resolve_test_template + {
