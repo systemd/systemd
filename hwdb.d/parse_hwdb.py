@@ -191,6 +191,7 @@ def property_grammar():
              ('ID_VENDOR_FROM_DATABASE', name_literal),
              ('ID_MODEL_FROM_DATABASE', name_literal),
              ('ID_TAG_MASTER_OF_SEAT', Literal('1')),
+             ('ID_TREZOR_HW', Or((Literal('0'), Literal('1')))),
              ('ID_INFRARED_CAMERA', Or((Literal('0'), Literal('1')))),
              ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
              ('SOUND_FORM_FACTOR', Or(('internal', 'webcam', 'speaker', 'headphone', 'headset', 'handset', 'microphone'))),
