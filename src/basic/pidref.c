@@ -221,7 +221,7 @@ void pidref_done(PidRef *pidref) {
         };
 }
 
-PidRef *pidref_free(PidRef *pidref) {
+PidRef* pidref_free(PidRef *pidref) {
         /* Regularly, this is an embedded structure. But sometimes we want it on the heap too */
         if (!pidref)
                 return NULL;
@@ -234,13 +234,10 @@ int pidref_copy(const PidRef *pidref, PidRef *dest) {
         _cleanup_close_ int dup_fd = -EBADF;
         pid_t dup_pid = 0;
 
-        assert(dest);
+        /* If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to
+         * copy pidref fields that might or might not reference a process yet. */
 
-        /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
-         * acquire a pidfd if we don't have one yet!
-         *
-         * If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to copy
-         * pidref fields that might or might not reference a process yet. */
+        assert(dest);
 
         if (pidref) {
                 if (pidref->fd >= 0) {
@@ -268,6 +265,9 @@ int pidref_copy(const PidRef *pidref, PidRef *dest) {
 int pidref_dup(const PidRef *pidref, PidRef **ret) {
         _cleanup_(pidref_freep) PidRef *dup_pidref = NULL;
         int r;
+
+        /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
+         * acquire a pidfd if we don't have one yet! */
 
         assert(ret);
 
