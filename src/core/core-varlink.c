@@ -218,19 +218,18 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Unit *u;
         int r;
 
         assert(link);
 
-        r = sd_varlink_get_peer_pid(link, &pid);
+        r = sd_varlink_get_peer_pidref(link, &pidref);
         if (r < 0)
                 return r;
 
-        u = manager_get_unit_by_pid(m, pid);
+        u = manager_get_unit_by_pidref(m, &pidref);
         if (!u)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
@@ -246,6 +245,8 @@ static int vl_method_subscribe_managed_oom_cgroups(
          * This shouldn't happen since systemd-oomd is the only client of this method. */
         if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) && m->managed_oom_varlink)
                 return sd_varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
