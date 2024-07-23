@@ -190,6 +190,17 @@ executables += [
         },
         test_template + {
                 'sources' : [
+                        files('test-dns-server.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
                         files('test-resolved-stream.c'),
                         basic_dns_sources,
                         systemd_resolved_sources,
