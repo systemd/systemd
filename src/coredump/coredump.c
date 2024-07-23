@@ -39,6 +39,8 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "missing_mount.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
 #include "parse-util.h"
@@ -165,6 +167,7 @@ static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 static uint64_t arg_max_use = UINT64_MAX;
+static bool arg_access_container = false;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -175,6 +178,7 @@ static int parse_config(void) {
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
                 { "Coredump", "KeepFree",         config_parse_iec_uint64,           0, &arg_keep_free         },
                 { "Coredump", "MaxUse",           config_parse_iec_uint64,           0, &arg_max_use           },
+                { "Coredump", "AccessContainer",  config_parse_bool,                 0, &arg_access_container  },
                 {}
         };
 
@@ -777,12 +781,14 @@ static int change_uid_gid(const Context *context) {
 static int submit_coredump(
                 const Context *context,
                 struct iovec_wrapper *iovw,
-                int input_fd) {
+                int input_fd,
+                int mount_tree_fd) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
+        _cleanup_free_ char *root = NULL;
         const char *module_name;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false, written = false;
@@ -819,6 +825,26 @@ static int submit_coredump(
                 (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
         }
 
+        if (mount_tree_fd >= 0 && arg_access_container) {
+                r = unshare(CLONE_NEWNS);
+                if (r < 0) {
+                        log_warning_errno(errno, "Failed to unshare mount namespace, not using passed mount tree: %m");
+                        mount_tree_fd = safe_close(mount_tree_fd);
+                } else {
+                        r = mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to disable mount propagation: %m");
+
+                        r = mkdtemp_malloc("/tmp/systemd-coredump-root-XXXXXX", &root);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create temporary directory: %m");
+
+                        r = move_mount(mount_tree_fd, "", -EBADF, root, MOVE_MOUNT_F_EMPTY_PATH);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to move mount tree of crashed process: %m");
+                }
+        }
+
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
          * coredump memory under the user's uid. This also ensures that the credentials journald will see are
          * the ones of the coredumping user, thus making sure the user gets access to the core dump. Let's
@@ -838,6 +864,7 @@ static int submit_coredump(
 
                         (void) parse_elf_object(coredump_fd,
                                                 context->meta[META_EXE],
+                                                root,
                                                 /* fork_disable_dump= */ skip, /* avoid loops */
                                                 &stacktrace,
                                                 &json_metadata);
@@ -1000,10 +1027,11 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 }
 
 static int process_socket(int fd) {
-        _cleanup_close_ int input_fd = -EBADF;
+        _cleanup_close_ int input_fd = -EBADF, mount_tree_fd = -EBADF;
         Context context = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
+        bool first = true;
         int r;
 
         assert(fd >= 0);
@@ -1051,16 +1079,35 @@ static int process_socket(int fd) {
 
                         free(iovec.iov_base);
 
-                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-                        if (!found) {
-                                cmsg_close_all(&mh);
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Coredump file descriptor missing.");
-                                goto finish;
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
+                        if (found) {
+                                int fds[2] = { -EBADF, -EBADF };
+
+                                memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
+
+                                assert(mount_tree_fd < 0);
+
+                                /* Maybe we already got coredump FD in previous iteration? */
+                                safe_close(input_fd);
+
+                                input_fd = fds[0];
+                                mount_tree_fd = fds[1];
+
+                                /* We have all FDs we need let's take a shortcut here. */
+                                break;
+                        } else {
+                                /* It is not an array of FDs so maybe it is older version of systemd-coredump sending us just input_fd. */
+                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
+                                if (found)
+                                        input_fd = *CMSG_TYPED_DATA(found, int);
                         }
 
-                        assert(input_fd < 0);
-                        input_fd = *CMSG_TYPED_DATA(found, int);
+                         /* This is the first message that carries file descriptors, maybe there will be one more that actually contains array of descriptors. */
+                        if (first) {
+                                first = false;
+                                continue;
+                        }
+
                         break;
                 } else
                         cmsg_close_all(&mh);
@@ -1090,14 +1137,14 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-        r = submit_coredump(&context, &iovw, input_fd);
+        r = submit_coredump(&context, &iovw, input_fd, mount_tree_fd);
 
 finish:
         iovw_free_contents(&iovw, true);
         return r;
 }
 
-static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
+static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, int mounts_fd) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -1153,6 +1200,12 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         r = send_one_fd(fd, input_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send coredump fd: %m");
+
+        if (mounts_fd >= 0) {
+                r = send_many_fds(fd, (int[]) { input_fd, mounts_fd }, 2, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send coredump fds: %m");
+        }
 
         return 0;
 }
@@ -1532,7 +1585,7 @@ static int forward_coredump_to_container(Context *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = send_iovec(iovw, STDIN_FILENO);
+                r = send_iovec(iovw, STDIN_FILENO, -EBADF);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
@@ -1560,8 +1613,64 @@ static int forward_coredump_to_container(Context *context) {
         return 0;
 }
 
+static int gather_pid_mount_tree_fd(const Context *context) {
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        int fd = -EBADF, r;
+        pid_t child;
+
+        assert(context);
+
+        if (!arg_access_container)
+                return -EBADF;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_error_errno(errno, "Failed to create socket pair: %m");
+
+        r = namespace_open(context->pid,  NULL, &mntns_fd, NULL, NULL, &root_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
+
+        r = namespace_fork("(sd-mount-tree-ns)", "(sd-mount-tree)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, -1, mntns_fd, -1, -1, root_fd, &child);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork(): %m");
+
+        if (r == 0) {
+                pair[0] = safe_close(pair[0]);
+
+                r = open_tree(-EBADF, "/", AT_NO_AUTOMOUNT | AT_RECURSIVE | AT_SYMLINK_NOFOLLOW | OPEN_TREE_CLOEXEC | OPEN_TREE_CLONE);
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to clone mount tree: %m\n");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_one_fd(pair[1], r, 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to send mount tree to parent: %m\n");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate_and_check("(sd-mount-tree-ns)", child, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for child: %m");
+        if (r != EXIT_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ECHILD), "Child died abnormally.");
+
+        fd = receive_one_fd(pair[0], MSG_DONTWAIT);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to receive mount tree: %m\n");
+
+        return fd;
+}
+
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
+        _cleanup_close_ int mount_tree_fd = -EBADF;
         Context context = {};
         int r, signo;
 
@@ -1607,6 +1716,12 @@ static int process_kernel(int argc, char* argv[]) {
                 r = forward_coredump_to_container(&context);
                 if (r >= 0)
                         return 0;
+
+                r = gather_pid_mount_tree_fd(&context);
+                if (r < 0 && r != -EBADF)
+                        log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
+                else
+                        mount_tree_fd = r;
         }
 
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
@@ -1624,9 +1739,9 @@ static int process_kernel(int argc, char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
-                return submit_coredump(&context, iovw, STDIN_FILENO);
+                return submit_coredump(&context, iovw, STDIN_FILENO, mount_tree_fd);
 
-        return send_iovec(iovw, STDIN_FILENO);
+        return send_iovec(iovw, STDIN_FILENO, mount_tree_fd);
 }
 
 static int process_backtrace(int argc, char *argv[]) {
