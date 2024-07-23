@@ -626,13 +626,14 @@ static int manager_varlink_init_user(Manager *m) {
                 return 0;
 
         r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
-                        log_debug("systemd-oomd varlink unix socket not found, skipping user manager varlink setup");
-                        return 0;
-                }
-                return log_error_errno(r, "Failed to connect to %s: %m", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+        if (r == -ENOENT)
+                return 0;
+        if (ERRNO_IS_NEG_DISCONNECT(r)) {
+                log_debug_errno("systemd-oomd varlink socket isn't available, skipping user manager varlink setup: %m");
+                return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to '%s': %m", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
 
         sd_varlink_set_userdata(link, m);
 
