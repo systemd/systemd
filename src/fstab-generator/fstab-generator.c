@@ -288,8 +288,7 @@ static int add_swap(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
-        /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, options, NULL);
+        r = generator_write_timeouts(arg_dest, what, options, NULL);
         if (r < 0)
                 return r;
 
@@ -589,6 +588,13 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
+        /* Write timeout dropin and get filtered options */
+        r = generator_write_timeouts(dest, what, opts, &filtered);
+        if (r < 0)
+                return r;
+
+        /* Write main fragment */
+
         r = generator_open_unit_file(dest, source, name, &f);
         if (r < 0)
                 return r;
@@ -670,20 +676,6 @@ static int add_mount(
                 fprintf(f, "Type=%s\n", t);
         }
 
-        r = generator_write_timeouts(dest, what, where, opts, &filtered);
-        if (r < 0)
-                return r;
-
-        r = generator_write_device_deps(dest, what, where, opts);
-        if (r < 0)
-                return r;
-
-        if (in_initrd() && path_equal(where, "/sysroot") && is_device_path(what)) {
-                r = generator_write_initrd_root_device_deps(dest, what);
-                if (r < 0)
-                        return r;
-        }
-
         r = write_mount_timeout(f, where, opts);
         if (r < 0)
                 return r;
@@ -698,6 +690,18 @@ static int add_mount(
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
+
+        /* Write other drop-ins */
+
+        r = generator_write_device_deps(dest, what, where, opts);
+        if (r < 0)
+                return r;
+
+        if (in_initrd() && path_equal(where, "/sysroot") && is_device_path(what)) {
+                r = generator_write_initrd_root_device_deps(dest, what);
+                if (r < 0)
+                        return r;
+        }
 
         if (flags & MOUNT_MAKEFS) {
                 r = generator_hook_up_mkfs(dest, what, where, fstype);
