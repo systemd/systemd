@@ -613,6 +613,9 @@ static int manager_varlink_init_user(Manager *m) {
         if (m->managed_oom_varlink)
                 return 1;
 
+        if (!MANAGER_IS_USER(m))
+                return 0;
+
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
