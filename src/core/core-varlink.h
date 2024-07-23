@@ -3,6 +3,8 @@
 
 #include "manager.h"
 
+int manager_setup_varlink_server(Manager *m);
+
 int manager_varlink_init(Manager *m);
 void manager_varlink_done(Manager *m);
 
