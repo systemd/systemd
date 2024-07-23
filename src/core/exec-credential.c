@@ -242,6 +242,19 @@ bool exec_context_has_encrypted_credentials(const ExecContext *c) {
         return false;
 }
 
+bool mount_point_is_credentials(const char *runtime_prefix, const char *path) {
+        const char *e;
+
+        assert(runtime_prefix);
+        assert(path);
+
+        e = path_startswith(path, runtime_prefix);
+        if (!e)
+                return false;
+
+        return path_startswith(e, "credentials");
+}
+
 static int get_credential_directory(
                 const char *runtime_prefix,
                 const char *unit,
