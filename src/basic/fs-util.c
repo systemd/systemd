@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "btrfs.h"
+#include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1195,6 +1196,12 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
                 r = label_ops_post(dir_fd, path);
                 if (r < 0)
+                        goto error;
+        }
+
+        if (FLAGS_SET(xopen_flags, XO_NOCOW)) {
+                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
                         goto error;
         }
 
