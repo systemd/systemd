@@ -6,6 +6,7 @@
 #include "async.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "exec-credential.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
@@ -190,6 +191,9 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         /* Ensure that the unit was started in a private mount namespace */
         if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
+
+        if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dest))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to bind mount over credential mounts");
 
         /* If it would be dropped at startup time, return an error. */
         if (path_startswith_strv(dest, c->inaccessible_paths))
