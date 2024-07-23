@@ -135,6 +135,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
 typedef enum XOpenFlags {
         XO_LABEL     = 1 << 0,
         XO_SUBVOLUME = 1 << 1,
+        XO_NOCOW     = 1 << 2,
 } XOpenFlags;
 
 int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
