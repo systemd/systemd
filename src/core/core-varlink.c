@@ -7,6 +7,7 @@
 #include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
+#include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 
@@ -500,12 +501,17 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                 m->managed_oom_varlink = sd_varlink_unref(link);
 }
 
-static int manager_setup_varlink_server(Manager *m, sd_varlink_server **ret) {
+int manager_setup_varlink_server(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
-        assert(ret);
+
+        if (m->varlink_server)
+                return 0;
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return -EPROTOTYPE;
 
         r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
@@ -533,51 +539,51 @@ static int manager_setup_varlink_server(Manager *m, sd_varlink_server **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        *ret = TAKE_PTR(s);
-        return 0;
+        r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_server = TAKE_PTR(s);
+        return 1;
 }
 
 static int manager_varlink_init_system(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
 
-        if (m->varlink_server)
-                return 1;
-
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        r = manager_setup_varlink_server(m, &s);
+        r = manager_setup_varlink_server(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up varlink server: %m");
+        bool fresh = r > 0;
 
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
                 FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
-                        if (MANAGER_IS_RELOADING(m)) {
-                                /* If manager is reloading, we skip listening on existing addresses, since
-                                 * the fd should be acquired later through deserialization. */
-                                if (access(address, F_OK) >= 0)
+                        if (!fresh) {
+                                /* We might have got sockets through deserialization. Do not bind to them twice. */
+
+                                bool found = false;
+                                LIST_FOREACH(sockets, ss, m->varlink_server->sockets)
+                                        if (path_equal(ss->address, address)) {
+                                                found = true;
+                                                break;
+                                        }
+
+                                if (found)
                                         continue;
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno,
-                                                               "Failed to check if varlink socket '%s' exists: %m", address);
                         }
 
-                        r = sd_varlink_server_listen_address(s, address, 0666);
+                        r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
                 }
         }
 
-        r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
-
-        m->varlink_server = TAKE_PTR(s);
         return 1;
 }
 
