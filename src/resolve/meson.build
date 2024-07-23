@@ -172,6 +172,9 @@ executables += [
                 'sources' : files('test-dns-packet-extract.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-rr.c'),
+        },
+        resolve_test_template + {
                 'sources' : files(
                         'test-resolved-etc-hosts.c',
                         'resolved-etc-hosts.c',
