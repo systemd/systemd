@@ -1143,7 +1143,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
 
 int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
-        bool made = false;
+        bool made_dir = false, made_file = false;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -1177,12 +1177,10 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 if (r == -EEXIST) {
                         if (FLAGS_SET(open_flags, O_EXCL))
                                 return -EEXIST;
-
-                        made = false;
                 } else if (r < 0)
                         return r;
                 else
-                        made = true;
+                        made_dir = true;
 
                 if (FLAGS_SET(xopen_flags, XO_LABEL)) {
                         r = label_ops_post(dir_fd, path);
@@ -1194,7 +1192,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 xopen_flags &= ~XO_LABEL;
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, open_flags, mode));
+        fd = RET_NERRNO(openat_report_new(dir_fd, path, open_flags, mode, &made_file));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1207,7 +1205,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                            -ENOTDIR))
                         return fd;
 
-                if (made)
+                if (made_dir)
                         (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
 
                 return fd;
@@ -1216,10 +1214,16 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
                 r = label_ops_post(dir_fd, path);
                 if (r < 0)
-                        return r;
+                        goto error;
         }
 
         return TAKE_FD(fd);
+
+error:
+        if (made_dir || made_file)
+                (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
+
+        return r;
 }
 
 int xopenat_lock_full(
