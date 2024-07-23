@@ -18,6 +18,13 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>https://systemd.io</vendor_url>
 
+        <!--
+            SECURITY: the default policy allows any user with an active session on the local console to check
+            for updates and update the system to the latest version without extra authentication.
+            Depending on the use case it might make sense to request authentication here, or add a polkit
+            rule to only allow access to these actions for members of a given group.
+        -->
+
         <action id="org.freedesktop.sysupdate1.check">
                 <description gettext-domain="systemd">Check for system updates</description>
                 <message gettext-domain="systemd">Authentication is required to check for system updates</message>
