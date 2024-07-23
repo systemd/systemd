@@ -558,7 +558,7 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context *context_new(sd_id128_t seed) {
+static Context* context_new(sd_id128_t seed) {
         Context *context;
 
         context = new(Context, 1);
@@ -585,7 +585,7 @@ static void context_free_free_areas(Context *context) {
         context->n_free_areas = 0;
 }
 
-static Context *context_free(Context *context) {
+static Context* context_free(Context *context) {
         if (!context)
                 return NULL;
 
@@ -3778,7 +3778,7 @@ static const char* partition_target_path(PartitionTarget *t) {
         return t->path;
 }
 
-static PartitionTarget *partition_target_free(PartitionTarget *t) {
+static PartitionTarget* partition_target_free(PartitionTarget *t) {
         if (!t)
                 return NULL;
 
