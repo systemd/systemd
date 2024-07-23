@@ -9,16 +9,16 @@
 #   udevadm trigger
 
 ################
-# Trezor HW Wallets
+# Trezor Hardware Wallets
 ################
 
 # Trezor v1
 usb:v534Cp0001*
- ID_TREZOR_HW=1
+ ID_HARDWARE_WALLET=1
 
 # Trezor v2
 usb:v1209p53C0*
- ID_TREZOR_HW=1
+ ID_HARDWARE_WALLET=1
 
 usb:v1209p53C1*
- ID_TREZOR_HW=1
+ ID_HARDWARE_WALLET=1
