@@ -253,6 +253,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pnM17xR3:*
  KEYBOARD_KEY_89=ejectcd
 
 ###########################################################
+# Aquarius
+###########################################################
+
+# Aquarius Cmp NS483
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAquarius*:pnCmp*NS483*:*
+ KEYBOARD_KEY_56=backslash
+ KEYBOARD_KEY_76=f21					# Touchpad Toggle
+
+###########################################################
 # Asus
 ###########################################################
 
@@ -290,10 +299,22 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC
 # All four of these buttons generate a multi-scancode sequence
 # consisting of Left_Meta, Right_Ctrl and another scancode.
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
- KEYBOARD_KEY_18=f13                              # LC (next to the left shoulder button)
- KEYBOARD_KEY_20=f14                              # RC (next to the right shoulder button)
- KEYBOARD_KEY_30=f15                              # Start (upper-right corner of screen)
- KEYBOARD_KEY_28=f16                              # Ayaneo (lower-right corner of screen)
+ KEYBOARD_KEY_18=f15                              # LC (next to the left shoulder button)
+ KEYBOARD_KEY_20=f16                              # RC (next to the right shoulder button)
+ KEYBOARD_KEY_28=f17                              # Ayaneo (lower-right corner of screen)
+ KEYBOARD_KEY_30=f18                              # Touchpad Mode (top-right corner of screen)
+
+# Most AYANEO devices expose an AT Translated Set 2 Keyboard
+# for either three or four additional buttons not available
+# on the Xbox360 controller. These buttons all generate a
+# multi-scancode sequence. The specific preceding codes
+# depend on the model, but the final scancode is always the
+# same.
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYANEO:*
+ KEYBOARD_KEY_66=f15                            # LC (All models)
+ KEYBOARD_KEY_67=f16                            # RC (All models)
+ KEYBOARD_KEY_68=f17                            # Ayaneo (All models)
+ KEYBOARD_KEY_69=f18                            # Touchpad Mode (Kun only)
 
 ###########################################################
 # BenQ
@@ -453,6 +474,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
  KEYBOARD_KEY_88=wlan
  KEYBOARD_KEY_65=direction                              # Screen Rotate
 
+# Dell Pro Rugged microphone mute
+evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnDellProRugged*:*
 # Dell G16 microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnDellG16*:*
 # Dell Latitude microphone mute
@@ -1525,6 +1548,11 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
 
+# MSI Claw
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
+ KEYBOARD_KEY_b9=f15                                   # Right Face Button
+ KEYBOARD_KEY_ba=f16                                   # Left Face Button
+
 ##########################################
 # NEC
 ##########################################
@@ -1646,6 +1674,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:*
  KEYBOARD_KEY_f3=volumeup
 
 ###########################################################
+# OrangePi
+###########################################################
+
+# NEO
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnOrangePi:pnNEO-01:*
+ KEYBOARD_KEY_66=f15                                    # Gamepad (front, bottom right)
+ KEYBOARD_KEY_67=f16                                    # Home (front, bottom left)
+
+###########################################################
 # Ortek
 ###########################################################
 
@@ -1731,6 +1768,15 @@ evdev:input:b0003v047FpC006*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
  KEYBOARD_KEY_88=media                                  # "quick play
+
+###########################################################
+# Redmi
+###########################################################
+
+# RedmiBook Pro 15 2022
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTIMI:pnRedmiBookPro152022:pvr*
+ KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
+ KEYBOARD_KEY_dd=rightctrl                              # Right Ctrl is preferrable over Menu
 
 ###########################################################
 # Samsung
@@ -2183,6 +2229,13 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
  KEYBOARD_KEY_7006c=prog2                               # Programmable button
  KEYBOARD_KEY_7006d=prog3                               # Programmable button
  KEYBOARD_KEY_7006e=prog4                               # Programmable button
+
+###########################################################
+# Multilaser
+###########################################################
+# Multilaser Ultra (UL154)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
+ KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
 
 ###########################################################
 # Other

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """
-Fetch commits for pkg/{distribution} and, if changed, commit the latest hash.
+Check out pkg/{distribution}.
+With -u, fetch commits, and if changed, commit the latest hash.
 """
 
 import argparse
@@ -25,6 +26,11 @@ def parse_args():
         action='store_false',
         default=True,
     )
+    p.add_argument(
+        '--update', '-u',
+        action='store_true',
+        default=False,
+    )
     return p.parse_args()
 
 def read_config(distro: str):
@@ -46,15 +52,41 @@ def commit_file(distro: str, file: Path, commit: str, changes: str):
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
-def update_distro(args, distro: str):
-    cmd = ['git', '-C', f'pkg/{distro}', 'fetch']
+def checkout_distro(args, distro: str, config: dict):
+    dest = Path(f'pkg/{distro}')
+    if dest.exists():
+        print(f'{dest} already exists.')
+        return
+
+    url = config['Environment']['GIT_URL']
+    branch = config['Environment']['GIT_BRANCH']
+
+    # Only debian uses source-git for now…
+    reference = [f'--reference-if-able=.'] if distro == 'debian' else []
+
+    cmd = [
+        'git', 'clone', url,
+        f'--branch={branch}',
+        dest.as_posix(),
+        *reference,
+    ]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
-    config = read_config(distro)
+    args.fetch = False  # no need to fetch if we just cloned
 
+def update_distro(args, distro: str, config: dict):
     branch = config['Environment']['GIT_BRANCH']
     old_commit = config['Environment']['GIT_COMMIT']
+
+    cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
+    print(f"+ {shlex.join(cmd)}")
+    subprocess.check_call(cmd)
+
+    cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
+           f'{branch}:remotes/origin/{branch}']
+    print(f"+ {shlex.join(cmd)}")
+    subprocess.check_call(cmd)
 
     cmd = ['git', '-C', f'pkg/{distro}', 'rev-parse', f'refs/remotes/origin/{branch}']
     print(f"+ {shlex.join(cmd)}")
@@ -86,5 +118,9 @@ def update_distro(args, distro: str):
 
 if __name__ == '__main__':
     args = parse_args()
+
     for distro in args.distribution:
-        update_distro(args, distro)
+        config = read_config(distro)
+        checkout_distro(args, distro, config)
+        if args.update:
+            update_distro(args, distro, config)
