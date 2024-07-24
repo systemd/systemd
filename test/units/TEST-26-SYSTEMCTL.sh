@@ -21,6 +21,8 @@ at_exit() {
 #       the 'revert' verb as well
 export UNIT_NAME="systemctl-test-$RANDOM.service"
 export UNIT_NAME2="systemctl-test-$RANDOM.service"
+export UNIT_NAME_NE="systemctl-test-$RANDOM.service"
+export UNIT_NAME_PREFIX="systemctl-test-.service"
 
 cat >"/usr/lib/systemd/system/$UNIT_NAME" <<\EOF
 [Unit]
@@ -72,6 +74,12 @@ printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME2.d/override2
 
 # Double free when editing a template unit (#26483)
 EDITOR='true' script -ec 'systemctl edit user@0' /dev/null
+
+# Check that we cannot edit a nonexistent unit
+assert_rc 1 systemctl edit "$UNIT_NAME_NE" --stdin </dev/null
+# ...However, we _can_ edit a drop-in for a "dash prefix" (e.g. app-gnome-firefox-.scope) even if the unit
+# does not exist (which would always be the case) (see #8271)
+assert_rc 0 systemctl edit "$UNIT_NAME_PREFIX" --stdin </dev/null
 
 # Argument help
 systemctl --state help
