@@ -14,9 +14,13 @@
 #include "tests.h"
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
+assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(-EINVAL)));
 assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
+assert_cc(!IS_SYNTHETIC_ERRNO(-EINVAL));
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
 assert_cc(!IS_SYNTHETIC_ERRNO(0));
+assert_cc(ERRNO_VALUE(EINVAL) == EINVAL);
+assert_cc(ERRNO_VALUE(SYNTHETIC_ERRNO(-EINVAL) == EINVAL));
 
 #define X10(x) x x x x x x x x x x
 #define X100(x) X10(X10(x))
