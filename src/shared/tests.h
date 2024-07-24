@@ -227,6 +227,16 @@ static inline int run_test_table(void) {
                 }                                                                                               \
         })
 
+#define ASSERT_FAIL(expr)                                                                                       \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result >= 0) {                                                                             \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
 #define ASSERT_ERROR(expr1, expr2)                                                                              \
         ({                                                                                                      \
                 int _expr1 = (expr1);                                                                           \
