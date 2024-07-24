@@ -596,7 +596,7 @@ static int vl_reply(sd_varlink *link, sd_json_variant *parameters, const char *e
         if (error_id)
                 log_debug("varlink systemd-oomd client error: %s", error_id);
 
-        if (FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR) && FLAGS_SET(flags, SD_VARLINK_REPLY_LOCAL)) {
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL)) {
                 /* sd_varlink connection was closed, likely because of systemd-oomd restart. Let's try to
                  * reconnect and send the initial ManagedOOM update again. */
 
