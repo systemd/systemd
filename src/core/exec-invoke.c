@@ -2893,16 +2893,6 @@ static int setup_ephemeral(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
-
-                /* A root image might be subject to lots of random writes so let's try to disable COW on it
-                 * which tends to not perform well in combination with lots of random writes.
-                 *
-                 * Note: btrfs actually isn't impressed by us setting the flag after making the reflink'ed
-                 * copy, but we at least want to make the intention clear.
-                 */
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
         } else {
                 assert(*root_directory);
 

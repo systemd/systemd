@@ -1205,8 +1205,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic_full(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, FS_NOCOW_FL,
-                                          COPY_REFLINK|COPY_CRTIME, NULL, NULL);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, COPY_REFLINK|COPY_CRTIME);
                 break;
 
         case IMAGE_BLOCK:
