@@ -3707,20 +3707,13 @@ int manager_reload(Manager *m) {
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
-        lookup_paths_done(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL);
-        if (r < 0)
-                return r;
-
         (void) manager_run_environment_generators(m);
         (void) manager_run_generators(m);
-
-        lookup_paths_log(&m->lookup_paths);
 
         /* We flushed out generated files, for which we don't watch mtime, so we should flush the old map. */
         manager_free_unit_name_maps(m);
