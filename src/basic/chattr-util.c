@@ -148,15 +148,15 @@ int read_attr_fd(int fd, unsigned *ret) {
         return RET_NERRNO(ioctl(fd, FS_IOC_GETFLAGS, ret));
 }
 
-int read_attr_path(const char *p, unsigned *ret) {
+int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(p);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return read_attr_fd(fd, ret);
 }
