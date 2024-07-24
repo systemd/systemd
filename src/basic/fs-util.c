@@ -1114,8 +1114,27 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 if (errno != EEXIST)
                         return -errno;
 
-                /* Hmm, so now we got EEXIST? So it apparently exists now? If so, let's try to open again
-                 * without the two flags. But let's not spin forever, hence put a limit on things */
+                /* Hmm, so now we got EEXIST? This can indicate two things. First, if the path points to a
+                 * dangling symlink, the first openat() will fail with ENOENT because the symlink is resolved
+                 * and the second openat() will fail with EEXIST because symlinks are not followed when
+                 * O_CREAT|O_EXCL is specified. Let's check for this explicitly and fall back to opening with
+                 * just O_CREAT and assume we're the ones that created the file. */
+
+                struct stat st;
+                if (fstatat(dirfd, pathname, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+
+                if (S_ISLNK(st.st_mode)) {
+                        fd = openat(dirfd, pathname, flags | O_CREAT, mode);
+                        if (fd < 0)
+                                return -errno;
+
+                        *ret_newly_created = true;
+                        return fd;
+                }
+
+                /* If we're not operating on a symlink, someone might have created the file between the first
+                 * and second call to openat(). Let's try again but with a limit so we don't spin forever. */
 
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
                         return -EEXIST;
