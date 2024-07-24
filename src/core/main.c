@@ -58,6 +58,7 @@
 #include "initrd-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -2997,6 +2998,7 @@ int main(int argc, char *argv[]) {
         const char *error_message = NULL;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
+        struct libmnt_cache *tag_cache = NULL;
         FDSet *fds = NULL;
 
         assert_se(argc > 0 && !isempty(argv[0]));
@@ -3283,6 +3285,14 @@ int main(int argc, char *argv[]) {
                 error_message = "Failed to allocate manager object";
                 goto finish;
         }
+
+        tag_cache = mnt_new_cache();
+        if (!tag_cache) {
+                log_emergency_errno(errno, "Failed to allocate libmnt_cache object: %m");
+                error_message = "Failed to allocate libmnt_cache object";
+                goto finish;
+        }
+        m->tag_cache = tag_cache;
 
         m->timestamps[MANAGER_TIMESTAMP_KERNEL] = kernel_timestamp;
         m->timestamps[MANAGER_TIMESTAMP_INITRD] = initrd_timestamp;
