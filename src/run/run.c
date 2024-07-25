@@ -28,6 +28,8 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "main-func.h"
+#include "missing_ioprio.h"
+#include "missing_syscall.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -83,6 +85,21 @@ static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
+static enum {
+        ARG_PROFILE_NONE,
+        ARG_PROFILE_IDLE,
+        ARG_PROFILE_BATCH,
+} arg_profile = ARG_PROFILE_NONE;
+static const char* const PROFILE_PROPERTIES_IDLE[3] = {
+        "CPUSchedulingPolicy=idle",
+        "IOSchedulingClass=idle",
+        NULL,
+};
+static const char* const PROFILE_PROPERTIES_BATCH[3] = {
+        "CPUSchedulingPolicy=batch",
+        "IOSchedulingPriority=6",
+        NULL,
+};
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -113,6 +130,7 @@ static int help(void) {
                "  -M --machine=CONTAINER          Operate on local container\n"
                "     --scope                      Run this as scope rather than service\n"
                "  -u --unit=UNIT                  Run under the specified unit name\n"
+               "     --profile=<idle|batch>       Run with the given profile\n"
                "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
@@ -263,6 +281,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHELL,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
+                ARG_PROFILE,
         };
 
         static const struct option options[] = {
@@ -273,6 +292,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "capsule",            required_argument, NULL, 'C'                    },
                 { "scope",              no_argument,       NULL, ARG_SCOPE              },
                 { "unit",               required_argument, NULL, 'u'                    },
+                { "profile",            required_argument, NULL, ARG_PROFILE,           },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
                 { "slice",              required_argument, NULL, ARG_SLICE              },
                 { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
@@ -363,6 +383,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_unit = optarg;
+                        break;
+
+                case ARG_PROFILE:
+                        if (strcmp(optarg, "idle") == 0)
+                                arg_profile = ARG_PROFILE_IDLE;
+                        else if (strcmp(optarg, "batch") == 0)
+                                arg_profile = ARG_PROFILE_BATCH;
+                        else {
+                                log_error("Invalid profile argument: %s", optarg);
+                                return -1;
+                        }
+
                         break;
 
                 case ARG_DESCRIPTION:
@@ -1126,6 +1158,24 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
                 if (r < 0)
                         return bus_log_create_error(r);
+        }
+
+        char** profile_properties;
+        switch (arg_profile) {
+        case ARG_PROFILE_NONE:
+                profile_properties = NULL;
+                break;
+        case ARG_PROFILE_IDLE:
+                profile_properties = (char**) PROFILE_PROPERTIES_IDLE;
+                break;
+        case ARG_PROFILE_BATCH:
+                profile_properties = (char**) PROFILE_PROPERTIES_BATCH;
+                break;
+        }
+        if (profile_properties) {
+                r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, profile_properties);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_working_directory) {
@@ -2072,6 +2122,31 @@ static int start_transient_scope(sd_bus *bus) {
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
                         return log_error_errno(errno, "Failed to set nice level: %m");
+        }
+
+        if (arg_profile != ARG_PROFILE_NONE) {
+                int ioprio;
+                struct sched_param param = {
+                        .sched_priority = 0,
+                };
+                switch (arg_profile) {
+                case ARG_PROFILE_NONE:
+                        break;
+                case ARG_PROFILE_BATCH:
+                        if (sched_setscheduler(0, SCHED_BATCH, &param) < 0)
+                                return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
+                        ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 6);
+                        if (ioprio_set(IOPRIO_WHO_PROCESS, 0, ioprio) < 0)
+                                return log_error_errno(errno, "Failed to set up IO scheduling priority: %m");
+                        break;
+                case ARG_PROFILE_IDLE:
+                        if (sched_setscheduler(0, SCHED_IDLE, &param) < 0)
+                                return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
+                        ioprio = ioprio_prio_value(IOPRIO_CLASS_IDLE, 0);
+                        if (ioprio_set(IOPRIO_WHO_PROCESS, 0, ioprio) < 0)
+                                return log_error_errno(errno, "Failed to set up IO scheduling priority: %m");
+                        break;
+                }
         }
 
         if (arg_exec_group) {
