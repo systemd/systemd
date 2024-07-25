@@ -411,7 +411,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
