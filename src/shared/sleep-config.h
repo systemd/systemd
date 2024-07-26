@@ -33,6 +33,7 @@ typedef struct SleepConfig {
         char **mem_modes;                           /* /sys/power/mem_sleep */
 
         usec_t hibernate_delay_usec;
+        bool hibernate_on_ac_power;
         usec_t suspend_estimation_usec;
 } SleepConfig;
 
