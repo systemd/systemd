@@ -421,6 +421,9 @@ typedef struct Unit {
         /* Is this a unit that is always running and cannot be stopped? */
         bool perpetual;
 
+        /* When true logs about this unit will be at debug level regardless of other log level settings */
+        bool debug_invocation;
+
         /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
         bool in_dbus_queue:1;
@@ -984,6 +987,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
 void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);
+int unit_overwrite_log_level_max(Unit *u, int log_level_max);
 
 int unit_prepare_exec(Unit *u);
 
@@ -998,8 +1002,9 @@ static inline bool unit_has_job_type(Unit *u, JobType type) {
 }
 
 static inline bool unit_log_level_test(const Unit *u, int level) {
+        assert(u);
         ExecContext *ec = unit_get_exec_context(u);
-        return !ec || ec->log_level_max < 0 || ec->log_level_max >= LOG_PRI(level);
+        return !ec || ec->log_level_max < 0 || ec->log_level_max >= LOG_PRI(level) || u->debug_invocation;
 }
 
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
