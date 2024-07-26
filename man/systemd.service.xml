@@ -955,6 +955,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartWithDebug=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument. If true, when the service is restarted due to
+          <varname>Restart=</varname> the service manager will log messages that are related to this unit at
+          debug level while automated restarts are attempted, until either the service hits the rate limit
+          or it succeeds. This is useful to be able to get additional information when a service fails to
+          start, without needing to proactively or permanently enable debug level logging in systemd, which
+          is very verbose. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service

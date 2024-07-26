@@ -2702,6 +2702,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t RestartUSecNext = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b RestartWithDebug = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimeoutStartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimeoutStopUSec = ...;
@@ -3378,6 +3380,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartUSecNext is not documented!-->
 
+    <!--property RestartWithDebug is not documented!-->
+
     <!--property TimeoutStartFailureMode is not documented!-->
 
     <!--property TimeoutStopFailureMode is not documented!-->
@@ -3981,6 +3985,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RestartMaxDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecNext"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartWithDebug"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartUSec"/>
 
@@ -12099,6 +12105,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExecMainHandoffTimestampMonotonic</varname>, and
       <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
       <para><varname>StatusBusError</varname>,
+      <varname>RestartWithDebug</varname>,
       <varname>StatusVarlinkError</varname>, and
       <varname>PrivateTmpEx</varname> were added in version 257.</para>
     </refsect2>

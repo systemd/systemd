@@ -5582,7 +5582,7 @@ static int unit_export_invocation_id(Unit *u) {
         return 0;
 }
 
-static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
+static int unit_export_log_level_max(Unit *u, const ExecContext *c, bool overwrite) {
         const char *p;
         char buf[2];
         int r;
@@ -5590,7 +5590,7 @@ static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (u->exported_log_level_max)
+        if (!overwrite && u->exported_log_level_max)
                 return 0;
 
         if (c->log_level_max < 0)
@@ -5748,7 +5748,7 @@ void unit_export_state_files(Unit *u) {
 
         c = unit_get_exec_context(u);
         if (c) {
-                (void) unit_export_log_level_max(u, c);
+                (void) unit_export_log_level_max(u, c, /* overwrite= */ false);
                 (void) unit_export_log_extra_fields(u, c);
                 (void) unit_export_log_ratelimit_interval(u, c);
                 (void) unit_export_log_ratelimit_burst(u, c);
@@ -5804,6 +5804,10 @@ void unit_unlink_state_files(Unit *u) {
 
                 u->exported_log_ratelimit_burst = false;
         }
+}
+
+int unit_overwrite_log_level_max(Unit *u, const ExecContext *c) {
+        return unit_export_log_level_max(u, c, /* overwrite= */ true);
 }
 
 int unit_prepare_exec(Unit *u) {

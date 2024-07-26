@@ -165,4 +165,25 @@ rm /run/notify-reload-test.sh
 
 systemd-analyze log-level info
 
+# Ensure that, with system log level info, we get debug level messages when a unit fails to start and is
+# restarted with RestartWithDebug=yes
+cat >/run/systemd/system/testservice-fail-restart-debug-59.service <<EOF
+[Unit]
+Description=TEST-59-RELOADING-RESTART Restart=on-failure RestartWithDebug=yes
+
+[Service]
+ExecStart=echo hello
+Restart=on-failure
+RestartWithDebug=yes
+StartLimitBurst=3
+MountAPIVFS=yes
+BindPaths=/nonexistent
+EOF
+
+systemctl daemon-reload
+systemctl start testservice-fail-restart-debug-59.service
+wait_on_state_or_fail "testservice-fail-restart-debug-59.service" "failed" "15"
+journalctl --sync
+journalctl -b -u testservice-fail-restart-debug-59.service | grep -q "Failed to follow symlinks on /nonexistent: No such file or directory"
+
 touch /testok
