@@ -74,7 +74,7 @@ testcase_attributes() {
 
 testcase_scope_unpriv_delegation() {
     # Check that unprivileged delegation works for scopes
-    useradd test ||:
+    useradd test
     trap "userdel -r test" RETURN
     systemd-run --uid=test \
                 --property="User=test" \
