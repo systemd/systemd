@@ -15,6 +15,10 @@ CHANGES WITH 257 in spe:
           only cgroup v2 ('unified' hierarchy) can be selected as build-time
           default.
 
+        * systemd-run's --expand-environment= switch, which was disabled
+          by default when combined with --scope, has been changed to to be
+          enabled by default.
+
         * Support for System V service scripts is deprecated and will be
           removed in a future release. Please make sure to update your software
           *now* to include a native systemd unit file instead of a legacy
@@ -26,10 +30,6 @@ CHANGES WITH 257 in spe:
           approaches like credentials and confexts. The plan is to drop support
           altogether at a later point, but this might be revisited based on
           user feedback.
-
-        * systemd-run's switch --expand-environment= which currently is disabled
-          by default when combined with --scope, will be changed in a future
-          release to be enabled by default.
 
         — <place>, <date>
 
