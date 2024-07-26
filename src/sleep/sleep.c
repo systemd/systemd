@@ -390,7 +390,15 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                         }
                 }
 
-                /* Do not suspend more than HibernateDelaySec= */
+                /* Do not suspend more than HibernateDelaySec= unless HibernateOnACPower=no and currently on AC power */
+                if (!sleep_config->hibernate_on_ac_power) {
+                        /* Do not allow "decay" to suspend if the system has no battery. */
+                        if (hashmap_isempty(last_capacity))
+                                log_once(LOG_WARNING, "HibernateOnACPower=no was ignored because the system does not have a battery.");
+                        else if (on_ac_power() > 0)
+                                hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
+                }
+
                 usec_t before_timestamp = now(CLOCK_BOOTTIME);
                 suspend_interval = MIN(suspend_interval, usec_sub_unsigned(hibernate_timestamp, before_timestamp));
                 if (suspend_interval <= 0)
