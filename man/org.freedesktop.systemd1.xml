@@ -3148,7 +3148,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly i SyslogLevel = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SyslogFacility = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly i LogLevelMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LogRateLimitIntervalUSec = ...;
@@ -5273,7 +5273,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly i SyslogLevel = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SyslogFacility = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly i LogLevelMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LogRateLimitIntervalUSec = ...;
@@ -7252,7 +7252,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly i SyslogLevel = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SyslogFacility = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly i LogLevelMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LogRateLimitIntervalUSec = ...;
@@ -9192,7 +9192,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly i SyslogLevel = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SyslogFacility = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly i LogLevelMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LogRateLimitIntervalUSec = ...;
