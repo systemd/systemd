@@ -1728,7 +1728,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 14);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1830,6 +1830,13 @@ static int service_spawn_internal(
                         if (asprintf(our_env + n_env++, "%sUNIT=%s", monitor_prefix, UNIT(env_source)->id) < 0)
                                 return -ENOMEM;
                 }
+        }
+
+        if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && UNIT(s)->debug_invocation) {
+                char *t = strdup("DEBUG_INVOCATION=1");
+                if (!t)
+                        return -ENOMEM;
+                our_env[n_env++] = t;
         }
 
         if (UNIT(s)->activation_details) {
@@ -2073,12 +2080,27 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
+                /* If the relevant option is set, and the unit doesn't already have logging level set to
+                 * debug, enable it now. Make sure to overwrite the state in /run/systemd/units/ too, to
+                 * ensure journald doesn't prune the messages. The previous state is saved and restored
+                 * once the auto-restart flow ends. */
+                if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && !UNIT(s)->debug_invocation) {
+                        UNIT(s)->debug_invocation = true;
+                        unit_overwrite_log_level_max(UNIT(s), LOG_PRI(LOG_DEBUG));
+                }
+
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else
+        } else {
                 /* If we shan't restart, the restart counter would be flushed out. But rather than doing that
                  * immediately here, this is delegated to service_start(), i.e. next start, so that the user
                  * can still introspect the counter. */
                 service_set_state(s, end_state);
+
+                if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && UNIT(s)->debug_invocation) {
+                        UNIT(s)->debug_invocation = false;
+                        unit_overwrite_log_level_max(UNIT(s), s->exec_context.log_level_max);
+                }
+        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
@@ -5114,6 +5136,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] = {
         [SERVICE_RESTART_MODE_NORMAL] = "normal",
         [SERVICE_RESTART_MODE_DIRECT] = "direct",
+        [SERVICE_RESTART_MODE_DEBUG]  = "debug",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);
