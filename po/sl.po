@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Martin Srebotnjak <miles@filmsi.net>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2024-07-26 14:38+0000\n"
-"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
 "Language: sl\n"
@@ -169,9 +171,8 @@ msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Prepogosti poskusi prijave uporabnika/ce %s, poskusite znova pozneje."
 
 #: src/home/pam_systemd_home.c:310
-#, fuzzy
 msgid "Password: "
-msgstr "geslo "
+msgstr "Geslo: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
