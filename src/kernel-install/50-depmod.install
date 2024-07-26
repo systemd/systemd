@@ -44,6 +44,7 @@ case "$COMMAND" in
             "/lib/modules/$KERNEL_VERSION/modules.dep.bin" \
             "/lib/modules/$KERNEL_VERSION/modules.devname" \
             "/lib/modules/$KERNEL_VERSION/modules.softdep" \
+            "/lib/modules/$KERNEL_VERSION/modules.weakdep" \
             "/lib/modules/$KERNEL_VERSION/modules.symbols" \
             "/lib/modules/$KERNEL_VERSION/modules.symbols.bin"
         ;;
