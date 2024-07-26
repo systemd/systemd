@@ -92,19 +92,17 @@
       <varlistentry>
         <term><option>--mode=</option></term>
 
-        <listitem><para>Takes either <literal>block</literal> or
-        <literal>delay</literal> and describes how the lock is
-        applied. If <literal>block</literal> is used (the default),
-        the lock prohibits any of the requested operations without
-        time limit, and only privileged users may override it. If
-        <literal>delay</literal> is used, the lock can only delay the
-        requested operations for a limited time. If the time elapses,
-        the lock is ignored and the operation executed. The time limit
-        may be specified in
+        <listitem><para>Takes <literal>block</literal>, <literal>delay</literal>,
+        <literal>block-weak</literal> or <literal>delay-weak</literal> and describes how the lock is
+        applied. If <literal>block</literal> is used (the default), the lock prohibits any of the requested
+        operations without time limit, and only privileged users may override it. If
+        <literal>delay</literal> is used, the lock can only delay the requested operations for a limited
+        time. If the time elapses, the lock is ignored and the operation executed. The time limit may be
+        specified in
         <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Note that <literal>delay</literal> is only available for
-        <literal>sleep</literal> and
-        <literal>shutdown</literal>.</para></listitem>
+        Note that <literal>delay</literal> is only available for <literal>sleep</literal> and
+        <literal>shutdown</literal>. In addition, the weak variants will automatically and silently be
+        bypassed under some circumstances.</para></listitem>
       </varlistentry>
 
       <varlistentry>

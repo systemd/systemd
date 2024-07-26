@@ -311,7 +311,7 @@ static int property_get_inhibited(
         assert(bus);
         assert(reply);
 
-        w = manager_inhibit_what(m, streq(property, "BlockInhibited") ? INHIBIT_BLOCK : INHIBIT_DELAY);
+        w = manager_inhibit_what(m, /* block= */ streq(property, "BlockInhibited"));
 
         return sd_bus_message_append(reply, "s", inhibit_what_to_string(w));
 }
@@ -1881,7 +1881,7 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, /* block= */ false, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 if (!timeout)
@@ -1978,7 +1978,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, a->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, NULL);
+                manager_is_inhibited(m, a->inhibit_what, /* block= */ false, NULL, false, false, 0, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -2021,7 +2021,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2040,17 +2040,23 @@ static int verify_shutdown_creds(
         }
 
         if (blocked) {
-                /* We don't check polkit for root here, because you can't be more privileged than root */
-                if (uid == 0 && (flags & SD_LOGIND_ROOT_CHECK_INHIBITORS))
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
-                                                 "Access denied to root due to active block inhibitor");
+                                                 "Access denied due to active block inhibitor");
+
+                /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
+                 * by polkit */
+                PolkitFlags polkit_flags = POLKIT_ALWAYS_QUERY;
+
+                if (interactive)
+                        polkit_flags |= POLKIT_ALLOW_INTERACTIVE;
 
                 r = bus_verify_polkit_async_full(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
                                 /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                polkit_flags,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2749,7 +2755,7 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
 
         if (check_unit_state && a->target) {
                 _cleanup_free_ char *load_state = NULL;
@@ -3587,7 +3593,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                          "Invalid mode specification %s", mode);
 
         /* Delay is only supported for shutdown/sleep */
-        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+        if (IN_SET(mm, INHIBIT_DELAY, INHIBIT_DELAY_WEAK) && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Delay inhibitors only supported for shutdown and sleep");
 
@@ -3604,8 +3610,8 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
                 r = bus_verify_polkit_async(
                                 message,
-                                v == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                                v == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                                v == INHIBIT_SHUTDOWN             ? (IN_SET(mm, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                                v == INHIBIT_SLEEP                ? (IN_SET(mm, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
                                 v == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
                                 v == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
                                 v == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
