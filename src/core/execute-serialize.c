@@ -1419,6 +1419,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-parameters-debug-invocation", p->debug_invocation);
+        if (r < 0)
+                return r;
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -1681,6 +1685,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         sd_id128_to_string(p->invocation_id, p->invocation_id_string);
+                } else if ((val = startswith(l, "exec-parameters-debug-invocation="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->debug_invocation = r;
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
