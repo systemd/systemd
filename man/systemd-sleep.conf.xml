@@ -228,6 +228,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>HibernateOnACPower=</varname></term>
+
+        <listitem>
+          <para>Whether to allow hibernation when the system has AC power. Only used by
+          <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          when <varname>HibernateDelaySec=</varname> is set.</para>
+
+          <para>If this option is disabled, the countdown of <varname>HibernateDelaySec=</varname> starts only
+          after AC power is disconnected, keeping the system in the suspend state otherwise.</para>
+
+          <para>This option is only effective on systems with a battery.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuspendEstimationSec=</varname></term>
 
         <listitem>
