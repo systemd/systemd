@@ -43,6 +43,12 @@
     The variables whose name begins with <literal>search-</literal>
     do not refer to individual paths, but instead to a list of
     colon-separated search paths, in their order of precedence.</para>
+
+    <para>Note that paths which depend on environment variables are
+    computed with <command>systemd-path</command>'s invoked
+    environment, and not the system or user manager's environment. As
+    such, the output of <command>systemd-path</command> may not
+    reflect the behavior of manager processes.</para>
   </refsect1>
 
   <refsect1>
