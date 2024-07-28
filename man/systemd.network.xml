@@ -1682,7 +1682,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           one of predefined names <literal>default</literal>, <literal>main</literal>, and
           <literal>local</literal>, and names defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
+          or a number between 1 and 4294967295. Defaults to <literal>main</literal>.
+          Ignored if <varname>L3MasterDevice=</varname> is true.</para>
 
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
@@ -2053,7 +2054,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <command>ip route show table <replaceable>num</replaceable></command>. If unset and
           <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
           <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
-          In other cases, defaults to <literal>main</literal>. Ignored if <varname>L3MasterDevice=</varname> is true.</para>
+          In other cases, defaults to <literal>main</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
