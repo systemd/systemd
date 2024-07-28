@@ -1546,6 +1546,7 @@ int config_parse_routing_policy_rule_l3mdev(
                 return 0;
         }
 
+        n->table = RT_TABLE_UNSPEC;
         n->l3mdev = r;
 
         TAKE_PTR(n);
