@@ -1601,6 +1601,24 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--scale-svg=<replaceable>FACTOR</replaceable></option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the x-axis of the plot
+        can be stretched by FACTOR (default: 1.0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--detailed</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, activation timestamps
+        details can be seen in SVG plot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
