@@ -48,7 +48,7 @@ static int send_reload(UdevConnection *conn) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_reload(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
@@ -61,7 +61,7 @@ static int send_set_log_level(UdevConnection *conn, int level) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_set_log_level(conn->uctrl, level);
 
         r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("level", SD_JSON_BUILD_INTEGER(level)));
@@ -75,7 +75,7 @@ static int send_stop_exec_queue(UdevConnection *conn) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_stop_exec_queue(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.udev.StopExecQueue", NULL, NULL);
@@ -85,7 +85,7 @@ static int send_start_exec_queue(UdevConnection *conn) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_start_exec_queue(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.udev.StartExecQueue", NULL, NULL);
@@ -122,7 +122,7 @@ static int send_set_env(UdevConnection *conn, char **env) {
         assert(env);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link) {
+        if (conn->uctrl) {
                 STRV_FOREACH(e, env) {
                         r = udev_ctrl_send_set_env(conn->uctrl, *e);
                         if (r < 0)
@@ -177,7 +177,7 @@ static int send_set_children_max(UdevConnection *conn, unsigned n) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_set_children_max(conn->uctrl, n);
 
         r = sd_json_build(&v, SD_JSON_BUILD_PAIR("n", SD_JSON_BUILD_UNSIGNED(n)));
@@ -191,7 +191,7 @@ static int send_exit(UdevConnection *conn) {
         assert(conn);
         assert(!conn->link != !conn->uctrl);
 
-        if (!conn->link)
+        if (conn->uctrl)
                 return udev_ctrl_send_exit(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.udev.Exit", NULL, NULL);
