@@ -824,6 +824,9 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                                 path_prepend(&path, "cs-%s", sysnum);
                                 parent = skip_subsystem(parent, "spi");
                         }
+                } else if (device_in_subsystem(parent, "i2c")) {
+                        path_prepend(&path, "i2c-%s", sysname);
+                        parent = skip_subsystem(parent, "i2c");
                 }
 
                 if (!parent)
