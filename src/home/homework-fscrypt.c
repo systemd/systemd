@@ -12,6 +12,7 @@
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
+#include "keyring-util.h"
 #include "memory-util.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
@@ -28,6 +29,98 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+static int fscrypt_unlink_key(UserRecord *h) {
+        _cleanup_free_ void *keyring = NULL;
+        size_t keyring_size = 0, n_keys = 0;
+        int r;
+
+        assert(h);
+        assert(user_record_storage(h) == USER_FSCRYPT);
+
+        r = fully_set_uid_gid(
+                        h->uid,
+                        user_record_gid(h),
+                        /* supplementary_gids= */ NULL,
+                        /* n_supplementary_gids= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m",
+                                       h->uid, user_record_gid(h));
+
+        r = keyring_read(KEY_SPEC_USER_KEYRING, &keyring, &keyring_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read the keyring of user " UID_FMT ": %m", h->uid);
+
+        n_keys = keyring_size / sizeof(key_serial_t);
+        assert(keyring_size % sizeof(key_serial_t) == 0);
+
+        /* Find any key with a description starting with 'fscrypt:' and unlink it. We need to iterate as we
+         * store the key with a description that uses the hash of the secret key, that we do not have when
+         * we are deactivating. */
+        FOREACH_ARRAY(key, ((key_serial_t *) keyring), n_keys) {
+                _cleanup_free_ char *description = NULL;
+                char *d;
+
+                r = keyring_describe(*key, &description);
+                if (r < 0) {
+                        if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
+                                continue;
+
+                        return log_error_errno(r, "Failed to describe key id %d: %m", *key);
+                }
+
+                /* The description is the final element as per manpage. */
+                d = strrchr(description, ';');
+                if (!d)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Failed to parse description of key id %d: %s",
+                                        *key,
+                                        description);
+
+                if (!startswith(d + 1, "fscrypt:"))
+                        continue;
+
+                r = keyctl(KEYCTL_UNLINK, *key, KEY_SPEC_USER_KEYRING, 0, 0);
+                if (r < 0) {
+                        if (errno == ENOKEY) /* Something else deleted it already, that's ok. */
+                                continue;
+
+                        return log_error_errno(
+                                        errno,
+                                        "Failed to delete encryption key with id '%d' from the keyring of user " UID_FMT ": %m",
+                                        *key,
+                                        h->uid);
+                }
+
+                log_debug("Deleted encryption key with id '%d' from the keyring of user " UID_FMT ".", *key, h->uid);
+        }
+
+        return 0;
+}
+
+int home_flush_keyring_fscrypt(UserRecord *h) {
+        int r;
+
+        assert(h);
+        assert(user_record_storage(h) == USER_FSCRYPT);
+
+        if (!uid_is_valid(h->uid))
+                return 0;
+
+        r = safe_fork("(sd-delkey)",
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                      NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (fscrypt_unlink_key(h) < 0)
+                        _exit(EXIT_FAILURE);
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
+}
 
 static int fscrypt_upload_volume_key(
                 const uint8_t key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
@@ -131,7 +224,7 @@ static int fscrypt_slot_try_one(
                             salt, salt_size,
                             0xFFFF, EVP_sha512(),
                             sizeof(derived), derived) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed.");
 
         context = EVP_CIPHER_CTX_new();
         if (!context)
@@ -212,7 +305,7 @@ static int fscrypt_setup(
 
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
-                return log_error_errno(errno, "Failed to retrieve xattr list: %m");
+                return log_error_errno(r, "Failed to retrieve xattr list: %m");
 
         NULSTR_FOREACH(xa, xattr_buf) {
                 _cleanup_free_ void *salt = NULL, *encrypted = NULL;
@@ -236,7 +329,7 @@ static int fscrypt_setup(
 
                 e = memchr(value, ':', n);
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator: %m", xa);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
                 r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
                 if (r < 0)
@@ -635,7 +728,7 @@ int home_passwd_fscrypt(
 
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
-                return log_error_errno(errno, "Failed to retrieve xattr list: %m");
+                return log_error_errno(r, "Failed to retrieve xattr list: %m");
 
         NULSTR_FOREACH(xa, xattr_buf) {
                 const char *nr;

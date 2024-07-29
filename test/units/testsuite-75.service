@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=Tests for systemd-resolved
-
-[Service]
-ExecStartPre=rm -f /failed /testok
-ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-Type=oneshot

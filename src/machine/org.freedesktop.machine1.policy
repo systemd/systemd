@@ -91,6 +91,17 @@
                 <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login</annotate>
         </action>
 
+        <action id="org.freedesktop.machine1.create-machine">
+                <description gettext-domain="systemd">Create a local virtual machine or container</description>
+                <message gettext-domain="systemd">Authentication is required to create a local virtual machine or container.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login</annotate>
+        </action>
+
         <action id="org.freedesktop.machine1.manage-images">
                 <description gettext-domain="systemd">Manage local virtual machine and container images</description>
                 <message gettext-domain="systemd">Authentication is required to manage local virtual machine and container images.</message>

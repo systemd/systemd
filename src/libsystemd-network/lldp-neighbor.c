@@ -5,6 +5,7 @@
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "lldp-neighbor.h"
 #include "memory-util.h"
 #include "missing_network.h"
@@ -761,7 +762,7 @@ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_
         return 0;
 }
 
-int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
+int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
         const char *chassis_id = NULL, *port_id = NULL, *port_description = NULL,
                 *system_name = NULL, *system_description = NULL;
         uint16_t cc = 0;
@@ -778,13 +779,14 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
 
         valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
 
-        return json_build(ret, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
-                                JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", n->id.chassis_id, n->id.chassis_id_size),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
-                                JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", n->id.port_id, n->id.port_id_size),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
-                                JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", JSON_BUILD_UNSIGNED(cc))));
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", n->id.chassis_id, n->id.chassis_id_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", n->id.port_id, n->id.port_id_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)));
 }

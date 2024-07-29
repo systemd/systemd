@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+JoinsNamespaceOf=TEST-23-UNIT-FILE-joins-namespace-of-8.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+MountAPIVFS=yes
+PrivateTmp=yes
+ExecStart=bash -c 'touch /tmp/shared-private-file-x && systemd-notify --ready && sleep infinity'

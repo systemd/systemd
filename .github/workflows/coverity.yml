@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: github.repository == 'systemd/systemd'
     env:
       # Set in repo settings -> secrets -> actions
@@ -22,7 +22,7 @@ jobs:
       COVERITY_SCAN_NOTIFICATION_EMAIL: "${{ secrets.COVERITY_SCAN_NOTIFICATION_EMAIL }}"
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       # Reuse the setup phase of the unit test script to avoid code duplication
       - name: Install build dependencies
         run: sudo -E .github/workflows/unit_tests.sh SETUP

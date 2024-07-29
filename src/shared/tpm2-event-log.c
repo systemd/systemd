@@ -55,7 +55,7 @@ static int tpm2_log_event_type_info_cmp(const tpm2_log_event_type_info *a, const
         return CMP(ASSERT_PTR(a)->event_type, ASSERT_PTR(b)->event_type);
 }
 
-const char *tpm2_log_event_type_to_string(uint32_t type) {
+const char* tpm2_log_event_type_to_string(uint32_t type) {
 
         tpm2_log_event_type_info *found, key = {
                 .event_type = type,

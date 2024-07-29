@@ -272,12 +272,10 @@ static int socket_add_default_dependencies(Socket *s) {
 }
 
 static bool socket_has_exec(Socket *s) {
-        unsigned i;
-
         assert(s);
 
-        for (i = 0; i < _SOCKET_EXEC_COMMAND_MAX; i++)
-                if (s->exec_command[i])
+        FOREACH_ARRAY(i, s->exec_command, _SOCKET_EXEC_COMMAND_MAX)
+                if (*i)
                         return true;
 
         return false;
@@ -805,8 +803,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (!s->exec_command[c])
                         continue;
 
-                fprintf(f, "%s-> %s:\n",
-                        prefix, socket_exec_command_to_string(c));
+                fprintf(f, "%s%s %s:\n",
+                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
@@ -1615,7 +1613,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket *, socket_close_fds, NULL);
 
 static int socket_open_fds(Socket *orig_s) {
         _cleanup_(socket_close_fdsp) Socket *s = orig_s;
-        _cleanup_(mac_selinux_freep) char *label = NULL;
+        _cleanup_freecon_ char *label = NULL;
         bool know_label = false;
         int r;
 
@@ -1645,6 +1643,10 @@ static int socket_open_fds(Socket *orig_s) {
                         switch (p->address.type) {
 
                         case SOCK_STREAM:
+                                if (IN_SET(s->socket_protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
+                                        p->address.protocol = s->socket_protocol;
+                                break;
+
                         case SOCK_SEQPACKET:
                                 if (s->socket_protocol == IPPROTO_SCTP)
                                         p->address.protocol = s->socket_protocol;
@@ -1732,9 +1734,6 @@ static void socket_unwatch_fds(Socket *s) {
 
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd < 0)
-                        continue;
-
-                if (!p->event_source)
                         continue;
 
                 r = sd_event_source_set_enabled(p->event_source, SD_EVENT_OFF);
@@ -2824,8 +2823,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
         } else if (streq(key, "trigger-ratelimit"))
-                deserialize_ratelimit(&s->trigger_limit, key, value);
-
+                (void) deserialize_ratelimit(&s->trigger_limit, key, value);
         else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
@@ -3378,6 +3376,22 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
+static void socket_handoff_timestamp(
+                Unit *u,
+                const struct ucred *ucred,
+                const dual_timestamp *ts) {
+
+        Socket *s = ASSERT_PTR(SOCKET(u));
+
+        assert(ucred);
+        assert(ts);
+
+        if (s->control_pid.pid == ucred->pid && s->control_command) {
+                exec_status_handoff(&s->control_command->exec_status, ucred, ts);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         usec_t t;
@@ -3396,7 +3410,7 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char *socket_fdname(Socket *s) {
+char* socket_fdname(Socket *s) {
         assert(s);
 
         /* Returns the name to use for $LISTEN_NAMES. If the user
@@ -3579,6 +3593,8 @@ const UnitVTable socket_vtable = {
         .trigger_notify = socket_trigger_notify,
 
         .reset_failed = socket_reset_failed,
+
+        .notify_handoff_timestamp = socket_handoff_timestamp,
 
         .control_pid = socket_control_pid,
 

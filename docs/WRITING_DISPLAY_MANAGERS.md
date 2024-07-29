@@ -33,8 +33,6 @@ Minimal porting (without multi-seat) requires the following:
    The former should contain "seat0", the latter the VT number your session runs on. pam_systemd can determine these values automatically but it's nice to pass these variables anyway.
 In summary: porting a display manager from ConsoleKit to systemd primarily means removing code, not necessarily adding any new code. Here, a cheers to simplicity!
 
-Complete porting (with multi-seat) requires the following (Before you continue, make sure to read up on [Multi-Seat on Linux](https://www.freedesktop.org/wiki/Software/systemd/multiseat) first.):
-
 1. Subscribe to seats showing up and going away, via the systemd-logind D-Bus interface's SeatAdded and SeatRemoved signals.
    Take possession of each seat by spawning your greeter on it.
    However, do so exclusively for seats where the boolean CanGraphical property is true.

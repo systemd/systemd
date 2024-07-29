@@ -1,0 +1,6 @@
+[Service]
+Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=10
+FileDescriptorStorePreserve=restart
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/fdstore-pin.sh 0

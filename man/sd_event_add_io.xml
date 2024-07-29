@@ -218,18 +218,17 @@
 
     <para><function>sd_event_source_set_io_fd()</function> changes the UNIX file descriptor of an I/O event
     source created previously with <function>sd_event_add_io()</function>. It takes the event source object
-    and the new file descriptor. If the event source takes the ownership of the previous file descriptor,
-    that is, <function>sd_event_source_set_io_fd_own()</function> was called for the event source with a
+    and the new file descriptor as parameters. If the event source owned the previous file descriptor, that
+    is if <function>sd_event_source_set_io_fd_own()</function> had been called for the event source with a
     non-zero value, then the previous file descriptor will be closed and the event source will also take the
     ownership of the new file descriptor on success.</para>
 
     <para><function>sd_event_source_set_io_fd_own()</function> controls whether the file descriptor of the
-    event source shall be closed automatically when the event source is freed (or when the file descriptor
-    assigned to the event source is replaced by <function>sd_event_source_set_io_fd()</function>), i.e.
-    whether it shall be considered 'owned' by the event source object. By default it is not closed
-    automatically, and the application has to do this on its own. The <parameter>b</parameter> parameter is a
-    boolean parameter: if zero, the file descriptor is not closed automatically when the event source is
-    freed, otherwise it is closed.</para>
+    event source shall take ownership of the file descriptor. Takes a boolean parameter
+    <parameter>b</parameter>. When true (nonzero), the file descriptor will be closed automatically when the
+    event source is freed or when the file descriptor is replaced by
+    <function>sd_event_source_set_io_fd()</function>. By default the descriptor is not owned by the event
+    source, and the application has to do close it on its own if needed.</para>
 
     <para><function>sd_event_source_get_io_fd_own()</function> may be used to query the current setting of the file
     descriptor ownership boolean flag as set with <function>sd_event_source_set_io_fd_own()</function>. It returns

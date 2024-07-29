@@ -24,18 +24,18 @@ permissions:
 jobs:
   triage:
     if: github.repository == 'systemd/systemd'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: write
 
     steps:
     - name: Repository checkout
-      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       if: github.event_name == 'pull_request'
 
     - name: Label PR based on policy in labeler.yml
       uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9
-      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed'
+      if: startsWith(github.event_name, 'pull_request') && github.base_ref == 'main' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml
@@ -52,38 +52,34 @@ jobs:
             repo: context.repo.repo,
           });
 
-          good_to_merge = [
+          original = new Set(response.data.map(l => l.name));
+          labels = new Set(original);
+
+          good_to_merge = new Set([
             "good-to-merge/waiting-for-ci 👍",
             "good-to-merge/after-next-release",
             "good-to-merge/with-minor-suggestions",
             "good-to-merge/waiting-for-reporter-feedback 👍",
-          ];
+          ]);
 
-          if (response.data.every(l => !good_to_merge.includes(l.name))) {
-            await github.rest.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ["please-review"]
-            });
+          if (Array.from(labels).filter(l => good_to_merge.has(l)).length == 0) {
+            labels.add("please-review");
           }
 
           for (const label of ["reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
                                "ci-failure-appears-unrelated",
                                "needs-rebase"]) {
-            try {
-              await github.rest.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-              });
-            } catch (err) {
-              if (err.status != 404) {
-                throw err;
-              }
-            }
+            labels.delete(label);
+          }
+
+          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
+            await github.rest.issues.setLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: Array.from(labels),
+            });
           }
 
     - name: Add please-review label on command in issue comment
@@ -103,6 +99,15 @@ jobs:
       if: startsWith(github.event_name, 'pull_request') && github.event.action == 'closed'
       with:
         script: |
+          response = await github.rest.issues.listLabelsOnIssue({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+
+          original = new Set(response.data.map(l => l.name));
+          labels = new Set(original);
+
           for (const label of ["please-review",
                                "reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
@@ -116,16 +121,14 @@ jobs:
                                "dont-merge 💣",
                                "squash-on-merge",
                                "quick-review 🏃‍♂️"]) {
-            try {
-              await github.rest.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-              });
-            } catch (err) {
-              if (err.status != 404) {
-                throw err;
-              }
-            }
+            labels.delete(label);
+          }
+
+          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
+            await github.rest.issues.setLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: Array.from(labels),
+            });
           }

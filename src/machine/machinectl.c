@@ -14,6 +14,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "ask-password-agent.h"
 #include "build.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
@@ -34,6 +35,7 @@
 #include "format-table.h"
 #include "hostname-util.h"
 #include "import-util.h"
+#include "in-addr-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -46,6 +48,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -53,8 +56,6 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "sort-util.h"
-#include "spawn-ask-password-agent.h"
-#include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -261,7 +262,7 @@ static int show_table(Table *table, const char *word) {
                 table_set_header(table, arg_legend);
 
                 if (OUTPUT_MODE_IS_JSON(arg_output))
-                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO);
                 else
                         r = table_print(table, NULL);
                 if (r < 0)
@@ -605,16 +606,15 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                         show_journal_by_unit(
                                         stdout,
                                         i->unit,
-                                        NULL,
+                                        /* namespace = */ NULL,
                                         arg_output,
-                                        0,
+                                        /* n_columns = */ 0,
                                         i->timestamp.monotonic,
                                         arg_lines,
-                                        0,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        true,
-                                        NULL);
+                                        /* system_unit = */ true,
+                                        /* ellipsized = */ NULL);
         }
 }
 

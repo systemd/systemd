@@ -70,10 +70,8 @@ static int run(int argc, char **argv) {
         ssize_t desc_len;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
+        (void) udev_parse_config();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

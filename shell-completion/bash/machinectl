@@ -107,8 +107,12 @@ _machinectl() {
         comps=$( __get_machines )
 
     elif __contains_word "$verb" ${VERBS[FILE]}; then
-        comps=$(compgen -f -- "cur")
-        compopt -o filenames
+        if (( COMP_CWORD == i + 1 )); then # first argument after verb
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+        else
+            comps=''
+        fi
     fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

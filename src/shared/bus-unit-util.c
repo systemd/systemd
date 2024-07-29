@@ -2,6 +2,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
@@ -494,14 +495,14 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 if (r == 0)
                         break;
                 if (isempty(tuple))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r != 4 || !isempty(q))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 assert(source_str);
                 assert(nfproto_str);
@@ -510,11 +511,11 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
 
                 source = nft_set_source_from_string(source_str);
                 if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 nfproto = nfproto_from_string(nfproto_str);
                 if (nfproto < 0 || !nft_identifier_valid(table) || !nft_identifier_valid(set))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
 
                 r = sd_bus_message_append(m, "(iiss)", source, nfproto, table, set);
                 if (r < 0)
@@ -679,8 +680,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 else {
                         r = parse_permyriad_unbounded(eq);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                                       "CPU quota too small.");
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
@@ -1037,6 +1037,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "SyslogIdentifier",
                               "ProtectSystem",
                               "ProtectHome",
+                              "PrivateTmpEx",
                               "SELinuxContext",
                               "RootImage",
                               "RootVerity",
@@ -1792,7 +1793,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
                 if (roothash_decoded_size < sizeof(sd_id128_t))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short: %m", eq);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short.", eq);
 
                 return bus_append_byte_array(m, field, roothash_decoded, roothash_decoded_size);
         }
@@ -1807,7 +1808,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return bus_append_string(m, "RootHashSignaturePath", eq);
 
                 if (!(value = startswith(eq, "base64:")))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:': %m", eq);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:'.", eq);
 
                 /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
                 r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
@@ -2940,39 +2941,49 @@ int bus_service_manager_reload(sd_bus *bus) {
         return 0;
 }
 
-/* Wait for 1.5 seconds at maximum for freeze operation */
-#define FREEZE_BUS_CALL_TIMEOUT (1500 * USEC_PER_MSEC)
+typedef struct UnitFreezer {
+        char *name;
+        sd_bus *bus;
+} UnitFreezer;
 
-int unit_freezer_new(const char *name, UnitFreezer *ret) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *namedup = NULL;
+/* Wait for 60 seconds at maximum for freezer operation */
+#define FREEZE_BUS_CALL_TIMEOUT (60 * USEC_PER_SEC)
+
+UnitFreezer* unit_freezer_free(UnitFreezer *f) {
+        if (!f)
+                return NULL;
+
+        free(f->name);
+        sd_bus_flush_close_unref(f->bus);
+
+        return mfree(f);
+}
+
+int unit_freezer_new(const char *name, UnitFreezer **ret) {
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
         int r;
 
         assert(name);
         assert(ret);
 
-        namedup = strdup(name);
-        if (!namedup)
-                return log_oom_debug();
+        f = new(UnitFreezer, 1);
+        if (!f)
+                return log_oom();
 
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open connection to systemd: %m");
-
-        (void) sd_bus_set_method_call_timeout(bus, FREEZE_BUS_CALL_TIMEOUT);
-
-        *ret = (UnitFreezer) {
-                .name = TAKE_PTR(namedup),
-                .bus = TAKE_PTR(bus),
+        *f = (UnitFreezer) {
+                .name = strdup(name),
         };
+        if (!f->name)
+                return log_oom();
+
+        r = bus_connect_system_systemd(&f->bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open connection to systemd: %m");
+
+        (void) sd_bus_set_method_call_timeout(f->bus, FREEZE_BUS_CALL_TIMEOUT);
+
+        *ret = TAKE_PTR(f);
         return 0;
-}
-
-void unit_freezer_done(UnitFreezer *f) {
-        assert(f);
-
-        f->name = mfree(f->name);
-        f->bus = sd_bus_flush_close_unref(f->bus);
 }
 
 static int unit_freezer_action(UnitFreezer *f, bool freeze) {
@@ -2989,11 +3000,22 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
                             /* reply = */ NULL,
                             "s",
                             f->name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to %s unit %s: %s",
-                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+        if (r < 0) {
+                if (sd_bus_error_has_names(&error,
+                                           BUS_ERROR_NO_SUCH_UNIT,
+                                           BUS_ERROR_UNIT_INACTIVE,
+                                           SD_BUS_ERROR_NOT_SUPPORTED)) {
 
-        return 0;
+                        log_debug_errno(r, "Skipping freezer for '%s': %s", f->name, bus_error_message(&error, r));
+                        return 0;
+                }
+
+                return log_error_errno(r, "Failed to %s unit '%s': %s",
+                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+        }
+
+        log_info("Successfully %s unit '%s'.", freeze ? "froze" : "thawed", f->name);
+        return 1;
 }
 
 int unit_freezer_freeze(UnitFreezer *f) {
@@ -3002,33 +3024,4 @@ int unit_freezer_freeze(UnitFreezer *f) {
 
 int unit_freezer_thaw(UnitFreezer *f) {
         return unit_freezer_action(f, false);
-}
-
-int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
-        _cleanup_(unit_freezer_done) UnitFreezer f = {};
-        int r;
-
-        assert(name);
-        assert(ret);
-
-        r = unit_freezer_new(name, &f);
-        if (r < 0)
-                return r;
-
-        r = unit_freezer_freeze(&f);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_STRUCT(f);
-        return 0;
-}
-
-void unit_freezer_done_thaw(UnitFreezer *f) {
-        assert(f);
-
-        if (!f->name)
-                return;
-
-        (void) unit_freezer_thaw(f);
-        unit_freezer_done(f);
 }

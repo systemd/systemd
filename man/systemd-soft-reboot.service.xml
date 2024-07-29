@@ -115,11 +115,22 @@ IgnoreOnIsolate=yes
 DefaultDependencies=no
 After=basic.target
 Conflicts=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
-Before=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
+Before=shutdown.target rescue.target emergency.target
 
 [Service]
 Type=oneshot
 ExecStart=sleep infinity</programlisting>
+      </listitem>
+
+      <listitem><para>On top of the above, templated units also need a configuration file for their slice, as
+      they by default use a slice named after the non-templated part of the unit. For example, for a
+      <filename>foo@test.service</filename> instance, a <filename>system-foo.slice</filename> unit may be
+      added with the following content:</para>
+
+      <programlisting>[Unit]
+SurviveFinalKillSignal=yes
+IgnoreOnIsolate=yes
+DefaultDependencies=no</programlisting>
       </listitem>
 
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage

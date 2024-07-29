@@ -16,6 +16,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -396,7 +397,7 @@ void log_forget_fds(void) {
 }
 
 void log_set_max_level(int level) {
-        assert(level == LOG_NULL || (level & LOG_PRIMASK) == level);
+        assert(level == LOG_NULL || LOG_PRI(level) == level);
 
         log_max_level = level;
 
@@ -788,7 +789,7 @@ int log_dispatch_internal(
                 return -ERRNO_VALUE(error);
 
         /* Patch in LOG_DAEMON facility if necessary */
-        if ((level & LOG_FACMASK) == 0)
+        if (LOG_FAC(level) == 0)
                 level |= log_facility;
 
         if (open_when_needed)
@@ -1077,7 +1078,7 @@ int log_struct_internal(
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
-        if ((level & LOG_FACMASK) == 0)
+        if (LOG_FAC(level) == 0)
                 level |= log_facility;
 
         if (IN_SET(log_target,
@@ -1180,7 +1181,7 @@ int log_struct_iovec_internal(
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
-        if ((level & LOG_FACMASK) == 0)
+        if (LOG_FAC(level) == 0)
                 level |= log_facility;
 
         if (IN_SET(log_target, LOG_TARGET_AUTO,
@@ -1741,7 +1742,7 @@ void log_setup(void) {
                 log_show_color(true);
 }
 
-const char *_log_set_prefix(const char *prefix, bool force) {
+const char* _log_set_prefix(const char *prefix, bool force) {
         const char *old = log_prefix;
 
         if (prefix || force)

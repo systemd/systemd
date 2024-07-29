@@ -1,6 +1,50 @@
 systemd System and Service Manager
 
-CHANGES WITH 256-rc1:
+CHANGES WITH 257 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for automatic flushing of the nscd user/group database caches
+          has been dropped.
+
+        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
+          considered obsolete and systemd by default will refuse to boot under
+          it. To forcibly reenable cgroup v1 support,
+          SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must be set on kernel command
+          line. The meson option 'default-hierarchy=' is also deprecated, i.e.
+          only cgroup v2 ('unified' hierarchy) can be selected as build-time
+          default.
+
+        * Support for System V service scripts is deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
+        * systemd-logind now always obeys inhibitor locks, where previously it
+          ignored locks taken by the caller or when the caller was root. A
+          privileged caller can always close the other sessions, remove the
+          inhibitor locks, or use --force or --check-inhibitors=no to ignore the
+          inhibitors. This change thus doesn't affect security, since everything
+          that was possible before at a given privilege level is still possible,
+          but it should make the inhibitor logic easier to use and understand,
+          and also help avoiding accidental reboots and shutdowns. New 'delay-weak'
+          and 'block-weak' inhibitor modes were added, if taken they will make
+          the inhibitor lock work as in the previous versions.
+
+        — <place>, <date>
+
+CHANGES WITH 256:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -15,11 +59,39 @@ CHANGES WITH 256-rc1:
           only cgroup v2 ('unified' hierarchy) can be selected as build-time
           default.
 
+        * Support for System V service scripts is deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
         * Previously, systemd-networkd did not explicitly remove any bridge
           VLAN IDs assigned on bridge master and ports. Since version 256, if a
           .network file for an interface has at least one valid setting in the
           [BridgeVLAN] section, then all assigned VLAN IDs on the interface
           that are not configured in the .network file are removed.
+
+        * IPForward= setting in .network file is deprecated and replaced with
+          IPv4Forwarding= and IPv6Forwarding= settings. These new settings are
+          supported both in .network file and networkd.conf. If specified in a
+          .network file, they control corresponding per-link settings. If
+          specified in networkd.conf, they control corresponding global
+          settings. Note, previously IPv6SendRA= and IPMasquerade= implied
+          IPForward=, but now they imply the new per-link settings. One of the
+          simplest ways to migrate configurations, that worked as a router with
+          the previous version, is enabling both IPv4Forwarding= and
+          IPv6Forwarding= in networkd.conf. See systemd.network(5) and
+          networkd.conf(5) for more details.
 
         * systemd-gpt-auto-generator will stop generating units for ESP or
           XBOOTLDR partitions if it finds mount entries for or below the /boot/
@@ -33,7 +105,7 @@ CHANGES WITH 256-rc1:
           locking a homed-managed home area. This is known to cause issues with
           the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
           drivers may want to add drop-in configuration files that set
-          SYSTEMD_SLEEP_FREEZE_USER_SESSION=false for systemd-suspend.service
+          SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false for systemd-suspend.service
           and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
           systemd-homed.service.
 
@@ -49,6 +121,14 @@ CHANGES WITH 256-rc1:
         * systemd-tmpfiles now properly applies nested configuration to 'R' and
           'D' stanzas. For example, with the combination of 'R /foo' and 'x
           /foo/bar', /foo/bar will now be excluded from removal.
+
+        * systemd.crash_reboot and related settings are deprecated in favor of
+          systemd.crash_action=.
+
+        * Stable releases for version v256 and newer will now be pushed in the
+          main repository. The systemd-stable repository will be used for existing
+          stable branches (v255-stable and lower), and when they reach EOL it will
+          be archived.
 
         General Changes and New Features:
 
@@ -72,11 +152,12 @@ CHANGES WITH 256-rc1:
           embedded in the file name. The files are ordered by version and
           the newest one is selected.
 
-          systemd-nspawn --image=/--directory=, systemd-dissect, systemd-portabled,
-          and the RootDirectory=, RootImage=, ExtensionImages=, and
-          ExtensionDirectories= settings for units now support the vpick
-          protocol and allow the latest version to be selected automatically if
-          a "*.v/" directory is specified as the source.
+          systemd-nspawn --image=/--directory=, systemd-dissect,
+          systemd-portabled, and the RootDirectory=, RootImage=,
+          ExtensionImages=, and ExtensionDirectories= settings for units now
+          support the vpick protocol and allow the latest version to be
+          selected automatically if a "*.v/" directory is specified as the
+          source.
 
         * Encrypted service credentials can now be made accessible to
           unprivileged users. systemd-creds gained new options --user/--uid=
@@ -90,11 +171,19 @@ CHANGES WITH 256-rc1:
           exclusively for machine images. The new "importctl" generalizes this
           for sysext, confext, and portable service images.
 
+        * The systemd sources may now be compiled cleanly with all OpenSSL 3.0
+          deprecations removed, including the OpenSSL engine logic turned off.
+
         Service Management:
 
         * New system manager setting ProtectSystem= has been added. It is
           analogous to the unit setting, but applies to the whole system. It is
           enabled by default in the initrd.
+
+          Note that this means that code executed in the initrd cannot naively
+          expect to be able to write to /usr/ during boot. This affects
+          dracut <= 101, which wrote "hooks" to /lib/dracut/hooks/. See
+          https://github.com/dracut-ng/dracut-ng/commit/a45048b80c27ee5a45a380.
 
         * New unit setting WantsMountsFor= has been added. It is analogous to
           RequiresMountsFor=, but creates a Wants= dependency instead of
@@ -144,13 +233,13 @@ CHANGES WITH 256-rc1:
           switch from one to the other via a simple reboot. Distributions
           apparently have lost interest in this, and the functionality has not
           been supported on the primary distribution this was still intended
-          for for a long time, and hence has been removed now.
+          for a long time, and hence has been removed now.
 
         * A new concept called "capsules" has been introduced. "Capsules" wrap
           additional per-user service managers, whose users are transient and
           are only defined as long as the service manager is running. (This is
           implemented via DynamicUser=1), allowing a user manager to be used to
-          manager a group of processes without needing to create an actual user
+          manage a group of processes without needing to create an actual user
           account. These service managers run with home directories of
           /var/lib/capsules/<capsule-name> and can contain regular services and
           other units. A capsule is started via a simple "systemctl start
@@ -196,25 +285,55 @@ CHANGES WITH 256-rc1:
           PID 1 has successfully completed installation of its various UNIX
           process signal handlers (i.e. the moment where SIGRTMIN+4 sent to
           PID 1 will start to have the effect of shutting down the system
-          cleanly).
+          cleanly). X_SYSTEMD_SHUTDOWN= is sent shortly before the system shuts
+          down, and carries a string identifying the type of shutdown,
+          i.e. "poweroff", "halt", "reboot". X_SYSTEMD_REBOOT_PARAMETER= is
+          sent at the same time and carries the string passed to "systemctl
+          --reboot-argument=" if there was one.
 
-        * New D-Bus properties ExecMainHandoverTimestamp and
-          ExecMainHandoverTimestampMonotonic are now published by services of
-          type exec, dbus, notify, and notify-reload.
-          This timestamp is taken as the very last operation before executing
-          a service's binary, which allows users to accurately track when
-          execution control of the process is handed over from systemd to the
-          payload.
+        * New D-Bus properties ExecMainHandoffTimestamp and
+          ExecMainHandoffTimestampMonotonic are now published by services
+          units. This timestamp is taken as the very last operation before
+          handing off control to invoked binaries. This information is
+          available for other unit types that fork off processes (i.e. mount,
+          swap, socket units), but currently only via "systemd-analyze dump".
+
+        * An additional timestamp is now taken by the service manager when a
+          system shutdown operation is initiated. It can be queried via D-Bus
+          during the shutdown phase. It's passed to the following service
+          manager invocation on soft reboots, which will then use it to log the
+          overall "grey-out" time of the soft reboot operation, i.e. the time
+          when the shutdown began until the system is fully up again.
+
+        * "systemctl status" will now display the invocation ID in its usual
+          output, i.e. the 128bit ID uniquely assigned to the current runtime
+          cycle of the unit. The ID has been supported for a long time, but is
+          now more prominently displayed, as it is a very useful handle to a
+          specific invocation of a service.
+
+        * systemd now generates a new "taint" string "unmerged-bin" for systems
+          that have /usr/bin/ and /usr/sbin/ separate. It's generally
+          recommended to make the latter a symlink to the former these days.
+
+        * A new systemd.crash_action= kernel command line option has been added
+          that configures what to do after the system manager (PID 1) crashes.
+          This can also be configured through CrashAction= in systemd.conf.
+
+        * "systemctl kill" now supports --wait which will make the command wait
+          until the signalled services terminate.
 
         Journal:
 
         * systemd-journald can now forward journal entries to a socket
           (AF_INET, AF_INET6, AF_UNIX, or AF_VSOCK). The socket can be
-          specified in journald.conf via a new option ForwardAddress= or via
-          the 'journald.forward_address' credential. Log records are sent in
+          specified in journald.conf via a new option ForwardToSocket= or via
+          the 'journald.forward_to_socket' credential. Log records are sent in
           the Journal Export Format. A related setting MaxLevelSocket= has been
           added to control the maximum log levels for the messages sent to this
           socket.
+
+        * systemd-journald now also reads the journal.storage credential when
+          determining where to store journal files.
 
         * systemd-vmspawn gained a new --forward-journal= option to forward the
           virtual machine's journal entries to the host. This is done over a
@@ -339,15 +458,26 @@ CHANGES WITH 256-rc1:
         * .link files now support a new ReceivePacketSteeringCPUMask= setting
           for configuring which CPUs to steer incoming packets to.
 
+        * The [Network] section in .network files gained a new setting
+          UseDomains=, which is a single generic knob for controlling the
+          settings of the same name in the [DHCPv4], [DHCPv6] and
+          [IPv6AcceptRA].
+
+        * The 99-default.link file we ship by default (that defines the policy
+          for all network devices to which no other .link file applies) now
+          lists "mac" among AlternativeNamesPolicy=. This means that network
+          interfaces will now by default gain an additional MAC-address based
+          alternative device name. (i.e. enx…)
+
         systemd-nspawn:
 
         * systemd-nspawn now provides a /run/systemd/nspawn/unix-export/
           directory where the container payload can expose AF_UNIX sockets to
-          allow them them to be accessed from outside.
+          allow them to be accessed from outside.
 
         * systemd-nspawn will tint the terminal background for containers in a
           blueish color. This can be controller with the new --background=
-          switch.
+          switch or the new $SYSTEMD_TINT_BACKGROUND environment variable.
 
         * systemd-nspawn gained support for the 'owneridmap' option for --bind=
           mounts to map the target directory owner from inside the container to
@@ -497,7 +627,7 @@ CHANGES WITH 256-rc1:
 
         * systemd-boot's automatic SecureBoot enrollment support gained support
           for enrolling "dbx" too (Previously, only db/KEK/PK enrollment was
-          supported). It also now supports UEFI "Custom" mode.
+          supported). It also now supports UEFI "Custom" and "Audit" modes.
 
         * The pcrlock policy is saved in an unencrypted credential file
           "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
@@ -523,6 +653,10 @@ CHANGES WITH 256-rc1:
           generated recovery PIN is shown to the user. If "query" is selected
           then the PIN is queried from the user.
 
+        * sd-stub gained support for the new ".ucode" PE section in UKIs, that
+          may contain CPU microcode data. When control is handed over to the
+          Linux kernel this data is prepended to the set of initrds passed.
+
         systemd-run/run0:
 
         * systemd-run is now a multi-call binary. When invoked as 'run0', it
@@ -538,7 +672,8 @@ CHANGES WITH 256-rc1:
         * systemd-run/run0 will now tint the terminal background on supported
           terminals: in a reddish tone when invoking a root service, in a
           yellowish tone otherwise. This may be controlled and turned off via
-          the new --background= switch.
+          the new --background= switch or the new $SYSTEMD_TINT_BACKGROUND
+          environment variable.
 
         * systemd-run gained a new option '--ignore-failure' to suppress
           command failures.
@@ -622,6 +757,14 @@ CHANGES WITH 256-rc1:
         * A new environment variable $SYSTEMD_VMSPAWN_QEMU_EXTRA may carry
           additional qemu command line options to pass to qemu.
 
+        * systemd-machined gained a new GetMachineSSHInfo() D-Bus method that is
+          used by systemd-vmspawn to fetch the information needed to ssh into the
+          machine.
+
+        * systemd-machined gained a new Varlink interface that is used by
+          systemd-vmspawn to register machines with additional information and
+          metadata.
+
         systemd-repart:
 
         * systemd-repart gained new options --generate-fstab= and
@@ -652,6 +795,20 @@ CHANGES WITH 256-rc1:
           been changed from regular shared library dependencies into dlopen()
           based ones.
 
+          Note that this means that those libraries might not be automatically
+          pulled in when ELF dependencies are resolved. In particular lack of
+          libkmod might cause problems with boot. This affects dracut <= 101,
+          see https://github.com/dracut-ng/dracut-ng/commit/04b362d713235459cf.
+
+        * systemd ELF binaries that use libraries via dlopen() are now built with
+          a new ELF header note section, following a new specification defined at
+          docs/ELF_DLOPEN_METADATA.md, that provides information about which
+          sonames are loaded and used if found at runtime. This allows tools and
+          packagers to programmatically discover the list of optional
+          dependencies used by all systemd ELF binaries. A parser with packaging
+          integration tools is available at
+          https://github.com/systemd/package-notes
+
         * The sd-journal API gained a new call
           sd_journal_stream_fd_with_namespace() which is just like
           sd_journal_stream_fd() but creates a log stream targeted at a
@@ -661,7 +818,18 @@ CHANGES WITH 256-rc1:
           sd_id128_get_invocation_app_specific() for acquiring an app-specific
           ID that is derived from the service invocation ID.
 
+        * The sd-event API gained a new API call
+          sd_event_source_get_inotify_path() that returns the file system path
+          an inotify event source was created for.
+
         systemd-cryptsetup/systemd-cryptenroll:
+
+        * The device node argument to systemd-cryptenroll is now optional. If
+          omitted it will be derived automatically from the backing block
+          device of /var/ (which quite likely is the same as the root file
+          system, hence effectively means if you don't specify things otherwise
+          the tool will now default to enrolling a key into the root file
+          system's LUKS device).
 
         * systemd-cryptenroll can now enroll directly with a PKCS11 public key
           (instead of a certificate).
@@ -694,8 +862,9 @@ CHANGES WITH 256-rc1:
 
           https://systemd.io/VM_INTERFACE
 
-        * The sd_notify() man page has gained an example with C code that shows
-          how to implement the interface in C without involving libsystemd.
+        * The sd_notify() man page has gained examples with C and Python code
+          that shows how to implement the interface in those languages without
+          involving libsystemd.
 
         systemd-homed, systemd-logind, systemd-userdbd:
 
@@ -874,57 +1043,72 @@ CHANGES WITH 256-rc1:
           used to specify the TTY for the debug shell, independently of
           enabling or disabling it.
 
+        * portablectl gained a new --clean switch that clears a portable
+          service's data (cache, logs, state, runtime, fdstore) when detaching
+          it.
+
         Contributions from: A S Alam, AKHIL KUMAR,
         Abraham Samuel Adekunle, Adrian Vovk, Adrian Wannenmacher,
         Alan Liang, Alberto Planas, Alexander Zavyalov, Anders Jonsson,
         Andika Triwidada, Andres Beltran, Andrew Sayers,
-        Antonio Alvarez Feijoo, Arthur Zamarin, Artur Pak, AtariDreams,
-        Benjamin Franzke, Bernhard M. Wiedemann, Black-Hole1, Bryan Jacobs,
-        Burak Gerz, Carlos Garnacho, Chandra Pratap, Chris Simons,
-        Christian Wesselhoeft, Clayton Craft, Colin Geniet, Colin Walters,
-        Costa Tsaousis, Cristian Rodríguez, Daan De Meyer,
-        Damien Challet, Dan Streetman, David Tardon, David Venhoek,
-        Diego Viola, Dionna Amalie Glaze, Dmitry Konishchev,
-        Edson Juliano Drosdeck, Eisuke Kawashima, Eli Schwartz,
-        Emanuele Giuseppe Esposito, Eric Daigle, Evgeny Vereshchagin,
-        Felix Riemann, Fernando Fernandez Mancera, Florian Schmaus,
+        Antonio Alvarez Feijoo, Arian van Putten, Arthur Zamarin,
+        Artur Pak, AtariDreams, Benjamin Franzke, Bernhard M. Wiedemann,
+        Black-Hole1, Bryan Jacobs, Burak Gerz, Carlos Garnacho,
+        Chandra Pratap, Chris Hofstaedtler, Chris Packham, Chris Simons,
+        Christian Göttsche, Christian Wesselhoeft, Clayton Craft,
+        Colin Geniet, Colin Walters, Colin Watson, Costa Tsaousis,
+        Cristian Rodríguez, Daan De Meyer, Damien Challet, Dan Streetman,
+        Daniel Winzen, Daniele Medri, David Seifert, David Tardon,
+        David Venhoek, Diego Viola, Dionna Amalie Glaze,
+        Dmitry Konishchev, Dmitry V. Levin, Edson Juliano Drosdeck,
+        Eisuke Kawashima, Eli Schwartz, Emanuele Giuseppe Esposito,
+        Eric Daigle, Evgeny Vereshchagin, Felix Riemann,
+        Fernando Fernandez Mancera, Florian Fainelli, Florian Schmaus,
         Franck Bui, Frantisek Sumsal, Friedrich Altheide,
-        Gabríel Arthúr Pétursson, Gaël Donval, Georges Basile Stavracas
-        Neto, Gerd Hoffmann, GNOME Foundation, Guilhem Lettron,
-        Göran Uddeborg, Hans de Goede, Harald Brinkmann,
-        Heinrich Schuchardt, Henry Li, Holger Assmann, Ivan Kruglov,
-        Ivan Shapovalov, Jakub Sitnicki, James Muir, Jan Engelhardt,
-        Jan Macku, Jeff King, JmbFountain, Joakim Nohlgård,
-        Jonathan Conder, Julius Alexandre, Jörg Behrmann, Keian, Kirk,
-        Kristian Klausen, Krzesimir Nowak, Lars Ellenberg,
-        Lennart Poettering, Luca Boccassi, Ludwig Nussel, Lukáš Nykrýn,
-        Luxiter, Maanya Goenka, Mariano Giménez, Markus Merklinger,
+        Gabríel Arthúr Pétursson, Gaël Donval, Georges Basile Stavracas Neto,
+        Gerd Hoffmann, GNOME Foundation, Guido Leenders,
+        Guilhem Lettron, Göran Uddeborg, Hans de Goede, Harald Brinkmann,
+        Heinrich Schuchardt, Helmut Grohne, Henry Li, Heran Yang,
+        Holger Assmann, Ivan Kruglov, Ivan Shapovalov, Jakub Sitnicki,
+        James Muir, Jan Engelhardt, Jan Macku, Jarne Förster, Jeff King,
+        Jian-Hong Pan, JmbFountain, Joakim Nohlgård, Jonathan Conder,
+        Julius Alexandre, Jörg Behrmann, Kai Lueke, Kamil Szczęk,
+        KayJay7, Keian, Kirk, Kristian Klausen, Krzesimir Nowak,
+        Lain "Fearyncess" Yang, Lars Ellenberg, Lennart Poettering,
+        Leonard, Luca Boccassi, Lucas Salles, Ludwig Nussel,
+        Lukáš Nykrýn, Luna Jernberg, Luxiter, Maanya Goenka,
+        Maciej S. Szmigiero, Mariano Giménez, Markus Merklinger,
         Martin Ivicic, Martin Srebotnjak, Martin Trigaux, Martin Wilck,
-        Matt Layher, Matt Muggeridge, Matteo Croce, Matthias Lisin,
-        Max Gautier, Max Staudt, MaxHearnden, Michael Biebl,
-        Michal Koutný, Michal Sekletár, Mike Gilbert, Mike Yuan,
-        Mikko Ylinen, MkfsSion, MrSmör, Nandakumar Raghavan, Nick Cao,
-        Nick Rosbrook, Norbert Lange, Ole Peder Brandtzæg, Ondrej Kozina,
-        Oğuz Ersen, Pablo Méndez Hernández, Pierre GRASSER,
-        Piotr Drąg, QuonXF, Rafaël Kooi, Raito Bezarius, Reid Wahl,
-        Renjaya Raga Zenta, Richard Maw, Roland Hieber, Ronan Pigott,
-        Rose, Ross Burton, Sam Leonard, Samuel BF, Sarvajith Adyanthaya,
-        Sergei Zhmylev, Sergey A, Shulhan, SidhuRupinder, Sludge,
-        Stuart Hayhurst, Susant Sahani, Takashi Sakamoto,
-        Temuri Doghonadze, Thilo Fromm, Thomas Blume, TobiPeterG,
-        Tobias Fleig, Tomáš Pecka, Topi Miettinen, Tycho Andersen,
-        Unique-Usman, Usman Akinyemi, Vasiliy Kovalev, Vasiliy Stelmachenok,
-        Vishal Chillara Srinivas, Vitaly Kuznetsov, Vito Caputo,
-        Vladimir Stoiakin, Werner Sembach, Will Springer, Winterhuman,
-        Xiaotian Wu, Yu Watanabe, Yuri Chornoivan,
-        Zbigniew Jędrzejewski-Szmek, Zmyeir, aslepykh, chenjiayi,
-        cpackham-atlnz, cunshunxia, djantti, hfavisado, hulkoba, ksaleem,
+        Mathias Lang, Matt Layher, Matt Muggeridge, Matteo Croce,
+        Matthias Lisin, Max Gautier, Max Staudt, MaxHearnden,
+        Michael Biebl, Michal Koutný, Michal Sekletár, Michał Kopeć,
+        Mike Gilbert, Mike Yuan, Mikko Ylinen, MkfsSion, Moritz Sanft,
+        MrSmör, Nandakumar Raghavan, Nicholas Little, Nick Cao,
+        Nick Rosbrook, Nicolas Bouchinet, Norbert Lange,
+        Ole Peder Brandtzæg, Ondrej Kozina, Oğuz Ersen,
+        Pablo Méndez Hernández, Pierre GRASSER, Piotr Drąg, QuonXF,
+        Radoslav Kolev, Rafaël Kooi, Raito Bezarius, Rasmus Villemoes,
+        Reid Wahl, Renjaya Raga Zenta, Richard Maw, Roland Hieber,
+        Ronan Pigott, Rose, Ross Burton, Saliba-san, Sam Leonard,
+        Samuel BF, Sarvajith Adyanthaya, Scrambled 777,
+        Sebastian Pucilowski, Sergei Zhmylev, Sergey A, Shulhan,
+        SidhuRupinder, Simon Fowler, Skia, Sludge, Stuart Hayhurst,
+        Susant Sahani, Takashi Sakamoto, Temuri Doghonadze, Thayne McCombs,
+        Thilo Fromm, Thomas Blume, Tiago Rocha Cunha, Timo Rothenpieler,
+        TobiPeterG, Tobias Fleig, Tomáš Pecka, Topi Miettinen,
+        Tycho Andersen, Unique-Usman, Usman Akinyemi, Vasiliy Kovalev,
+        Vasiliy Stelmachenok, Victor Berchet, Vishal Chillara Srinivas,
+        Vitaly Kuznetsov, Vito Caputo, Vladimir Stoiakin, Werner Sembach,
+        Will Springer, Winterhuman, Xiaotian Wu, Yu Watanabe,
+        Yuri Chornoivan, Zbigniew Jędrzejewski-Szmek, Zmyeir, anphir,
+        aslepykh, chenjiayi, cpackham-atlnz, cunshunxia, djantti, drewbug,
+        hanjinpeng, hfavisado, hulkoba, hydrargyrum, ksaleem, mburucuyapy,
         medusalix, mille-feuille, mkubiak, mooo, msizanoen, networkException,
-        nl6720, r-vdp, runiq, samuelvw01, sharad3001, sushmbha, wangyuhang,
-        zzywysm, İ. Ensar Gülşen, Štěpán Němec, 我超厉害,
-        김인수
+        nl6720, r-vdp, runiq, sam-leonard-ct, samuelvw01, sharad3001, spdfnet,
+        sushmbha, wangyuhang, zeroskyx, zzywysm, İ. Ensar Gülşen,
+        Łukasz Stelmach, Štěpán Němec, 我超厉害, 김인수
 
-        — Happy Place, 2024-04-XX
+        — Edinburgh, 2024-06-11
 
 CHANGES WITH 255:
 
@@ -1492,7 +1676,7 @@ CHANGES WITH 255:
           sd_device_enumerator_add_match_property_required() which allows
           configuring matches on properties that are strictly required. This is
           different from the existing sd_device_enumerator_add_match_property()
-          matches of which one one needs to apply.
+          matches of which one needs to apply.
 
         * The MAC address the veth side of an nspawn container shall get
           assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC
@@ -16712,7 +16896,7 @@ CHANGES WITH 196:
           indexed database to link up additional information with
           journal entries. For further details please check:
 
-          https://www.freedesktop.org/wiki/Software/systemd/catalog
+          https://systemd.io/CATALOG
 
           The indexed message catalog database also needs to be
           rebuilt after installation of message catalog files. Use

@@ -2,7 +2,7 @@
 #pragma once
 
 typedef struct Machine Machine;
-typedef enum KillWho KillWho;
+typedef enum KillWhom KillWhom;
 
 #include "list.h"
 #include "machined.h"
@@ -26,11 +26,11 @@ typedef enum MachineClass {
         _MACHINE_CLASS_INVALID = -EINVAL,
 } MachineClass;
 
-enum KillWho {
+enum KillWhom {
         KILL_LEADER,
         KILL_ALL,
-        _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -EINVAL,
+        _KILL_WHOM_MAX,
+        _KILL_WHOM_INVALID = -EINVAL,
 };
 
 struct Machine {
@@ -49,6 +49,7 @@ struct Machine {
         char *scope_job;
 
         PidRef leader;
+        sd_event_source *leader_pidfd_event_source;
 
         dual_timestamp timestamp;
 
@@ -56,18 +57,24 @@ struct Machine {
         bool started:1;
         bool stopping:1;
         bool referenced:1;
+        bool allocate_unit;
 
         sd_bus_message *create_message;
 
         int *netif;
         size_t n_netif;
 
+        unsigned vsock_cid;
+        char *ssh_address;
+        char *ssh_private_key_path;
+
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);
 };
 
-int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret);
+int machine_new(MachineClass class, const char *name, Machine **ret);
+int machine_link(Manager *manager, Machine *machine);
 Machine* machine_free(Machine *m);
 bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
@@ -76,7 +83,9 @@ int machine_stop(Machine *m);
 int machine_finalize(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
-int machine_kill(Machine *m, KillWho who, int signo);
+int machine_kill(Machine *m, KillWhom whom, int signo);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
 void machine_release_unit(Machine *m);
 
@@ -88,8 +97,8 @@ MachineClass machine_class_from_string(const char *s) _pure_;
 const char* machine_state_to_string(MachineState t) _const_;
 MachineState machine_state_from_string(const char *s) _pure_;
 
-const char *kill_who_to_string(KillWho k) _const_;
-KillWho kill_who_from_string(const char *s) _pure_;
+const char* kill_whom_to_string(KillWhom k) _const_;
+KillWhom kill_whom_from_string(const char *s) _pure_;
 
 int machine_openpt(Machine *m, int flags, char **ret_slave);
 int machine_open_terminal(Machine *m, const char *path, int mode);

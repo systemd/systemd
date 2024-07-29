@@ -12,8 +12,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-11 11:36+0000\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: \"Sergey A.\" <sw@atrus.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -23,7 +23,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -299,42 +299,42 @@ msgstr ""
 "Слишком много неудачных попыток входа в систему для пользователя %s. В "
 "доступе отказано."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Запись пользователя заблокирована. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Запись пользователя ещё не вступила в силу. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Запись пользователя больше не действительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Запись пользователя недействительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Слишком много попыток войти. Повторите попытку через %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Требуется смена пароля."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "Срок действия пароля истёк, требуется его замена."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Срок действия пароля истёк, но его невозможно изменить. Вход в систему "
 "запрещён."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "Срок действия пароля скоро истечёт, пожалуйста, измените его."
 
@@ -1101,14 +1101,18 @@ msgstr ""
 "аутентификацию."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Определяет, доступно ли systemd-networkd решение для постоянного хранения "
+"данных"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Для определения того, доступно ли systemd-networkd решение для долгосрочного "
+"хранения данных, следует пройти аутентификацию."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1252,7 +1256,7 @@ msgstr ""
 "Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо "
 "пройти аутентификацию."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

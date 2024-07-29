@@ -2,6 +2,7 @@
 
 #include <sys/reboot.h>
 
+#include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
@@ -14,14 +15,14 @@
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_NONE]               = "none",
+        [EMERGENCY_ACTION_EXIT]               = "exit",
+        [EMERGENCY_ACTION_EXIT_FORCE]         = "exit-force",
         [EMERGENCY_ACTION_REBOOT]             = "reboot",
         [EMERGENCY_ACTION_REBOOT_FORCE]       = "reboot-force",
         [EMERGENCY_ACTION_REBOOT_IMMEDIATE]   = "reboot-immediate",
         [EMERGENCY_ACTION_POWEROFF]           = "poweroff",
         [EMERGENCY_ACTION_POWEROFF_FORCE]     = "poweroff-force",
         [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
-        [EMERGENCY_ACTION_EXIT]               = "exit",
-        [EMERGENCY_ACTION_EXIT_FORCE]         = "exit-force",
         [EMERGENCY_ACTION_SOFT_REBOOT]        = "soft-reboot",
         [EMERGENCY_ACTION_SOFT_REBOOT_FORCE]  = "soft-reboot-force",
         [EMERGENCY_ACTION_KEXEC]              = "kexec",
@@ -216,7 +217,7 @@ int parse_emergency_action(
         if (x < 0)
                 return -EINVAL;
 
-        if (runtime_scope != RUNTIME_SCOPE_SYSTEM && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION)
+        if (runtime_scope != RUNTIME_SCOPE_SYSTEM && x > _EMERGENCY_ACTION_LAST_USER_ACTION)
                 return -EOPNOTSUPP;
 
         *ret = x;

@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=Silent successful service
-
-[Service]
-LogLevelMax=notice
-ExecStart=/bin/true

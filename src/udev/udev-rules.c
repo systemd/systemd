@@ -1536,7 +1536,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
 
         r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
+                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", filename);
 
         (void) fd_warn_permissions(filename, fileno(f));
 
@@ -1771,27 +1771,28 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
         case SUBST_TYPE_PLAIN:
                 if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return false;
-                break;
+
+                /* remove trailing whitespace, if not asked to match for it */
+                if (token->attr_match_remove_trailing_whitespace) {
+                        strscpy(vbuf, sizeof(vbuf), value);
+                        value = delete_trailing_chars(vbuf, NULL);
+                }
+
+                return token_match_string(token, value);
+
         case SUBST_TYPE_SUBSYS:
                 if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
                         return false;
-                value = vbuf;
-                break;
+
+                /* remove trailing whitespace, if not asked to match for it */
+                if (token->attr_match_remove_trailing_whitespace)
+                        delete_trailing_chars(vbuf, NULL);
+
+                return token_match_string(token, vbuf);
+
         default:
                 assert_not_reached();
         }
-
-        /* remove trailing whitespace, if not asked to match for it */
-        if (token->attr_match_remove_trailing_whitespace) {
-                if (value != vbuf) {
-                        strscpy(vbuf, sizeof(vbuf), value);
-                        value = vbuf;
-                }
-
-                delete_trailing_chars(vbuf, NULL);
-        }
-
-        return token_match_string(token, value);
 }
 
 static int get_property_from_string(char *line, char **ret_key, char **ret_value) {

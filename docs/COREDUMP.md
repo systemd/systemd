@@ -30,7 +30,7 @@ Specifically, PID 1 provides the following functionality:
    to the current working directory of the crashing process.)
 
 Net effect: after PID1 has started and performed this setup coredumps are
-disabled, but by means of the the `kernel.core_pattern` sysctl rather than by
+disabled, but by means of the `kernel.core_pattern` sysctl rather than by
 size limit.
 This is generally preferable, since the pattern can be updated trivially at the right time to enable coredumping once the system is ready, taking comprehensive effect on all userspace.
 (Or to say this differently: disabling coredumps via the size limit is problematic, since it cannot easily

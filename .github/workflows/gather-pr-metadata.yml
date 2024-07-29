@@ -12,15 +12,15 @@ permissions:
 jobs:
   gather-metadata:
     if: github.repository == 'systemd/systemd'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Repository checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
       - id: metadata
         name: Gather Pull Request Metadata
-        uses: redhat-plumbers-in-action/gather-pull-request-metadata@69c703f376018c1a41c8ccce21dc2e16a79f3324
+        uses: redhat-plumbers-in-action/gather-pull-request-metadata@17821d3bc27c1efed339595898c2e622accc5a1b
 
       - name: Upload Pull Request Metadata artifact
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3

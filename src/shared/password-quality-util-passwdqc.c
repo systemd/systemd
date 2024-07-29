@@ -12,14 +12,19 @@
 
 static void *passwdqc_dl = NULL;
 
-DLSYM_FUNCTION(passwdqc_params_reset);
-DLSYM_FUNCTION(passwdqc_params_load);
-DLSYM_FUNCTION(passwdqc_params_parse);
-DLSYM_FUNCTION(passwdqc_params_free);
-DLSYM_FUNCTION(passwdqc_check);
-DLSYM_FUNCTION(passwdqc_random);
+DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
+DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
+DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
+DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
+DLSYM_PROTOTYPE(passwdqc_check) = NULL;
+DLSYM_PROTOTYPE(passwdqc_random) = NULL;
 
 int dlopen_passwdqc(void) {
+        ELF_NOTE_DLOPEN("passwdqc",
+                        "Support for password quality checks",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpasswdqc.so.1");
+
         return dlopen_many_sym_or_warn(
                         &passwdqc_dl, "libpasswdqc.so.1", LOG_DEBUG,
                         DLSYM_ARG(passwdqc_params_reset),

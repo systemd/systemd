@@ -10,14 +10,14 @@
 
 #include "dlfcn-util.h"
 
-DLSYM_PROTOTYPE(pwquality_check);
-DLSYM_PROTOTYPE(pwquality_default_settings);
-DLSYM_PROTOTYPE(pwquality_free_settings);
-DLSYM_PROTOTYPE(pwquality_generate);
-DLSYM_PROTOTYPE(pwquality_get_str_value);
-DLSYM_PROTOTYPE(pwquality_read_config);
-DLSYM_PROTOTYPE(pwquality_set_int_value);
-DLSYM_PROTOTYPE(pwquality_strerror);
+extern DLSYM_PROTOTYPE(pwquality_check);
+extern DLSYM_PROTOTYPE(pwquality_default_settings);
+extern DLSYM_PROTOTYPE(pwquality_free_settings);
+extern DLSYM_PROTOTYPE(pwquality_generate);
+extern DLSYM_PROTOTYPE(pwquality_get_str_value);
+extern DLSYM_PROTOTYPE(pwquality_read_config);
+extern DLSYM_PROTOTYPE(pwquality_set_int_value);
+extern DLSYM_PROTOTYPE(pwquality_strerror);
 
 int dlopen_pwquality(void);
 

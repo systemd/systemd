@@ -639,7 +639,7 @@ static int parse_ip_address_one(int family, const char **value, union in_addr_un
         } else {
                 q = strchr(p, ':');
                 if (!q)
-                        log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid IPv4 address '%s'", p);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid IPv4 address '%s'", p);
 
                 buf = strndupa_safe(p, q - p);
                 p = q + 1;

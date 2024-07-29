@@ -51,7 +51,7 @@
 
     <para><filename>systemd-cryptsetup</filename> is used to set up (with <command>attach</command>) and tear
     down (with <command>detach</command>) access to an encrypted block device. It is primarily used via
-    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be be called manually.
+    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be called manually.
     The positional arguments <parameter>VOLUME</parameter>, <parameter>SOURCE-DEVICE</parameter>,
     <parameter>KEY-FILE</parameter>, and <parameter>CRYPTTAB-OPTIONS</parameter> have the same meaning as the
     fields in <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -94,8 +94,9 @@
       <listitem><para>If the <varname>try-empty-password</varname> option is specified then unlocking the
       volume with an empty password is attempted.</para></listitem>
 
-      <listitem><para>The kernel keyring is then checked for a suitable cached password from previous
-      attempts.</para></listitem>
+      <listitem><para>If the <varname>password-cache=</varname> option is set to <literal>yes</literal> or
+      <literal>read-only</literal>, the kernel keyring is then checked for a suitable cached password from
+      previous attempts.</para></listitem>
 
       <listitem><para>Finally, the user is queried for a password, possibly multiple times, unless
       the <varname>headless</varname> option is set.</para></listitem>

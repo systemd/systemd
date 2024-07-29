@@ -105,12 +105,11 @@ systemd adheres to the recommendations above and guarantees additional behavior 
   It is hence OK to pre-create cgroups and then let systemd use it, without having systemd remove it afterwards.
 - If a service cgroup already exists, systemd will not override the attributes of the cgroup with the exception of those explicitly configured in the systemd unit files.
   It is hence OK to pre-create cgroups for use in systemd, and pre-apply attributes to it.
-- To avoid that systemd places all services in automatic cgroups in the "cpu" hierarchy change the [?](https://secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&amp;from=Software%2Fsystemd%2FPaxControlGroups&amp;page=DefaultControllers) DefaultControllers= in /etc/systemd/system.conf and set it to the empty string.
+- To avoid that systemd places all services in automatic cgroups in the "cpu" hierarchy change the DefaultControllers= in /etc/systemd/system.conf and set it to the empty string.
 - By default systemd will place services only in automatic cgroups in the "cpu" hierarchy and in its own private tree "name=systemd".
-  If you want it to duplicate these trees in other hierarchies add them to [?](https://secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&amp;from=Software%2Fsystemd%2FPaxControlGroups&amp;page=DefaultControllers) DefaultControllers= in /etc/systemd/system.conf
-- To opt-out or opt-in specific services from the automatic tree generation in the kernel controller hierarchies use [?](https://secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&amp;from=Software%2Fsystemd%2FPaxControlGroups&amp;page=ControlGroup) ControlGroup= in the unit file.
-  Use "[?](https://secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&amp;from=Software%2Fsystemd%2FPaxControlGroups&amp;page=ControlGroup) ControlGroup=cpu:/" to opt-out of cgroup assignment for a service or
-  [?](https://secure.freedesktop.org/write/www/ikiwiki.cgi?do=create&amp;from=Software%2Fsystemd%2FPaxControlGroups&amp;page=ControlGroup) ControlGroup=cpu:/foo/bar" to manipulate the cgroup path.
+  If you want it to duplicate these trees in other hierarchies add them to DefaultControllers= in /etc/systemd/system.conf
+- To opt-out or opt-in specific services from the automatic tree generation in the kernel controller hierarchies use ControlGroup= in the unit file.
+  Use "ControlGroup=cpu:/" to opt-out of cgroup assignment for a service or "ControlGroup=cpu:/foo/bar" to manipulate the cgroup path.
 - Stay away from the name=systemd named hierarchy.
   It's private property of systemd.
   You are welcome to explore it, but it is uncool to modify it from outside systemd.

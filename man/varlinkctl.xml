@@ -39,9 +39,17 @@
     <cmdsynopsis>
       <command>varlinkctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-methods</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INTERFACE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">introspect</arg>
       <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
-      <arg choice="plain"><replaceable>INTERFACE</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INTERFACE</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -71,16 +79,23 @@
 
     <itemizedlist>
       <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
-      by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary string
-      (the latter for referencing sockets in the abstract namespace).</para></listitem>
+      by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary
+      string (the latter for referencing sockets in the abstract namespace). In this case a stream socket
+      connection is made to the specified socket.</para></listitem>
 
       <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
-      by an absolute path of a binary to execute.</para></listitem>
+      by an absolute path of a binary to execute. In this case the specified process is forked off locally,
+      with a connected stream socket passed in.</para></listitem>
 
-      <listitem><para>A Varlink service reference starting with the <literal>ssh:</literal> string, followed
+      <listitem><para>A Varlink service reference starting with the <literal>ssh-unix:</literal> string, followed
       by an SSH host specification, followed by <literal>:</literal>, followed by an absolute
       <constant>AF_UNIX</constant> socket path. (This requires OpenSSH 9.4 or newer on the server side,
       abstract namespace sockets are not supported.)</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>ssh-exec:</literal> string,
+      followed by an SSH host specification, followed by <literal>:</literal>, followed by a command line. In
+      this case the command is invoked and the Varlink protocol is spoken on the standard input and output of
+      the invoked command.</para></listitem>
     </itemizedlist>
 
     <para>For convenience these two simpler (redundant) service address syntaxes are also supported:</para>
@@ -120,11 +135,23 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> <replaceable>INTERFACE</replaceable></term>
+        <term><command>list-methods</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
 
-        <listitem><para>Show interface definition of the specified interface provided by the specified
-        service. Expects a service address in one of the formats described above and a Varlink interface
-        name.</para>
+        <listitem><para>Show list of methods implemented by the specified service. Expects a service address
+        in one of the formats described above as well as one or more interface names. If no interface name is
+        specified, lists all methods of all interfaces implemented by the service, otherwise just the methods
+        in the specified interfaces.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
+
+        <listitem><para>Show the interface definitions of the specified interfaces provided by the specified
+        service. Expects a service address in one of the formats described above and optionally one or more
+        Varlink interface names. If no interface names are specified, shows all provided interfaces by the
+        service.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -227,6 +254,31 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem>
+          <para>Suppress output of method call replies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful=</option></term>
+
+        <listitem>
+          <para>Takes a qualified Varlink error name (i.e. an interface name, suffixed by an error name,
+          separated by a dot; e.g. <literal>org.varlink.service.InvalidParameter</literal>). Ensures that if
+          a method call fails with the specified error this will be treated as success, i.e. will cause the
+          <command>varlinkctl</command> invocation to exit with a zero exit status. This option may be used more
+          than once in order to treat multiple different errors as successes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
@@ -314,6 +366,22 @@ method Extend(
 ) -> ()
 # varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"pcr":15,"text":"foobar"}'
 {}</programlisting>
+    </example>
+
+    <example>
+      <title>Invoking a method remotely via SSH</title>
+
+      <para>The following command acquires a report about the identity of a remote host
+      <literal>somehost</literal> from
+      <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      by connecting via SSH to the <constant>AF_UNIX</constant> socket the service listens on:</para>
+
+      <programlisting># varlinkctl call ssh-unix:somehost:/run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'</programlisting>
+
+      <para>To invoke a Varlink service binary directly on the remote host, rather than talking to a service
+      via <constant>AF_UNIX</constant> can be done like this:</para>
+
+      <programlisting># varlinkctl call ssh-exec:somehost:/usr/bin/systemd-creds org.varlink.service.GetInfo '{}'</programlisting>
     </example>
 
   </refsect1>

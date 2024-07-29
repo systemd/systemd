@@ -15,6 +15,7 @@ DefaultDependencies=no
 After=systemd-remount-fs.service systemd-networkd.service
 BindsTo=systemd-networkd.service
 Conflicts=shutdown.target
+Before=shutdown.target
 ConditionPathExists=!/etc/initrd-release
 
 [Service]

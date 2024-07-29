@@ -3,12 +3,7 @@
 # This config file is installed as part of systemd.
 # It may be freely copied and edited (following the MIT No Attribution license).
 #
-# To make local modifications, one of the following methods may be used:
-# 1. add a drop-in file that extends this file by creating the
-#    /etc/systemd/network/80-wifi-adhoc.network.d/ directory and creating a
-#    new .conf file there.
-# 2. copy this file into /etc/systemd/network or one of the other paths checked
-#    by systemd-networkd and edit it there.
+# To make local modifications, use "networkctl edit". See networkctl(1) for details.
 # This file should not be edited in place, because it'll be overwritten on upgrades.
 
 [Match]

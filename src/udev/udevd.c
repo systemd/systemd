@@ -289,17 +289,13 @@ int run_udevd(int argc, char *argv[]) {
         int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_open();
+        log_setup();
 
         manager = manager_new();
         if (!manager)
                 return log_oom();
 
         manager_parse_udev_config(manager);
-
-        log_parse_environment();
-        log_open(); /* Done again to update after reading configuration. */
 
         r = parse_argv(argc, argv, manager);
         if (r <= 0)

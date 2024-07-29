@@ -168,3 +168,12 @@ int event_add_child_pidref(
 
         return sd_event_add_child(e, s, pid->pid, options, callback, userdata);
 }
+
+dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts) {
+        assert(e);
+        assert(ts);
+
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &ts->realtime) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &ts->monotonic) >= 0);
+        return ts;
+}

@@ -1568,7 +1568,7 @@ node /org/freedesktop/systemd1 {
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
       passed as an empty array. See the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
+      <ulink url="https://systemd.io/CONTROL_GROUP_INTERFACE">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
 
@@ -1660,18 +1660,26 @@ node /org/freedesktop/systemd1 {
           <listitem><para><filename>/bin</filename>, <filename>/sbin</filename> and
           <filename>/lib*</filename> are not symlinks to their counterparts under <filename>/usr/</filename>.
           For more information on this issue consult
-          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
-            The Case for the /usr Merge
-          </ulink>.</para>
+          <ulink url="https://systemd.io/THE_CASE_FOR_THE_USR_MERGE">The Case for the /usr Merge</ulink>.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-
         </varlistentry>
 
         <varlistentry>
-          <term><literal>cgroups-missing</literal></term>
+          <term><literal>unmerged-bin</literal></term>
 
-          <listitem><para>Support for cgroups is unavailable.</para>
+          <listitem><para><filename>/usr/sbin</filename> is not a symlink to <filename>/usr/bin/</filename>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>var-run-bad</literal></term>
+
+          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
+          symlink to <filename>/run/</filename>.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
@@ -1679,7 +1687,7 @@ node /org/freedesktop/systemd1 {
         <varlistentry>
           <term><literal>cgroupsv1</literal></term>
 
-          <listitem><para>The system is using the old cgroup hierarchy.</para>
+          <listitem><para>The system is using the deprecated cgroup v1 hierarchy.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
@@ -1714,15 +1722,6 @@ node /org/freedesktop/systemd1 {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>var-run-bad</literal></term>
-
-          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
-          symlink to <filename>/run/</filename>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><literal>overflowuid-not-65534</literal></term>
           <term><literal>overflowgid-not-65534</literal></term>
 
@@ -1740,8 +1739,6 @@ node /org/freedesktop/systemd1 {
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
-
-        <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->
       </variablelist>
 
       <para><varname>FirmwareTimestamp</varname>, <varname>FirmwareTimestampMonotonic</varname>,
@@ -2748,6 +2745,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s FileDescriptorStorePreserve = '...';
       readonly s StatusText = '...';
       readonly i StatusErrno = ...;
+      readonly s StatusBusError = '...';
+      readonly s StatusVarlinkError = '...';
       readonly s Result = '...';
       readonly s ReloadResult = '...';
       readonly s CleanResult = '...';
@@ -2768,8 +2767,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
       readonly t ExecMainExitTimestampMonotonic = ...;
-      readonly t ExecMainHandoverTimestamp = ...;
-      readonly t ExecMainHandoverTimestampMonotonic = ...;
+      readonly t ExecMainHandoffTimestamp = ...;
+      readonly t ExecMainHandoffTimestampMonotonic = ...;
       readonly u ExecMainPID = ...;
       readonly i ExecMainCode = ...;
       readonly i ExecMainStatus = ...;
@@ -3208,6 +3207,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -3406,8 +3407,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property NFileDescriptorStore is not documented!-->
 
     <!--property FileDescriptorStorePreserve is not documented!-->
-
-    <!--property StatusErrno is not documented!-->
 
     <!--property ReloadResult is not documented!-->
 
@@ -3819,6 +3818,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property PrivateTmp is not documented!-->
 
+    <!--property PrivateTmpEx is not documented!-->
+
     <!--property PrivateDevices is not documented!-->
 
     <!--property ProtectClock is not documented!-->
@@ -4029,6 +4030,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StatusErrno"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StatusBusError"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StatusVarlinkError"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadResult"/>
@@ -4059,9 +4064,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainExitTimestampMonotonic"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestamp"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoffTimestamp"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestampMonotonic"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoffTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainPID"/>
 
@@ -4503,6 +4508,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectClock"/>
@@ -4712,17 +4719,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>ExecMainStartTimestamp</varname>, <varname>ExecMainStartTimestampMonotonic</varname>,
       <varname>ExecMainExitTimestamp</varname>, <varname>ExecMainExitTimestampMonotonic</varname>,
-      <varname>ExecMainHandoverTimestamp</varname>, <varname>ExecMainHandoverTimestampMonotonic</varname>,
+      <varname>ExecMainHandoffTimestamp</varname>, <varname>ExecMainHandoffTimestampMonotonic</varname>,
       <varname>ExecMainPID</varname>, <varname>ExecMainCode</varname>, <varname>ExecMainStatus</varname>
       contain information about the main process of the service as far as it is known. The
-      <varname>ExecMainStartTimestamp</varname> timestamps record when the main child process is spawned by
-      the service manager. <varname>ExecMainExitTimestamp</varname> timestamps record when the main child
-      process exit has been detected by the service manager. <varname>ExecMainHandoverTimestamp</varname>
-      timestamps record when the service executable is executed by <command>systemd-executor</command>.
-      This is often the same runtime information that is stored in <varname>ExecStart=</varname>. However,
-      it deviates for <varname>Type=forking</varname> services where the main process of the service is not
-      forked off systemd directly. These fields either contain information of the last run of the process or
-      of the current running process.</para>
+      <varname>ExecMainStartTimestamp</varname> timestamps record when the main process of the service is
+      created. <varname>ExecMainExitTimestamp</varname> timestamps record when the main process exit has been
+      detected by the service manager. <varname>ExecMainHandoffTimestamp</varname> timestamps records when
+      the service binary is about to be executed by <command>systemd-executor</command> (this timestamp is
+      recorded regardless if the immediately following <function>execve()</function> system call succeeds or
+      fails). This is often the same runtime information that is also maintained for
+      <varname>ExecStart=</varname>. However, it deviates for services with <varname>Type=forking</varname>
+      as well as services that use <varname>MAINPID=</varname> <function>sd_notify()</function> messages as
+      the main process of the service is not forked off by the service manager directly in that case. These
+      fields either contain information of the last run of the process or of the current running
+      process.</para>
 
       <para><varname>MainPID</varname> and <varname>ControlPID</varname> contain the main and control PID of
       the service. The main PID is the current main PID of the service and is 0 when the service currently
@@ -4732,11 +4742,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       process is currently running while the latter possible contains information collected from the last run
       even if the process is no longer around.</para>
 
-      <para><varname>StatusText</varname> contains the status text passed to the service manager via a call
-      to
-      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-      This may be used by services to inform the service manager about its internal state with a nice
-      explanatory string.</para>
+      <para><varname>StatusText</varname>, <varname>StatusErrno</varname>, <varname>StatusBusError</varname>,
+      and <varname>StatusVarlinkError</varname> contain the status text, the error number,
+      and the D-Bus/Varlink error name passed to the service manager via
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      respectively. They may be used by services to inform the service manager about its internal state.</para>
 
       <para><varname>Result</varname> encodes the execution result of the last run of the service. It is
       useful to determine the reason a service failed if it is in the <literal>failed</literal> state (see
@@ -5321,6 +5331,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t MountFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5944,6 +5956,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -6608,6 +6622,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -7295,6 +7311,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -7843,6 +7861,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -8419,6 +8439,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -9229,6 +9251,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateTmpEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateDevices = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectClock = ...;
@@ -9763,6 +9787,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ExecSearchPath is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
+
+    <!--property PrivateTmpEx is not documented!-->
 
     <!--property PrivateDevices is not documented!-->
 
@@ -10325,6 +10351,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateTmpEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateDevices"/>
 
@@ -12015,7 +12043,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
       <para><function>StartAuxiliaryScope()</function>,
       <varname>ShutdownStartTimestamp</varname>,
-      <varname>ShutdownStartTimestampMonotonic</varname> and
+      <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
@@ -12068,8 +12096,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>,
-      <varname>ExecMainHandoverTimestampMonotonic</varname>, and
-      <varname>ExecMainHandoverTimestamp</varname> were added in version 256.</para>
+      <varname>ExecMainHandoffTimestampMonotonic</varname>, and
+      <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
+      <para><varname>StatusBusError</varname>,
+      <varname>StatusVarlinkError</varname>, and
+      <varname>PrivateTmpEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12106,6 +12137,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>, and
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12139,6 +12171,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12172,6 +12205,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>PrivateTmpEx</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>

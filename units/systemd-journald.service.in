@@ -17,7 +17,10 @@ Before=sysinit.target
 
 # To avoid journald SIGKILLed during soft-reboot and corrupting journals.
 # See https://github.com/systemd/systemd/issues/30195
-Before=soft-reboot.target
+# Note, typically soft-reboot.target will be never reached,
+# and systemd-soft-reboot.service will trigger soft-reboot.
+# Hence, this must be stopped before systemd-soft-reboot.service.
+Before=soft-reboot.target systemd-soft-reboot.service
 Conflicts=soft-reboot.target
 
 # Mount and swap units need the journal socket units. If they were removed by
@@ -29,6 +32,8 @@ IgnoreOnIsolate=yes
 DeviceAllow=char-* rw
 ExecStart={{LIBEXECDIR}}/systemd-journald
 FileDescriptorStoreMax=4224
+# Ensure services using StandardOutput=journal do not break when journald is stopped
+FileDescriptorStorePreserve=yes
 ImportCredential=journal.*
 IPAddressDeny=any
 LockPersonality=yes

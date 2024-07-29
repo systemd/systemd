@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -44,6 +45,7 @@
 #include "journal-send.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
+#include "missing_sched.h"
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
@@ -351,15 +353,9 @@ static int setup_input(
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
                         return -errno;
 
-                /* Try to make this the controlling tty, if it is a tty, and reset it */
-                if (isatty(STDIN_FILENO)) {
+                /* Try to make this the controlling tty, if it is a tty */
+                if (isatty(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-
-                        if (context->tty_reset)
-                                (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ true);
-
-                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, /* tty_path= */ NULL);
-                }
 
                 return STDIN_FILENO;
         }
@@ -386,10 +382,6 @@ static int setup_input(
                                           USEC_INFINITY);
                 if (tty_fd < 0)
                         return tty_fd;
-
-                r = exec_context_apply_tty_size(context, tty_fd, tty_path);
-                if (r < 0)
-                        return r;
 
                 r = move_fd(tty_fd, STDIN_FILENO, /* cloexec= */ false);
                 if (r < 0)
@@ -505,6 +497,9 @@ static int setup_output(
         i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
+        // FIXME: we probably should spend some time here to verify that if we inherit an fd from stdin
+        // (possibly indirect via inheritance from stdout) it is actually opened for write!
+
         if (fileno == STDERR_FILENO) {
                 ExecOutput e;
                 e = fixup_output(context->std_error, socket_fd);
@@ -552,7 +547,6 @@ static int setup_output(
                 if (is_terminal_input(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
-                /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_KMSG:
@@ -657,11 +651,11 @@ static int setup_confirm_stdio(
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
-        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3);
+        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
         if (saved_stdin < 0)
                 return -errno;
 
-        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
+        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
         if (saved_stdout < 0)
                 return -errno;
 
@@ -669,15 +663,19 @@ static int setup_confirm_stdio(
         if (fd < 0)
                 return fd;
 
+        _cleanup_close_ int lock_fd = lock_dev_console();
+        if (lock_fd < 0)
+                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
+
         r = chown_terminal(fd, getuid());
         if (r < 0)
                 return r;
 
-        r = reset_terminal_fd(fd, /* switch_to_text= */ true);
+        r = terminal_reset_defensive(fd, /* switch_to_text= */ true);
         if (r < 0)
                 return r;
 
-        r = exec_context_apply_tty_size(context, fd, vc);
+        r = exec_context_apply_tty_size(context, fd, fd, vc);
         if (r < 0)
                 return r;
 
@@ -692,15 +690,16 @@ static int setup_confirm_stdio(
 }
 
 static void write_confirm_error_fd(int err, int fd, const char *unit_id) {
-        assert(err < 0);
+        assert(err != 0);
+        assert(fd >= 0);
         assert(unit_id);
 
-        if (err == -ETIMEDOUT)
+        errno = abs(err);
+
+        if (errno == ETIMEDOUT)
                 dprintf(fd, "Confirmation question timed out for %s, assuming positive response.\n", unit_id);
-        else {
-                errno = -err;
-                dprintf(fd, "Couldn't ask confirmation for %s: %m, assuming positive response.\n", unit_id);
-        }
+        else
+                dprintf(fd, "Couldn't ask confirmation for %s, assuming positive response: %m\n", unit_id);
 }
 
 static void write_confirm_error(int err, const char *vc, const char *unit_id) {
@@ -748,7 +747,7 @@ static bool confirm_spawn_disabled(void) {
 }
 
 static int ask_for_confirmation(const ExecContext *context, const ExecParameters *params, const char *cmdline) {
-        int saved_stdout = -1, saved_stdin = -1, r;
+        int saved_stdout = -EBADF, saved_stdin = -EBADF, r;
         _cleanup_free_ char *e = NULL;
         char c;
 
@@ -1435,6 +1434,13 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, b
 
         if (needs_ambient_hack) {
                 r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
+        if (p->exec_fd >= 0 || p->handoff_timestamp_fd >= 0) {
+                r = seccomp_filter_set_add_by_name(c->syscall_filter, c->syscall_allow_list, "write");
                 if (r < 0)
                         return r;
         }
@@ -2292,10 +2298,10 @@ static int setup_exec_directory(
                         gid = 0;
         }
 
-        for (size_t i = 0; i < context->directories[type].n_items; i++) {
+        FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
-                p = path_join(params->prefix[type], context->directories[type].items[i].path);
+                p = path_join(params->prefix[type], i->path);
                 if (!p) {
                         r = -ENOMEM;
                         goto fail;
@@ -2311,7 +2317,7 @@ static int setup_exec_directory(
                          * doesn't exist, then we likely are upgrading from an older systemd version that
                          * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
                          * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
-                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
+                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME it is now
                          * separated. If a service has both dirs configured but only the configuration dir
                          * exists and the state dir does not, we assume we are looking at an update
                          * situation. Hence, create a compatibility symlink, so that all expectations are
@@ -2332,9 +2338,9 @@ static int setup_exec_directory(
                                  * under the configuration hierarchy. */
 
                                 if (type == EXEC_DIRECTORY_STATE)
-                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], context->directories[type].items[i].path);
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], i->path);
                                 else if (type == EXEC_DIRECTORY_LOGS)
-                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], "log", context->directories[type].items[i].path);
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], "log", i->path);
                                 else
                                         assert_not_reached();
                                 if (!q) {
@@ -2397,7 +2403,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        if (!path_extend(&pp, context->directories[type].items[i].path)) {
+                        if (!path_extend(&pp, i->path)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -2431,7 +2437,7 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        if (!context->directories[type].items[i].only_create) {
+                        if (!i->only_create) {
                                 /* And link it up from the original place.
                                  * Notes
                                  * 1) If a mount namespace is going to be used, then this symlink remains on
@@ -2468,7 +2474,7 @@ static int setup_exec_directory(
                                 if (r < 0)
                                         goto fail;
 
-                                q = path_join(params->prefix[type], "private", context->directories[type].items[i].path);
+                                q = path_join(params->prefix[type], "private", i->path);
                                 if (!q) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -2522,7 +2528,7 @@ static int setup_exec_directory(
                                                                  params,
                                                                  "%s \'%s\' already exists but the mode is different. "
                                                                  "(File system: %o %sMode: %o)",
-                                                                 exec_directory_type_to_string(type), context->directories[type].items[i].path,
+                                                                 exec_directory_type_to_string(type), i->path,
                                                                  st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
 
                                         continue;
@@ -2553,10 +2559,8 @@ static int setup_exec_directory(
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
          * they are set up later, to allow configuring empty var/run/etc. */
         if (!needs_mount_namespace)
-                for (size_t i = 0; i < context->directories[type].n_items; i++) {
-                        r = create_many_symlinks(params->prefix[type],
-                                                 context->directories[type].items[i].path,
-                                                 context->directories[type].items[i].symlinks);
+                FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
+                        r = create_many_symlinks(params->prefix[type], i->path, i->symlinks);
                         if (r < 0)
                                 goto fail;
                 }
@@ -2623,8 +2627,8 @@ static int compile_bind_mounts(
                 if (!params->prefix[t])
                         continue;
 
-                for (size_t i = 0; i < context->directories[t].n_items; i++)
-                        n += !context->directories[t].items[i].only_create;
+                FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items)
+                        n += !i->only_create;
         }
 
         if (n <= 0) {
@@ -2638,8 +2642,7 @@ static int compile_bind_mounts(
         if (!bind_mounts)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < context->n_bind_mounts; i++) {
-                BindMount *item = context->bind_mounts + i;
+        FOREACH_ARRAY(item, context->bind_mounts, context->n_bind_mounts) {
                 _cleanup_free_ char *s = NULL, *d = NULL;
 
                 s = strdup(item->source);
@@ -2683,18 +2686,18 @@ static int compile_bind_mounts(
                                 return r;
                 }
 
-                for (size_t i = 0; i < context->directories[t].n_items; i++) {
+                FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items) {
                         _cleanup_free_ char *s = NULL, *d = NULL;
 
                         /* When one of the parent directories is in the list, we cannot create the symlink
                          * for the child directory. See also the comments in setup_exec_directory(). */
-                        if (context->directories[t].items[i].only_create)
+                        if (i->only_create)
                                 continue;
 
                         if (exec_directory_is_private(context, t))
-                                s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
+                                s = path_join(params->prefix[t], "private", i->path);
                         else
-                                s = path_join(params->prefix[t], context->directories[t].items[i].path);
+                                s = path_join(params->prefix[t], i->path);
                         if (!s)
                                 return -ENOMEM;
 
@@ -2703,7 +2706,7 @@ static int compile_bind_mounts(
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
-                                d = path_join(params->prefix[t], context->directories[t].items[i].path);
+                                d = path_join(params->prefix[t], i->path);
                         else
                                 d = strdup(s);
                         if (!d)
@@ -2712,10 +2715,8 @@ static int compile_bind_mounts(
                         bind_mounts[h++] = (BindMount) {
                                 .source = TAKE_PTR(s),
                                 .destination = TAKE_PTR(d),
-                                .read_only = false,
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
-                                .ignore_enoent = false,
                         };
                 }
         }
@@ -2745,14 +2746,14 @@ static int compile_symlinks(
         assert(params);
         assert(ret_symlinks);
 
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                for (size_t i = 0; i < context->directories[dt].n_items; i++) {
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+                FOREACH_ARRAY(i, context->directories[dt].items, context->directories[dt].n_items) {
                         _cleanup_free_ char *private_path = NULL, *path = NULL;
 
-                        STRV_FOREACH(symlink, context->directories[dt].items[i].symlinks) {
+                        STRV_FOREACH(symlink, i->symlinks) {
                                 _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
 
-                                src_abs = path_join(params->prefix[dt], context->directories[dt].items[i].path);
+                                src_abs = path_join(params->prefix[dt], i->path);
                                 dst_abs = path_join(params->prefix[dt], *symlink);
                                 if (!src_abs || !dst_abs)
                                         return -ENOMEM;
@@ -2764,14 +2765,14 @@ static int compile_symlinks(
 
                         if (!exec_directory_is_private(context, dt) ||
                             exec_context_with_rootfs(context) ||
-                            context->directories[dt].items[i].only_create)
+                            i->only_create)
                                 continue;
 
-                        private_path = path_join(params->prefix[dt], "private", context->directories[dt].items[i].path);
+                        private_path = path_join(params->prefix[dt], "private", i->path);
                         if (!private_path)
                                 return -ENOMEM;
 
-                        path = path_join(params->prefix[dt], context->directories[dt].items[i].path);
+                        path = path_join(params->prefix[dt], i->path);
                         if (!path)
                                 return -ENOMEM;
 
@@ -2779,7 +2780,6 @@ static int compile_symlinks(
                         if (r < 0)
                                 return r;
                 }
-        }
 
         /* We make the host's os-release available via a symlink, so that we can copy it atomically
          * and readers will never get a half-written version. Note that, while the paths specified here are
@@ -2830,8 +2830,8 @@ static bool insist_on_sandboxing(
 
         /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
          * essential. */
-        for (size_t i = 0; i < n_bind_mounts; i++)
-                if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
+        FOREACH_ARRAY(i, bind_mounts, n_bind_mounts)
+                if (!path_equal(i->source, i->destination))
                         return true;
 
         if (context->log_namespace)
@@ -2893,16 +2893,6 @@ static int setup_ephemeral(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
-
-                /* A root image might be subject to lots of random writes so let's try to disable COW on it
-                 * which tends to not perform well in combination with lots of random writes.
-                 *
-                 * Note: btrfs actually isn't impressed by us setting the flag after making the reflink'ed
-                 * copy, but we at least want to make the intention clear.
-                 */
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-                if (r < 0)
-                        log_debug_errno(fd, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
         } else {
                 assert(*root_directory);
 
@@ -3060,7 +3050,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *extension_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+                *private_namespace_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -3114,7 +3104,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3151,8 +3141,8 @@ static int apply_mount_namespace(
                 if (!incoming_dir)
                         return -ENOMEM;
 
-                extension_dir = strdup("/run/systemd/unit-extensions");
-                if (!extension_dir)
+                private_namespace_dir = strdup("/run/systemd");
+                if (!private_namespace_dir)
                         return -ENOMEM;
 
                 /* If running under a different root filesystem, propagate the host's os-release. We make a
@@ -3165,7 +3155,7 @@ static int apply_mount_namespace(
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
-                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
+                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
                         return -ENOMEM;
 
                 if (setup_os_release_symlink) {
@@ -3231,7 +3221,7 @@ static int apply_mount_namespace(
 
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
-                .extension_dir = extension_dir,
+                .private_namespace_dir = private_namespace_dir,
                 .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
                 .host_os_release_stage = host_os_release_stage,
 
@@ -3249,6 +3239,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+                .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
 
@@ -3519,7 +3510,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 14];
+        int dont_close[n_fds + 16];
 
         assert(params);
 
@@ -3555,6 +3546,11 @@ static int close_remaining_fds(
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
 
+        if (params->handoff_timestamp_fd >= 0)
+                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        assert(n_dont_close <= ELEMENTSOF(dont_close));
+
         return close_all_fds(dont_close, n_dont_close);
 }
 
@@ -3586,26 +3582,29 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char **buf) {
+static int acquire_home(const ExecContext *c, const char **home, char **ret_buf) {
         int r;
 
         assert(c);
         assert(home);
-        assert(buf);
+        assert(ret_buf);
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
-        if (*home)
+        if (*home) /* Already acquired from get_fixed_user()? */
                 return 0;
 
         if (!c->working_directory_home)
                 return 0;
 
-        r = get_home_dir(buf);
+        if (c->dynamic_user)
+                return -EADDRNOTAVAIL;
+
+        r = get_home_dir(ret_buf);
         if (r < 0)
                 return r;
 
-        *home = *buf;
+        *home = *ret_buf;
         return 1;
 }
 
@@ -3714,7 +3713,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
         r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
         if (r < 0)
-                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
         FOREACH_ELEMENT(i, socket_types) {
@@ -3722,7 +3721,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
                 fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to create socket for '%s': %m",
                                                     of->path);
 
@@ -3730,12 +3729,12 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
                 if (r >= 0)
                         return TAKE_FD(fd);
                 if (r != -EPROTOTYPE)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     r, "Failed to connect to socket for '%s': %m",
                                                     of->path);
         }
 
-        return log_exec_error_errno(c, p,
+        return log_exec_debug_errno(c, p,
                                     SYNTHETIC_ERRNO(EPROTOTYPE), "No suitable socket type to connect to socket '%s'.",
                                     of->path);
 }
@@ -3750,10 +3749,10 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
+                return log_exec_debug_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(c, p, of, ofd);
@@ -3761,7 +3760,7 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_exec_error_errno(c, p,
+                        return log_exec_debug_errno(c, p,
                                                     errno, "Failed to shutdown send for socket '%s': %m",
                                                     of->path);
 
@@ -3773,9 +3772,9 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags | O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
+                        return log_exec_debug_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
                 log_exec_debug(c, p, "Opened file '%s' as fd %d.", of->path, fd);
         }
@@ -3784,8 +3783,6 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 }
 
 static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t *n_fds) {
-        int r;
-
         assert(c);
         assert(p);
         assert(n_fds);
@@ -3796,21 +3793,24 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 fd = get_open_file_fd(c, p, of);
                 if (fd < 0) {
                         if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
-                                log_exec_warning_errno(c, p, fd,
-                                                       "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
-                                                       of->path);
+                                log_exec_full_errno(c, p,
+                                                    fd == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(fd) ? LOG_DEBUG : LOG_WARNING,
+                                                    fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
+                                                    of->path);
                                 continue;
                         }
 
-                        return fd;
+                        return log_exec_error_errno(c, p, fd,
+                                                    "Failed to get OpenFile= file descriptor for '%s': %m",
+                                                    of->path);
                 }
 
                 if (!GREEDY_REALLOC(p->fds, *n_fds + 1))
-                        return -ENOMEM;
+                        return log_oom();
 
-                r = strv_extend(&p->fd_names, of->fdname);
-                if (r < 0)
-                        return r;
+                if (strv_extend(&p->fd_names, of->fdname) < 0)
+                        return log_oom();
 
                 p->fds[(*n_fds)++] = TAKE_FD(fd);
         }
@@ -3855,14 +3855,14 @@ static bool exec_context_need_unprivileged_private_users(
                 return false;
 
         return context->private_users ||
-               context->private_tmp ||
+               context->private_tmp != PRIVATE_TMP_OFF ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
                context->private_ipc ||
                context->ipc_namespace_path ||
                context->private_mounts > 0 ||
-               context->mount_apivfs ||
+               context->mount_apivfs > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
@@ -3970,6 +3970,85 @@ static void exec_params_close(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
+}
+
+static int exec_fd_mark_hot(
+                const ExecContext *c,
+                ExecParameters *p,
+                bool hot,
+                int *reterr_exit_status) {
+
+        assert(c);
+        assert(p);
+
+        if (p->exec_fd < 0)
+                return 0;
+
+        uint8_t x = hot;
+
+        if (write(p->exec_fd, &x, sizeof(x)) < 0) {
+                if (reterr_exit_status)
+                        *reterr_exit_status = EXIT_EXEC;
+                return log_exec_error_errno(c, p, errno, "Failed to mark exec_fd as %s: %m", hot ? "hot" : "cold");
+        }
+
+        return 1;
+}
+
+static int send_handoff_timestamp(
+                const ExecContext *c,
+                ExecParameters *p,
+                int *reterr_exit_status) {
+
+        assert(c);
+        assert(p);
+
+        if (p->handoff_timestamp_fd < 0)
+                return 0;
+
+        dual_timestamp dt;
+        dual_timestamp_now(&dt);
+
+        if (write(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2) < 0) {
+                if (reterr_exit_status)
+                        *reterr_exit_status = EXIT_EXEC;
+                return log_exec_error_errno(c, p, errno, "Failed to send handoff timestamp: %m");
+        }
+
+        return 1;
+}
+
+static void prepare_terminal(
+                const ExecContext *context,
+                ExecParameters *p) {
+
+        _cleanup_close_ int lock_fd = -EBADF;
+
+        /* This is the "constructive" reset, i.e. is about preparing things for our invocation rather than
+         * cleaning up things from older invocations. */
+
+        assert(context);
+        assert(p);
+
+        /* We only try to reset things if we there's the chance our stdout points to a TTY */
+        if (!(is_terminal_output(context->std_output) ||
+              (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
+              context->std_output == EXEC_OUTPUT_NAMED_FD ||
+              p->stdout_fd >= 0))
+                return;
+
+        if (context->tty_reset) {
+                /* When we are resetting the TTY, then let's create a lock first, to synchronize access. This
+                 * in particular matters as concurrent resets and the TTY size ANSI DSR logic done by the
+                 * exec_context_apply_tty_size() below might interfere */
+                lock_fd = lock_dev_console();
+                if (lock_fd < 0)
+                        log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
+
+                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        }
+
+        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
 }
 
 int exec_invoke(
@@ -4103,11 +4182,17 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 3];
+        int keep_fds[n_fds + 4];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
+        }
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->handoff_timestamp_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
@@ -4133,6 +4218,11 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to create new process session: %m");
         }
 
+        /* Now, reset the TTY associated to this service "destructively" (i.e. possibly even hang up or
+         * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
+         * open here, hence some of the settings made here might vanish again, depending on the TTY driver
+         * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
+         * will fix this. */
         exec_context_tty_reset(context, params);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
@@ -4153,7 +4243,7 @@ int exec_invoke(
 
                         *exit_status = EXIT_CONFIRM;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ECANCELED),
-                                                    "Execution cancelled by the user");
+                                                    "Execution cancelled by the user.");
                 }
         }
 
@@ -4195,12 +4285,12 @@ int exec_invoke(
 
                 if (!uid_is_valid(uid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\"", uid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\".", uid);
                 }
 
                 if (!gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\".", gid);
                 }
 
                 if (runtime->dynamic_creds->user)
@@ -4240,7 +4330,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, uid, &home, &home_buffer);
+        r = acquire_home(context, &home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
@@ -4316,6 +4406,12 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");
         }
 
+        /* Now that stdin/stdout are definiely opened, properly initialize it with our desired
+         * settings. Note: this is a "constructive" reset, it prepares things for us to use. This is
+         * different from the "destructive" TTY reset further up. Also note: we apply this on stdin/stdout in
+         * case this is a tty, regardless if we opened it ourselves or got it passed in pre-opened. */
+        prepare_terminal(context, params);
+
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User
                  * namespaces prohibit write access to this file, and we shouldn't trip up over that. */
@@ -4348,15 +4444,14 @@ int exec_invoke(
         }
 
         if (context->cpu_sched_set) {
-                struct sched_param param = {
+                struct sched_attr attr = {
+                        .size = sizeof(attr),
+                        .sched_policy = context->cpu_sched_policy,
                         .sched_priority = context->cpu_sched_priority,
+                        .sched_flags = context->cpu_sched_reset_on_fork ? SCHED_FLAG_RESET_ON_FORK : 0,
                 };
 
-                r = sched_setscheduler(0,
-                                       context->cpu_sched_policy |
-                                       (context->cpu_sched_reset_on_fork ?
-                                        SCHED_RESET_ON_FORK : 0),
-                                       &param);
+                r = sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0);
                 if (r < 0) {
                         *exit_status = EXIT_SETSCHEDULER;
                         return log_exec_error_errno(context, params, errno, "Failed to set up CPU scheduling: %m");
@@ -4699,7 +4794,7 @@ int exec_invoke(
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (r == -EPERM)
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_exec_warning_errno(context, params, r,
                                                        "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
                         else if (r < 0) {
@@ -4847,8 +4942,9 @@ int exec_invoke(
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time, since we don't need socket_fd and the netns and ipcns fds any
-         * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
-         * execve(). But first, close the remaining sockets in the context objects. */
+         * more. We do keep exec_fd and handoff_timestamp_fd however, if we have it, since we need to keep
+         * them open until the final execve(). But first, close the remaining sockets in the context
+         * objects. */
 
         exec_runtime_close(runtime);
         exec_params_close(params);
@@ -5264,33 +5360,29 @@ int exec_invoke(
 
         log_command_line(context, params, "Executing", executable, final_argv);
 
-        if (params->exec_fd >= 0) {
-                usec_t t = now(CLOCK_MONOTONIC);
+        /* We have finished with all our initializations. Let's now let the manager know that. From this
+         * point on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. */
 
-                /* We have finished with all our initializations. Let's now let the manager know that. From this point
-                 * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. We send a
-                 * timestamp so that the service manager and users can track the precise moment we handed
-                 * over execution of the service to the kernel. */
+        r = exec_fd_mark_hot(context, params, /* hot= */ true, exit_status);
+        if (r < 0)
+                return r;
 
-                if (write(params->exec_fd, &t, sizeof(t)) < 0) {
-                        *exit_status = EXIT_EXEC;
-                        return log_exec_error_errno(context, params, errno, "Failed to enable exec_fd: %m");
-                }
+        /* As last thing before the execve(), let's send the handoff timestamp */
+        r = send_handoff_timestamp(context, params, exit_status);
+        if (r < 0) {
+                /* If this handoff timestamp failed, let's undo the marking as hot */
+                (void) exec_fd_mark_hot(context, params, /* hot= */ false, /* reterr_exit_status= */ NULL);
+                return r;
         }
+
+        /* NB: we leave executable_fd, exec_fd, handoff_timestamp_fd open here. This is safe, because they
+         * have O_CLOEXEC set, and the execve() below will thus automatically close them. In fact, for
+         * exec_fd this is pretty much the whole raison d'etre. */
 
         r = fexecve_or_execve(executable_fd, executable, final_argv, accum_env);
 
-        if (params->exec_fd >= 0) {
-                uint64_t hot = 0;
-
-                /* The execve() failed. This means the exec_fd is still open. Which means we need to tell the manager
-                 * that POLLHUP on it no longer means execve() succeeded. */
-
-                if (write(params->exec_fd, &hot, sizeof(hot)) < 0) {
-                        *exit_status = EXIT_EXEC;
-                        return log_exec_error_errno(context, params, errno, "Failed to disable exec_fd: %m");
-                }
-        }
+        /* The execve() failed, let's undo the marking as hot */
+        (void) exec_fd_mark_hot(context, params, /* hot= */ false, /* reterr_exit_status= */ NULL);
 
         *exit_status = EXIT_EXEC;
         return log_exec_error_errno(context, params, r, "Failed to execute %s: %m", executable);

@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -36,26 +37,34 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, bool set_systemd_exec_pid) {
-        pid_t _pid;
+static int do_spawn(
+                const char *path,
+                char *argv[],
+                int stdout_fd,
+                bool set_systemd_exec_pid,
+                pid_t *ret_pid) {
+
         int r;
+
+        assert(path);
+        assert(ret_pid);
 
         if (null_or_empty_path(path) > 0) {
                 log_debug("%s is empty (a mask).", path);
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &_pid);
+        pid_t pid;
+        r = safe_fork_full(
+                        "(direxec)",
+                        (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS,
+                        &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 char *_argv[2];
-
-                if (stdout_fd >= 0) {
-                        r = rearrange_stdio(STDIN_FILENO, TAKE_FD(stdout_fd), STDERR_FILENO);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-                }
 
                 if (set_systemd_exec_pid) {
                         r = setenv_systemd_exec_pid(false);
@@ -75,7 +84,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 _exit(EXIT_FAILURE);
         }
 
-        *pid = _pid;
+        *ret_pid = pid;
         return 1;
 }
 
@@ -147,7 +156,7 @@ static int do_execute(
                         log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
                 }
 
-                r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
+                r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pid);
                 if (r <= 0)
                         continue;
 
@@ -417,46 +426,42 @@ static int gather_environment_consume(int fd, void *arg) {
         return r;
 }
 
-int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
-        ExecCommandFlags ex_flag, ret_flags = 0;
+int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
+        ExecCommandFlags flags = 0;
 
-        assert(flags);
+        assert(ret);
 
         STRV_FOREACH(opt, ex_opts) {
-                ex_flag = exec_command_flags_from_string(*opt);
-                if (ex_flag < 0)
-                        return ex_flag;
-                ret_flags |= ex_flag;
+                ExecCommandFlags fl = exec_command_flags_from_string(*opt);
+                if (fl < 0)
+                        return fl;
+
+                flags |= fl;
         }
 
-        *flags = ret_flags;
+        *ret = flags;
 
         return 0;
 }
 
-int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
-        _cleanup_strv_free_ char **ret_opts = NULL;
-        ExecCommandFlags it = flags;
-        const char *str;
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
+        _cleanup_strv_free_ char **opts = NULL;
         int r;
 
-        assert(ex_opts);
+        assert(flags >= 0);
+        assert(ret);
 
-        if (flags < 0)
-                return flags;
+        BIT_FOREACH(i, flags) {
+                const char *s = exec_command_flags_to_string(1 << i);
+                if (!s)
+                        return -EINVAL;
 
-        for (unsigned i = 0; it != 0; it &= ~(1 << i), i++)
-                if (FLAGS_SET(flags, (1 << i))) {
-                        str = exec_command_flags_to_string(1 << i);
-                        if (!str)
-                                return -EINVAL;
+                r = strv_extend(&opts, s);
+                if (r < 0)
+                        return r;
+        }
 
-                        r = strv_extend(&ret_opts, str);
-                        if (r < 0)
-                                return r;
-                }
-
-        *ex_opts = TAKE_PTR(ret_opts);
+        *ret = TAKE_PTR(opts);
 
         return 0;
 }
@@ -526,7 +531,7 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
         return -errno;
 }
 
-int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
         size_t n, i;
         va_list ap;
@@ -601,5 +606,6 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
         va_end(ap);
 
         execv(path, l);
+        log_error_errno(errno, "Failed to execute %s: %m", path);
         _exit(EXIT_FAILURE);
 }

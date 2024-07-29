@@ -50,6 +50,7 @@ void manager_reset_config(Manager *m) {
         m->handle_suspend_key_long_press = HANDLE_HIBERNATE;
         m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_hibernate_key_long_press = HANDLE_IGNORE;
+        m->handle_secure_attention_key = HANDLE_SECURE_ATTENTION_KEY;
 
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
@@ -77,6 +78,8 @@ void manager_reset_config(Manager *m) {
         m->kill_exclude_users = strv_free(m->kill_exclude_users);
 
         m->stop_idle_session_usec = USEC_INFINITY;
+
+        m->maintenance_time = calendar_spec_free(m->maintenance_time);
 }
 
 int manager_parse_config_file(Manager *m) {
@@ -371,10 +374,8 @@ int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) 
                         return r;
         } else {
                 r = cg_pidref_get_unit(pid, &unit);
-                if (r < 0)
-                        return r;
-
-                s = hashmap_get(m->session_units, unit);
+                if (r >= 0)
+                        s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)
@@ -410,7 +411,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
@@ -695,6 +696,8 @@ bool manager_all_buttons_ignored(Manager *m) {
         if (!IN_SET(m->handle_lid_switch_ep, _HANDLE_ACTION_INVALID, HANDLE_IGNORE))
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+        if (m->handle_secure_attention_key != HANDLE_IGNORE)
                 return false;
 
         return true;

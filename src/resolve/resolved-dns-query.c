@@ -432,8 +432,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         if (q->varlink_request) {
-                varlink_set_userdata(q->varlink_request, NULL);
-                varlink_unref(q->varlink_request);
+                sd_varlink_set_userdata(q->varlink_request, NULL);
+                sd_varlink_unref(q->varlink_request);
         }
 
         if (q->request_packet)
@@ -1282,7 +1282,7 @@ DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) 
         }
 }
 
-const char *dns_query_string(DnsQuery *q) {
+const char* dns_query_string(DnsQuery *q) {
         const char *name;
         int r;
 

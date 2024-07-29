@@ -16,11 +16,16 @@ static void* idn_dl = NULL;
 #endif
 
 #if HAVE_LIBIDN2
-DLSYM_FUNCTION(idn2_lookup_u8);
+DLSYM_PROTOTYPE(idn2_lookup_u8) = NULL;
 const char *(*sym_idn2_strerror)(int rc) _const_ = NULL;
-DLSYM_FUNCTION(idn2_to_unicode_8z8z);
+DLSYM_PROTOTYPE(idn2_to_unicode_8z8z) = NULL;
 
 int dlopen_idn(void) {
+        ELF_NOTE_DLOPEN("idn",
+                        "Support for internationalized domain names",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libidn2.so.0");
+
         return dlopen_many_sym_or_warn(
                         &idn_dl, "libidn2.so.0", LOG_DEBUG,
                         DLSYM_ARG(idn2_lookup_u8),
@@ -30,14 +35,19 @@ int dlopen_idn(void) {
 #endif
 
 #if HAVE_LIBIDN
-DLSYM_FUNCTION(idna_to_ascii_4i);
-DLSYM_FUNCTION(idna_to_unicode_44i);
-DLSYM_FUNCTION(stringprep_ucs4_to_utf8);
-DLSYM_FUNCTION(stringprep_utf8_to_ucs4);
+DLSYM_PROTOTYPE(idna_to_ascii_4i) = NULL;
+DLSYM_PROTOTYPE(idna_to_unicode_44i) = NULL;
+DLSYM_PROTOTYPE(stringprep_ucs4_to_utf8) = NULL;
+DLSYM_PROTOTYPE(stringprep_utf8_to_ucs4) = NULL;
 
 int dlopen_idn(void) {
         _cleanup_(dlclosep) void *dl = NULL;
         int r;
+
+        ELF_NOTE_DLOPEN("idn",
+                        "Support for internationalized domain names",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libidn.so.12", "libidn.so.11");
 
         if (idn_dl)
                 return 0; /* Already loaded */

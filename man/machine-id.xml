@@ -102,7 +102,8 @@
     value of the kernel command line option <varname>container_uuid</varname>, the KVM DMI
     <filename>product_uuid</filename> or the devicetree <filename>vm,uuid</filename>
     (on KVM systems), the Xen hypervisor <filename>uuid</filename>, and finally a randomly
-    generated UUID.</para>
+    generated UUID. <varname>systemd.machine_id=firmware</varname> can be set to generate the machine ID
+    from the firmware.</para>
 
     <para>After the machine ID is established,
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -124,7 +125,7 @@
     are as follows:</para>
 
     <orderedlist>
-      <listitem><para>The kernel command argument <varname>systemd.condition-first-boot=</varname> may be
+      <listitem><para>The kernel command argument <varname>systemd.condition_first_boot=</varname> may be
       used to override the autodetection logic, see
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
       </para></listitem>

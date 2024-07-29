@@ -2,7 +2,7 @@
 
 #include "cryptenroll-pkcs11.h"
 #include "hexdecoct.h"
-#include "json.h"
+#include "json-util.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
@@ -21,10 +21,10 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
                 CK_ATTRIBUTE attribute = { CKA_CLASS, &class, sizeof(class) };
 
                 if (sym_p11_kit_uri_set_attribute(p11kit_uri, &attribute) != P11_KIT_URI_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set class for URI '%s': %m", uri);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set class for URI '%s'.", uri);
 
                 if (sym_p11_kit_uri_format(p11kit_uri, P11_KIT_URI_FOR_ANY, &private_uri) != P11_KIT_URI_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to format PKCS#11 URI: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to format PKCS#11 URI.");
         }
 
         *ret_uri = TAKE_PTR(private_uri);
@@ -39,7 +39,7 @@ int enroll_pkcs11(
 
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL, *private_uri = NULL;
         size_t decrypted_key_size, saved_key_size;
         _cleanup_free_ void *saved_key = NULL;
@@ -100,12 +100,11 @@ int enroll_pkcs11(
         if (r < 0)
                 return r;
 
-        r = json_build(&v,
-                JSON_BUILD_OBJECT(
-                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
-                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
-                        JSON_BUILD_PAIR("pkcs11-uri", JSON_BUILD_STRING(private_uri ?: uri)),
-                        JSON_BUILD_PAIR("pkcs11-key", JSON_BUILD_BASE64(saved_key, saved_key_size))));
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
+                           SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                           SD_JSON_BUILD_PAIR("pkcs11-uri", SD_JSON_BUILD_STRING(private_uri ?: uri)),
+                           SD_JSON_BUILD_PAIR("pkcs11-key", SD_JSON_BUILD_BASE64(saved_key, saved_key_size)));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 

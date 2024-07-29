@@ -58,7 +58,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_warning_errno(errno, "Failed to read /proc/sysvipc/shm: %m");
+                        return log_warning_errno(r, "Failed to read /proc/sysvipc/shm: %m");
                 if (r == 0)
                         break;
 

@@ -34,7 +34,7 @@ _systemd_id128() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='new machine-id boot-id invocation-id help'
+        [STANDALONE]='new machine-id boot-id invocation-id var-partition-uuid help'
         [ARG]='show'
     )
 

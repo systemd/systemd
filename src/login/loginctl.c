@@ -25,12 +25,12 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
-#include "spawn-polkit-agent.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysfs-show.h"
@@ -44,7 +44,7 @@ static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -733,16 +733,15 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
-                                        NULL,
+                                        /* namespace = */ NULL,
                                         arg_output,
-                                        0,
+                                        /* n_columns = */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
-                                        0,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        true,
-                                        NULL);
+                                        /* system_unit = */ true,
+                                        /* ellipsized = */ NULL);
         }
 
         return 0;
@@ -839,16 +838,15 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                         show_journal_by_unit(
                                         stdout,
                                         i.slice,
-                                        NULL,
+                                        /* namespace = */ NULL,
                                         arg_output,
-                                        0,
+                                        /* n_columns = */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
-                                        0,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        true,
-                                        NULL);
+                                        /* system_unit = */ true,
+                                        /* ellipsized = */ NULL);
         }
 
         return 0;
@@ -1623,7 +1621,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         arg_legend = false;
                         break;
 
@@ -1632,7 +1630,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
-                        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                                 arg_legend = false;
 
                         break;

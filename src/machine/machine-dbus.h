@@ -13,12 +13,13 @@ typedef enum {
 
 extern const BusObjectImplementation machine_object;
 
-char *machine_bus_path(Machine *s);
+char* machine_bus_path(Machine *s);
 
 int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error);

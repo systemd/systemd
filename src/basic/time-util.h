@@ -72,7 +72,10 @@ typedef enum TimestampStyle {
 #define TIME_T_MAX (time_t)((UINTMAX_C(1) << ((sizeof(time_t) << 3) - 1)) - 1)
 
 #define DUAL_TIMESTAMP_NULL ((dual_timestamp) {})
+#define DUAL_TIMESTAMP_INFINITY ((dual_timestamp) { USEC_INFINITY, USEC_INFINITY })
 #define TRIPLE_TIMESTAMP_NULL ((triple_timestamp) {})
+
+#define TIMESPEC_OMIT ((const struct timespec) { .tv_nsec = UTIME_OMIT })
 
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);

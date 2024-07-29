@@ -1087,11 +1087,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
                 case ARG_NO_NEW_PRIVILEGES:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--no-new-privileges=", optarg, &arg_no_new_privileges);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --no-new-privileges= argument: %s", optarg);
+                                return r;
 
-                        arg_no_new_privileges = r;
                         arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
                         break;
 
@@ -1165,13 +1164,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --register= argument: %s", optarg);
+                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        if (r < 0)
                                 return r;
-                        }
 
-                        arg_register = r;
                         break;
 
                 case ARG_KEEP_UNIT:
@@ -1663,12 +1659,6 @@ static int verify_arguments(void) {
         SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged);
 
         if (!arg_privileged) {
-                /* machined is not accessible to unpriv clients */
-                if (arg_register) {
-                        log_notice("Automatically implying --register=no, since machined is not accessible to unprivileged clients.");
-                        arg_register = false;
-                }
-
                 if (!arg_private_network) {
                         log_notice("Automatically implying --private-network, since mounting /sys/ in an unprivileged user namespaces requires network namespacing.");
                         arg_private_network = true;
@@ -2251,23 +2241,22 @@ static int copy_devnodes(const char *dest) {
 }
 
 static int make_extra_nodes(const char *dest) {
-        size_t i;
         int r;
 
         BLOCK_WITH_UMASK(0000);
 
-        for (i = 0; i < arg_n_extra_nodes; i++) {
+        FOREACH_ARRAY(node, arg_extra_nodes, arg_n_extra_nodes) {
                 _cleanup_free_ char *path = NULL;
-                DeviceNode *n = arg_extra_nodes + i;
 
-                path = path_join(dest, n->path);
+                path = path_join(dest, node->path);
                 if (!path)
                         return log_oom();
 
-                if (mknod(path, n->mode, S_ISCHR(n->mode) || S_ISBLK(n->mode) ? makedev(n->major, n->minor) : 0) < 0)
+                dev_t dev = S_ISCHR(node->mode) || S_ISBLK(node->mode) ? makedev(node->major, node->minor) : 0;
+                if (mknod(path, node->mode, dev) < 0)
                         return log_error_errno(errno, "Failed to create device node '%s': %m", path);
 
-                r = chmod_and_chown(path, n->mode, n->uid, n->gid);
+                r = chmod_and_chown(path, node->mode, node->uid, node->gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to adjust device node ownership of '%s': %m", path);
         }
@@ -2668,7 +2657,7 @@ static int setup_journal(const char *directory) {
 
         r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
-                return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
+                return log_error_errno(r, "Failed to bind mount journal from host into guest: %m");
 
         return 0;
 }
@@ -4184,7 +4173,7 @@ static int outer_child(
          * is then allocated for the container, the root mount and everything else will be out of reach for
          * it. For unprivileged containers we cannot do that however, since we couldn't mount a sysfs and
          * procfs then anymore, since that only works if there's an unobstructed instance currently
-         * visible. Hence there we do it the other way round: we first allocate a new set set of namespaces
+         * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
         if (arg_privileged) {
@@ -4567,6 +4556,9 @@ static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *dot = NULL;
 
         assert(f);
+
+        if (!shall_set_terminal_title())
+                return;
 
         (void) gethostname_strict(&hn);
 
@@ -5355,7 +5347,7 @@ static int run_container(
         }
 
         if (arg_register || !arg_keep_unit) {
-                if (arg_privileged)
+                if (arg_privileged || arg_register)
                         r = sd_bus_default_system(&bus);
                 else
                         r = sd_bus_default_user(&bus);
@@ -5556,7 +5548,7 @@ static int run_container(
                                                 arg_console_width,
                                                 arg_console_height);
 
-                        if (!arg_background) {
+                        if (!arg_background && shall_tint_background()) {
                                 _cleanup_free_ char *bg = NULL;
 
                                 r = terminal_tint_color(220 /* blue */, &bg);
@@ -5777,8 +5769,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
         pid_t pid = 0;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         arg_privileged = getuid() == 0;
 
@@ -6081,10 +6072,8 @@ static int run(int argc, char *argv[]) {
 
                         {
                                 BLOCK_SIGNALS(SIGINT);
-                                r = copy_file_full(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600,
-                                                   FS_NOCOW_FL, FS_NOCOW_FL,
-                                                   COPY_REFLINK|COPY_CRTIME|COPY_SIGINT,
-                                                   NULL, NULL);
+                                r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600,
+                                              COPY_REFLINK|COPY_CRTIME|COPY_SIGINT);
                         }
                         if (r == -EINTR) {
                                 log_error_errno(r, "Interrupted while copying image file to %s, removed again.", np);

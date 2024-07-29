@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Verbose successful service
+
+[Service]
+Type=oneshot
+ExecStart=echo success
+# If the service finishes extremely fast, journald cannot find the source of the
+# stream. Hence, we need to call 'journalctl --sync' before service finishes.
+ExecStart=journalctl --sync
+# Suppress debugging logs from PID1 or sd-executor. Otherwise, the client context
+# may be outdated when the stream from 'echo' command in the above comes.
+LogLevelMax=info

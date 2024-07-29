@@ -278,6 +278,8 @@ static int systemctl_help(void) {
                "  -l --full              Don't ellipsize unit names on output\n"
                "  -r --recursive         Show unit list of host and local containers\n"
                "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
+               "     --before            Show units ordered before with 'list-dependencies'\n"
+               "     --after             Show units ordered after with 'list-dependencies'\n"
                "     --with-dependencies Show unit dependencies with 'status', 'cat',\n"
                "                         'list-units', and 'list-unit-files'.\n"
                "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
@@ -303,8 +305,10 @@ static int systemctl_help(void) {
                "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
+               "                         For kill, wait until service stopped\n"
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
+               "     --message=MESSAGE   Specify human readable reason for system shutdown\n"
                "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -332,6 +336,8 @@ static int systemctl_help(void) {
                "                         Boot into boot loader menu on next boot\n"
                "     --boot-loader-entry=NAME\n"
                "                         Boot into a specific boot loader entry on next boot\n"
+               "     --reboot-argument=ARG\n"
+               "                         Specify argument string to pass to reboot()\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
                "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
                "                             us, utc, us+utc)\n"
@@ -1017,15 +1023,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_WHEN:
                         if (streq(optarg, "show")) {
-                                r = logind_show_shutdown();
-                                if (r < 0 && r != -ENODATA)
-                                        return r;
-
-                                return 0;
+                                arg_action = ACTION_SYSTEMCTL_SHOW_SHUTDOWN;
+                                return 1;
                         }
 
                         if (STR_IN_SET(optarg, "", "cancel")) {
-                                arg_when = USEC_INFINITY;
+                                arg_action = ACTION_CANCEL_SHUTDOWN;
+                                return 1;
+                        }
+
+                        if (streq(optarg, "auto")) {
+                                arg_when = USEC_INFINITY; /* logind chooses on server side */
                                 break;
                         }
 
@@ -1333,6 +1341,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SHOW_SHUTDOWN:
+        case ACTION_SYSTEMCTL_SHOW_SHUTDOWN:
                 r = logind_show_shutdown();
                 break;
 

@@ -262,24 +262,49 @@ static int btrfs_ioctl_search_args_compare(const struct btrfs_ioctl_search_args 
 }
 
 typedef struct BtrfsForeachIterator {
-        const void *p;
-        size_t i;
+        const struct btrfs_ioctl_search_args *args;
+        size_t offset;
+        unsigned index;
+        struct btrfs_ioctl_search_header *header;
+        const void **body;
 } BtrfsForeachIterator;
+
+static int btrfs_iterate(BtrfsForeachIterator *i) {
+        assert(i);
+        assert(i->args);
+        assert(i->header);
+        assert(i->body);
+
+        if (i->index >= i->args->key.nr_items)
+                return 0; /* end */
+
+        assert_cc(BTRFS_SEARCH_ARGS_BUFSIZE >= sizeof(struct btrfs_ioctl_search_header));
+        if (i->offset > BTRFS_SEARCH_ARGS_BUFSIZE - sizeof(struct btrfs_ioctl_search_header))
+                return -EBADMSG;
+
+        struct btrfs_ioctl_search_header h;
+        memcpy(&h, (const uint8_t*) i->args->buf + i->offset, sizeof(struct btrfs_ioctl_search_header));
+
+        if (i->offset > BTRFS_SEARCH_ARGS_BUFSIZE - sizeof(struct btrfs_ioctl_search_header) - h.len)
+                return -EBADMSG;
+
+        *i->body = (const uint8_t*) i->args->buf + i->offset + sizeof(struct btrfs_ioctl_search_header);
+        *i->header = h;
+        i->offset += sizeof(struct btrfs_ioctl_search_header) + h.len;
+        i->index++;
+
+        return 1;
+}
 
 /* Iterates through a series of struct btrfs_file_extent_item elements. They are unfortunately not aligned,
  * hence we copy out the header from them */
-#define FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args)               \
+#define FOREACH_BTRFS_IOCTL_SEARCH_HEADER(_sh, _body, _args)            \
         for (BtrfsForeachIterator iterator = {                          \
-                        .p = ({                                         \
-                               memcpy(&(sh), (args).buf, sizeof(struct btrfs_ioctl_search_header)); \
-                               (body) = (const void*) ((const uint8_t*) (args).buf + sizeof(struct btrfs_ioctl_search_header)); \
-                               (args).buf;                              \
-                        }),                                             \
+                        .args = &(_args),                               \
+                        .header = &(_sh),                               \
+                        .body = &(_body),                               \
              };                                                         \
-             iterator.i < (args).key.nr_items;                          \
-             iterator.i++,                                              \
-             memcpy(&(sh), iterator.p = (const uint8_t*) iterator.p + sizeof(struct btrfs_ioctl_search_header) + (sh).len, sizeof(struct btrfs_ioctl_search_header)), \
-             (body) = (const void*) ((const uint8_t*) iterator.p + sizeof(struct btrfs_ioctl_search_header)))
+             btrfs_iterate(&iterator) > 0; )
 
 int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         struct btrfs_ioctl_search_args args = {
@@ -1162,6 +1187,8 @@ static int copy_quota_hierarchy(int fd, uint64_t old_subvol_id, uint64_t new_sub
         if (n_old_qgroups <= 0) /* Nothing to copy */
                 return n_old_qgroups;
 
+        assert(old_qgroups); /* Coverity gets confused by the macro iterator allocating this, add a hint */
+
         r = btrfs_subvol_get_parent(fd, old_subvol_id, &old_parent_id);
         if (r == -ENXIO)
                 /* We have no parent, hence nothing to copy. */
@@ -1612,13 +1639,10 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                         break;
         }
 
-        if (n_items <= 0) {
-                *ret = NULL;
-                return 0;
-        }
+        assert((n_items > 0) == !!items);
+        assert(n_items <= INT_MAX);
 
         *ret = TAKE_PTR(items);
-
         return (int) n_items;
 }
 

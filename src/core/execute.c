@@ -25,7 +25,6 @@
 #include "cgroup-setup.h"
 #include "constants.h"
 #include "cpu-set-util.h"
-#include "dev-setup.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -87,7 +86,7 @@ static bool is_terminal_output(ExecOutput o) {
                       EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
 }
 
-const char *exec_context_tty_path(const ExecContext *context) {
+const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
         if (context->stdio_as_fds)
@@ -99,56 +98,65 @@ const char *exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-static void exec_context_determine_tty_size(
+int exec_context_apply_tty_size(
                 const ExecContext *context,
-                const char *tty_path,
-                unsigned *ret_rows,
-                unsigned *ret_cols) {
+                int input_fd,
+                int output_fd,
+                const char *tty_path) {
 
         unsigned rows, cols;
+        int r;
 
         assert(context);
-        assert(ret_rows);
-        assert(ret_cols);
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        if (!isatty_safe(output_fd))
+                return 0;
 
         if (!tty_path)
                 tty_path = exec_context_tty_path(context);
 
+        /* Preferably use explicitly configured data */
         rows = context->tty_rows;
         cols = context->tty_cols;
 
+        /* Fill in data from kernel command line if anything is unspecified */
         if (tty_path && (rows == UINT_MAX || cols == UINT_MAX))
                 (void) proc_cmdline_tty_size(
                                 tty_path,
                                 rows == UINT_MAX ? &rows : NULL,
                                 cols == UINT_MAX ? &cols : NULL);
 
-        *ret_rows = rows;
-        *ret_cols = cols;
+        /* If we got nothing so far and we are talking to a physical device, and the TTY reset logic is on,
+         * then let's query dimensions from the ANSI driver. */
+        if (rows == UINT_MAX && cols == UINT_MAX &&
+            context->tty_reset &&
+            terminal_is_pty_fd(output_fd) == 0 &&
+            isatty_safe(input_fd)) {
+                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
+        }
+
+        return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
-
-int exec_context_apply_tty_size(
-                const ExecContext *context,
-                int tty_fd,
-                const char *tty_path) {
-
-        unsigned rows, cols;
-
-        exec_context_determine_tty_size(context, tty_path, &rows, &cols);
-
-        return terminal_set_size_fd(tty_fd, tty_path, rows, cols);
- }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
-        int fd;
+        int fd, r;
 
         assert(context);
 
+        /* Note that this is potentially a "destructive" reset of a TTY device. It's about getting rid of the
+         * remains of previous uses of the TTY. It's *not* about getting things set up for coming uses. We'll
+         * potentially invalidate the TTY here through hangups or VT disallocations, and hence do not keep a
+         * continous fd open. */
+
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0 && isatty_safe(p->stdin_fd))
-                fd = p->stdin_fd;
+        if (p && p->stdout_fd >= 0 && isatty_safe(p->stdout_fd))
+                fd = p->stdout_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
@@ -162,19 +170,25 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
          * that will be closed automatically, and operate on it for convenience. */
         lock_fd = lock_dev_console();
         if (ERRNO_IS_NEG_PRIVILEGE(lock_fd))
-                log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without: %m");
+                log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without lock: %m");
         else if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
-                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without lock: %m");
         else if (lock_fd < 0)
-                return (void) log_debug_errno(lock_fd, "Failed to lock /dev/console: %m");
+                log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
+
+        if (context->tty_reset)
+                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
+
+        r = exec_context_apply_tty_size(context, fd, fd, path);
+        if (r < 0)
+                log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
 
-        if (context->tty_reset)
-                (void) reset_terminal_fd(fd, /* switch_to_text= */ true);
-
-        (void) exec_context_apply_tty_size(context, fd, path);
+        /* We don't need the fd anymore now, and it potentially points to a hungup TTY anyway, let's close it
+         * hence. */
+        _fd = safe_close(_fd);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
@@ -231,7 +245,10 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
+        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED)
+                return true;
+
+        if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
                 return true;
 
         if (context->private_devices ||
@@ -353,17 +370,16 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
 
-int exec_spawn(Unit *unit,
-               ExecCommand *command,
-               const ExecContext *context,
-               ExecParameters *params,
-               ExecRuntime *runtime,
-               const CGroupContext *cgroup_context,
-               PidRef *ret) {
+int exec_spawn(
+                Unit *unit,
+                ExecCommand *command,
+                const ExecContext *context,
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                const CGroupContext *cgroup_context,
+                PidRef *ret) {
 
-        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -444,7 +460,15 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
 
+        char serialization_fd_number[DECIMAL_STR_MAX(int)];
         xsprintf(serialization_fd_number, "%i", fileno(f));
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        dual_timestamp start_timestamp;
+
+        /* Record the start timestamp before we fork so that it is guaranteed to be earlier than the
+         * handoff timestamp. */
+        dual_timestamp_now(&start_timestamp);
 
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
         r = posix_spawn_wrapper(
@@ -473,7 +497,7 @@ int exec_spawn(Unit *unit,
         log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
                        command->path, pidref.pid, r > 0 ? "via" : "without");
 
-        exec_status_start(&command->exec_status, pidref.pid);
+        exec_status_start(&command->exec_status, pidref.pid, &start_timestamp);
 
         *ret = TAKE_PIDREF(pidref);
         return 0;
@@ -504,6 +528,7 @@ void exec_context_init(ExecContext *c) {
                 .tty_rows = UINT_MAX,
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
+                .mount_apivfs = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
         };
@@ -956,7 +981,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->root_ephemeral),
                 prefix, yes_no(c->non_blocking),
-                prefix, yes_no(c->private_tmp),
+                prefix, private_tmp_to_string(c->private_tmp),
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
@@ -1440,8 +1465,8 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
         assert(c);
 
         /* Explicit setting wins */
-        if (c->mount_apivfs_set)
-                return c->mount_apivfs;
+        if (c->mount_apivfs >= 0)
+                return c->mount_apivfs > 0;
 
         /* Default to "yes" if root directory or image are specified */
         if (exec_context_with_rootfs(c))
@@ -1815,14 +1840,17 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c) {
         return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
-void exec_status_start(ExecStatus *s, pid_t pid) {
+void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
         assert(s);
 
         *s = (ExecStatus) {
                 .pid = pid,
         };
 
-        dual_timestamp_now(&s->start_timestamp);
+        if (ts)
+                s->start_timestamp = *ts;
+        else
+                dual_timestamp_now(&s->start_timestamp);
 }
 
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status) {
@@ -1840,6 +1868,19 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
 
         if (context && context->utmp_id)
                 (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
+}
+
+void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts) {
+        assert(s);
+        assert(ucred);
+        assert(ts);
+
+        if (ucred->pid != s->pid)
+                *s = (ExecStatus) {
+                        .pid = ucred->pid,
+                };
+
+        s->handoff_timestamp = *ts;
 }
 
 void exec_status_reset(ExecStatus *s) {
@@ -1864,24 +1905,45 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
         if (dual_timestamp_is_set(&s->start_timestamp))
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
-                        prefix, FORMAT_TIMESTAMP(s->start_timestamp.realtime));
+                        prefix, FORMAT_TIMESTAMP_STYLE(s->start_timestamp.realtime, TIMESTAMP_US));
 
-        if (dual_timestamp_is_set(&s->handover_timestamp))
+        if (dual_timestamp_is_set(&s->handoff_timestamp) && dual_timestamp_is_set(&s->start_timestamp) &&
+            s->handoff_timestamp.monotonic > s->start_timestamp.monotonic)
                 fprintf(f,
-                        "%sHandover Timestamp: %s\n",
-                        prefix, FORMAT_TIMESTAMP(s->handover_timestamp.realtime));
+                        "%sHandoff Timestamp: %s since start\n",
+                        prefix,
+                        FORMAT_TIMESPAN(usec_sub_unsigned(s->handoff_timestamp.monotonic, s->start_timestamp.monotonic), 1));
+        else
+                fprintf(f,
+                        "%sHandoff Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP_STYLE(s->handoff_timestamp.realtime, TIMESTAMP_US));
 
-        if (dual_timestamp_is_set(&s->exit_timestamp))
+        if (dual_timestamp_is_set(&s->exit_timestamp)) {
+
+                if (dual_timestamp_is_set(&s->handoff_timestamp) && s->exit_timestamp.monotonic > s->handoff_timestamp.monotonic)
+                        fprintf(f,
+                                "%sExit Timestamp: %s since handoff\n",
+                                prefix,
+                                FORMAT_TIMESPAN(usec_sub_unsigned(s->exit_timestamp.monotonic, s->handoff_timestamp.monotonic), 1));
+                else if (dual_timestamp_is_set(&s->start_timestamp) && s->exit_timestamp.monotonic > s->start_timestamp.monotonic)
+                        fprintf(f,
+                                "%sExit Timestamp: %s since start\n",
+                                prefix,
+                                FORMAT_TIMESPAN(usec_sub_unsigned(s->exit_timestamp.monotonic, s->start_timestamp.monotonic), 1));
+                else
+                        fprintf(f,
+                                "%sExit Timestamp: %s\n",
+                                prefix, FORMAT_TIMESTAMP_STYLE(s->exit_timestamp.realtime, TIMESTAMP_US));
+
                 fprintf(f,
-                        "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
                         "%sExit Status: %i\n",
-                        prefix, FORMAT_TIMESTAMP(s->exit_timestamp.realtime),
                         prefix, sigchld_code_to_string(s->code),
                         prefix, s->status);
+        }
 }
 
-static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
+void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         _cleanup_free_ char *cmd = NULL;
         const char *prefix2;
 
@@ -2110,12 +2172,12 @@ static int exec_shared_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && !c->private_tmp) {
+        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
 
-        if (c->private_tmp &&
+        if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
               (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
                prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {

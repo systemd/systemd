@@ -6,7 +6,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 
-char *unit_dbus_path_from_name(const char *name) {
+char* unit_dbus_path_from_name(const char *name) {
         _cleanup_free_ char *e = NULL;
 
         assert(name);
@@ -58,7 +58,7 @@ const char* unit_dbus_interface_from_type(UnitType t) {
         return table[t];
 }
 
-const char *unit_dbus_interface_from_name(const char *name) {
+const char* unit_dbus_interface_from_name(const char *name) {
         UnitType t;
 
         t = unit_name_to_type(name);
@@ -140,7 +140,9 @@ static const FreezerState freezer_state_finish_table[_FREEZER_STATE_MAX] = {
 };
 
 FreezerState freezer_state_finish(FreezerState state) {
-        assert(state >= 0 && state < _FREEZER_STATE_MAX);
+        assert(state >= 0);
+        assert(state < _FREEZER_STATE_MAX);
+
         return freezer_state_finish_table[state];
 }
 

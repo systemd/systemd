@@ -163,7 +163,28 @@ executables += [
                 'sources' : files('test-resolve-tables.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-answer.c'),
+        },
+        resolve_test_template + {
+                'sources' : files(
+                        'test-dns-cache.c',
+                        'resolved-dns-cache.c'
+                ),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-packet-append.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-packet-extract.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-rr.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-question.c'),
         },
         resolve_test_template + {
                 'sources' : files(
@@ -181,6 +202,63 @@ executables += [
         resolve_test_template + {
                 'sources' : files('test-dnssec-complex.c'),
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : [
+                        files('test-dns-search-domain.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        lib_openssl_or_gcrypt,
+                        libm,
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
+                        files('test-dns-synthesize.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
+                        files('test-dns-zone.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
+                        files('test-resolved-link.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        test_template + {
+                'sources' : [
+                        files('test-dns-query.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
         },
         test_template + {
                 'sources' : [

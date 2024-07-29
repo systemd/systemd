@@ -3,7 +3,7 @@
 # Message catalog for systemd's own messages
 
 # The catalog format is documented on
-# https://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://systemd.io/CATALOG
 
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
@@ -118,6 +118,16 @@ Support: %SUPPORT_URL%
 Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
+
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: The Secure Attention Key (SAK) was pressed on @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-logind.service(8)
+
+The Secure Attention Key (SAK), Ctrl+Alt+Shift+Esc, was pressed on @SEAT_ID@.
+
+Pressing the SAK indicates an explicit request by the user for the system to display a secure login dialog or greeter.
 
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
@@ -558,13 +568,25 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 The following "tags" are possible:
-- "cgroups-missing" — the kernel was compiled without cgroup support or access
-  to expected interface files is restricted
-- "var-run-bad" — /var/run is not a symlink to /run
+- "unmerged-usr" - /bin, /sbin, /lib* are not symlinks to their counterparts
+  under /usr/
+- "unmerged-bin" - /usr/sbin is not a symlink to /usr/bin/
+- "var-run-bad" — /var/run is not a symlink to /run/
+- "cgroupsv1" - the system is using the deprecated cgroup v1 hierarchy
+- "local-hwclock" - the local hardware clock (RTC) is configured to be in
+  local time rather than UTC
+- "support-ended" - the system is running past the end of support declared
+  by the vendor
+- "old-kernel" - the system is running a kernel version that is older than
+  the minimum supported by this version of systemd
 - "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 - "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
+- "short-uid-range" - the UID range assigned to the running systemd instance
+  covers less than 0…65534
+- "short-gid-range" - the GID range assigned to the running systemd instance
+  covers less than 0…65534
 Current system is tagged as @TAINT@.
 
 -- fe6faa94e7774663a0da52717891d8ef
@@ -692,15 +714,6 @@ Support: %SUPPORT_URL%
 For the first time during the current boot an NTP synchronization has been
 acquired and the local system clock adjustment has been initiated.
 
--- 7db73c8af0d94eeb822ae04323fe6ab6
-Subject: Initial clock bump
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-The system clock has been advanced based on a timestamp file on disk, in order
-to ensure it remains roughly monotonic – even across reboots – if an RTC is not
-available or is unreliable.
-
 -- 3f7d5ef3e54f4302b4f0b143bb270cab
 Subject: TPM PCR Extended
 Defined-By: systemd
@@ -768,3 +781,16 @@ Documentation: https://systemd.io/PORTABLE_SERVICES/
 A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
 detached from the system and is no longer available for use. The list of attached
 Portable Services can be queried with 'portablectl list'.
+
+-- ad7089f928ac4f7ea00c07457d47ba8a
+Subject: Authorization failure while attempting to enroll SRK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occurred while attempting to enroll a Storage Root Key (SRK) on the Trusted Platform
+Module (TPM). Most likely this means that a PIN/Password (authValue) has been set on the Owner hierarchy of
+the TPM.
+
+Automatic SRK enrollment on TPMs in such scenarios is not supported. In order to unset the PIN/password
+protection on the owner hierarchy issue a command like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.

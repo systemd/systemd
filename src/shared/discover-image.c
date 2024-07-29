@@ -282,6 +282,44 @@ static int extract_image_basename(
         return 0;
 }
 
+static int image_update_quota(Image *i, int fd) {
+        _cleanup_close_ int fd_close = -EBADF;
+        int r;
+
+        assert(i);
+
+        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+                return -EROFS;
+
+        if (i->type != IMAGE_SUBVOLUME)
+                return -EOPNOTSUPP;
+
+        if (fd < 0) {
+                fd_close = open(i->path, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                if (fd_close < 0)
+                        return -errno;
+                fd = fd_close;
+        }
+
+        r = btrfs_quota_scan_ongoing(fd);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        BtrfsQuotaInfo quota;
+        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
+        if (r < 0)
+                return r;
+
+        i->usage = quota.referenced;
+        i->usage_exclusive = quota.exclusive;
+        i->limit = quota.referenced_max;
+        i->limit_exclusive = quota.exclusive_max;
+
+        return 1;
+}
+
 static int image_make(
                 ImageClass c,
                 const char *pretty,
@@ -375,19 +413,7 @@ static int image_make(
                                 if (r < 0)
                                         return r;
 
-                                if (btrfs_quota_scan_ongoing(fd) == 0) {
-                                        BtrfsQuotaInfo quota;
-
-                                        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
-                                        if (r >= 0) {
-                                                (*ret)->usage = quota.referenced;
-                                                (*ret)->usage_exclusive = quota.exclusive;
-
-                                                (*ret)->limit = quota.referenced_max;
-                                                (*ret)->limit_exclusive = quota.exclusive_max;
-                                        }
-                                }
-
+                                (void) image_update_quota(*ret, fd);
                                 return 0;
                         }
                 }
@@ -1044,7 +1070,7 @@ int image_rename(Image *i, const char *new_name) {
 
         case IMAGE_DIRECTORY:
                 /* Turn of the immutable bit while we rename the image, so that we can rename it */
-                (void) read_attr_path(i->path, &file_attr);
+                (void) read_attr_at(AT_FDCWD, i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
                         (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL, NULL);
@@ -1179,8 +1205,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic_full(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, FS_NOCOW_FL,
-                                          COPY_REFLINK|COPY_CRTIME, NULL, NULL);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, COPY_REFLINK|COPY_CRTIME);
                 break;
 
         case IMAGE_BLOCK:
@@ -1287,6 +1312,7 @@ int image_read_only(Image *i, bool b) {
                 return -EOPNOTSUPP;
         }
 
+        i->read_only = b;
         return 0;
 }
 
@@ -1395,6 +1421,8 @@ int image_path_lock(
 }
 
 int image_set_limit(Image *i, uint64_t referenced_max) {
+        int r;
+
         assert(i);
 
         if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
@@ -1410,7 +1438,12 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 
         (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
         (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
-        return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        r = btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        if (r < 0)
+                return r;
+
+        (void) image_update_quota(i, -EBADF);
+        return 0;
 }
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
@@ -1447,7 +1480,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 else if (r >= 0) {
                         r = read_etc_hostname(path, &hostname);
                         if (r < 0)
-                                log_debug_errno(errno, "Failed to read /etc/hostname of image %s: %m", i->name);
+                                log_debug_errno(r, "Failed to read /etc/hostname of image %s: %m", i->name);
                 }
 
                 path = mfree(path);
@@ -1610,22 +1643,22 @@ bool image_in_search_path(
         return false;
 }
 
-int image_to_json(const struct Image *img, JsonVariant **ret) {
+int image_to_json(const struct Image *img, sd_json_variant **ret) {
         assert(img);
 
-        return json_build(ret,
-                          JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
-                                          JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
-                                          JSON_BUILD_PAIR_STRING("Name", img->name),
-                                          JSON_BUILD_PAIR_CONDITION(img->path, "Path", JSON_BUILD_STRING(img->path)),
-                                          JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
-                                          JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", JSON_BUILD_UNSIGNED(img->crtime)),
-                                          JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", JSON_BUILD_UNSIGNED(img->mtime)),
-                                          JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", JSON_BUILD_UNSIGNED(img->usage)),
-                                          JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", JSON_BUILD_UNSIGNED(img->usage_exclusive)),
-                                          JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", JSON_BUILD_UNSIGNED(img->limit)),
-                                          JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", JSON_BUILD_UNSIGNED(img->limit_exclusive))));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
+                        SD_JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
+                        SD_JSON_BUILD_PAIR_STRING("Name", img->name),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!img->path, "Path", SD_JSON_BUILD_STRING(img->path)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", SD_JSON_BUILD_UNSIGNED(img->crtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", SD_JSON_BUILD_UNSIGNED(img->mtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", SD_JSON_BUILD_UNSIGNED(img->usage)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", SD_JSON_BUILD_UNSIGNED(img->usage_exclusive)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", SD_JSON_BUILD_UNSIGNED(img->limit)),
+                        SD_JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", SD_JSON_BUILD_UNSIGNED(img->limit_exclusive)));
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {

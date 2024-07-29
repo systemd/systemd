@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "clock-util.h"
 #include "common-signal.h"
 #include "dns-domain.h"
 #include "event-util.h"
@@ -1199,9 +1200,9 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
          * clock, but otherwise uses the specified timestamp. Note that whenever we acquire an NTP sync the
          * specified timestamp value might be more accurate than the system clock, since the latter is
          * subject to slow adjustments. */
-        r = touch_file(CLOCK_FILE, false, t, UID_INVALID, GID_INVALID, MODE_INVALID);
+        r = touch_file(TIMESYNCD_CLOCK_FILE, false, t, UID_INVALID, GID_INVALID, MODE_INVALID);
         if (r < 0)
-                log_debug_errno(r, "Failed to update " CLOCK_FILE ", ignoring: %m");
+                log_debug_errno(r, "Failed to update "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 
         m->save_on_exit = true;
 

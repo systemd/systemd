@@ -30,6 +30,7 @@
       <member><filename>~/.config/environment.d/*.conf</filename></member>
       <member><filename>/etc/environment.d/*.conf</filename></member>
       <member><filename>/run/environment.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/environment.d/*.conf</filename></member>
       <member><filename>/usr/lib/environment.d/*.conf</filename></member>
       <member><filename>/etc/environment</filename></member>
     </simplelist></para>

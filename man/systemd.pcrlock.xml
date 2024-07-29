@@ -43,7 +43,7 @@
     process. <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     uses such pcrlock files to analyze and predict TPM2 PCR measurements. The pcrlock files are JSON arrays
     that follow a subset of the <ulink
-    url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log Format
+    url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log Format
     (CEL-JSON)</ulink> specification. Specifically the <literal>recnum</literal>, <literal>content</literal>,
     and <literal>content_type</literal> record fields are not used and ignored if present. Each pcrlock file
     defines one set of expected, ordered PCR measurements of a specific component of the boot.</para>

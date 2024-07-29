@@ -13,12 +13,19 @@ project('systemd', 'c',
         meson_version : '>= 0.60.0',
        )
 
-libsystemd_version = '0.38.0'
-libudev_version = '1.7.8'
+project_major_version = meson.project_version().split('.')[0].split('~')[0]
+if meson.project_version().contains('.')
+        project_minor_version = meson.project_version().split('.')[-1].split('~')[0]
+else
+        project_minor_version = '0'
+endif
+
+libsystemd_version = '0.39.0'
+libudev_version = '1.7.9'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
+conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
@@ -204,11 +211,13 @@ sshconfdir = get_option('sshconfdir')
 if sshconfdir == ''
         sshconfdir = sysconfdir / 'ssh/ssh_config.d'
 endif
+conf.set10('LINK_SSH_PROXY_DROPIN', sshconfdir != 'no' and not sshconfdir.startswith('/usr/'))
 
 sshdconfdir = get_option('sshdconfdir')
 if sshdconfdir == ''
         sshdconfdir = sysconfdir / 'ssh/sshd_config.d'
 endif
+conf.set10('LINK_SSHD_USERDB_DROPIN', sshdconfdir != 'no' and not sshdconfdir.startswith('/usr/'))
 
 sshdprivsepdir = get_option('sshdprivsepdir')
 conf.set10('CREATE_SSHDPRIVSEPDIR', sshdprivsepdir != 'no' and not sshdprivsepdir.startswith('/usr/'))
@@ -319,8 +328,9 @@ userspace_c_ld_args = []
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
-slow_tests = want_tests != 'false' and get_option('slow-tests')
-fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+want_slow_tests = want_tests != 'false' and get_option('slow-tests')
+want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+want_integration_tests = want_tests != 'false' and get_option('integration-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
@@ -544,6 +554,7 @@ decl_headers = '''
 #include <uchar.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sched.h>
 '''
 
 foreach decl : ['char16_t',
@@ -551,6 +562,7 @@ foreach decl : ['char16_t',
                 'struct mount_attr',
                 'struct statx',
                 'struct dirent64',
+                'struct sched_attr',
                ]
 
         # We get -1 if the size cannot be determined
@@ -598,6 +610,7 @@ foreach ident : [
                                  #include <unistd.h>'''],     # no known header declares pivot_root
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
+        ['sched_setattr',     '''#include <sched.h>'''],      # no known header declares sched_setattr
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
@@ -623,11 +636,13 @@ foreach ident : [
         ['pidfd_send_signal', '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['pidfd_open',        '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
-                                 #include <sys/wait.h>'''],
+                                 #include <sys/wait.h>
+                                 #include <sys/pidfd.h>'''],
         ['rt_sigqueueinfo',   '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
@@ -718,7 +733,7 @@ gperf = find_program('gperf')
 
 gperf_test_format = '''
 #include <string.h>
-const char * in_word_set(const char *, @0@);
+const char* in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet = run_command(sh, '-c', 'echo foo,bar | "$1" -L ANSI-C', '_', gperf,
@@ -937,7 +952,7 @@ foreach option : ['adm-gid',
         name = option.underscorify().to_upper()
         val = get_option(option)
 
-        # Ensure provided GID argument is numeric, otherwise fall back to default assignment
+        # Ensure provided GID argument is positive, otherwise fall back to default assignment
         conf.set(name, val > 0 ? val : '-')
         if val > 0
                 static_ugids += '@0@:@1@'.format(option, val)
@@ -1055,7 +1070,7 @@ bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
                     required : bpf_framework,
-                    version : bpf_compiler == 'gcc' ? '>= 1.0.0' : '>= 0.1.0')
+                    version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if not libbpf.found()
@@ -1086,6 +1101,9 @@ else
                 if clang_found
                         # Check if 'clang -target bpf' is supported.
                         clang_supports_bpf = run_command(clang, '-target', 'bpf', '--print-supported-cpus', check : false).returncode() == 0
+                endif
+                if bpf_framework.enabled() and not clang_supports_bpf
+                        error('bpf-framework was enabled but clang does not support bpf')
                 endif
         elif bpf_compiler == 'gcc'
                 bpf_gcc = find_program('bpf-gcc',
@@ -1257,12 +1275,16 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_token_max',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
+                 'crypt_reencrypt_run',
                  'crypt_set_data_offset',
                  'crypt_set_keyring_to_link',
                  'crypt_resume_by_volume_key']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
+                # crypt_reencrypt() raises a deprecation warning so make sure -Wno-deprecated-declarations is
+                # specified otherwise we fail to detect crypt_reencrypt() if -Werror is used.
+                args : '-Wno-deprecated-declarations',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
@@ -1417,6 +1439,15 @@ elif compression == 'lz4' and not liblz4.found()
 elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
+# In the dlopen ELF note we save the default compression library with a
+# higher priority, so that packages can give it priority over the
+# secondary libraries.
+conf.set_quoted('COMPRESSION_PRIORITY_ZSTD',
+                compression == 'zstd' ? 'recommended' : 'suggested')
+conf.set_quoted('COMPRESSION_PRIORITY_LZ4',
+                compression == 'lz4' ? 'recommended' : 'suggested')
+conf.set_quoted('COMPRESSION_PRIORITY_XZ',
+                compression == 'xz' ? 'recommended' : 'suggested')
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 libarchive = dependency('libarchive',
@@ -1623,7 +1654,6 @@ foreach term : ['analyze',
                 'machined',
                 'mountfsd',
                 'networkd',
-                'nscd',
                 'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
@@ -1683,7 +1713,7 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 conf.set10('ENABLE_SSH_PROXY_CONFIG', sshconfdir != 'no')
 conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdconfdir != 'no')
 
-conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
+conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
 #####################################################################
 
@@ -1716,6 +1746,25 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-c',
         ]
 
+        # If c_args contains these flags copy them along with the values, in order to avoid breaking
+        # reproducible builds and other functionality
+        propagate_cflags = [
+                '-ffile-prefix-map=',
+                '-fdebug-prefix-map=',
+                '-fmacro-prefix-map=',
+                '--sysroot=',
+        ]
+
+        foreach opt : c_args
+                foreach flag : propagate_cflags
+                        if opt.startswith(flag)
+                                bpf_clang_flags += [opt]
+                                bpf_gcc_flags += [opt]
+                                break
+                        endif
+                endforeach
+        endforeach
+
         # Generate defines that are appropriate to tell the compiler what architecture
         # we're compiling for. By default we just map meson's cpu_family to __<cpu_family>__.
         # This dictionary contains the exceptions where this doesn't work.
@@ -1723,14 +1772,15 @@ if conf.get('BPF_FRAMEWORK') == 1
         # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
         # and src/basic/missing_syscall_def.h.
         cpu_arch_defines = {
-                'ppc'     : ['-D__powerpc__'],
-                'ppc64'   : ['-D__powerpc64__', '-D_CALL_ELF=2'],
-                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
-                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
-                'x86'     : ['-D__i386__'],
+                'ppc'     : ['-D__powerpc__', '-D__TARGET_ARCH_powerpc'],
+                'ppc64'   : ['-D__powerpc64__', '-D__TARGET_ARCH_powerpc', '-D_CALL_ELF=2'],
+                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32', '-D__TARGET_ARCH_riscv'],
+                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64', '-D__TARGET_ARCH_riscv'],
+                'x86'     : ['-D__i386__', '-D__TARGET_ARCH_x86'],
+                's390x'   : ['-D__s390__', '-D__s390x__', '-D__TARGET_ARCH_s390'],
 
                 # For arm, assume hardware fp is available.
-                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
+                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP', '-D__TARGET_ARCH_arm'],
         }
 
         bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
@@ -1944,19 +1994,16 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-command = ['sh', '-c',
-           vcs_tag and fs.exists(project_source_root / '.git') ?
-                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
         fallback : '',
-        command : command,
+        command : [vcs_tag ? 'tools/vcs-tag.sh' : 'true', get_option('mode')],
 )
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version().split('~')[0]
+        shared_lib_tag = project_major_version
 endif
 
 #####################################################################
@@ -2019,9 +2066,11 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
+        'src/libsystemd/sd-json',
         'src/libsystemd/sd-netlink',
         'src/libsystemd/sd-network',
-        'src/libsystemd/sd-resolve')]
+        'src/libsystemd/sd-resolve',
+        'src/libsystemd/sd-varlink')]
 
 includes = [libsystemd_includes, include_directories('src/shared')]
 
@@ -2038,8 +2087,10 @@ libsystemd = shared_library(
         version : libsystemd_version,
         include_directories : libsystemd_includes,
         link_args : ['-shared',
+                     # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
+                     '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2048,8 +2099,6 @@ libsystemd = shared_library(
         install : true,
         install_tag: 'libsystemd',
         install_dir : libdir)
-
-alias_target('libsystemd', libsystemd)
 
 install_libsystemd_static = static_library(
         'systemd',
@@ -2067,6 +2116,7 @@ install_libsystemd_static = static_library(
                         libdl,
                         libgcrypt_cflags,
                         liblz4_cflags,
+                        libm,
                         libmount,
                         libopenssl,
                         librt,
@@ -2075,6 +2125,12 @@ install_libsystemd_static = static_library(
                         threads,
                         userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
+if static_libsystemd != 'false'
+        alias_target('libsystemd', libsystemd, install_libsystemd_static)
+else
+        alias_target('libsystemd', libsystemd)
+endif
 
 libudev = shared_library(
         'udev',
@@ -2090,8 +2146,6 @@ libudev = shared_library(
         install : true,
         install_tag: 'libudev',
         install_dir : libdir)
-
-alias_target('libudev', libudev)
 
 install_libudev_static = static_library(
         'udev',
@@ -2111,6 +2165,12 @@ install_libudev_static = static_library(
                         userspace],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
+
+if static_libudev != 'false'
+        alias_target('libudev', libudev, install_libudev_static)
+else
+        alias_target('libudev', libudev)
+endif
 
 #####################################################################
 
@@ -2196,7 +2256,7 @@ nss_template = {
         'link_with' : [
                 libsystemd_static,
                 libshared_static,
-                libbasic,
+                libbasic_static,
         ],
         'dependencies' : [
                 librt,
@@ -2492,6 +2552,8 @@ alias_target('fuzzers', fuzzer_exes)
 
 test_dlopen = executables_by_name.get('test-dlopen')
 
+nss_targets = []
+pam_targets = []
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2540,6 +2602,11 @@ foreach dict : modules
                 # Unfortunately shared_library insists on creating the symlink…
                 meson.add_install_script(sh, '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
                                          install_tag : 'nss')
+                nss_targets += lib
+        endif
+
+        if is_pam
+                pam_targets += lib
         endif
 
         if want_tests != 'false' and (is_nss or is_pam)
@@ -2551,6 +2618,14 @@ foreach dict : modules
                      suite : is_nss ? 'nss' : 'pam')
         endif
 endforeach
+
+# We need the actual targets to build aliases
+if nss_targets.length() > 0
+        alias_target('nss', nss_targets)
+endif
+if pam_targets.length() > 0
+        alias_target('pam', pam_targets)
+endif
 
 #####################################################################
 
@@ -2574,6 +2649,18 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
+if want_integration_tests and not mkosi.found()
+        error('Could not find mkosi which is required to run the integration tests')
+endif
+
+mkosi_depends = public_programs
+
+foreach executable : ['systemd-journal-remote', 'systemd-measure']
+        if executable in executables_by_name
+                mkosi_depends += [executables_by_name[executable]]
+        endif
+endforeach
+
 if mkosi.found()
         custom_target('mkosi',
                 build_always_stale : true,
@@ -2581,19 +2668,16 @@ if mkosi.found()
                 console : true,
                 output : '.',
                 command : [
-                        'mkosi',
+                        mkosi,
                         '--directory', meson.current_source_dir(),
                         '--output-dir', meson.current_build_dir() / 'mkosi.output',
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
+                        '--extra-search-path', meson.current_build_dir(),
                         '--force',
-                        'build'
+                        'build',
                 ],
-                depends : public_programs + [
-                        executables_by_name['systemd-journal-remote'],
-                        executables_by_name['systemd-measure'],
-                        ukify,
-                ],
+                depends : mkosi_depends,
         )
 endif
 
@@ -2674,17 +2758,11 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
-                version = meson.project_version()
-                if name == 'udevadm'
-                        # For compatibility reasons we can't use the full version in udevadm.
-                        version = version.split('~')[0]
-                endif
-
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             version],
+                             project_major_version],
                      depends: exec)
         endif
 endforeach
@@ -2701,7 +2779,7 @@ foreach tuple : fuzz_sanitizers
                                 message('Not compiling @0@ because tests is set to false'.format(name))
                                 continue
                         endif
-                        if not fuzz_tests
+                        if not want_fuzz_tests
                                 message('Not compiling @0@ because fuzz-tests is set to false'.format(name))
                                 continue
                         endif
@@ -2979,7 +3057,6 @@ foreach tuple : [
         ['dmi'],
         ['idn'],
         ['polkit'],
-        ['nscd'],
         ['legacy-pkla',            install_polkit_pkla],
         ['kmod'],
         ['xenctrl'],
@@ -3000,8 +3077,8 @@ foreach tuple : [
         ['debug mmap cache'],
         ['debug siphash'],
         ['trace logging',          conf.get('LOG_TRACE') == 1],
-        ['slow tests',             slow_tests],
-        ['fuzz tests',             fuzz_tests],
+        ['slow tests',             want_slow_tests],
+        ['fuzz tests',             want_fuzz_tests],
         ['install tests',          install_tests],
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],

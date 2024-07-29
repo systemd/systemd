@@ -69,7 +69,7 @@ static bool check_recursiveprot_supported(void) {
 
         r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to determiner whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
+                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
         else if (r == 0)
                 log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
 
@@ -195,10 +195,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   strna(p->options));
 
-        if (FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK))
-                r = mount_follow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
-        else
-                r = mount_nofollow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
+        r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, p->options, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
         if (r < 0)
                 return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
 

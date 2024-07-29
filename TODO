@@ -130,6 +130,147 @@ Deprecations and removals:
 
 Features:
 
+* replace all \x1b, \x1B, \033 C string escape sequences in our codebase with a
+  more readable \e. It's a GNU extension, but a ton more readable than the
+  others, and most importantly it doesn't result in confusing errors if you
+  suffix the escape sequence with one more decimal digit, because compilers
+  think you might actually specify a value outside the 8bit range with that.
+
+* homed: allow login via username + realm on getty/login prompt. Then rewrite
+  the user name in the PAM stack
+
+* homed/userdb: add "aliases" field to user record, which can alternatively be
+  used for logging in. Rewrite user name in the PAM stack once acquired.
+
+* confext/sysext: instead of mounting the overlayfs directly on /etc/ + /usr/,
+  insert an intermediary bind mount on itself there. This has the benefit that
+  services where mount propagation from the root fs is off, an still have
+  confext/sysext propagated in.
+
+* marry pcrlock + signed pcr policies for FDE/credentials by letting each
+  unlock "half" of the volume key, so that the combination of both must be
+  XOR'ed to get the actual volume key
+
+* support F_DUDFD_QUERY for comparing fds in same_fd (requires kernel 6.10)
+
+* generic interface for varlink for setting log level and stuff that all our daemons can implement
+
+* use pty ioctl to get peer wherever possible (TIOCGPTPEER)
+
+* maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
+  just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
+  chattr bit. This is useful as protection against early uses of /var/ or /tmp/
+  before their contents is mounted.
+
+* go through all uses of table_new() in our codebase, and make sure we support
+  all three of:
+  1. --no-legend properly
+  2. --json= properly
+  3. --no-pager properly
+
+* go through all --help texts in our codebases, and make sure:
+  1. the one sentence description of the tool is highlighted via ANSI how we
+     usually do it
+  2. If more than one or two commands are supported (as opposed to switches),
+     separate commands + switches from each other, using underlined --help sections.
+  3. If there are many switches, consider adding additional --help sections.
+
+* go through our codebase, and convert "vertical tables" (i.e. things such as
+  "systemctl status") to use table_new_vertical() for output
+
+* logind: when logging in use new tmpfs quota support to configure quota on
+  /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
+  is persistent and any persistent settings mean we don#t have to reapply them.
+
+* initrd: when transitioning from initrd to host, validate that
+  /lib/modules/`uname -r` exists, refuse otherwise
+
+* tmpfiles: add "owning" flag for lines that limits effect of --purge
+
+* signed bpf loading: to address need for signature verification for bpf
+  programs when they are loaded, and given the bpf folks don't think this is
+  realistic in kernel space, maybe add small daemon that facilitates this
+  loading on request of clients, validates signatures and then loads the
+  programs. This daemon should be the only daemon with privs to do load BPF on
+  the system. It might be a good idea to run this daemon already in the initrd,
+  and leave it around during the initrd transition, to continue serve requests.
+  Should then live in its own fs namespace that inherits from the initrd's
+  fs tree, not from the host, to isolate it properly. Should set
+  PR_SET_DUMPABLE so that it cannot be ptraced from the host. Should have
+  CAP_SYS_BPF as only service around.
+
+* add a mechanism we can drop capabilities from pid1 *before* transitioning
+  from initrd to host. i.e. before we transition into the slightly lower trust
+  domain that is the host systems we might want to get rid of some caps.
+  Example: CAP_SYS_BPF in the signed bpf loading logic above. (We already have
+  CapabilityBoundingSet= in system.conf, but that is enforced when pid 1
+  initializes, rather then when it transitions to the next.)
+
+* maybe add a new standard slice where process that are started in the initrd
+  and stick around for the whole system runtime (i.e. root fs storage daemons,
+  the bpf loader daemon discussed above, and such) are placed. maybe
+  protected.slice or so? Then write docs that suggest that services like this
+  set Slice=protected.sice, RefuseManualStart=yes, RefuseManualStop=yes and a
+  couple of other things.
+
+* add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
+  open the inode via O_PATH first, then validate its type, and then convert to
+  proper fd via fd_reopen()
+
+* rough proposed implementation design for remote attestation infra: add a tool
+  that generates a quote of local PCRs and NvPCRs, along with synchronous log
+  snapshot. use "audit session" logic for that, so that we get read-outs and
+  signature in one step. Then turn this into a JSON object. Use the "TCG TSS 2.0
+  JSON Data Types and Policy Language" format to encode the signature. And CEL
+  for the measurement log.
+
+* creds: add a new cred format that reused the JSON structures we use in the
+  LUKS header, so that we get the various newer policies for free.
+
+* drop PCR 7 from default PCR mask in credentials and LUKS2 enrollments
+
+* systemd-analyze: port "pcrs" verb to talk directly to TPM device, instead of
+  using sysfs interface (well, or maybe not, as that would require privileges?)
+
+* pcrextend/tpm2-util: add a concept of "rotation" to event log. i.e. allow
+  trailing parts of the logs if time or disk space limit is hit. Protect the
+  boot-time measurements however (i.e. up to some point where things are
+  settled), since we need those for pcrlock measurements and similar. When
+  deleting entries for rotation, place an event that declares how many items
+  have been dropped, and what the hash before and after that.
+
+* measure information about all DDIs as we activate them to an NvPCR. We
+  probably should measure the dm-verity root hash from the kernel side, but
+  DDI meta info from userspace.
+
+* rework tpm2_parse_pcr_argument_to_mask() to refuse literal hash value
+  specifications. They are currently parsed but ignored. We should refuse them
+  however, to not confuse people.
+
+* use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
+  number) for identifying inodes, for example in copy.c when finding hard
+  links, or loop-util.c for tracking backing files, and other places.
+
+* cryptenroll/cryptsetup/homed: add unlock mechanism that combines tpm2 and
+  fido2, as well as tpm2 + ssh-agent, inspired by ChromeOS' logic: encrypt the
+  volume key with the TPM, with a policy that insists that a nonce is signed by
+  the fido2 device's key or ssh-agent key. Thus, add unlock/login time the TPM
+  generates a nonce, which is sent as a challenge to the fido2/ssh-agent, which
+  returns a signature which is handed to the tpm, which then reveals the volume
+  key to the PC.
+
+* cryptenroll/cryptsetup/homed: similar to this, implement TOTP backed by TPM.
+
+* expose the handoff timestamp fully via the D-Bus properties that contain
+  ExecStatus information
+
+* properly serialize the ExecStatus data from all ExecCommand objects
+  associated with services, sockets, mounts and swaps. Currently, the data is
+  flushed out on reload, which is quite a limitation.
+
+* Clean up "reboot argument" handling, i.e. set it through some IPC service
+  instead of directly via /run/, so that it can be sensible set remotely.
+
 * userdb: add concept for user "aliases", to cover for cases where you can log
   in under the name lennart@somenetworkfsserver, and it would automatically
   generate a local user, and from the one both names can be used to allow
@@ -143,11 +284,6 @@ Features:
   make sure that we can mount them trivially everywhere.
 
 * systemd-nspawn should get the same SSH key support that vmspawn now has.
-
-* insert the new pidfs inode number as a third field into PidRef, so that
-  PidRef are reasonably serializable without having to pass around fds.
-
-* systemd-analyze smbios11 to dump smbios type 11 vendor strings
 
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
@@ -180,28 +316,14 @@ Features:
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
 
-* make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
-  header file to sd-varlink.h. This of course also means we have to make json.h
-  public the same way. Convert the function param checks from assert() to
-  assert_ret(). Only export the stuff we are sure about, and keep some symbols
-  internally where things are not clear whether we want other projects to use.
-
-* machined: allow running in a per-user instance too, to allow unpriv
-  systemd-nspawn and systemd-vmspawn do something useful. (Alternatively: open
-  up system machined to unpriv client's registering their machines, and enforce
-  they come with some prefix or suffix that clarifies they are the
-  user's. i.e. when a user registers a machine it must be called
-  foobar.<username> or so.).
-
 * importd/…: define per-user dirs for container/VM images too.
 
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
 
 * importd/importctl
-  - import generator
   - port tar handling to libarchive
-  - add varlink interface
+  - complete varlink interface
   - download images into .v/ dirs
 
 * in os-release define a field that can be initialized at build time from
@@ -219,8 +341,6 @@ Features:
   close as we can make it for the MainPID of a service. Should be built around
   pidfd, so that we can reasonably robustly do this. Would only cover the
   execution environment like namespaces, but not the privilege settings.
-
-* varlink: extend varlink IDL macros to include documentation strings
 
 * Introduce a CGroupRef structure, inspired by PidRef. Should contain cgroup
   path, cgroup id, and cgroup fd. Use it to continuously pin all v2 cgroups via
@@ -260,21 +380,12 @@ Features:
   to read them from. This way the data doesn't remain in the SMBIOS blob during
   runtime, but only in the credentials fs.
 
-* machined: make machine registration available via varlink to simplify
-  nspawn/vmspawn, and to have an extensible way to register VM/machine metadata
-
-* ssh-proxy: add support for "ssh machine/foobar" to automatically connect to
-  machined registered machine "foobar". Requires updating machined to track CID
-  and unix-export dir of containers.
+* machined: optionally track nspawn unix-export/ runtime for each machined, and
+  then update systemd-ssh-proxy so that it can connect to that.
 
 * add a new ExecStart= flag that inserts the configured user's shell as first
   word in the command line. (maybe use character '.'). Usecase: tool such as
   run0 can use that to spawn the target user's default shell.
-
-* varlink: figure out how to do docs for our varlink interfaces. Idea: install
-  interface files augmented with docs in /usr/share/ somewhere. And have
-  functionality in varlinkctl to merge interface info extracted from binaries
-  with interface info on disk. And store the doc strings only in the latter.
 
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
@@ -429,10 +540,6 @@ Features:
   - kernel-install
   - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
-* in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
-  identifiers, and store them along with the exit status of a server and report
-  via "systemctl status".
-
 * enumerate virtiofs devices during boot-up in a generator, and synthesize
   mounts for rootfs, /usr/, /home/, /srv/ and some others from it, depending on
   the "tag". (waits for: https://gitlab.com/virtio-fs/virtiofsd/-/issues/128)
@@ -472,9 +579,7 @@ Features:
   - cg_pid_get_xyz()
   - pid_from_same_root_fs()
   - get_ctty_devnr()
-  - pid1: sd_notify() receiver should use SCM_PIDFD to authenticate client
   - actually wait for POLLIN on pidref's pidfd in service logic
-  - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
@@ -650,9 +755,6 @@ Features:
   CONFIG_STATIC_USERMODEHELPER_PATH and then handles them within pid1 so that
   security, resource management and cgroup settings can be enforced properly
   for all umh processes.
-
-* systemd-shutdown: keep sending sd_notify() status updates immediately before
-  going down, in particular include the "reboot param" string.
 
 * homed: when resizing an fs don't sync identity beforehand there might simply
   not be enough disk space for that. try to be defensive and sync only after
@@ -1222,10 +1324,6 @@ Features:
 * doc: prep a document explaining PID 1's internal logic, i.e. transactions,
   jobs, units
 
-* bootspec: bring UEFI and userspace enumeration of bootspec entries back into
-  sync, i.e. parse out architecture field in sd-boot (currently only done in
-  userspace)
-
 * automatically ignore threaded cgroups in cg_xyz().
 
 * add linker script that implicitly adds symbol for build ID and new coredump
@@ -1778,7 +1876,7 @@ Features:
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
-* docs: bring https://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+* docs: bring https://systemd.io/MY_SERVICE_CANT_GET_REATLIME up to date
 
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service
@@ -1931,6 +2029,9 @@ Features:
   - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
     processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
     with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
+  - ExtensionImages= deduplication for services is currently only applied to disk images without GPT envelope.
+    This should be extended to work with proper DDIs too, as well as directory confext/sysext. Moreover,
+    system-wide confex/sysext should support this too.
 
 * unit files:
   - allow port=0 in .socket units
@@ -2038,11 +2139,8 @@ Features:
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
-  - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
 * bootctl
   - recognize the case when not booted on EFI
-
-* bootctl,sd-boot: actually honour the "architecture" key
 
 * bootctl:
   - show whether UEFI audit mode is available

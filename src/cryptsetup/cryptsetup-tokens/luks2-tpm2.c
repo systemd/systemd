@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "env-util.h"
 #include "hexdecoct.h"
-#include "json.h"
 #include "log.h"
 #include "luks2-tpm2.h"
 #include "parse-util.h"
@@ -31,7 +32,7 @@ int acquire_luks2_key(
                 TPM2Flags flags,
                 struct iovec *ret_decrypted_key) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_free_ char *auto_device = NULL;
         _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
         int r;

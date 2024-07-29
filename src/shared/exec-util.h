@@ -51,8 +51,8 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags);
 
-int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags);
-int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts);
+int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret);
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret);
 
 extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
 
@@ -61,4 +61,5 @@ ExecCommandFlags exec_command_flags_from_string(const char *s);
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]);
 
-int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) _sentinel_;
+int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) _sentinel_;
+#define fork_agent(name, ...) _fork_agent(name, __VA_ARGS__, NULL)

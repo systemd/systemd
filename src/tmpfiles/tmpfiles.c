@@ -67,6 +67,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
@@ -203,7 +204,6 @@ static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
-
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
@@ -395,20 +395,20 @@ static int user_config_paths(char*** ret) {
 
 static bool needs_purge(ItemType t) {
         return IN_SET(t,
-                      COPY_FILES,
-                      TRUNCATE_FILE,
                       CREATE_FILE,
-                      WRITE_FILE,
-                      EMPTY_DIRECTORY,
+                      TRUNCATE_FILE,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
                       CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_FIFO,
+                      CREATE_SYMLINK,
                       CREATE_CHAR_DEVICE,
                       CREATE_BLOCK_DEVICE,
-                      CREATE_SYMLINK,
-                      CREATE_FIFO,
-                      CREATE_DIRECTORY,
-                      TRUNCATE_DIRECTORY);
+                      COPY_FILES,
+                      WRITE_FILE,
+                      EMPTY_DIRECTORY);
 }
 
 static bool needs_glob(ItemType t) {
@@ -547,14 +547,13 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
                 return dir;
 
         if (!IN_SET(errno, ENOENT, ELOOP))
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
-
-        if (errno != EPERM)
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (!ERRNO_IS_PRIVILEGE(errno))
                 return NULL;
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW);
         if (!dir)
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\" with or without O_NOATIME: %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
@@ -891,9 +890,9 @@ static int dir_cleanup(
                                 continue;
 
                         if (!arg_dry_run) {
-                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK);
+                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
-                                        log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                                        log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                         log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
                                         continue;
@@ -932,37 +931,35 @@ finish:
         return r;
 }
 
-static bool dangerous_hardlinks(void) {
-        _cleanup_free_ char *value = NULL;
+static bool hardlinks_protected(void) {
         static int cached = -1;
         int r;
 
         /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off,
-         * as that's what the upstream default is. */
+         * as that's what the kernel default is.
+         * Note that we ship 50-default.conf where it is enabled, but better be safe than sorry. */
 
         if (cached >= 0)
                 return cached;
 
-        r = read_one_line_file("/proc/sys/fs/protected_hardlinks", &value);
+        _cleanup_free_ char *value = NULL;
+
+        r = sysctl_read("fs/protected_hardlinks", &value);
         if (r < 0) {
-                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl: %m");
-                return true;
+                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl, assuming disabled: %m");
+                return false;
         }
 
-        r = parse_boolean(value);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse fs.protected_hardlinks sysctl: %m");
-                return true;
-        }
-
-        cached = r == 0;
-        return cached;
+        cached = parse_boolean(value);
+        if (cached < 0)
+                log_debug_errno(cached, "Failed to parse fs.protected_hardlinks sysctl, assuming disabled: %m");
+        return cached > 0;
 }
 
 static bool hardlink_vulnerable(const struct stat *st) {
         assert(st);
 
-        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
+        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && !hardlinks_protected();
 }
 
 static mode_t process_mask_perms(mode_t mode, mode_t current) {
@@ -2512,12 +2509,13 @@ static int item_do(
                 fdaction_t action) {
 
         struct stat st;
-        int r = 0, q;
+        int r;
 
         assert(c);
         assert(i);
-        assert(path);
         assert(fd >= 0);
+        assert(path);
+        assert(action);
 
         if (fstat(fd, &st) < 0) {
                 r = log_error_errno(errno, "fstat() on file failed: %m");
@@ -2534,36 +2532,35 @@ static int item_do(
                  * reading the directory content. */
                 d = opendir(FORMAT_PROC_FD_PATH(fd));
                 if (!d) {
-                        log_error_errno(errno, "Failed to opendir() '%s': %m", FORMAT_PROC_FD_PATH(fd));
-                        if (r == 0)
-                                r = -errno;
+                        RET_GATHER(r, log_error_errno(errno, "Failed to opendir() '%s': %m", FORMAT_PROC_FD_PATH(fd)));
                         goto finish;
                 }
 
-                FOREACH_DIRENT_ALL(de, d, q = -errno; goto finish) {
-                        int de_fd;
+                FOREACH_DIRENT_ALL(de, d, RET_GATHER(r, -errno); goto finish) {
+                        _cleanup_close_ int de_fd = -EBADF;
+                        _cleanup_free_ char *de_path = NULL;
 
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-                        if (de_fd < 0)
-                                q = log_error_errno(errno, "Failed to open() file '%s': %m", de->d_name);
-                        else {
-                                _cleanup_free_ char *de_path = NULL;
-
-                                de_path = path_join(path, de->d_name);
-                                if (!de_path)
-                                        q = log_oom();
-                                else
-                                        /* Pass ownership of dirent fd over */
-                                        q = item_do(c, i, de_fd, de_path, CREATION_EXISTING, action);
+                        if (de_fd < 0) {
+                                if (errno != ENOENT)
+                                        RET_GATHER(r, log_error_errno(errno, "Failed to open file '%s': %m", de->d_name));
+                                continue;
                         }
 
-                        if (q < 0 && r == 0)
-                                r = q;
+                        de_path = path_join(path, de->d_name);
+                        if (!de_path) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        /* Pass ownership of dirent fd over */
+                        RET_GATHER(r, item_do(c, i, TAKE_FD(de_fd), de_path, CREATION_EXISTING, action));
                 }
         }
+
 finish:
         safe_close(fd);
         return r;
@@ -2573,21 +2570,22 @@ static int glob_item(Context *c, Item *i, action_t action) {
         _cleanup_globfree_ glob_t g = {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
-        int r = 0, k;
+        int r;
 
         assert(c);
         assert(i);
+        assert(action);
 
-        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k < 0 && k != -ENOENT)
-                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
-        STRV_FOREACH(fn, g.gl_pathv) {
+        r = 0;
+        STRV_FOREACH(fn, g.gl_pathv)
                 /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
-                k = action(c, i, *fn, CREATION_EXISTING);
-                if (k < 0 && r == 0)
-                        r = k;
-        }
+                RET_GATHER(r, action(c, i, *fn, CREATION_EXISTING));
 
         return r;
 }
@@ -2600,34 +2598,33 @@ static int glob_item_recursively(
         _cleanup_globfree_ glob_t g = {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
-        int r = 0, k;
+        int r;
 
-        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k < 0 && k != -ENOENT)
-                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+        assert(c);
+        assert(i);
+        assert(action);
 
+        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to glob '%s': %m", i->path);
+
+        r = 0;
         STRV_FOREACH(fn, g.gl_pathv) {
                 _cleanup_close_ int fd = -EBADF;
 
-                /* Make sure we won't trigger/follow file object (such as
-                 * device nodes, automounts, ...) pointed out by 'fn' with
-                 * O_PATH. Note, when O_PATH is used, flags other than
+                /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
+                 * pointed out by 'fn' with O_PATH. Note, when O_PATH is used, flags other than
                  * O_CLOEXEC, O_DIRECTORY, and O_NOFOLLOW are ignored. */
 
                 fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (fd < 0) {
-                        log_error_errno(errno, "Opening '%s' failed: %m", *fn);
-                        if (r == 0)
-                                r = -errno;
+                        RET_GATHER(r, log_error_errno(errno, "Failed to open '%s': %m", *fn));
                         continue;
                 }
 
-                k = item_do(c, i, fd, *fn, CREATION_EXISTING, action);
-                if (k < 0 && r == 0)
-                        r = k;
-
-                /* we passed fd ownership to the previous call */
-                fd = -EBADF;
+                RET_GATHER(r, item_do(c, i, TAKE_FD(fd), *fn, CREATION_EXISTING, action));
         }
 
         return r;
@@ -2658,7 +2655,7 @@ static int rm_if_wrong_type_safe(
         r = fstatat_harder(parent_fd, name, &st, flags, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
         if (r < 0) {
                 (void) fd_get_path(parent_fd, &parent_name);
-                return log_full_errno(r == -ENOENT? LOG_DEBUG : LOG_ERR, r,
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to stat \"%s/%s\": %m", parent_name ?: "...", name);
         }
 
@@ -3025,10 +3022,16 @@ static int remove_recursive(
                 return r;
 
         if (remove_instance) {
-                log_debug("Removing directory \"%s\".", instance);
-                r = RET_NERRNO(rmdir(instance));
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENOTEMPTY))
-                        return log_error_errno(r, "Failed to remove %s: %m", instance);
+                log_action("Would remove", "Removing", "%s directory \"%s\".", instance);
+                if (!arg_dry_run) {
+                        r = RET_NERRNO(rmdir(instance));
+                        if (r < 0) {
+                                bool fatal = !IN_SET(r, -ENOENT, -ENOTEMPTY);
+                                log_full_errno(fatal ? LOG_ERR : LOG_DEBUG, r, "Failed to remove %s: %m", instance);
+                                if (fatal)
+                                        return r;
+                        }
+                }
         }
         return 0;
 }
@@ -3607,17 +3610,6 @@ static int parse_line(
         assert(buffer);
 
         const Specifier specifier_table[] = {
-                { 'a', specifier_architecture,    NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'H', specifier_hostname,        NULL },
-                { 'l', specifier_short_hostname,  NULL },
-                { 'm', specifier_machine_id,      NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'W', specifier_os_variant_id,   NULL },
-
                 { 'h', specifier_user_home,       NULL },
 
                 { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE)   },
@@ -3625,6 +3617,7 @@ static int parse_line(
                 { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
                 { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
 
+                COMMON_SYSTEM_SPECIFIERS,
                 COMMON_CREDS_SPECIFIERS(arg_runtime_scope),
                 COMMON_TMP_SPECIFIERS,
                 {}
@@ -4141,18 +4134,19 @@ static int help(void) {
         printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
                "\n%2$sCreate, delete, and clean up files and directories.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --create               Create files and directories\n"
+               "     --create               Create and adjust files and directories\n"
                "     --clean                Clean up files and directories\n"
-               "     --remove               Remove files and directories\n"
+               "     --remove               Remove files and directories marked for removal\n"
+               "     --purge                Delete files and directories marked for creation in\n"
+               "                            specified configuration files (careful!)\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --user                 Execute user configuration\n"
                "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration\n"
+               "     --tldr                 Show non-comment parts of configuration files\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
-               "     --purge                Delete all files owned by the configuration files\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -4338,6 +4332,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "You need to specify at least one of --clean, --create, --remove, or --purge.");
+
+        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing --purge without specification of a configuration file.");
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4637,12 +4635,10 @@ static int run(int argc, char *argv[]) {
         if (!c.items || !c.globs)
                 return log_oom();
 
-        /* If command line arguments are specified along with --replace, read all
-         * configuration files and insert the positional arguments at the specified
-         * place. Otherwise, if command line arguments are specified, execute just
-         * them, and finally, without --replace= or any positional arguments, just
-         * read configuration and execute it.
-         */
+        /* If command line arguments are specified along with --replace=, read all configuration files and
+         * insert the positional arguments at the specified place. Otherwise, if command line arguments are
+         * specified, execute just them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it. */
         if (arg_replace || optind >= argc)
                 r = read_config_files(&c, config_dirs, argv + optind, &invalid_config);
         else

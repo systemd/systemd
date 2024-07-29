@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-Type=oneshot

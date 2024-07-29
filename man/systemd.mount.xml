@@ -82,7 +82,7 @@
     for kernel-to-userspace and userspace-to-userspace interfaces. Some
     of them may not be changed via mount units, and cannot be
     disabled. For a longer discussion see <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
+    url="https://systemd.io/API_FILE_SYSTEMS">API
     File Systems</ulink>.</para>
 
     <para>The
@@ -214,6 +214,17 @@
         specified.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.wants=</option></term>
+
+        <listitem><para>Configures a <varname>Wants=</varname> and
+        an <varname>After=</varname> dependency between the created
+        mount unit and another systemd unit, similar to the
+        <varname>x-systemd.requires=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -506,9 +517,9 @@
     information about the file system mount points it supervises. A
     number of options that may be used in this section are shared with
     other unit types. These options are documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     The options specific to the [Mount] section of mount units are the
     following:</para>
 

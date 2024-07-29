@@ -14,6 +14,8 @@ DefaultDependencies=no
 Requires=systemd-kexec.service
 After=systemd-kexec.service
 AllowIsolate=yes
+JobTimeoutSec=30min
+JobTimeoutAction=kexec-force
 
 [Install]
 Alias=ctrl-alt-del.target

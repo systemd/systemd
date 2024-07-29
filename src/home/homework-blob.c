@@ -218,7 +218,7 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         if (reconciled == USER_RECONCILE_IDENTICAL)
                 return 0;
 
-        sys_base_dfd = open(home_system_blob_dir(), O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        sys_base_dfd = open(home_system_blob_dir(), O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (sys_base_dfd < 0)
                 return log_error_errno(errno, "Failed to open system blob dir: %m");
 
@@ -264,7 +264,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
                  * of the directory. */
                 r = rm_rf_at(base_dfd, h->user_name, REMOVE_PHYSICAL|REMOVE_MISSING_OK);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to empty out system blob dir: %m");
+                        return log_error_errno(r, "Failed to empty out system blob dir: %m");
                 return 0;
         }
 

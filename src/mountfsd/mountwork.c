@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
+#include "sd-varlink.h"
 
 #include "argv-util.h"
 #include "bus-polkit.h"
@@ -11,6 +12,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "main-func.h"
 #include "missing_loop.h"
 #include "namespace-util.h"
@@ -20,7 +22,6 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
 #define ITERATIONS_MAX 64U
@@ -37,22 +38,22 @@ static const ImagePolicy image_policy_untrusted = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
-static int json_dispatch_image_policy(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
         ImagePolicy **p = ASSERT_PTR(userdata);
         int r;
 
         assert(p);
 
-        if (json_variant_is_null(variant)) {
+        if (sd_json_variant_is_null(variant)) {
                 *p = image_policy_free(*p);
                 return 0;
         }
 
-        if (!json_variant_is_string(variant))
+        if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = image_policy_from_string(json_variant_string(variant), &q);
+        r = image_policy_from_string(sd_json_variant_string(variant), &q);
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
 
@@ -212,7 +213,7 @@ static int determine_image_policy(
         return image_policy_intersect(default_policy, client_policy, ret);
 }
 
-static int validate_userns(Varlink *link, int *userns_fd) {
+static int validate_userns(sd_varlink *link, int *userns_fd) {
         int r;
 
         assert(link);
@@ -229,7 +230,7 @@ static int validate_userns(Varlink *link, int *userns_fd) {
         if (r < 0)
                 return r;
         if (r == 0)
-                return varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
 
         /* Our own host user namespace? Then close the fd, and handle it as if none was specified. */
         r = is_our_namespace(*userns_fd, NAMESPACE_USER);
@@ -244,18 +245,18 @@ static int validate_userns(Varlink *link, int *userns_fd) {
 }
 
 static int vl_method_mount_image(
-                Varlink *link,
-                JsonVariant *parameters,
-                VarlinkMethodFlags flags,
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "imageFileDescriptor",         JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(MountImageParameters, image_fd_idx),  JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(MountImageParameters, userns_fd_idx), 0 },
-                { "readOnly",                    JSON_VARIANT_BOOLEAN,  json_dispatch_tristate,     offsetof(MountImageParameters, read_only),     0 },
-                { "growFileSystems",             JSON_VARIANT_BOOLEAN,  json_dispatch_tristate,     offsetof(MountImageParameters, growfs),        0 },
-                { "password",                    JSON_VARIANT_STRING,   json_dispatch_string,       offsetof(MountImageParameters, password),      0 },
-                { "imagePolicy",                 JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),  SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx), 0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),     0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),        0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),      0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -269,7 +270,7 @@ static int vl_method_mount_image(
         };
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
         _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF;
         _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
@@ -281,24 +282,24 @@ static int vl_method_mount_image(
         assert(link);
         assert(parameters);
 
-        json_variant_sensitive(parameters); /* might contain passwords */
+        sd_json_variant_sensitive(parameters); /* might contain passwords */
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.image_fd_idx != UINT_MAX) {
-                image_fd = varlink_peek_dup_fd(link, p.image_fd_idx);
+                image_fd = sd_varlink_peek_dup_fd(link, p.image_fd_idx);
                 if (image_fd < 0)
                         return log_debug_errno(image_fd, "Failed to peek image fd from client: %m");
         }
 
         if (p.userns_fd_idx != UINT_MAX) {
-                userns_fd = varlink_peek_dup_fd(link, p.userns_fd_idx);
+                userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
                 if (userns_fd < 0)
                         return log_debug_errno(userns_fd, "Failed to peek user namespace fd from client: %m");
         }
@@ -414,11 +415,11 @@ static int vl_method_mount_image(
                                 dissect_flags,
                                 &di);
                 if (r == -ENOPKG)
-                        return varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
-                        return varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
                 if (r == -ENXIO)
-                        return varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
                 if (r == -ERFKILL) {
                         /* The image policy refused this, let's retry after trying to get PolicyKit */
 
@@ -442,7 +443,7 @@ static int vl_method_mount_image(
                                 }
                         }
 
-                        return varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
                 }
                 if (r < 0)
                         return r;
@@ -465,13 +466,13 @@ static int vl_method_mount_image(
                         dissect_flags);
         if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
                            * key chain. That's great. */
-                return varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
         if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
                           * under the assumption that some errors are transitional. Which the errors might
                           * not actually be. After all retries failed we return EBUSY. Let's turn that into a
                           * generic Verity error. It's not very helpful, could mean anything, but at least it
                           * gives client a clear idea that this has to do with Verity. */
-                return varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
         if (r < 0)
                 return r;
 
@@ -486,7 +487,6 @@ static int vl_method_mount_image(
                 return r;
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *pj = NULL;
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
 
@@ -502,50 +502,47 @@ static int vl_method_mount_image(
                                 return r;
                 }
 
-                fd_idx = varlink_push_fd(link, pp->fsmount_fd);
+                fd_idx = sd_varlink_push_fd(link, pp->fsmount_fd);
                 if (fd_idx < 0)
                         return fd_idx;
 
                 TAKE_FD(pp->fsmount_fd);
 
-                r = json_build(&pj,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("designator", JSON_BUILD_STRING(partition_designator_to_string(d))),
-                                               JSON_BUILD_PAIR("writable", JSON_BUILD_BOOLEAN(pp->rw)),
-                                               JSON_BUILD_PAIR("growFileSystem", JSON_BUILD_BOOLEAN(pp->growfs)),
-                                               JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", JSON_BUILD_INTEGER(pp->partno)),
-                                               JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
-                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", JSON_BUILD_UUID(pp->uuid)),
-                                               JSON_BUILD_PAIR("fileSystemType", JSON_BUILD_STRING(dissected_partition_fstype(pp))),
-                                               JSON_BUILD_PAIR_CONDITION(pp->label, "partitionLabel", JSON_BUILD_STRING(pp->label)),
-                                               JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(pp->size)),
-                                               JSON_BUILD_PAIR("offset", JSON_BUILD_INTEGER(pp->offset)),
-                                               JSON_BUILD_PAIR("mountFileDescriptor", JSON_BUILD_INTEGER(fd_idx))));
-                if (r < 0)
-                        return r;
-
-                r = json_variant_append_array(&aj, pj);
+                r = sd_json_variant_append_arraybo(
+                                &aj,
+                                SD_JSON_BUILD_PAIR("designator", SD_JSON_BUILD_STRING(partition_designator_to_string(d))),
+                                SD_JSON_BUILD_PAIR("writable", SD_JSON_BUILD_BOOLEAN(pp->rw)),
+                                SD_JSON_BUILD_PAIR("growFileSystem", SD_JSON_BUILD_BOOLEAN(pp->growfs)),
+                                SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
+                                SD_JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", SD_JSON_BUILD_UUID(pp->uuid)),
+                                SD_JSON_BUILD_PAIR("fileSystemType", SD_JSON_BUILD_STRING(dissected_partition_fstype(pp))),
+                                SD_JSON_BUILD_PAIR_CONDITION(!!pp->label, "partitionLabel", SD_JSON_BUILD_STRING(pp->label)),
+                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_INTEGER(pp->size)),
+                                SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_INTEGER(pp->offset)),
+                                SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
                 if (r < 0)
                         return r;
         }
 
         loop_device_relinquish(loop);
 
-        r = varlink_replyb(link, JSON_BUILD_OBJECT(
-                                           JSON_BUILD_PAIR("partitions", JSON_BUILD_VARIANT(aj)),
-                                           JSON_BUILD_PAIR("imagePolicy", JSON_BUILD_STRING(ps)),
-                                           JSON_BUILD_PAIR("imageSize", JSON_BUILD_INTEGER(di->image_size)),
-                                           JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(di->sector_size)),
-                                           JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", JSON_BUILD_UUID(di->image_uuid))));
+        r = sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
+                        SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
+                        SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_INTEGER(di->image_size)),
+                        SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(di->sector_size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
         if (r < 0)
                 return r;
 
         return r;
 }
 
-static int process_connection(VarlinkServer *server, int _fd) {
+static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
-        _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
@@ -553,22 +550,22 @@ static int process_connection(VarlinkServer *server, int _fd) {
         if (r < 0)
                 return r;
 
-        r = varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(server, event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
-        r = varlink_server_add_connection(server, fd, &vl);
+        r = sd_varlink_server_add_connection(server, fd, &vl);
         if (r < 0)
                 return log_error_errno(r, "Failed to add connection: %m");
 
         TAKE_FD(fd);
-        vl = varlink_ref(vl);
+        vl = sd_varlink_ref(vl);
 
-        r = varlink_set_allow_fd_passing_input(vl, true);
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable fd passing for read: %m");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable fd passing for write: %m");
 
@@ -576,7 +573,7 @@ static int process_connection(VarlinkServer *server, int _fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        r = varlink_server_detach_event(server);
+        r = sd_varlink_server_detach_event(server);
         if (r < 0)
                 return log_error_errno(r, "Failed to detach Varlink server from event loop: %m");
 
@@ -585,7 +582,7 @@ static int process_connection(VarlinkServer *server, int _fd) {
 
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
-        _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
@@ -607,23 +604,23 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = varlink_server_new(&server, VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate server: %m");
 
-        r = varlink_server_add_interface(server, &vl_interface_io_systemd_MountFileSystem);
+        r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_MountFileSystem);
         if (r < 0)
                 return log_error_errno(r, "Failed to add MountFileSystem interface to varlink server: %m");
 
-        r = varlink_server_bind_method_many(
+        r = sd_varlink_server_bind_method_many(
                         server,
                         "io.systemd.MountFileSystem.MountImage", vl_method_mount_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 
-        varlink_server_set_userdata(server, &polkit_registry);
+        sd_varlink_server_set_userdata(server, &polkit_registry);
 
-        r = varlink_server_set_exit_on_idle(server, true);
+        r = sd_varlink_server_set_exit_on_idle(server, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit-on-idle mode: %m");
 

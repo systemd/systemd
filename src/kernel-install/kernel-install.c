@@ -19,6 +19,7 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
+#include "kernel-config.h"
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -40,7 +41,7 @@ static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
 static PagerFlags arg_pager_flags = 0;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static ImagePolicy *arg_image_policy = NULL;
@@ -434,48 +435,19 @@ static int context_load_environment(Context *c) {
 static int context_load_install_conf(Context *c) {
         _cleanup_free_ char *machine_id = NULL, *boot_root = NULL, *layout = NULL,
                             *initrd_generator = NULL, *uki_generator = NULL;
-        const ConfigTableItem items[] = {
-                { NULL, "MACHINE_ID",       config_parse_string, 0, &machine_id       },
-                { NULL, "BOOT_ROOT",        config_parse_string, 0, &boot_root        },
-                { NULL, "layout",           config_parse_string, 0, &layout           },
-                { NULL, "initrd_generator", config_parse_string, 0, &initrd_generator },
-                { NULL, "uki_generator",    config_parse_string, 0, &uki_generator    },
-                {}
-        };
         int r;
 
         assert(c);
 
-        if (c->conf_root) {
-                _cleanup_free_ char *conf = NULL;
-
-                conf = path_join(c->conf_root, "install.conf");
-                if (!conf)
-                        return log_oom();
-
-                r = config_parse_many(
-                                STRV_MAKE_CONST(conf),
-                                STRV_MAKE_CONST(c->conf_root),
-                                "install.conf.d",
-                                /* root= */ NULL, /* $KERNEL_INSTALL_CONF_ROOT and --root are independent */
-                                /* sections= */ NULL,
-                                config_item_table_lookup, items,
-                                CONFIG_PARSE_WARN,
-                                /* userdata = */ NULL,
-                                /* ret_stats_by_path= */ NULL,
-                                /* ret_dropin_files= */ NULL);
-        } else
-                r = config_parse_standard_file_with_dropins_full(
-                                arg_root,
-                                "kernel/install.conf",
-                                /* sections= */ NULL,
-                                config_item_table_lookup, items,
-                                CONFIG_PARSE_WARN,
-                                /* userdata = */ NULL,
-                                /* ret_stats_by_path= */ NULL,
-                                /* ret_dropin_files= */ NULL);
-        if (r < 0)
-                return r == -ENOENT ? 0 : r;
+        r = load_kernel_install_conf(arg_root,
+                                     c->conf_root,
+                                     &machine_id,
+                                     &boot_root,
+                                     &layout,
+                                     &initrd_generator,
+                                     &uki_generator);
+        if (r <= 0)
+                return r;
 
         (void) context_set_machine_id(c, machine_id, "config");
         (void) context_set_boot_root(c, boot_root, "config");
@@ -1399,7 +1371,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
                 r = table_add_many(t,
                                    TABLE_FIELD, "Plugin Arguments",
                                    TABLE_STRV, strv_skip(c->argv, 1));
@@ -1495,7 +1467,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sAdd and remove kernel and initrd images to and from /boot/%6$s\n"
+               "%5$sAdd and remove kernel and initrd images to and from the boot partition.%6$s\n"
                "\n%3$sUsage:%4$s\n"
                "  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] add-all\n"

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/auto_dev-ioctl.h>
-#include <linux/auto_fs4.h>
 #include <sys/epoll.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -733,9 +732,6 @@ static int automount_start_expire(Automount *a) {
 
 static void automount_stop_expire(Automount *a) {
         assert(a);
-
-        if (!a->expire_event_source)
-                return;
 
         (void) sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_OFF);
 }

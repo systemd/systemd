@@ -25,10 +25,11 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const char* arg_what = "idle:sleep:shutdown";
-static const char* arg_who = NULL;
-static const char* arg_why = "Unknown reason";
-static const char* arg_mode = NULL;
+static const char *arg_what = "idle:sleep:shutdown";
+static const char *arg_who = NULL;
+static const char *arg_why = "Unknown reason";
+static const char *arg_mode = NULL;
+static bool arg_ask_password = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 
@@ -41,6 +42,8 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
         int fd;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_login_mgr, "Inhibit", error, &reply, "ssss", arg_what, arg_who, arg_why, arg_mode);
         if (r < 0)
@@ -145,6 +148,7 @@ static int help(void) {
                "\n%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
+               "     --no-ask-password    Do not attempt interactive authorization\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
@@ -153,7 +157,7 @@ static int help(void) {
                "                          handle-lid-switch\n"
                "     --who=STRING         A descriptive string who is inhibiting\n"
                "     --why=STRING         A descriptive string why is being inhibited\n"
-               "     --mode=MODE          One of block or delay\n"
+               "     --mode=MODE          One of block, block-weak, delay, or delay-weak\n"
                "     --list               List active inhibitors\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -173,20 +177,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WHY,
                 ARG_MODE,
                 ARG_LIST,
+                ARG_NO_ASK_PASSWORD,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "what",         required_argument, NULL, ARG_WHAT         },
-                { "who",          required_argument, NULL, ARG_WHO          },
-                { "why",          required_argument, NULL, ARG_WHY          },
-                { "mode",         required_argument, NULL, ARG_MODE         },
-                { "list",         no_argument,       NULL, ARG_LIST         },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND       },
+                { "help",             no_argument,       NULL, 'h'                 },
+                { "version",          no_argument,       NULL, ARG_VERSION         },
+                { "no-ask-password",  no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "what",             required_argument, NULL, ARG_WHAT            },
+                { "who",              required_argument, NULL, ARG_WHO             },
+                { "why",              required_argument, NULL, ARG_WHY             },
+                { "mode",             required_argument, NULL, ARG_MODE            },
+                { "list",             no_argument,       NULL, ARG_LIST            },
+                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER        },
+                { "no-legend",        no_argument,       NULL, ARG_NO_LEGEND       },
                 {}
         };
 
@@ -228,6 +234,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST;
                         break;
 
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
@@ -257,9 +267,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -268,6 +276,8 @@ static int run(int argc, char *argv[]) {
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);

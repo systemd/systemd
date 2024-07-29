@@ -3255,7 +3255,7 @@ static int generic_array_bisect_for_data(
 
         } else {
                 /* If we are going upwards, then we need to return the last object that passes the test.
-                 * When there is no object that passes the test, we need to return the the last object that
+                 * When there is no object that passes the test, we need to return the last object that
                  * test_object() returns TEST_LEFT for. */
                 if (r == TEST_RIGHT)
                         return 0; /* Not only the 'extra' object, but also all objects in the chained arrays
@@ -3801,35 +3801,35 @@ void journal_file_dump(JournalFile *f) {
                 case OBJECT_ENTRY:
                         assert(s);
 
-                        printf("Type: %s seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
-                               s,
-                               le64toh(o->entry.seqnum),
-                               le64toh(o->entry.monotonic),
-                               le64toh(o->entry.realtime));
+                        log_info("Type: %s seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                                 s,
+                                 le64toh(o->entry.seqnum),
+                                 le64toh(o->entry.monotonic),
+                                 le64toh(o->entry.realtime));
                         break;
 
                 case OBJECT_TAG:
                         assert(s);
 
-                        printf("Type: %s seqnum=%"PRIu64" epoch=%"PRIu64"\n",
-                               s,
-                               le64toh(o->tag.seqnum),
-                               le64toh(o->tag.epoch));
+                        log_info("Type: %s seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                                 s,
+                                 le64toh(o->tag.seqnum),
+                                 le64toh(o->tag.epoch));
                         break;
 
                 default:
                         if (s)
-                                printf("Type: %s \n", s);
+                                log_info("Type: %s \n", s);
                         else
-                                printf("Type: unknown (%i)", o->object.type);
+                                log_info("Type: unknown (%i)", o->object.type);
 
                         break;
                 }
 
                 c = COMPRESSION_FROM_OBJECT(o);
                 if (c > COMPRESSION_NONE)
-                        printf("Flags: %s\n",
-                               compression_to_string(c));
+                        log_info("Flags: %s\n",
+                                 compression_to_string(c));
 
                 if (p == le64toh(f->header->tail_object_offset))
                         p = 0;

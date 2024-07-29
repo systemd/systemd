@@ -14,8 +14,8 @@
  *  GNU General Public License for more details.
  */
 
-#ifndef _UAPI__IF_TUN_H
-#define _UAPI__IF_TUN_H
+#ifndef __IF_TUN_H
+#define __IF_TUN_H
 
 #include <linux/types.h>
 #include <linux/if_ether.h>
@@ -115,4 +115,4 @@ struct tun_filter {
 	__u8   addr[][ETH_ALEN];
 };
 
-#endif /* _UAPI__IF_TUN_H */
+#endif /* __IF_TUN_H */

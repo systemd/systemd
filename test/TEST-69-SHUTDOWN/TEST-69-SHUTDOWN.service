@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-69-SHUTDOWN
+Wants=basic.target multi-user.target
+After=basic.target
+Before=getty-pre.target
+
+ConditionPathExists=/usr/bin/python3
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/units/TEST-69-SHUTDOWN.py

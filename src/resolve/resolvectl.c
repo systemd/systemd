@@ -5,7 +5,9 @@
 #include <net/if.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -22,7 +24,7 @@
 #include "format-util.h"
 #include "gcrypt-util.h"
 #include "hostname-util.h"
-#include "json.h"
+#include "json-util.h"
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -45,7 +47,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
-#include "varlink.h"
+#include "varlink-util.h"
 #include "verb-log-control.h"
 #include "verbs.h"
 
@@ -56,7 +58,7 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
@@ -184,7 +186,7 @@ static void print_source(uint64_t flags, usec_t rtt) {
         if (!arg_legend)
                 return;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return;
 
         if (flags == 0)
@@ -253,7 +255,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         assert(name);
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type=A or --type=AAAA to acquire address record information in JSON format.");
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
@@ -354,7 +356,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (ifindex <= 0)
@@ -448,8 +450,8 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
                 r = dns_resource_record_to_json(rr, &j);
                 if (r < 0)
                         return log_error_errno(r, "Failed to convert RR to JSON: %m");
@@ -457,7 +459,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 if (!j)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "JSON formatting for records of type %s (%u) not available.", dns_type_to_string(rr->key->type), rr->key->type);
 
-                r = json_variant_dump(j, arg_json_format_flags, NULL, NULL);
+                r = sd_json_variant_dump(j, arg_json_format_flags, NULL, NULL);
                 if (r < 0)
                         return r;
 
@@ -970,7 +972,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 static int verb_service(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (argc == 2)
@@ -1032,7 +1034,7 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int q, r = 0;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         STRV_FOREACH(p, argv + 1) {
@@ -1086,7 +1088,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         const char *family = "tcp";
         int q, r = 0;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
@@ -1105,11 +1107,11 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
 
 static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        JsonVariant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        sd_json_variant *reply = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -1117,23 +1119,23 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         struct statistics {
-                JsonVariant *transactions;
-                JsonVariant *cache;
-                JsonVariant *dnssec;
+                sd_json_variant *transactions;
+                sd_json_variant *cache;
+                sd_json_variant *dnssec;
         } statistics;
 
-        static const JsonDispatch statistics_dispatch_table[] = {
-                { "transactions",       JSON_VARIANT_OBJECT,    json_dispatch_variant_noref,    offsetof(struct statistics, transactions),      JSON_MANDATORY },
-                { "cache",              JSON_VARIANT_OBJECT,    json_dispatch_variant_noref,    offsetof(struct statistics, cache),             JSON_MANDATORY },
-                { "dnssec",             JSON_VARIANT_OBJECT,    json_dispatch_variant_noref,    offsetof(struct statistics, dnssec),            JSON_MANDATORY },
+        static const sd_json_dispatch_field statistics_dispatch_table[] = {
+                { "transactions", SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, offsetof(struct statistics, transactions), SD_JSON_MANDATORY },
+                { "cache",        SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, offsetof(struct statistics, cache),        SD_JSON_MANDATORY },
+                { "dnssec",       SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, offsetof(struct statistics, dnssec),       SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(reply, statistics_dispatch_table, JSON_LOG, &statistics);
+        r = sd_json_dispatch(reply, statistics_dispatch_table, SD_JSON_LOG, &statistics);
         if (r < 0)
                 return r;
 
@@ -1146,17 +1148,17 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 uint64_t n_failure_responses_served_stale_total;
         } transactions;
 
-        static const JsonDispatch transactions_dispatch_table[] = {
-                { "currentTransactions",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_current_transactions),                 JSON_MANDATORY },
-                { "totalTransactions",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_transactions_total),                   JSON_MANDATORY },
-                { "totalTimeouts",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_timeouts_total),                       JSON_MANDATORY },
-                { "totalTimeoutsServedStale",        _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_timeouts_served_stale_total),          JSON_MANDATORY },
-                { "totalFailedResponses",            _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_total),              JSON_MANDATORY },
-                { "totalFailedResponsesServedStale", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_served_stale_total), JSON_MANDATORY },
+        static const sd_json_dispatch_field transactions_dispatch_table[] = {
+                { "currentTransactions",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_current_transactions),                 SD_JSON_MANDATORY },
+                { "totalTransactions",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_transactions_total),                   SD_JSON_MANDATORY },
+                { "totalTimeouts",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_timeouts_total),                       SD_JSON_MANDATORY },
+                { "totalTimeoutsServedStale",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_timeouts_served_stale_total),          SD_JSON_MANDATORY },
+                { "totalFailedResponses",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_total),              SD_JSON_MANDATORY },
+                { "totalFailedResponsesServedStale", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_served_stale_total), SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.transactions, transactions_dispatch_table, JSON_LOG, &transactions);
+        r = sd_json_dispatch(statistics.transactions, transactions_dispatch_table, SD_JSON_LOG, &transactions);
         if (r < 0)
                 return r;
 
@@ -1166,14 +1168,14 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 uint64_t n_cache_miss;
         } cache;
 
-        static const JsonDispatch cache_dispatch_table[] = {
-                { "size",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, cache_size),   JSON_MANDATORY },
-                { "hits",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, n_cache_hit),  JSON_MANDATORY },
-                { "misses", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, n_cache_miss), JSON_MANDATORY },
+        static const sd_json_dispatch_field cache_dispatch_table[] = {
+                { "size",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct cache, cache_size),   SD_JSON_MANDATORY },
+                { "hits",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct cache, n_cache_hit),  SD_JSON_MANDATORY },
+                { "misses", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct cache, n_cache_miss), SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.cache, cache_dispatch_table, JSON_LOG, &cache);
+        r = sd_json_dispatch(statistics.cache, cache_dispatch_table, SD_JSON_LOG, &cache);
         if (r < 0)
                 return r;
 
@@ -1184,15 +1186,15 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 uint64_t n_dnssec_indeterminate;
         } dnsssec;
 
-        static const JsonDispatch dnssec_dispatch_table[] = {
-                { "secure",        _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_secure),        JSON_MANDATORY },
-                { "insecure",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_insecure),      JSON_MANDATORY },
-                { "bogus",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_bogus),         JSON_MANDATORY },
-                { "indeterminate", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_indeterminate), JSON_MANDATORY },
+        static const sd_json_dispatch_field dnssec_dispatch_table[] = {
+                { "secure",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_secure),        SD_JSON_MANDATORY },
+                { "insecure",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_insecure),      SD_JSON_MANDATORY },
+                { "bogus",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_bogus),         SD_JSON_MANDATORY },
+                { "indeterminate", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_indeterminate), SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.dnssec, dnssec_dispatch_table, JSON_LOG, &dnsssec);
+        r = sd_json_dispatch(statistics.dnssec, dnssec_dispatch_table, SD_JSON_LOG, &dnsssec);
         if (r < 0)
                 return r;
 
@@ -1263,11 +1265,11 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 }
 
 static int reset_statistics(int argc, char **argv, void *userdata) {
-        JsonVariant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        sd_json_variant *reply = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -1275,8 +1277,8 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         return 0;
 }
@@ -2676,8 +2678,8 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
         return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
-static int print_question(char prefix, const char *color, JsonVariant *question) {
-        JsonVariant *q = NULL;
+static int print_question(char prefix, const char *color, sd_json_variant *question) {
+        sd_json_variant *q = NULL;
         int r;
 
         assert(color);
@@ -2703,24 +2705,24 @@ static int print_question(char prefix, const char *color, JsonVariant *question)
         return 0;
 }
 
-static int print_answer(JsonVariant *answer) {
-        JsonVariant *a;
+static int print_answer(sd_json_variant *answer) {
+        sd_json_variant *a;
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(a, answer) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_free_ void *d = NULL;
-                JsonVariant *jraw;
+                sd_json_variant *jraw;
                 const char *s;
                 size_t l;
 
-                jraw = json_variant_by_key(a, "raw");
+                jraw = sd_json_variant_by_key(a, "raw");
                 if (!jraw) {
                         log_warning("Received monitor answer lacking valid raw data, ignoring.");
                         continue;
                 }
 
-                r = json_variant_unbase64(jraw, &d, &l);
+                r = sd_json_variant_unbase64(jraw, &d, &l);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to undo base64 encoding of monitor answer raw data, ignoring.");
                         continue;
@@ -2746,27 +2748,27 @@ static int print_answer(JsonVariant *answer) {
         return 0;
 }
 
-static void monitor_query_dump(JsonVariant *v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
+static void monitor_query_dump(sd_json_variant *v) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *question = NULL, *answer = NULL, *collected_questions = NULL;
         int rcode = -1, error = 0, ede_code = -1;
         const char *state = NULL, *result = NULL, *ede_msg = NULL;
 
         assert(v);
 
-        JsonDispatch dispatch_table[] = {
-                { "question",                JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
-                { "answer",                  JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
-                { "collectedQuestions",      JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
-                { "state",                   JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
-                { "result",                  JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&result),              0              },
-                { "rcode",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
-                { "errno",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
-                { "extendedDNSErrorCode",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0              },
-                { "extendedDNSErrorMessage", JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0              },
+        sd_json_dispatch_field dispatch_table[] = {
+                { "question",                SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&question),            SD_JSON_MANDATORY },
+                { "answer",                  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&answer),              0                 },
+                { "collectedQuestions",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0                 },
+                { "state",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&state),               SD_JSON_MANDATORY },
+                { "result",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&result),              0                 },
+                { "rcode",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&rcode),               0                 },
+                { "errno",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&error),               0                 },
+                { "extendedDNSErrorCode",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0                 },
+                { "extendedDNSErrorMessage", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0                 },
                 {}
         };
 
-        if (json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, NULL) < 0)
+        if (sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL) < 0)
                 return;
 
         /* First show the current question */
@@ -2798,10 +2800,10 @@ static void monitor_query_dump(JsonVariant *v) {
 }
 
 static int monitor_reply(
-                Varlink *link,
-                JsonVariant *parameters,
+                sd_varlink *link,
+                sd_json_variant *parameters,
                 const char *error_id,
-                VarlinkReplyFlags flags,
+                sd_varlink_reply_flags_t flags,
                 void *userdata) {
 
         assert(link);
@@ -2809,17 +2811,17 @@ static int monitor_reply(
         if (error_id) {
                 bool disconnect;
 
-                disconnect = streq(error_id, VARLINK_ERROR_DISCONNECTED);
+                disconnect = streq(error_id, SD_VARLINK_ERROR_DISCONNECTED);
                 if (disconnect)
                         log_info("Disconnected.");
                 else
                         log_error("Varlink error: %s", error_id);
 
-                (void) sd_event_exit(ASSERT_PTR(varlink_get_event(link)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
+                (void) sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
                 return 0;
         }
 
-        if (json_variant_by_key(parameters, "ready")) {
+        if (sd_json_variant_by_key(parameters, "ready")) {
                 /* The first message coming in will just indicate that we are now subscribed. We let our
                  * caller know if they asked for it. Once the caller sees this they should know that we are
                  * not going to miss any queries anymore. */
@@ -2827,11 +2829,11 @@ static int monitor_reply(
                 return 0;
         }
 
-        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
                 monitor_query_dump(parameters);
                 printf("\n");
         } else
-                json_variant_dump(parameters, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(parameters, arg_json_format_flags, NULL, NULL);
 
         fflush(stdout);
 
@@ -2840,7 +2842,7 @@ static int monitor_reply(
 
 static int verb_monitor(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, c;
 
         r = sd_event_default(&event);
@@ -2851,23 +2853,23 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
+        r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink time-out: %m");
 
-        r = varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        r = varlink_bind_reply(vl, monitor_reply);
+        r = sd_varlink_bind_reply(vl, monitor_reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback to varlink connection: %m");
 
-        r = varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
+        r = sd_varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
 
@@ -2882,27 +2884,27 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         return c;
 }
 
-static int dump_cache_item(JsonVariant *item) {
+static int dump_cache_item(sd_json_variant *item) {
 
         struct item_info {
-                JsonVariant *key;
-                JsonVariant *rrs;
+                sd_json_variant *key;
+                sd_json_variant *rrs;
                 const char *type;
                 uint64_t until;
         } item_info = {};
 
-        static const JsonDispatch dispatch_table[] = {
-                { "key",   JSON_VARIANT_OBJECT,        json_dispatch_variant_noref, offsetof(struct item_info, key),   JSON_MANDATORY },
-                { "rrs",   JSON_VARIANT_ARRAY,         json_dispatch_variant_noref, offsetof(struct item_info, rrs),   0              },
-                { "type",  JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct item_info, type),  0              },
-                { "until", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct item_info, until), 0              },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "key",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, offsetof(struct item_info, key),   SD_JSON_MANDATORY },
+                { "rrs",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct item_info, rrs),   0                 },
+                { "type",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct item_info, type),  0                 },
+                { "until", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct item_info, until), 0                 },
                 {},
         };
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
         int r, c = 0;
 
-        r = json_dispatch(item, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &item_info);
+        r = sd_json_dispatch(item, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &item_info);
         if (r < 0)
                 return r;
 
@@ -2913,19 +2915,19 @@ static int dump_cache_item(JsonVariant *item) {
         if (item_info.type)
                 printf("%s %s%s%s\n", DNS_RESOURCE_KEY_TO_STRING(k), ansi_highlight_red(), item_info.type, ansi_normal());
         else {
-                JsonVariant *i;
+                sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, item_info.rrs) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                         _cleanup_free_ void *data = NULL;
-                        JsonVariant *raw;
+                        sd_json_variant *raw;
                         size_t size;
 
-                        raw = json_variant_by_key(i, "raw");
+                        raw = sd_json_variant_by_key(i, "raw");
                         if (!raw)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "raw field missing from RR JSON data.");
 
-                        r = json_variant_unbase64(raw, &data, &size);
+                        r = sd_json_variant_unbase64(raw, &data, &size);
                         if (r < 0)
                                 return log_error_errno(r, "Unable to decode raw RR JSON data: %m");
 
@@ -2941,30 +2943,30 @@ static int dump_cache_item(JsonVariant *item) {
         return c;
 }
 
-static int dump_cache_scope(JsonVariant *scope) {
+static int dump_cache_scope(sd_json_variant *scope) {
 
         struct scope_info {
                 const char *protocol;
                 int family;
                 int ifindex;
                 const char *ifname;
-                JsonVariant *cache;
+                sd_json_variant *cache;
         } scope_info = {
                 .family = AF_UNSPEC,
         };
-        JsonVariant *i;
+        sd_json_variant *i;
         int r, c = 0;
 
-        static const JsonDispatch dispatch_table[] = {
-                { "protocol", JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct scope_info, protocol), JSON_MANDATORY },
-                { "family",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct scope_info, family),   0              },
-                { "ifindex",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct scope_info, ifindex),  0              },
-                { "ifname",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0              },
-                { "cache",    JSON_VARIANT_ARRAY,         json_dispatch_variant_noref, offsetof(struct scope_info, cache),    JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "protocol", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, protocol), SD_JSON_MANDATORY },
+                { "family",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, family),   0                 },
+                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, ifindex),  0                 },
+                { "ifname",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0                 },
+                { "cache",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct scope_info, cache),    SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(scope, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &scope_info);
+        r = sd_json_dispatch(scope, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &scope_info);
         if (r < 0)
                 return r;
 
@@ -2997,11 +2999,11 @@ static int dump_cache_scope(JsonVariant *scope) {
 }
 
 static int verb_show_cache(int argc, char *argv[], void *userdata) {
-        JsonVariant *reply = NULL, *d = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        sd_json_variant *reply = NULL, *d = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -3009,17 +3011,17 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        d = json_variant_by_key(reply, "dump");
+        d = sd_json_variant_by_key(reply, "dump");
         if (!d)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response is missing 'dump' key.");
 
-        if (!json_variant_is_array(d))
+        if (!sd_json_variant_is_array(d))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response 'dump' field not an array");
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                JsonVariant *i;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, d) {
                         r = dump_cache_scope(i);
@@ -3030,10 +3032,10 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        return json_variant_dump(d, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
 }
 
-static int dump_server_state(JsonVariant *server) {
+static int dump_server_state(sd_json_variant *server) {
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
 
@@ -3060,27 +3062,27 @@ static int dump_server_state(JsonVariant *server) {
 
         int r;
 
-        static const JsonDispatch dispatch_table[] = {
-                { "Server",                 JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, server_name),               JSON_MANDATORY },
-                { "Type",                   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, type),                      JSON_MANDATORY },
-                { "Interface",              JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0              },
-                { "InterfaceIndex",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct server_state, ifindex),                   0              },
-                { "VerifiedFeatureLevel",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),    0              },
-                { "PossibleFeatureLevel",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),    0              },
-                { "DNSSECMode",             JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),               JSON_MANDATORY },
-                { "DNSSECSupported",        JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, dnssec_supported),          JSON_MANDATORY },
-                { "ReceivedUDPFragmentMax", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max), JSON_MANDATORY },
-                { "FailedUDPAttempts",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),              JSON_MANDATORY },
-                { "FailedTCPAttempts",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),              JSON_MANDATORY },
-                { "PacketTruncated",        JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_truncated),          JSON_MANDATORY },
-                { "PacketBadOpt",           JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_bad_opt),            JSON_MANDATORY },
-                { "PacketRRSIGMissing",     JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_rrsig_missing),      JSON_MANDATORY },
-                { "PacketInvalid",          JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_invalid),            JSON_MANDATORY },
-                { "PacketDoOff",            JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_do_off),             JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Server",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, server_name),               SD_JSON_MANDATORY },
+                { "Type",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, type),                      SD_JSON_MANDATORY },
+                { "Interface",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0                 },
+                { "InterfaceIndex",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct server_state, ifindex),                   0                 },
+                { "VerifiedFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),    0                 },
+                { "PossibleFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),    0                 },
+                { "DNSSECMode",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),               SD_JSON_MANDATORY },
+                { "DNSSECSupported",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, dnssec_supported),          SD_JSON_MANDATORY },
+                { "ReceivedUDPFragmentMax", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max), SD_JSON_MANDATORY },
+                { "FailedUDPAttempts",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),              SD_JSON_MANDATORY },
+                { "FailedTCPAttempts",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),              SD_JSON_MANDATORY },
+                { "PacketTruncated",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, packet_truncated),          SD_JSON_MANDATORY },
+                { "PacketBadOpt",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, packet_bad_opt),            SD_JSON_MANDATORY },
+                { "PacketRRSIGMissing",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, packet_rrsig_missing),      SD_JSON_MANDATORY },
+                { "PacketInvalid",          SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, packet_invalid),            SD_JSON_MANDATORY },
+                { "PacketDoOff",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, packet_do_off),             SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &server_state);
+        r = sd_json_dispatch(server, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &server_state);
         if (r < 0)
                 return r;
 
@@ -3171,11 +3173,11 @@ static int dump_server_state(JsonVariant *server) {
 }
 
 static int verb_show_server_state(int argc, char *argv[], void *userdata) {
-        JsonVariant *reply = NULL, *d = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        sd_json_variant *reply = NULL, *d = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
@@ -3183,17 +3185,17 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        d = json_variant_by_key(reply, "dump");
+        d = sd_json_variant_by_key(reply, "dump");
         if (!d)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response is missing 'dump' key.");
 
-        if (!json_variant_is_array(d))
+        if (!sd_json_variant_is_array(d))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response 'dump' field not an array");
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                JsonVariant *i;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, d) {
                         r = dump_server_state(i);
@@ -3204,7 +3206,7 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        return json_variant_dump(d, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
 }
 
 static void help_protocol_types(void) {
@@ -3934,7 +3936,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case '?':

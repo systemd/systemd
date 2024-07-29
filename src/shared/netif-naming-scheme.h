@@ -43,6 +43,7 @@ typedef enum NamingSchemeFlags {
         NAMING_DEVICETREE_ALIASES        = 1 << 15, /* Generate names from devicetree aliases */
         NAMING_USB_HOST                  = 1 << 16, /* Generate names for usb host */
         NAMING_SR_IOV_R                  = 1 << 17, /* Use "r" suffix for SR-IOV VF representors */
+        NAMING_FIRMWARE_NODE_SUN         = 1 << 18, /* Use firmware_node/sun to get PCI slot number */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -62,6 +63,7 @@ typedef enum NamingSchemeFlags {
                                                        * patch later. NAMING_SR_IOV_R is enabled by default in
                                                        * systemd version 255, naming scheme "v255". */
         NAMING_V255 = NAMING_V254 & ~NAMING_BRIDGE_MULTIFUNCTION_SLOT,
+        NAMING_V257 = NAMING_V255 | NAMING_FIRMWARE_NODE_SUN,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -92,10 +94,10 @@ typedef enum NamePolicy {
         _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
-const char *name_policy_to_string(NamePolicy p) _const_;
+const char* name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;
 
-const char *alternative_names_policy_to_string(NamePolicy p) _const_;
+const char* alternative_names_policy_to_string(NamePolicy p) _const_;
 NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
 
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);

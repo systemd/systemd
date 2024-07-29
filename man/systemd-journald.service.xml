@@ -221,6 +221,37 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-journald</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>journal.forward_to_socket</varname></term>
+
+        <listitem><para>May contain a socket address to which logs should be forwarded. See
+        <varname>ForwardToSocket=</varname> in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>journal.storage</varname></term>
+
+        <listitem><para>May be used to specify where journal files should be stored. See
+        <varname>Storage=</varname> in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Kernel Command Line</title>
 
     <para>A few configuration parameters from

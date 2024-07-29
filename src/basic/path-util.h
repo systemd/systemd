@@ -108,14 +108,20 @@ static inline int path_simplify_alloc(const char *path, char **ret) {
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
 
-char* path_startswith_strv(const char *p, char **set);
+char* path_startswith_strv(const char *p, char * const *strv);
 #define PATH_STARTSWITH_SET(p, ...) path_startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
 int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *root);
 char** path_strv_resolve_uniq(char **l, const char *root);
 
-int find_executable_full(const char *name, const char *root, char **exec_search_path, bool use_path_envvar, char **ret_filename, int *ret_fd);
+int find_executable_full(
+                const char *name,
+                const char *root,
+                char * const *exec_search_path,
+                bool use_path_envvar,
+                char **ret_filename,
+                int *ret_fd);
 static inline int find_executable(const char *name, char **ret_filename) {
         return find_executable_full(name, /* root= */ NULL, NULL, true, ret_filename, NULL);
 }
@@ -203,7 +209,7 @@ bool dot_or_dot_dot(const char *path);
 
 bool path_implies_directory(const char *path);
 
-static inline const char *skip_dev_prefix(const char *p) {
+static inline const char* skip_dev_prefix(const char *p) {
         const char *e;
 
         /* Drop any /dev prefix if there is any */
@@ -218,7 +224,7 @@ static inline const char* empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
 
-bool path_strv_contains(char **l, const char *path);
-bool prefixed_path_strv_contains(char **l, const char *path);
+bool path_strv_contains(char * const *l, const char *path);
+bool prefixed_path_strv_contains(char * const *l, const char *path);
 
 int path_glob_can_match(const char *pattern, const char *prefix, char **ret);

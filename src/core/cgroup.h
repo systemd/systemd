@@ -60,7 +60,6 @@ typedef enum FreezerAction {
         FREEZER_PARENT_FREEZE,
         FREEZER_THAW,
         FREEZER_PARENT_THAW,
-
         _FREEZER_ACTION_MAX,
         _FREEZER_ACTION_INVALID = -EINVAL,
 } FreezerAction;
@@ -437,7 +436,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u);
 
 void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
-const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
+const char* unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 int unit_default_cgroup_path(const Unit *u, char **ret);
 int unit_set_cgroup_path(Unit *u, const char *path);
 int unit_pick_cgroup_path(Unit *u);
@@ -449,10 +448,7 @@ int unit_watch_cgroup_memory(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);
-void unit_release_cgroup(Unit *u);
-/* Releases the cgroup only if it is recursively empty.
- * Returns true if the cgroup was released, false otherwise. */
-bool unit_maybe_release_cgroup(Unit *u);
+void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime);
 
 void unit_add_to_cgroup_empty_queue(Unit *u);
 int unit_check_oomd_kill(Unit *u);
@@ -489,21 +485,16 @@ int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
 int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
 
-int unit_reset_cpu_accounting(Unit *u);
-void unit_reset_memory_accounting_last(Unit *u);
-int unit_reset_ip_accounting(Unit *u);
-void unit_reset_io_accounting_last(Unit *u);
-int unit_reset_io_accounting(Unit *u);
 int unit_reset_accounting(Unit *u);
 
-#define UNIT_CGROUP_BOOL(u, name)                       \
-        ({                                              \
-        CGroupContext *cc = unit_get_cgroup_context(u); \
-        cc ? cc->name : false;                          \
+#define UNIT_CGROUP_BOOL(u, name)                               \
+        ({                                                      \
+                CGroupContext *cc = unit_get_cgroup_context(u); \
+                cc ? cc->name : false;                          \
         })
 
 bool manager_owns_host_root_cgroup(Manager *m);
-bool unit_has_host_root_cgroup(Unit *u);
+bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
@@ -522,13 +513,14 @@ void unit_cgroup_catchup(Unit *u);
 bool unit_cgroup_delegate(Unit *u);
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
+
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 const char* freezer_action_to_string(FreezerAction a) _const_;
 FreezerAction freezer_action_from_string(const char *s) _pure_;
 
-CGroupRuntime *cgroup_runtime_new(void);
-CGroupRuntime *cgroup_runtime_free(CGroupRuntime *crt);
+CGroupRuntime* cgroup_runtime_new(void);
+CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupRuntime*, cgroup_runtime_free);
 
 int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds);
@@ -537,7 +529,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
 const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
 CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
 
-const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
+const char* cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
 CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;
 
 const char* cgroup_ip_accounting_metric_to_string(CGroupIPAccountingMetric m) _const_;

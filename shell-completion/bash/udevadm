@@ -31,16 +31,19 @@ __get_all_sysdevs() {
     printf '%s\n' "${devs[@]%/}"
 }
 
-__get_all_devs() {
-    local i
-    for i in /dev/* /dev/*/* /dev/*/*/*; do
-        echo $i
-    done
+__get_all_device_nodes() {
+    find /dev -xtype b -o -xtype c
 }
 
 __get_all_device_units() {
     systemctl list-units -t device --full --no-legend --no-pager --plain 2>/dev/null | \
         { while read -r a b; do echo "$a"; done; }
+}
+
+__get_all_devices() {
+    __get_all_sysdevs
+    __get_all_device_nodes
+    __get_all_device_units
 }
 
 _udevadm() {
@@ -49,9 +52,11 @@ _udevadm() {
     local -A OPTS=(
         [COMMON]='-h --help -V --version'
         [DEBUG]='-d --debug'
-        [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db
-                           -w --wait-for-initialization --value'
-        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file --property'
+        [INFO_STANDALONE]='-r --root -a --attribute-walk -t --tree -x --export -e --export-db -c --cleanup-db
+                           -w --wait-for-initialization --value --no-pager --initialized-match --initialized-nomatch'
+        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file --property
+                    --json --subsystem-match --subsystem-nomatch --attr-match --attr-nomatch --property-match
+                    --tag-match --sysname-match --name-match --parent-match'
         [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid
                               --initialized-match --initialized-nomatch'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
@@ -59,7 +64,8 @@ _udevadm() {
                        -g --tag-match -y --sysname-match --name-match -b --parent-match
                        --prioritized-subsystem'
         [SETTLE]='-t --timeout -E --exit-if-exists'
-        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping'
+        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping
+                              --load-credentials'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
@@ -101,7 +107,17 @@ _udevadm() {
                         local IFS=$'\n'
                         ;;
                     -n|--name)
-                        comps=$( __get_all_devs )
+                        comps=$( __get_all_device_nodes )
+                        ;;
+                    --json)
+                        comps=$( udevadm info --json=help )
+                        ;;
+                    --parent-match)
+                        comps=$( __get_all_sysdevs )
+                        local IFS=$'\n'
+                        ;;
+                    --name-match)
+                        comps=$( __get_all_device_nodes )
                         ;;
                     *)
                         comps=''
@@ -114,7 +130,7 @@ _udevadm() {
             if [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[INFO_STANDALONE]} ${OPTS[INFO_ARG]}"
             else
-                comps=$( __get_all_sysdevs; __get_all_device_units )
+                comps=$( __get_all_devices )
                 local IFS=$'\n'
             fi
             ;;
@@ -133,7 +149,7 @@ _udevadm() {
                         local IFS=$'\n'
                         ;;
                     --name-match)
-                        comps=$( __get_all_devs )
+                        comps=$( __get_all_device_nodes )
                         ;;
                     *)
                         comps=''
@@ -146,7 +162,7 @@ _udevadm() {
             if [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[TRIGGER_STANDALONE]} ${OPTS[TRIGGER_ARG]}"
             else
-                comps=$( __get_all_sysdevs; __get_all_device_units )
+                comps=$( __get_all_devices )
                 local IFS=$'\n'
             fi
             ;;
@@ -216,7 +232,7 @@ _udevadm() {
             if [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[TEST]}"
             else
-                comps=$( __get_all_sysdevs )
+                comps=$( __get_all_devices )
                 local IFS=$'\n'
             fi
             ;;
@@ -244,7 +260,7 @@ _udevadm() {
             elif [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[TEST_BUILTIN]}"
             else
-                comps=$( __get_all_sysdevs )
+                comps=$( __get_all_devices )
                 local IFS=$'\n'
             fi
             ;;
@@ -288,7 +304,7 @@ _udevadm() {
             if [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[WAIT]}"
             else
-                comps=$( __get_all_devs )
+                comps=$( __get_all_devices )
                 local IFS=$'\n'
             fi
             ;;

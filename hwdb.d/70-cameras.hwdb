@@ -13,6 +13,16 @@ camera:usb:v*p*:name:*IR Camera*:
  ID_INFRARED_CAMERA=1
 
 ###########################################################
+# Hewlett-Packard
+###########################################################
+
+# Chicony Electronics Co., Ltd HP Wide Vision FHD Camera (IR function)
+camera:usb:v04f2pb634:name:*I:
+# Realtek Semiconductor Corp. HP Wide Vision FHD Camera (IR function)
+camera:usb:v0bdap58e6:name:*I:
+ ID_INFRARED_CAMERA=1
+
+###########################################################
 # Philips
 ###########################################################
 

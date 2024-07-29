@@ -293,7 +293,7 @@ TEST(copy_tree_at_symlink) {
 TEST_RET(copy_bytes) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         _cleanup_close_ int infd = -EBADF;
-        int r, r2;
+        int r;
         char buf[1024], buf2[1024];
 
         infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
@@ -307,14 +307,14 @@ TEST_RET(copy_bytes) {
         r = copy_bytes(infd, pipefd[1], UINT64_MAX, 0);
         assert_se(r == 0);
 
-        r = read(pipefd[0], buf, sizeof(buf));
-        assert_se(r >= 0);
+        ssize_t n = read(pipefd[0], buf, sizeof(buf));
+        assert_se(n >= 0);
 
         assert_se(lseek(infd, 0, SEEK_SET) == 0);
-        r2 = read(infd, buf2, sizeof(buf2));
-        assert_se(r == r2);
+        ssize_t n2 = read(infd, buf2, sizeof(buf2));
+        assert_se(n == n2);
 
-        assert_se(strneq(buf, buf2, r));
+        assert_se(strneq(buf, buf2, n));
 
         /* test copy_bytes with invalid descriptors */
         r = copy_bytes(pipefd[0], pipefd[0], 1, 0);

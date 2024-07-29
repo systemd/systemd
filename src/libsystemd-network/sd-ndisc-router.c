@@ -203,9 +203,10 @@ int sd_ndisc_router_get_preference(sd_ndisc_router *rt, uint8_t *ret) {
 }
 
 static const char* const ndisc_router_preference_table[] = {
-        [SD_NDISC_PREFERENCE_LOW]    = "low",
-        [SD_NDISC_PREFERENCE_MEDIUM] = "medium",
-        [SD_NDISC_PREFERENCE_HIGH]   = "high",
+        [SD_NDISC_PREFERENCE_LOW]      = "low",
+        [SD_NDISC_PREFERENCE_MEDIUM]   = "medium",
+        [SD_NDISC_PREFERENCE_HIGH]     = "high",
+        [SD_NDISC_PREFERENCE_RESERVED] = "reserved",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int);

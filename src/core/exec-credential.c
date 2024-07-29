@@ -13,7 +13,6 @@
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
-#include "mount.h"
 #include "mountpoint-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -21,7 +20,7 @@
 #include "rm-rf.h"
 #include "tmpfile-util.h"
 
-ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
+ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)
                 return NULL;
 
@@ -30,7 +29,7 @@ ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
         return mfree(sc);
 }
 
-ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc) {
+ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc) {
         if (!lc)
                 return NULL;
 
@@ -39,15 +38,107 @@ ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc) {
         return mfree(lc);
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_set_credential_hash_ops,
         char, string_hash_func, string_compare_func,
         ExecSetCredential, exec_set_credential_free);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_load_credential_hash_ops,
         char, string_hash_func, string_compare_func,
         ExecLoadCredential, exec_load_credential_free);
+
+int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted) {
+        ExecLoadCredential *old;
+        int r;
+
+        assert(c);
+        assert(id);
+        assert(path);
+
+        old = hashmap_get(c->load_credentials, id);
+        if (old) {
+                r = free_and_strdup(&old->path, path);
+                if (r < 0)
+                        return r;
+
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                lc = new(ExecLoadCredential, 1);
+                if (!lc)
+                        return -ENOMEM;
+
+                *lc = (ExecLoadCredential) {
+                        .id = strdup(id),
+                        .path = strdup(path),
+                        .encrypted = encrypted,
+                };
+                if (!lc->id || !lc->path)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+
+                TAKE_PTR(lc);
+        }
+
+        return 0;
+}
+
+int exec_context_put_set_credential(
+                ExecContext *c,
+                const char *id,
+                void *data_consume,
+                size_t size,
+                bool encrypted) {
+
+        _cleanup_free_ void *data = data_consume;
+        ExecSetCredential *old;
+        int r;
+
+        /* Takes the ownership of data both on success and failure */
+
+        assert(c);
+        assert(id);
+        assert(data || size == 0);
+
+        old = hashmap_get(c->set_credentials, id);
+        if (old) {
+                free_and_replace(old->data, data);
+                old->size = size;
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
+
+                sc = new(ExecSetCredential, 1);
+                if (!sc)
+                        return -ENOMEM;
+
+                *sc = (ExecSetCredential) {
+                        .id = strdup(id),
+                        .data = TAKE_PTR(data),
+                        .size = size,
+                        .encrypted = encrypted,
+                };
+                if (!sc->id)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+
+                TAKE_PTR(sc);
+        }
+
+        return 0;
+}
 
 bool exec_params_need_credentials(const ExecParameters *p) {
         assert(p);
@@ -120,46 +211,19 @@ int exec_context_get_credential_directory(
         return get_credential_directory(params->prefix[EXEC_DIRECTORY_RUNTIME], unit, ret);
 }
 
-int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *p = NULL, *m = NULL;
-        int r;
-
-        assert(u);
-        assert(c);
-
-        if (!exec_context_has_credentials(c))
-                return 0;
-
-        /* Let's make sure the credentials directory of this service is unmounted *after* the service itself
-         * shuts down. This only matters if mount namespacing is not used for the service, and hence the
-         * credentials mount appears on the host. */
-
-        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &p);
-        if (r <= 0)
-                return r;
-
-        r = unit_name_from_path(p, ".mount", &m);
-        if (r < 0)
-                return r;
-
-        return unit_add_dependency_by_name(u, UNIT_AFTER, m, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
-}
-
-int exec_context_destroy_credentials(Unit *u) {
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(u);
+        assert(c);
 
-        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &p);
+        r = get_credential_directory(runtime_prefix, unit, &p);
         if (r <= 0)
                 return r;
 
         /* This is either a tmpfs/ramfs of its own, or a plain directory. Either way, let's first try to
          * unmount it, and afterwards remove the mount point */
-        if (umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW) >= 0)
-                (void) mount_invalidate_state_by_path(u->manager, p);
-
+        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
 
         return 0;
@@ -443,7 +507,7 @@ static int load_credential(
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
                  * via the source socket address in case we read off an AF_UNIX socket. */
-                if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, id) < 0)
+                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), unit, id) < 0)
                         return -ENOMEM;
 
                 missing_ok = false;
@@ -467,7 +531,7 @@ static int load_credential(
 
         maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
 
-        if (search_path) {
+        if (search_path)
                 STRV_FOREACH(d, search_path) {
                         _cleanup_free_ char *j = NULL;
 
@@ -485,7 +549,7 @@ static int load_credential(
                         if (r != -ENOENT)
                                 break;
                 }
-        } else if (source)
+        else if (source)
                 r = read_full_file_full(
                                 read_dfd, source,
                                 UINT64_MAX,
@@ -504,7 +568,8 @@ static int load_credential(
                  *
                  * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
                  * we are fine, too. */
-                log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", path);
+                log_full_errno(hashmap_contains(context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
+                               r, "Couldn't read inherited credential '%s', skipping: %m", path);
                 return 0;
         }
         if (r < 0)
@@ -949,8 +1014,8 @@ int exec_setup_credentials(
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
                 return -EINVAL;
 
-        /* This where we'll place stuff when we are done; this main credentials directory is world-readable,
-         * and the subdir we mount over with a read-only file system readable by the service's user */
+        /* This is where we'll place stuff when we are done; the main credentials directory is world-readable,
+         * and the subdir we mount over with a read-only file system readable by the service's user. */
         q = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials");
         if (!q)
                 return -ENOMEM;

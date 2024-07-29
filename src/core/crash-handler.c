@@ -27,7 +27,13 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
                 _exit(EXIT_EXCEPTION);
         }
 
-        if (arg_crash_reboot) {
+        if (arg_crash_action == CRASH_POWEROFF) {
+                log_notice("Shutting down...");
+                (void) reboot(RB_POWER_OFF);
+                log_struct_errno(LOG_EMERG, errno,
+                                 LOG_MESSAGE("Failed to power off: %m"),
+                                 "MESSAGE_ID=" SD_MESSAGE_CRASH_FAILED_STR);
+        } else if (arg_crash_action == CRASH_REBOOT) {
                 log_notice("Rebooting in 10s...");
                 (void) sleep(10);
 
@@ -79,10 +85,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 else if (pid == 0) {
                         /* Enable default signal handler for core dump */
 
-                        sa = (struct sigaction) {
-                                .sa_handler = SIG_DFL,
-                        };
-                        (void) sigaction(sig, &sa, NULL);
+                        (void) sigaction(sig, &sigaction_default, NULL);
 
                         /* Don't limit the coredump size */
                         (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY));

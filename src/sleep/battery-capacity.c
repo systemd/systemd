@@ -142,7 +142,7 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
                         return log_device_debug_errno(dev, r, "Failed to parse discharge rate read from " DISCHARGE_RATE_FILEPATH ": %m");
 
                 if (!battery_discharge_rate_is_valid(discharge_rate))
-                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour.");
 
                 *ret = discharge_rate;
                 return 0; /* matching device found, exit iteration */
@@ -157,7 +157,7 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
 
         if (!battery_discharge_rate_is_valid(estimated_battery_discharge_rate))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERANGE),
-                                        "Invalid battery discharge rate %d%% per hour: %m",
+                                        "Invalid battery discharge rate %d%% per hour.",
                                         estimated_battery_discharge_rate);
 
         r = write_string_filef(

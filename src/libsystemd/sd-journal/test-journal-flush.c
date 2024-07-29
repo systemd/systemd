@@ -7,6 +7,8 @@
 
 #include "alloc-util.h"
 #include "chattr-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
 #include "logs-show.h"
@@ -16,6 +18,83 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+
+static int open_archive_file(sd_journal **ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_close_ int newest_fd = -EBADF;
+        unsigned long long newest_realtime = 0;
+        bool newest_is_system = false;
+        sd_id128_t machine_id;
+        const char *p;
+        int r;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return r;
+
+        p = strjoina("/var/log/journal/", SD_ID128_TO_STRING(machine_id), "/");
+
+        d = opendir(p);
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+                unsigned long long realtime;
+                bool is_system;
+                size_t q;
+                int fd;
+
+                if (!dirent_is_file_with_suffix(de, ".journal"))
+                        continue;
+
+                is_system = startswith(de->d_name, "system@");
+                if (newest_is_system && !is_system)
+                        continue;
+
+                q = strlen(de->d_name);
+
+                if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
+                        continue;
+
+                if (de->d_name[q-8-16-1] != '-' ||
+                    de->d_name[q-8-16-1-16-1] != '-' ||
+                    de->d_name[q-8-16-1-16-1-32-1] != '@')
+                        continue;
+
+                if (sscanf(de->d_name + q-8-16, "%16llx.journal", &realtime) != 1)
+                        continue;
+
+                if (newest_realtime >= realtime)
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_CLOEXEC | O_NONBLOCK | O_RDONLY);
+                if (fd < 0) {
+                        log_info_errno(errno, "Failed to open /var/log/journal/%s, ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                close_and_replace(newest_fd, fd);
+                newest_realtime = realtime;
+                newest_is_system = is_system;
+        }
+
+        if (newest_fd < 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ENOENT), "No archive journal found.");
+
+        r = sd_journal_open_files_fd(ret, &newest_fd, 1, SD_JOURNAL_ASSUME_IMMUTABLE);
+
+        _cleanup_free_ char *path = NULL;
+        (void) fd_get_path(newest_fd, &path);
+
+        if (r < 0)
+                log_info_errno(r, "Failed to open %s, ignoring: %m", strna(path));
+        else {
+                log_info("Opened %s.", strna(path));
+                TAKE_FD(newest_fd);
+        }
+
+        return r;
+}
 
 static void test_journal_flush_one(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
@@ -37,8 +116,11 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         if (argc > 1)
                 r = sd_journal_open_files(&j, (const char **) strv_skip(argv, 1), SD_JOURNAL_ASSUME_IMMUTABLE);
-        else
-                r = sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE);
+        else {
+                r = open_archive_file(&j);
+                if (r < 0)
+                        r = sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE);
+        }
         assert_se(r == 0);
 
         sd_journal_set_data_threshold(j, 0);

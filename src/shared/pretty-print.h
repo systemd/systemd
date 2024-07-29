@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "ansi-color.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 
@@ -31,13 +32,13 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags);
 #define RED_CROSS_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_RED) + STRLEN("✗") + STRLEN(ANSI_NORMAL) + 1)
 #define GREEN_CHECK_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_GREEN) + STRLEN("✓") + STRLEN(ANSI_NORMAL) + 1)
 
-static inline const char *red_cross_mark_internal(char buffer[static RED_CROSS_MARK_MAX]) {
+static inline const char* red_cross_mark_internal(char buffer[static RED_CROSS_MARK_MAX]) {
         assert(buffer);
         assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_red()), special_glyph(SPECIAL_GLYPH_CROSS_MARK)), ansi_normal()) < buffer + RED_CROSS_MARK_MAX);
         return buffer;
 }
 
-static inline const char *green_check_mark_internal(char buffer[static GREEN_CHECK_MARK_MAX]) {
+static inline const char* green_check_mark_internal(char buffer[static GREEN_CHECK_MARK_MAX]) {
         assert(buffer);
         assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_green()), special_glyph(SPECIAL_GLYPH_CHECK_MARK)), ansi_normal()) < buffer + GREEN_CHECK_MARK_MAX);
         return buffer;
@@ -49,6 +50,8 @@ static inline const char *green_check_mark_internal(char buffer[static GREEN_CHE
 #define COLOR_MARK_BOOL(b) ((b) ? GREEN_CHECK_MARK() : RED_CROSS_MARK())
 
 int terminal_tint_color(double hue, char **ret);
+
+bool shall_tint_background(void);
 
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);

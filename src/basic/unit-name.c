@@ -331,7 +331,7 @@ static char *do_escape(const char *f, char *t) {
         return t;
 }
 
-char *unit_name_escape(const char *f) {
+char* unit_name_escape(const char *f) {
         char *r, *t;
 
         assert(f);

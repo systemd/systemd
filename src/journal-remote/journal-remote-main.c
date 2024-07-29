@@ -108,7 +108,7 @@ static int spawn_child(const char* child, char** argv) {
 
         r = fd_nonblock(fd[0], true);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set child pipe to non-blocking: %m");
+                log_warning_errno(r, "Failed to set child pipe to non-blocking: %m");
 
         return fd[0];
 }
@@ -1070,8 +1070,7 @@ static int run(int argc, char **argv) {
         _cleanup_free_ char *cert = NULL, *trust = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
+        log_setup();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);

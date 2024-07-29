@@ -413,8 +413,8 @@ static int show_table(Table *table, const char *word) {
         if (!table_isempty(table)) {
                 table_set_header(table, arg_legend);
 
-                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                        r = table_print_json(table, NULL, arg_json_format_flags | JSON_FORMAT_COLOR_AUTO);
+                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                        r = table_print_json(table, NULL, arg_json_format_flags | SD_JSON_FORMAT_COLOR_AUTO);
                 else
                         r = table_print(table, NULL);
                 if (r < 0)
@@ -490,7 +490,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
 
         typesafe_qsort(times, n, compare_unit_start);
 
-        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) || arg_table)
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || arg_table)
                 r = produce_plot_as_text(times, boot);
         else
                 r = produce_plot_as_svg(times, host, boot, pretty_times);

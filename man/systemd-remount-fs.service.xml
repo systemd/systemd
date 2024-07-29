@@ -45,7 +45,7 @@
     the partition table does not contain relevant entries).</para>
 
     <para>For a longer discussion of kernel API file systems see
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
+    <ulink url="https://systemd.io/API_FILE_SYSTEMS">API
     File Systems</ulink>.</para>
 
     <para>Note: <filename>systemd-remount-fs.service</filename> is usually pulled in by

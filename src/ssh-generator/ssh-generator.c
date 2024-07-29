@@ -400,7 +400,7 @@ static int parse_credentials(void) {
         size_t sz = 0;
         int r;
 
-        r = read_credential_with_decryption("ssh.listen", (void*) &b, &sz);
+        r = read_credential_with_decryption("ssh.listen", (void**) &b, &sz);
         if (r <= 0)
                 return r;
 
@@ -453,8 +453,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         (void) parse_credentials();
 
-        strv_sort(arg_listen_extra);
-        strv_uniq(arg_listen_extra);
+        strv_sort_uniq(arg_listen_extra);
 
         if (!arg_auto && strv_isempty(arg_listen_extra)) {
                 log_debug("Disabling SSH generator logic, because as it has been turned off explicitly.");

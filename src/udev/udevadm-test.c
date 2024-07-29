@@ -14,6 +14,7 @@
 
 #include "sd-device.h"
 
+#include "ansi-color.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "format-util.h"
@@ -96,8 +97,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         sigset_t mask, sigmask_orig;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

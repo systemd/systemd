@@ -17,6 +17,8 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -367,6 +369,21 @@ static int insert_background_fix(PTYForward *f, size_t offset) {
         return insert_string(f, offset, s);
 }
 
+bool shall_set_terminal_title(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = getenv_bool("SYSTEMD_ADJUST_TERMINAL_TITLE");
+        if (cache == -ENXIO)
+                return (cache = true);
+        if (cache < 0)
+                log_debug_errno(cache, "Failed to parse $SYSTEMD_ADJUST_TERMINAL_TITLE, leaving terminal title setting enabled: %m");
+
+        return cache != 0;
+}
+
 static int insert_window_title_fix(PTYForward *f, size_t offset) {
         assert(f);
 
@@ -427,6 +444,16 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else if (c == ']') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
                                 continue;
+                        } else if (c == 'c') {
+                                /* "Full reset" aka "Reset to initial state"*/
+                                r = insert_background_color(f, i+1);
+                                if (r < 0)
+                                        return r;
+
+                                i += r;
+
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                                continue;
                         }
                         break;
 
@@ -446,7 +473,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the CSI sequence is over */
 
-                                if (c == 'm') {
+                                if (c == 'p' && streq_ptr(f->csi_sequence, "!")) {
+
+                                        /* CSI ! p → "Soft Reset", let's immediately fix our bg color again */
+                                        r = insert_background_color(f, i+1);
+                                        if (r < 0)
+                                                return r;
+
+                                        i += r;
+                                } else if (c == 'm') {
                                         /* This is an "SGR" (Select Graphic Rendition) sequence. Patch in our background color. */
                                         r = insert_background_fix(f, i);
                                         if (r < 0)
@@ -570,7 +605,7 @@ static int do_shovel(PTYForward *f) {
 
                                         f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                                 } else
-                                        return log_error_errno(errno, "read(): %m");
+                                        return log_error_errno(errno, "Failed to read from pty input fd: %m");
                         } else if (k == 0) {
                                 /* EOF on stdin */
                                 f->stdin_readable = false;
@@ -625,7 +660,7 @@ static int do_shovel(PTYForward *f) {
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
                                 } else
-                                        return log_error_errno(errno, "read(): %m");
+                                        return log_error_errno(errno, "Failed to read from pty master fd: %m");
                         } else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;
@@ -649,7 +684,7 @@ static int do_shovel(PTYForward *f) {
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
                                 } else
-                                        return log_error_errno(errno, "write(): %m");
+                                        return log_error_errno(errno, "Failed to write to pty output fd: %m");
 
                         } else {
 
@@ -763,11 +798,14 @@ int pty_forward_new(
         struct winsize ws;
         int r;
 
+        assert(master >= 0);
+        assert(ret);
+
         f = new(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
 
-        *f = (struct PTYForward) {
+        *f = (PTYForward) {
                 .flags = flags,
                 .master = -EBADF,
                 .input_fd = -EBADF,
@@ -845,14 +883,15 @@ int pty_forward_new(
 
         (void) ioctl(master, TIOCSWINSZ, &ws);
 
-        if (!(flags & PTY_FORWARD_READ_ONLY)) {
-                int same;
+        if (!FLAGS_SET(flags, PTY_FORWARD_READ_ONLY)) {
+                bool same;
 
                 assert(f->input_fd >= 0);
 
-                same = fd_inode_same(f->input_fd, f->output_fd);
-                if (same < 0)
-                        return same;
+                r = fd_inode_same(f->input_fd, f->output_fd);
+                if (r < 0)
+                        return r;
+                same = r > 0;
 
                 if (tcgetattr(f->input_fd, &f->saved_stdin_attr) >= 0) {
                         struct termios raw_stdin_attr;
@@ -917,10 +956,12 @@ int pty_forward_new(
 PTYForward *pty_forward_free(PTYForward *f) {
         if (!f)
                 return NULL;
+
         pty_forward_disconnect(f);
         free(f->background_color);
         free(f->title);
         free(f->title_prefix);
+
         return mfree(f);
 }
 
@@ -940,15 +981,14 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
 
         assert(f);
 
-        if (!!(f->flags & PTY_FORWARD_IGNORE_VHANGUP) == b)
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
                 return 0;
 
         SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
 
         if (!ignore_vhangup(f)) {
 
-                /* We shall now react to vhangup()s? Let's check
-                 * immediately if we might be in one */
+                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
 
                 f->master_readable = true;
                 r = shovel(f);
@@ -962,7 +1002,7 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
 bool pty_forward_get_ignore_vhangup(PTYForward *f) {
         assert(f);
 
-        return !!(f->flags & PTY_FORWARD_IGNORE_VHANGUP);
+        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
 }
 
 bool pty_forward_is_done(PTYForward *f) {
@@ -994,6 +1034,7 @@ bool pty_forward_drain(PTYForward *f) {
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
         int r;
+
         assert(f);
 
         if (f->stdin_event_source) {
@@ -1084,9 +1125,7 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
                 return -EBUSY;
 
         va_start(ap, format);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = vasprintf(&title, format, ap);
-        REENABLE_WARNING;
         va_end(ap);
         if (r < 0)
                 return -ENOMEM;

@@ -9,62 +9,62 @@
 #if HAVE_LIBCRYPTSETUP
 static void *cryptsetup_dl = NULL;
 
-DLSYM_FUNCTION(crypt_activate_by_passphrase);
+DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-DLSYM_FUNCTION(crypt_activate_by_signed_key);
+DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_activate_by_volume_key);
-DLSYM_FUNCTION(crypt_deactivate_by_name);
-DLSYM_FUNCTION(crypt_format);
-DLSYM_FUNCTION(crypt_free);
-DLSYM_FUNCTION(crypt_get_cipher);
-DLSYM_FUNCTION(crypt_get_cipher_mode);
-DLSYM_FUNCTION(crypt_get_data_offset);
-DLSYM_FUNCTION(crypt_get_device_name);
-DLSYM_FUNCTION(crypt_get_dir);
-DLSYM_FUNCTION(crypt_get_type);
-DLSYM_FUNCTION(crypt_get_uuid);
-DLSYM_FUNCTION(crypt_get_verity_info);
-DLSYM_FUNCTION(crypt_get_volume_key_size);
-DLSYM_FUNCTION(crypt_init);
-DLSYM_FUNCTION(crypt_init_by_name);
-DLSYM_FUNCTION(crypt_keyslot_add_by_volume_key);
-DLSYM_FUNCTION(crypt_keyslot_destroy);
-DLSYM_FUNCTION(crypt_keyslot_max);
-DLSYM_FUNCTION(crypt_load);
-DLSYM_FUNCTION(crypt_resize);
+DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_format) = NULL;
+DLSYM_PROTOTYPE(crypt_free) = NULL;
+DLSYM_PROTOTYPE(crypt_get_cipher) = NULL;
+DLSYM_PROTOTYPE(crypt_get_cipher_mode) = NULL;
+DLSYM_PROTOTYPE(crypt_get_data_offset) = NULL;
+DLSYM_PROTOTYPE(crypt_get_device_name) = NULL;
+DLSYM_PROTOTYPE(crypt_get_dir) = NULL;
+DLSYM_PROTOTYPE(crypt_get_type) = NULL;
+DLSYM_PROTOTYPE(crypt_get_uuid) = NULL;
+DLSYM_PROTOTYPE(crypt_get_verity_info) = NULL;
+DLSYM_PROTOTYPE(crypt_get_volume_key_size) = NULL;
+DLSYM_PROTOTYPE(crypt_init) = NULL;
+DLSYM_PROTOTYPE(crypt_init_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
+DLSYM_PROTOTYPE(crypt_load) = NULL;
+DLSYM_PROTOTYPE(crypt_resize) = NULL;
 #if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
-DLSYM_FUNCTION(crypt_resume_by_volume_key);
+DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_set_data_device);
-DLSYM_FUNCTION(crypt_set_debug_level);
-DLSYM_FUNCTION(crypt_set_log_callback);
+DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
+DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
+DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 #if HAVE_CRYPT_SET_METADATA_SIZE
-DLSYM_FUNCTION(crypt_set_metadata_size);
+DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_set_pbkdf_type);
-DLSYM_FUNCTION(crypt_suspend);
-DLSYM_FUNCTION(crypt_token_json_get);
-DLSYM_FUNCTION(crypt_token_json_set);
+DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
+DLSYM_PROTOTYPE(crypt_suspend) = NULL;
+DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
+DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 #if HAVE_CRYPT_TOKEN_MAX
-DLSYM_FUNCTION(crypt_token_max);
+DLSYM_PROTOTYPE(crypt_token_max) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_token_status);
-DLSYM_FUNCTION(crypt_volume_key_get);
+DLSYM_PROTOTYPE(crypt_token_status) = NULL;
+DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
-DLSYM_FUNCTION(crypt_reencrypt_init_by_passphrase);
+DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
 #endif
-#if HAVE_CRYPT_REENCRYPT
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-DLSYM_FUNCTION(crypt_reencrypt);
-REENABLE_WARNING;
+#if HAVE_CRYPT_REENCRYPT_RUN
+DLSYM_PROTOTYPE(crypt_reencrypt_run);
+#elif HAVE_CRYPT_REENCRYPT
+DLSYM_PROTOTYPE(crypt_reencrypt);
 #endif
-DLSYM_FUNCTION(crypt_metadata_locking);
+DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 #if HAVE_CRYPT_SET_DATA_OFFSET
-DLSYM_FUNCTION(crypt_set_data_offset);
+DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 #endif
-DLSYM_FUNCTION(crypt_header_restore);
-DLSYM_FUNCTION(crypt_volume_key_keyring);
+DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
+DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 
 /* Unfortunately libcryptsetup provides neither an environment variable to redirect where to look for token
  * modules, nor does it have an API to change the token lookup path at runtime. The maintainers suggest using
@@ -77,7 +77,7 @@ DLSYM_FUNCTION(crypt_volume_key_keyring);
 /* Do this only on new enough compilers that actually support the "symver" attribute. Given this is a debug
  * feature, let's simply not bother on older compilers */
 #if BUILD_MODE_DEVELOPER && defined(__has_attribute) && __has_attribute(symver)
-const char *my_crypt_token_external_path(void); /* prototype for our own implementation */
+const char* my_crypt_token_external_path(void); /* prototype for our own implementation */
 
 /* We use the "symver" attribute to mark this implementation as the default implementation, and drop the
  * SD_SHARED namespace we by default attach to our symbols via a version script. */
@@ -173,9 +173,9 @@ int cryptsetup_get_token_as_json(
                 struct crypt_device *cd,
                 int idx,
                 const char *verify_type,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *text;
         int r;
 
@@ -197,18 +197,18 @@ int cryptsetup_get_token_as_json(
         if (r < 0)
                 return r;
 
-        r = json_parse(text, 0, &v, NULL, NULL);
+        r = sd_json_parse(text, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
         if (verify_type) {
-                JsonVariant *w;
+                sd_json_variant *w;
 
-                w = json_variant_by_key(v, "type");
+                w = sd_json_variant_by_key(v, "type");
                 if (!w)
                         return -EINVAL;
 
-                if (!streq_ptr(json_variant_string(w), verify_type))
+                if (!streq_ptr(sd_json_variant_string(w), verify_type))
                         return -EMEDIUMTYPE;
         }
 
@@ -218,7 +218,7 @@ int cryptsetup_get_token_as_json(
         return 0;
 }
 
-int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
+int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -226,7 +226,7 @@ int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
         if (r < 0)
                 return r;
 
-        r = json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format token data for LUKS: %m");
 
@@ -246,11 +246,13 @@ int dlopen_cryptsetup(void) {
 
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
          * crypt_reencrypt_run(), which takes one extra argument but is otherwise identical. The old call is
-         * still available though, and given we want to support 2.2.0 for a while longer, we'll stick to the
-         * old symbol. However, the old symbols now has a GCC deprecation decorator, hence let's turn off
-         * warnings about this for now. */
+         * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
+         * symbol if the new one is not available. */
 
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+        ELF_NOTE_DLOPEN("cryptsetup",
+                        "Support for disk encryption, integrity, and authentication",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libcryptsetup.so.12");
 
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
@@ -299,7 +301,9 @@ int dlopen_cryptsetup(void) {
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
 #endif
-#if HAVE_CRYPT_REENCRYPT
+#if HAVE_CRYPT_REENCRYPT_RUN
+                        DLSYM_ARG(crypt_reencrypt_run),
+#elif HAVE_CRYPT_REENCRYPT
                         DLSYM_ARG(crypt_reencrypt),
 #endif
                         DLSYM_ARG(crypt_metadata_locking),
@@ -310,8 +314,6 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_volume_key_keyring));
         if (r <= 0)
                 return r;
-
-        REENABLE_WARNING;
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
@@ -325,27 +327,27 @@ int dlopen_cryptsetup(void) {
 #endif
 }
 
-int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
+int cryptsetup_get_keyslot_from_token(sd_json_variant *v) {
         int keyslot, r;
-        JsonVariant *w;
+        sd_json_variant *w;
 
         /* Parses the "keyslots" field of a LUKS2 token object. The field can be an array, but here we assume
          * that it contains a single element only, since that's the only way we ever generate it
          * ourselves. */
 
-        w = json_variant_by_key(v, "keyslots");
+        w = sd_json_variant_by_key(v, "keyslots");
         if (!w)
                 return -ENOENT;
-        if (!json_variant_is_array(w) || json_variant_elements(w) != 1)
+        if (!sd_json_variant_is_array(w) || sd_json_variant_elements(w) != 1)
                 return -EMEDIUMTYPE;
 
-        w = json_variant_by_index(w, 0);
+        w = sd_json_variant_by_index(w, 0);
         if (!w)
                 return -ENOENT;
-        if (!json_variant_is_string(w))
+        if (!sd_json_variant_is_string(w))
                 return -EMEDIUMTYPE;
 
-        r = safe_atoi(json_variant_string(w), &keyslot);
+        r = safe_atoi(sd_json_variant_string(w), &keyslot);
         if (r < 0)
                 return r;
         if (keyslot < 0)

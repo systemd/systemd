@@ -146,12 +146,6 @@ if ! [[ "$TESTNAME" =~ ^TEST\-([0-9]+)\-.+$ ]]; then
     echo "ERROR: Test name '$TESTNAME' is not in the expected format: TEST-[0-9]+-*" >&2
     exit 1
 fi
-TESTID="${BASH_REMATCH[1]:?}"
-
-if [[ ! -f "$TEST_UNITS_DIR/testsuite-$TESTID.service" ]]; then
-    echo "ERROR: Test '$TESTNAME' is missing its service file '$TEST_UNITS_DIR/testsuite-$TESTID.service" >&2
-    exit 1
-fi
 
 BASICTOOLS=(
     awk
@@ -209,11 +203,12 @@ BASICTOOLS=(
     mkfifo
     mknod
     mktemp
+    modinfo
     modprobe
     mount
     mountpoint
     mv
-    nc
+    ncat
     nproc
     ping
     pkill
@@ -476,8 +471,7 @@ run_qemu() {
 
     local CONSOLE=ttyS0
 
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
@@ -567,9 +561,9 @@ run_qemu() {
         "loglevel=2"
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
-        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
+        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$1.service"
+        "systemd.wants=$1.service"
         "noresume"
         "oops=panic"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
@@ -651,8 +645,7 @@ run_qemu() {
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+    find "${initdir:?}/var/tmp" -mindepth 1 -delete
     rm -f "${initdir:?}"/{testok,failed,skipped}
 
     local nspawn_cmd=()
@@ -660,13 +653,13 @@ run_nspawn() {
         "--register=no"
         "--kill-signal=SIGKILL"
         "--directory=${1:?}"
-        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
-        "--machine=TEST-$TESTID"
+        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/$2.units:/usr/lib/systemd/tests/testdata/units:"
+        "--machine=$2"
     )
     local kernel_params=(
         "$PATH_TO_INIT"
         "systemd.unit=testsuite.target"
-        "systemd.wants=testsuite-$2.service"
+        "systemd.wants=$2.service"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
@@ -783,109 +776,6 @@ EOF
         mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw" -noappend
         veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_1.roothash"
-
-        # Rolling distros like Arch do not set VERSION_ID
-        local version_id=""
-        if grep -q "^VERSION_ID=" "$os_release"; then
-            version_id="$(grep "^VERSION_ID=" "$os_release")"
-        fi
-
-        export initdir="$TESTDIR/app0"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
-        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app0"
-        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
-        ( echo "${version_id}"
-          echo "SYSEXT_IMAGE_ID=app" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
-        cat >"$initdir/usr/lib/systemd/system/app0.service" <<EOF
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/opt/script0.sh
-TemporaryFileSystem=/var/lib
-StateDirectory=app0
-RuntimeDirectory=app0
-EOF
-        cat >"$initdir/opt/script0.sh" <<EOF
-#!/bin/bash
-set -e
-test -e /usr/lib/os-release
-echo bar >\${STATE_DIRECTORY}/foo
-cat /usr/lib/extension-release.d/extension-release.app0
-EOF
-        chmod +x "$initdir/opt/script0.sh"
-        echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
-
-        export initdir="$TESTDIR/conf0"
-        mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system" "$initdir/opt"
-        grep "^ID=" "$os_release" >"$initdir/etc/extension-release.d/extension-release.conf0"
-        echo "${version_id}" >>"$initdir/etc/extension-release.d/extension-release.conf0"
-        ( echo "${version_id}"
-          echo "CONFEXT_IMAGE_ID=app" ) >>"$initdir/etc/extension-release.d/extension-release.conf0"
-        echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/conf0.raw" -noappend
-
-        export initdir="$TESTDIR/app1"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
-        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
-        ( echo "${version_id}"
-          echo "SYSEXT_SCOPE=portable"
-          echo "SYSEXT_IMAGE_ID=app"
-          echo "SYSEXT_IMAGE_VERSION=1"
-          echo "PORTABLE_PREFIXES=app1" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
-        setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
-        cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/opt/script1.sh
-StateDirectory=app1
-RuntimeDirectory=app1
-EOF
-        cat >"$initdir/opt/script1.sh" <<EOF
-#!/bin/bash
-set -e
-test -e /usr/lib/os-release
-echo baz >\${STATE_DIRECTORY}/foo
-cat /usr/lib/extension-release.d/extension-release.app2
-EOF
-        chmod +x "$initdir/opt/script1.sh"
-        echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw" -noappend
-
-        export initdir="$TESTDIR/app-nodistro"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
-        ( echo "ID=_any"
-          echo "ARCHITECTURE=_any" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-nodistro"
-        echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app-nodistro.raw" -noappend
-
-        export initdir="$TESTDIR/service-scoped-test"
-        mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system"
-        ( echo "ID=_any"
-          echo "ARCHITECTURE=_any" ) >"$initdir/etc/extension-release.d/extension-release.service-scoped-test"
-        echo MARKER_CONFEXT_123 >"$initdir/etc/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/etc/service-scoped-test.raw" -noappend
-
-        # We need to create a dedicated sysext image to test the reload mechanism. If we share an image to install the
-        # 'foo.service' it will be loaded from another test run, which will impact the targeted test.
-        export initdir="$TESTDIR/app-reload"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
-        ( echo "ID=_any"
-          echo "ARCHITECTURE=_any"
-          echo "EXTENSION_RELOAD_MANAGER=1" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-reload"
-        mkdir -p "$initdir/usr/lib/systemd/system/multi-user.target.d"
-        cat >"${initdir}/usr/lib/systemd/system/foo.service" <<EOF
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=echo foo
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        { echo "[Unit]"; echo "Upholds=foo.service"; } > "$initdir/usr/lib/systemd/system/multi-user.target.d/10-foo-service.conf"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app-reload.raw" -noappend
     )
 }
 
@@ -1231,7 +1121,8 @@ install_iscsi() {
         image_install iscsi-iname iscsiadm iscsid iscsistart
         image_install -o "${ROOTLIBDIR:?}"/system/iscsi-{init,onboot,shutdown}.service
         image_install "${ROOTLIBDIR:?}"/system/iscsid.{service,socket}
-        image_install "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o "${ROOTLIBDIR:?}"/system/iscsi.service
+        image_install -o /usr/lib/open-iscsi/startup-checks.sh
         mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
         mkdir -p "${initdir:?}/etc/iscsi"
         echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
@@ -1261,7 +1152,11 @@ install_iscsi() {
     if [[ -z "$inst" || "$inst" =~ (server|target) ]]; then
         image_install tgt-admin tgt-setup-lun tgtadm tgtd tgtimg
         image_install -o /etc/sysconfig/tgtd
-        image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        if get_bool "$LOOKS_LIKE_DEBIAN"; then
+            image_install "${ROOTLIBDIR:?}"/system/tgt.service
+        else
+            image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        fi
         mkdir -p "${initdir:?}/etc/tgt"
         touch "${initdir:?}"/etc/tgt/{tgtd,targets}.conf
         # Install perl modules required by tgt-admin
@@ -1794,7 +1689,7 @@ check_coverage_reports() {
 
     # Create a coverage report that will later be uploaded. Remove info about system
     # libraries/headers and generated files, as we don't really care about them.
-    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+    lcov --directory "${root}/${BUILD_DIR:?}" --capture --exclude "*.gperf" --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
         # merge it with the already present one - this usually happens when
@@ -1850,10 +1745,10 @@ save_journal() {
         dest_name="system.journal"
     fi
 
-    # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
+    # Show messages from the TEST-XX-XXX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
     "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
-        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
+        _SYSTEMD_UNIT="${TESTNAME:?}.service" + SYSLOG_IDENTIFIER="$TESTNAME.sh" + \
         PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
     if get_bool "$save"; then
@@ -1965,74 +1860,6 @@ check_result_qemu() {
     return $ret
 }
 
-check_result_nspawn_unittests() {
-    local workspace="${1:?}"
-    local ret=1
-
-    [[ -e "$workspace/testok" ]] && ret=0
-
-    if [[ -s "$workspace/failed" ]]; then
-        ret=$((ret + 1))
-        echo "=== Failed test log ==="
-        cat "$workspace/failed"
-    else
-        if [[ -s "$workspace/skipped" ]]; then
-            echo "=== Skipped test log =="
-            cat "$workspace/skipped"
-            # We might have only skipped tests - that should not fail the job
-            ret=0
-        fi
-        if [[ -s "$workspace/testok" ]]; then
-            echo "=== Passed tests ==="
-            cat "$workspace/testok"
-        fi
-    fi
-
-    get_bool "${TIMED_OUT:=}" && ret=1
-    check_coverage_reports "$workspace" || ret=5
-
-    save_journal "$workspace/var/log/journal" $ret
-    echo "${JOURNAL_LIST:-"No journals were saved"}"
-
-    _umount_dir "${initdir:?}"
-
-    return $ret
-}
-
-check_result_qemu_unittests() {
-    local ret=1
-
-    mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
-
-    if [[ -s "$initdir/failed" ]]; then
-        ret=$((ret + 1))
-        echo "=== Failed test log ==="
-        cat "$initdir/failed"
-    else
-        if [[ -s "$initdir/skipped" ]]; then
-            echo "=== Skipped test log =="
-            cat "$initdir/skipped"
-            # We might have only skipped tests - that should not fail the job
-            ret=0
-        fi
-        if [[ -s "$initdir/testok" ]]; then
-            echo "=== Passed tests ==="
-            cat "$initdir/testok"
-        fi
-    fi
-
-    get_bool "${TIMED_OUT:=}" && ret=1
-    check_coverage_reports "$initdir" || ret=5
-
-    save_journal "$initdir/var/log/journal" $ret
-    echo "${JOURNAL_LIST:-"No journals were saved"}"
-
-    _umount_dir "$initdir"
-
-    return $ret
-}
-
 create_rc_local() {
     dinfo "Create rc.local"
     mkdir -p "${initdir:?}/etc/rc.d"
@@ -2120,6 +1947,7 @@ EOF
 install_config_files() {
     dinfo "Install config files"
     inst /etc/sysconfig/init || :
+    inst /etc/hosts
     inst /etc/passwd
     inst /etc/shadow
     inst_any /etc/login.defs /usr/etc/login.defs
@@ -2404,7 +2232,7 @@ install_zoneinfo() {
     inst_any /usr/share/zoneinfo/Australia/Sydney
     inst_any /usr/share/zoneinfo/Europe/Berlin
     inst_any /usr/share/zoneinfo/Europe/Dublin
-    inst_any /usr/share/zoneinfo/Europe/Kiev
+    inst_any /usr/share/zoneinfo/Europe/Kyiv
     inst_any /usr/share/zoneinfo/Pacific/Auckland
     inst_any /usr/share/zoneinfo/Pacific/Honolulu
     inst_any /usr/share/zoneinfo/CET
@@ -3132,6 +2960,8 @@ inst_recursive() {
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
+            elif [[ -L "$item" ]]; then
+                inst_symlink "$item"
             elif [[ -f "$item" ]]; then
                 inst_simple "$item"
             fi
@@ -3418,7 +3248,7 @@ test_setup() {
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
             # Do an initial coverage capture, to make sure the final report includes
             # files that the tests didn't touch at all
-            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --output-file "${TESTDIR:?}/coverage-base"
+            lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --exclude "*.gperf" --output-file "${TESTDIR:?}/coverage-base"
         fi
 
         if get_bool "$hook_defined"; then
@@ -3430,11 +3260,11 @@ test_setup() {
 }
 
 test_run() {
-    local test_id="${1:?}"
+    local test_name="${1:?}"
     mount_initdir
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
-        if run_qemu "$test_id"; then
+        if run_qemu "$test_name"; then
             check_result_qemu || { echo "qemu test failed"; return 1; }
         else
             dwarn "can't run qemu, skipping"
@@ -3442,7 +3272,7 @@ test_run() {
     fi
     if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
-        if run_nspawn "${initdir:?}" "$test_id"; then
+        if run_nspawn "${initdir:?}" "$test_name"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
@@ -3450,7 +3280,7 @@ test_run() {
 
         if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
-            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
+            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_name"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
@@ -3506,7 +3336,7 @@ do_test() {
         case $1 in
             --run)
                 echo "${testname} RUN: $TEST_DESCRIPTION"
-                test_run "$TESTID"
+                test_run "$TESTNAME"
                 ret=$?
                 if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
@@ -3538,7 +3368,7 @@ do_test() {
                     test_setup_cleanup </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 if [ $ret -eq 0 ]; then
-                    test_run "$TESTID" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                    test_run "$TESTNAME" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 test_cleanup
                 if [ $ret -eq 0 ]; then

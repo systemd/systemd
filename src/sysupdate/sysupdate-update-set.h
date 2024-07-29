@@ -8,14 +8,7 @@
 typedef struct UpdateSet UpdateSet;
 
 #include "sysupdate-instance.h"
-
-typedef enum UpdateSetFlags {
-        UPDATE_NEWEST    = 1 << 0,
-        UPDATE_AVAILABLE = 1 << 1,
-        UPDATE_INSTALLED = 1 << 2,
-        UPDATE_OBSOLETE  = 1 << 3,
-        UPDATE_PROTECTED = 1 << 4,
-} UpdateSetFlags;
+#include "sysupdate-update-set-flags.h"
 
 struct UpdateSet {
         UpdateSetFlags flags;
@@ -24,9 +17,5 @@ struct UpdateSet {
         size_t n_instances;
 };
 
-UpdateSet *update_set_free(UpdateSet *us);
-
+UpdateSet* update_set_free(UpdateSet *us);
 int update_set_cmp(UpdateSet *const*a, UpdateSet *const*b);
-
-const char *update_set_flags_to_color(UpdateSetFlags flags);
-const char *update_set_flags_to_glyph(UpdateSetFlags flags);

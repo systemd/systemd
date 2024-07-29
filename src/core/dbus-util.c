@@ -6,6 +6,7 @@
 #include "escape.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "reboot-util.h"
 #include "unit-printf.h"
 #include "user-util.h"
 #include "unit.h"
@@ -39,6 +40,7 @@ static bool valid_user_group_name_or_id_relaxed(const char *u) {
 
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(user_relaxed, valid_user_group_name_or_id_relaxed);
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(path, path_is_absolute);
+BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(reboot_parameter, reboot_parameter_is_valid);
 
 int bus_set_transient_string(
                 Unit *u,

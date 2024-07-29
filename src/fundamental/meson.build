@@ -5,6 +5,7 @@ fundamental_include = include_directories('.')
 fundamental_sources = files(
         'bootspec-fundamental.c',
         'efivars-fundamental.c',
+        'iovec-util-fundamental.h',
         'sha256-fundamental.c',
         'string-util-fundamental.c',
         'uki.c',

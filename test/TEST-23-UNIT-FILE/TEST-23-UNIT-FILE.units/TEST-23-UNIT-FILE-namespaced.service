@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+RuntimeMaxSec=300
+# Adding a new mounts at runtime works if the unit is in the active state,
+# so use Type=notify to make sure there's no race condition in the test
+Type=notify
+RemainAfterExit=yes
+MountAPIVFS=yes
+PrivateTmp=yes
+BindPaths=/run/TEST-23-UNIT-FILE-marker-fixed:/tmp/testfile-marker-fixed
+InaccessiblePaths=/run/inaccessible
+ExecStartPre=grep -q -F MARKER_FIXED /tmp/testfile-marker-fixed
+ExecStart=sh -c 'systemd-notify --ready; until grep -q -F MARKER_RUNTIME /tmp/testfile-marker-runtime; do sleep 0.1; done; test ! -f /run/inaccessible/testfile-marker-fixed'

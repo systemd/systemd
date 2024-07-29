@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-messages.h"
+
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -223,6 +225,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
                         /* ret_name= */ NULL,
                         /* ret_qname= */ NULL,
                         NULL);
+        if (r == -EDEADLK)
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to get or create SRK: %m");
         if (r > 0)
@@ -289,6 +293,13 @@ static int run(int argc, char *argv[]) {
         }
 
         r = load_public_key_tpm2(&tpm2_key);
+        if (r == -EDEADLK) {
+                log_struct_errno(LOG_INFO, r,
+                                 LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
+                                 "MESSAGE_ID=" SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR);
+                return 76; /* Special return value which means "Insufficient permissions to access TPM,
+                            * cannot generate SRK". This isn't really an error when called at boot. */;
+        }
         if (r < 0)
                 return r;
 
@@ -383,4 +394,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

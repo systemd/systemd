@@ -1264,7 +1264,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 }
 
                                 /* These codes probably indicate a transient error. Let's try again. */
-                                if (IN_SET(t->answer_ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
+                                if (t->answer_ede_rcode == DNS_EDE_RCODE_NOT_READY) {
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
                                                   FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
@@ -2618,6 +2618,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                         return r;
                                 if (r == 0)
                                         continue;
+
+                                /* If we were looking for the DS RR, don't request it again. */
+                                if (dns_transaction_key(t)->type == DNS_TYPE_DS)
+                                        continue;
                         }
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
@@ -2690,6 +2694,21 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
+
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && dns_name_is_root(name)) {
+                                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
+                                /* We made it all the way to the root zone. If we are in allow-downgrade
+                                 * mode, we need to make at least one request that we can be certain should
+                                 * have been signed, to test for servers that are not dnssec aware. */
+                                soa = dns_resource_key_new(rr->key->class, DNS_TYPE_SOA, name);
+                                if (!soa)
+                                        return -ENOMEM;
+
+                                log_debug("Requesting root zone SOA to probe dnssec support.");
+                                r = dns_transaction_request_dnssec_rr(t, soa);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         break;
                 }
@@ -2917,7 +2936,12 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (r == 0)
                                 continue;
 
-                        return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
+                        if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
+                                return false;
+
+                        /* We expect this to be signed when the DS record exists, and don't expect it to be
+                         * signed when the DS record is proven not to exist. */
+                        return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
                 }
 
                 return true;

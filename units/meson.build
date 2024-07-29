@@ -362,6 +362,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.import1.service'],
         },
         {
+          'file' : 'systemd-importd.socket',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-initctl.service.in',
           'conditions' : ['HAVE_SYSV_COMPAT'],
         },
@@ -403,6 +408,7 @@ units = [
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        { 'file' : 'systemd-journald-sync@.service' },
         { 'file' : 'systemd-journald-varlink@.socket' },
         {
           'file' : 'systemd-journald.service.in',

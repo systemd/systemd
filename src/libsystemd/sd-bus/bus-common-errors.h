@@ -34,6 +34,7 @@
 #define BUS_ERROR_FREEZE_CANCELLED             "org.freedesktop.systemd1.FreezeCancelled"
 #define BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED        \
                                                "org.freedesktop.systemd1.FileDescriptorStoreDisabled"
+#define BUS_ERROR_FROZEN_BY_PARENT             "org.freedesktop.systemd1.FrozenByParent"
 
 #define BUS_ERROR_NO_SUCH_MACHINE              "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE                "org.freedesktop.machine1.NoSuchImage"
@@ -59,6 +60,8 @@
 #define BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED     "org.freedesktop.login1.SleepVerbNotSupported"
 #define BUS_ERROR_SESSION_BUSY                 "org.freedesktop.login1.SessionBusy"
 #define BUS_ERROR_NOT_YOUR_DEVICE              "org.freedesktop.login1.NotYourDevice"
+#define BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED \
+                                               "org.freedesktop.login1.DesignatedMaintenanceTimeNotScheduled"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED  "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
 #define BUS_ERROR_NO_NTP_SUPPORT               "org.freedesktop.timedate1.NoNTPSupport"

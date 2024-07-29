@@ -133,7 +133,7 @@ int bus_home_get_record_json(
         if (r < 0)
                 return r;
 
-        r = json_variant_format(augmented->json, 0, ret);
+        r = sd_json_variant_format(augmented->json, 0, ret);
         if (r < 0)
                 return r;
 

@@ -356,8 +356,7 @@ int lock_whole_block_device(dev_t devt, int operation) {
         return TAKE_FD(lock_fd);
 }
 
-int blockdev_partscan_enabled(int fd) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+int blockdev_partscan_enabled(sd_device *dev) {
         unsigned capability;
         int r, ext_range;
 
@@ -369,21 +368,61 @@ int blockdev_partscan_enabled(int fd) {
          * is 1, which can be check with 'ext_range' sysfs attribute. Explicit flag ('GENHD_FL_NO_PART_SCAN')
          * can be obtained from 'capability' sysattr.
          *
-         * With https://github.com/torvalds/linux/commit/1ebe2e5f9d68e94c524aba876f27b945669a7879 (v5.17), we
-         * can check the flag from 'ext_range' sysfs attribute directly.
+         * With https://github.com/torvalds/linux/commit/46e7eac647b34ed4106a8262f8bedbb90801fadd (v5.17),
+         * the flag is renamed to GENHD_FL_NO_PART.
+         *
+         * With https://github.com/torvalds/linux/commit/1ebe2e5f9d68e94c524aba876f27b945669a7879 (v5.17),
+         * we can check the flag from 'ext_range' sysfs attribute directly.
+         *
+         * With https://github.com/torvalds/linux/commit/430cc5d3ab4d0ba0bd011cfbb0035e46ba92920c (v5.17),
+         * the value of GENHD_FL_NO_PART is changed from 0x0200 to 0x0004. 💣💣💣
+         * Note, the new value was used by the GENHD_FL_MEDIA_CHANGE_NOTIFY flag, which was introduced by
+         * 86ce18d7b7925bfd6b64c061828ca2a857ee83b8 (v2.6.22), and removed by
+         * 9243c6f3e012a92dd900d97ef45efaf8a8edc448 (v5.7). If we believe the commit message of
+         * e81cd5a983bb35dabd38ee472cf3fea1c63e0f23, the flag was never used. So, fortunately, we can use
+         * both the new and old values safely.
+         *
+         * With https://github.com/torvalds/linux/commit/b9684a71fca793213378dd410cd11675d973eaa1 (v5.19),
+         * another flag GD_SUPPRESS_PART_SCAN is introduced for loopback block device, and partition scanning
+         * is done only when both GENHD_FL_NO_PART and GD_SUPPRESS_PART_SCAN are not set. Before the commit,
+         * LO_FLAGS_PARTSCAN flag was directly tied with GENHD_FL_NO_PART. But with this change now it is
+         * tied with GD_SUPPRESS_PART_SCAN. So, LO_FLAGS_PARTSCAN cannot be obtained from 'ext_range'
+         * sysattr, which corresponds to GENHD_FL_NO_PART, and we need to read 'loop/partscan'. 💣💣💣
+         *
+         * With https://github.com/torvalds/linux/commit/73a166d9749230d598320fdae3b687cdc0e2e205 (v6.3),
+         * the GD_SUPPRESS_PART_SCAN flag is also introduced for userspace block device (ublk). Though, not
+         * sure if we should support the device...
          *
          * With https://github.com/torvalds/linux/commit/e81cd5a983bb35dabd38ee472cf3fea1c63e0f23 (v6.3),
-         * the 'capability' sysfs attribute is deprecated, hence we cannot check the flag from it.
+         * the 'capability' sysfs attribute is deprecated, hence we cannot check flags from it. 💣💣💣
          *
-         * To support both old and new kernels, we need to do the following: first check 'ext_range' sysfs
-         * attribute, and if '1' we can conclude partition scanning is disabled, otherwise check 'capability'
-         * sysattr for older version. */
+         * With https://github.com/torvalds/linux/commit/a4217c6740dc64a3eb6815868a9260825e8c68c6 (v6.10,
+         * backported to v6.6+), the partscan status is directly exposed as 'partscan' sysattr.
+         *
+         * To support both old and new kernels, we need to do the following:
+         * 1) check 'partscan' sysfs attribute where the information is made directly available,
+         * 2) check if the blockdev refers to a partition, where partscan is not supported,
+         * 3) check 'loop/partscan' sysfs attribute for loopback block devices, and if '0' we can conclude
+         *    partition scanning is disabled,
+         * 4) check 'ext_range' sysfs attribute, and if '1' we can conclude partition scanning is disabled,
+         * 5) otherwise check 'capability' sysfs attribute for ancient version. */
 
-        assert(fd >= 0);
+        assert(dev);
 
-        r = block_device_new_from_fd(fd, 0, &dev);
-        if (r < 0)
+        /* For v6.10 or newer. */
+        r = device_get_sysattr_bool(dev, "partscan");
+        if (r != -ENOENT)
                 return r;
+
+        /* Partition block devices never have partition scanning on, there's no concept of sub-partitions for
+         * partitions. */
+        if (device_is_devtype(dev, "partition"))
+                return false;
+
+        /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
+         * check GENHD_FL_NO_PART flag through 'ext_range' and 'capability' sysfs attributes below. */
+        if (device_get_sysattr_bool(dev, "loop/partscan") == 0)
+                return false;
 
         r = device_get_sysattr_int(dev, "ext_range", &ext_range);
         if (r == -ENOENT) /* If the ext_range file doesn't exist then we are most likely looking at a
@@ -404,16 +443,27 @@ int blockdev_partscan_enabled(int fd) {
         if (r < 0)
                 return r;
 
-#ifndef GENHD_FL_NO_PART_SCAN
-#define GENHD_FL_NO_PART_SCAN (0x0200)
-#endif
-
-        /* If 0x200 is set, part scanning is definitely off. */
-        if (FLAGS_SET(capability, GENHD_FL_NO_PART_SCAN))
+#define GENHD_FL_NO_PART_OLD 0x0200
+#define GENHD_FL_NO_PART_NEW 0x0004
+        /* If one of the NO_PART flags is set, part scanning is definitely off. */
+        if ((capability & (GENHD_FL_NO_PART_OLD | GENHD_FL_NO_PART_NEW)) != 0)
                 return false;
 
         /* Otherwise, assume part scanning is on, we have no further checks available. Assume the best. */
         return true;
+}
+
+int blockdev_partscan_enabled_fd(int fd) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = block_device_new_from_fd(fd, 0, &dev);
+        if (r < 0)
+                return r;
+
+        return blockdev_partscan_enabled(dev);
 }
 
 static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {

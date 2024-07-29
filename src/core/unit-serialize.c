@@ -117,7 +117,8 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         if (!sd_id128_is_null(u->invocation_id))
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
-        (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
+        (void) serialize_item(f, "freezer-state", freezer_state_to_string(u->freezer_state));
+
         (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
@@ -451,8 +452,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
-                "%s-> Unit %s:\n",
-                prefix, u->id);
+                "%s%s Unit %s:\n",
+                prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), u->id);
 
         SET_FOREACH(t, u->aliases)
                 fprintf(f, "%s\tAlias: %s\n", prefix, t);

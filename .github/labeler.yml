@@ -15,7 +15,7 @@ btrfs:
     - any-glob-to-any-file: '**/*btrfs*'
 build-system:
   - changed-files:
-    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build', 'Makefile', 'configure']
+    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 busctl:
   - changed-files:
     - any-glob-to-any-file: '**/*busctl*'
@@ -64,6 +64,9 @@ journal:
 journal-remote:
   - changed-files:
     - any-glob-to-any-file: 'src/journal-remote/*'
+l10n 🌍:
+  - changed-files:
+    - any-glob-to-any-file: 'po/*'
 login:
   - changed-files:
     - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']
@@ -72,10 +75,10 @@ meson:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 mkosi:
   - changed-files:
-    - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
+    - any-glob-to-any-file: '**/*mkosi*'
 mountfsd:
   - changed-files:
-    - any-glob-to-any-file: ['src/mountfsd/*']
+    - any-glob-to-any-file: 'src/mountfsd/*'
 network:
   - changed-files:
     - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']

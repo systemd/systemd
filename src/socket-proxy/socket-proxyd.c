@@ -472,11 +472,9 @@ static int add_connection_socket(Context *context, int fd) {
                 return 0;
         }
 
-        if (context->idle_time) {
-                r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
-                if (r < 0)
-                        log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
-        }
+        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
+        if (r < 0)
+                log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
 
         c = new(Connection, 1);
         if (!c) {
@@ -676,8 +674,7 @@ static int run(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r, n, fd;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

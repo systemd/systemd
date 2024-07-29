@@ -16,8 +16,10 @@
 #include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-hwdb.h"
+#include "sd-json.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bond-util.h"
@@ -39,6 +41,7 @@
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
 #include "journal-internal.h"
+#include "json-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -71,7 +74,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "unit-def.h"
-#include "varlink.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -90,23 +93,23 @@ bool arg_full = false;
 bool arg_runtime = false;
 unsigned arg_lines = 10;
 char *arg_drop_in = NULL;
-JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-static int varlink_connect_networkd(Varlink **ret_varlink) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
-        JsonVariant *reply;
+static int varlink_connect_networkd(sd_varlink **ret_varlink) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        sd_json_variant *reply;
         uint64_t id;
         int r;
 
-        r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+        r = sd_varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
-        (void) varlink_set_description(vl, "varlink-network");
+        (void) sd_varlink_set_description(vl, "varlink-network");
 
-        r = varlink_set_allow_fd_passing_output(vl, true);
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");
 
@@ -114,12 +117,12 @@ static int varlink_connect_networkd(Varlink **ret_varlink) {
         if (r < 0)
                 return r;
 
-        static const JsonDispatch dispatch_table[] = {
-                { "NamespaceId", JSON_VARIANT_UNSIGNED, json_dispatch_uint64, 0, JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "NamespaceId", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, 0, SD_JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(reply, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &id);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &id);
         if (r < 0)
                 return r;
 
@@ -181,7 +184,7 @@ int acquire_bus(sd_bus **ret) {
         return 0;
 }
 
-static int get_description(sd_bus *bus, JsonVariant **ret) {
+static int get_description(sd_bus *bus, sd_json_variant **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *text;
@@ -198,7 +201,7 @@ static int get_description(sd_bus *bus, JsonVariant **ret) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = json_parse(text, 0, ret, NULL, NULL);
+        r = sd_json_parse(text, 0, ret, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON: %m");
 
@@ -206,7 +209,7 @@ static int get_description(sd_bus *bus, JsonVariant **ret) {
 }
 
 static int dump_manager_description(sd_bus *bus) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(bus);
@@ -215,14 +218,14 @@ static int dump_manager_description(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
         return 0;
 }
 
 static int dump_link_description(sd_bus *bus, char * const *patterns) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
-        JsonVariant *i;
+        sd_json_variant *i;
         size_t c = 0;
         int r;
 
@@ -237,23 +240,23 @@ static int dump_link_description(sd_bus *bus, char * const *patterns) {
         if (!matched_patterns)
                 return log_oom();
 
-        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(v, "Interfaces")) {
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(v, "Interfaces")) {
                 char ifindex_str[DECIMAL_STR_MAX(int64_t)];
                 const char *name;
                 int64_t index;
                 size_t pos;
 
-                name = json_variant_string(json_variant_by_key(i, "Name"));
-                index = json_variant_integer(json_variant_by_key(i, "Index"));
+                name = sd_json_variant_string(sd_json_variant_by_key(i, "Name"));
+                index = sd_json_variant_integer(sd_json_variant_by_key(i, "Index"));
                 xsprintf(ifindex_str, "%" PRIi64, index);
 
                 if (!strv_fnmatch_full(patterns, ifindex_str, 0, &pos) &&
                     !strv_fnmatch_full(patterns, name, 0, &pos)) {
                         bool match = false;
-                        JsonVariant *a;
+                        sd_json_variant *a;
 
-                        JSON_VARIANT_ARRAY_FOREACH(a, json_variant_by_key(i, "AlternativeNames"))
-                                if (strv_fnmatch_full(patterns, json_variant_string(a), 0, &pos)) {
+                        JSON_VARIANT_ARRAY_FOREACH(a, sd_json_variant_by_key(i, "AlternativeNames"))
+                                if (strv_fnmatch_full(patterns, sd_json_variant_string(a), 0, &pos)) {
                                         match = true;
                                         break;
                                 }
@@ -263,7 +266,7 @@ static int dump_link_description(sd_bus *bus, char * const *patterns) {
                 }
 
                 matched_patterns[pos] = true;
-                json_variant_dump(i, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(i, arg_json_format_flags, NULL, NULL);
                 c++;
         }
 
@@ -412,6 +415,9 @@ typedef struct LinkInfo {
         uint16_t priority;
         uint8_t mcast_igmp_version;
         uint8_t port_state;
+        uint32_t fdb_max_learned;
+        uint32_t fdb_n_learned;
+        bool has_fdb_learned;
 
         /* vxlan info */
         VxLanInfo vxlan_info;
@@ -519,6 +525,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
                 (void) sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &info->port_state);
+                if (sd_netlink_message_read_u32(m, IFLA_BR_FDB_MAX_LEARNED, &info->fdb_max_learned) >= 0 &&
+                    sd_netlink_message_read_u32(m, IFLA_BR_FDB_N_LEARNED, &info->fdb_n_learned) >= 0)
+                        info->has_fdb_learned = true;
         } if (streq(info->netdev_kind, "bond")) {
                 (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
@@ -921,7 +930,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF) {
                 if (arg_all || argc <= 1)
                         return dump_manager_description(bus);
                 else
@@ -1073,9 +1082,7 @@ static int get_gateway_description(
                 }
 
                 if (type != RTM_NEWNEIGH) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Got unexpected netlink message type %u, ignoring",
-                                        type);
+                        log_error("Got unexpected netlink message type %u, ignoring.", type);
                         continue;
                 }
 
@@ -1086,7 +1093,7 @@ static int get_gateway_description(
                 }
 
                 if (fam != family) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got invalid rtnl family %d, ignoring", fam);
+                        log_error("Got invalid rtnl family %d, ignoring.", fam);
                         continue;
                 }
 
@@ -1218,7 +1225,7 @@ static int dump_addresses(
 
                 r = strv_extendf(&buf, "%s%s%s%s%s%s",
                                  IN_ADDR_TO_STRING(local->family, &local->address),
-                                 dhcp4 ? " (DHCP4 via " : "",
+                                 dhcp4 ? " (DHCPv4 via " : "",
                                  dhcp4 ? IN4_ADDR_TO_STRING(&server_address) : "",
                                  dhcp4 ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
@@ -1324,7 +1331,7 @@ typedef struct InterfaceInfo {
         int ifindex;
         const char *ifname;
         char **altnames;
-        JsonVariant *v;
+        sd_json_variant *v;
 } InterfaceInfo;
 
 static void interface_info_done(InterfaceInfo *p) {
@@ -1332,14 +1339,14 @@ static void interface_info_done(InterfaceInfo *p) {
                 return;
 
         strv_free(p->altnames);
-        json_variant_unref(p->v);
+        sd_json_variant_unref(p->v);
 }
 
-static const JsonDispatch interface_info_dispatch_table[] = {
-        { "InterfaceIndex",            _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(InterfaceInfo, ifindex),  JSON_MANDATORY },
-        { "InterfaceName",             JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   JSON_MANDATORY },
-        { "InterfaceAlternativeNames", JSON_VARIANT_ARRAY,         json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0              },
-        { "Neighbors",                 JSON_VARIANT_ARRAY,         json_dispatch_variant,      offsetof(InterfaceInfo, v),        0              },
+static const sd_json_dispatch_field interface_info_dispatch_table[] = {
+        { "InterfaceIndex",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(InterfaceInfo, ifindex),  SD_JSON_MANDATORY },
+        { "InterfaceName",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   SD_JSON_MANDATORY },
+        { "InterfaceAlternativeNames", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0                 },
+        { "Neighbors",                 SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(InterfaceInfo, v),        0                 },
         {},
 };
 
@@ -1352,46 +1359,49 @@ typedef struct LLDPNeighborInfo {
         uint16_t capabilities;
 } LLDPNeighborInfo;
 
-static const JsonDispatch lldp_neighbor_dispatch_table[] = {
-        { "ChassisID",           JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LLDPNeighborInfo, chassis_id),         0 },
-        { "PortID",              JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LLDPNeighborInfo, port_id),            0 },
-        { "PortDescription",     JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LLDPNeighborInfo, port_description),   0 },
-        { "SystemName",          JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_name),        0 },
-        { "SystemDescription",   JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_description), 0 },
-        { "EnabledCapabilities", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16,       offsetof(LLDPNeighborInfo, capabilities),       0 },
+static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
+        { "ChassisID",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, chassis_id),         0 },
+        { "PortID",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, port_id),            0 },
+        { "PortDescription",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, port_description),   0 },
+        { "SystemName",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_name),        0 },
+        { "SystemDescription",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_description), 0 },
+        { "EnabledCapabilities", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LLDPNeighborInfo, capabilities),       0 },
         {},
 };
 
-static int dump_lldp_neighbors(Varlink *vl, Table *table, int ifindex) {
+static int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex) {
         _cleanup_strv_free_ char **buf = NULL;
-        JsonVariant *reply;
+        sd_json_variant *reply;
         int r;
 
         assert(vl);
         assert(table);
         assert(ifindex > 0);
 
-        r = varlink_callb_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", &reply,
-                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex)));
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.GetLLDPNeighbors",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
         if (r < 0)
                 return r;
 
-        JsonVariant *i;
-        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(reply, "Neighbors")) {
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
                 _cleanup_(interface_info_done) InterfaceInfo info = {};
 
-                r = json_dispatch(i, interface_info_dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &info);
+                r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
                         return r;
 
                 if (info.ifindex != ifindex)
                         continue;
 
-                JsonVariant *neighbor;
+                sd_json_variant *neighbor;
                 JSON_VARIANT_ARRAY_FOREACH(neighbor, info.v) {
                         LLDPNeighborInfo neighbor_info = {};
 
-                        r = json_dispatch(neighbor, lldp_neighbor_dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &neighbor_info);
+                        r = sd_json_dispatch(neighbor, lldp_neighbor_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &neighbor_info);
                         if (r < 0)
                                 return r;
 
@@ -1682,7 +1692,7 @@ static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
-                Varlink *vl,
+                sd_varlink *vl,
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
@@ -1905,6 +1915,16 @@ static int link_status_one(
                                    TABLE_UINT32, info->cost);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                if (info->has_fdb_learned) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "FDB Learned",
+                                           TABLE_UINT32, info->fdb_n_learned,
+                                           TABLE_FIELD, "FDB Max Learned",
+                                           TABLE_UINT32, info->fdb_max_learned);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
                 if (info->port_state <= BR_STATE_BLOCKING) {
                         r = table_add_many(table,
@@ -2291,7 +2311,7 @@ static int link_status_one(
                         r = sd_dhcp_client_id_to_string(client_id, &id);
                         if (r >= 0) {
                                 r = table_add_many(table,
-                                                   TABLE_FIELD, "DHCP4 Client ID",
+                                                   TABLE_FIELD, "DHCPv4 Client ID",
                                                    TABLE_STRING, id);
                                 if (r < 0)
                                         return table_log_add_error(r);
@@ -2302,7 +2322,7 @@ static int link_status_one(
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "DHCP6 Client IAID",
+                                   TABLE_FIELD, "DHCPv6 Client IAID",
                                    TABLE_STRING, iaid);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2311,7 +2331,7 @@ static int link_status_one(
         r = sd_network_link_get_dhcp6_client_duid_string(info->ifindex, &duid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "DHCP6 Client DUID",
+                                   TABLE_FIELD, "DHCPv6 Client DUID",
                                    TABLE_STRING, duid);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2425,7 +2445,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
@@ -2433,7 +2453,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF) {
                 if (arg_all || argc <= 1)
                         return dump_manager_description(bus);
                 else
@@ -2549,47 +2569,47 @@ static bool interface_match_pattern(const InterfaceInfo *info, char * const *pat
         return false;
 }
 
-static int dump_lldp_neighbors_json(JsonVariant *reply, char * const *patterns) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL, *v = NULL;
+static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patterns) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *v = NULL;
         int r;
 
         assert(reply);
 
         if (strv_isempty(patterns))
-                return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         /* Filter and dump the result. */
 
-        JsonVariant *i;
-        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(reply, "Neighbors")) {
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
                 _cleanup_(interface_info_done) InterfaceInfo info = {};
 
-                r = json_dispatch(i, interface_info_dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &info);
+                r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
                         return r;
 
                 if (!interface_match_pattern(&info, patterns))
                         continue;
 
-                r = json_variant_append_array(&array, i);
+                r = sd_json_variant_append_array(&array, i);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append json variant to array: %m");
         }
 
-        r = json_build(&v,
-                JSON_BUILD_OBJECT(
-                        JSON_BUILD_PAIR_CONDITION(json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_EMPTY_ARRAY),
-                        JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build json varinat: %m");
 
-        return json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        JsonVariant *reply;
+        sd_json_variant *reply;
         uint64_t all = 0;
         TableCell *cell;
         size_t m = 0;
@@ -2603,7 +2623,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF)
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF)
                 return dump_lldp_neighbors_json(reply, strv_skip(argv, 1));
 
         pager_open(arg_pager_flags);
@@ -2631,22 +2651,22 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 7));
         table_set_minimum_width(table, cell, 11);
 
-        JsonVariant *i;
-        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(reply, "Neighbors")) {
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
                 _cleanup_(interface_info_done) InterfaceInfo info = {};
 
-                r = json_dispatch(i, interface_info_dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &info);
+                r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
                         return r;
 
                 if (!interface_match_pattern(&info, strv_skip(argv, 1)))
                         continue;
 
-                JsonVariant *neighbor;
+                sd_json_variant *neighbor;
                 JSON_VARIANT_ARRAY_FOREACH(neighbor, info.v) {
                         LLDPNeighborInfo neighbor_info = {};
 
-                        r = json_dispatch(neighbor, lldp_neighbor_dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &neighbor_info);
+                        r = sd_json_dispatch(neighbor, lldp_neighbor_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &neighbor_info);
                         if (r < 0)
                                 return r;
 
@@ -2928,7 +2948,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         bool ready;
         int r;
 
@@ -2948,15 +2968,18 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
 
-                r = varlink_push_fd(vl, fd);
+                r = sd_varlink_push_fd(vl, fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to push file descriptor of /var/lib/systemd/network/ into varlink: %m");
 
                 TAKE_FD(fd);
         }
 
-        return varlink_callb_and_log(vl, "io.systemd.Network.SetPersistentStorage", /* reply = */ NULL,
-                                     JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BOOLEAN("Ready", ready)));
+        return varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.SetPersistentStorage",
+                        /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Ready", ready));
 }
 
 static int help(void) {

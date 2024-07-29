@@ -56,7 +56,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_max_level(LOG_DEBUG);
-        log_open();
+        log_setup();
 
         r = userns_restrict_install(/* pin= */ false, &obj);
         if (ERRNO_IS_NOT_SUPPORTED(r)) {

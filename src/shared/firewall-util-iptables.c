@@ -21,13 +21,13 @@
 #include "macro.h"
 #include "socket-util.h"
 
-static DLSYM_FUNCTION(iptc_check_entry);
-static DLSYM_FUNCTION(iptc_commit);
-static DLSYM_FUNCTION(iptc_delete_entry);
-static DLSYM_FUNCTION(iptc_free);
-static DLSYM_FUNCTION(iptc_init);
-static DLSYM_FUNCTION(iptc_insert_entry);
-static DLSYM_FUNCTION(iptc_strerror);
+static DLSYM_PROTOTYPE(iptc_check_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_commit) = NULL;
+static DLSYM_PROTOTYPE(iptc_delete_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_free) = NULL;
+static DLSYM_PROTOTYPE(iptc_init) = NULL;
+static DLSYM_PROTOTYPE(iptc_insert_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_strerror) = NULL;
 
 static void *iptc_dl = NULL;
 
@@ -354,6 +354,11 @@ int fw_iptables_add_local_dnat(
 }
 
 static int dlopen_iptc(void) {
+        ELF_NOTE_DLOPEN("ip4tc",
+                        "Support for firewall rules with iptables backend",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libip4tc.so.2");
+
         return dlopen_many_sym_or_warn(
                         &iptc_dl,
                         "libip4tc.so.2", LOG_DEBUG,

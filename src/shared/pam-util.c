@@ -14,6 +14,14 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+void pam_log_setup(void) {
+        /* Make sure we don't leak the syslog fd we open by opening/closing the fd each time. */
+        log_set_open_when_needed(true);
+
+        /* pam logs to syslog so let's make our generic logging functions do the same thing. */
+        log_set_target(LOG_TARGET_SYSLOG);
+}
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) {
         va_list ap;
 

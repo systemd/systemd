@@ -386,6 +386,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--random-seed=yes|no</option></term>
+        <listitem><para>By default the <command>install</command> command initializes a random seed file in
+        the ESP. When creating an image it may be desirable to disable that in order to avoid having the
+        same seed in all instances.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--graceful</option></term>
         <listitem><para>Ignore failure when the EFI System Partition cannot be found, when EFI variables
         cannot be written, or a different or newer boot loader is already installed. Currently only applies

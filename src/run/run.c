@@ -21,6 +21,7 @@
 #include "chase.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -30,11 +31,11 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
-#include "spawn-polkit-agent.h"
 #include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -963,7 +964,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
                 return log_oom();
 
-        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
                 double hue;
 
                 if (privileged_execution())
@@ -1073,7 +1074,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
         bool send_term = false;
         int r;
 
@@ -1083,6 +1084,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool use_ex_prop = arg_expand_environment == 0;
 
         assert(m);
+        assert(pty_path || pty_fd < 0);
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
@@ -1133,12 +1135,22 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         }
 
         if (pty_path) {
-                r = sd_bus_message_append(m,
-                                          "(sv)(sv)(sv)(sv)",
-                                          "StandardInput", "s", "tty",
-                                          "StandardOutput", "s", "tty",
-                                          "StandardError", "s", "tty",
-                                          "TTYPath", "s", pty_path);
+                r = sd_bus_message_append(m, "(sv)", "TTYPath", "s", pty_path);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                if (pty_fd >= 0)
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)",
+                                                  "StandardInputFileDescriptor", "h", pty_fd,
+                                                  "StandardOutputFileDescriptor", "h", pty_fd,
+                                                  "StandardErrorFileDescriptor", "h", pty_fd);
+                else
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)",
+                                                  "StandardInput", "s", "tty",
+                                                  "StandardOutput", "s", "tty",
+                                                  "StandardError", "s", "tty");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1235,12 +1247,17 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                if (use_ex_prop)
-                        r = sd_bus_message_append_strv(
-                                        m,
-                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand",
-                                                  arg_ignore_failure ? "ignore-failure" : NULL));
-                else
+                if (use_ex_prop) {
+                        _cleanup_strv_free_ char **opts = NULL;
+
+                        r = exec_command_flags_to_strv(
+                                        (arg_expand_environment > 0 ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        &opts);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format execute flags: %m");
+
+                        r = sd_bus_message_append_strv(m, opts);
+                } else
                         r = sd_bus_message_append(m, "b", arg_ignore_failure);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1426,7 +1443,7 @@ static void run_context_check_done(RunContext *c) {
         else
                 done = true;
 
-        if (c->forward && done) /* If the service is gone, it's time to drain the output */
+        if (c->forward && !pty_forward_is_done(c->forward) && done) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
 
         if (done)
@@ -1496,11 +1513,18 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
-        RunContext *c = userdata;
+        RunContext *c = ASSERT_PTR(userdata);
 
         assert(f);
 
-        if (rcode < 0) {
+        if (rcode == -ECANCELED) {
+                log_debug_errno(rcode, "PTY forwarder disconnected.");
+                if (!arg_wait)
+                        return sd_event_exit(c->event, EXIT_SUCCESS);
+
+                /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
+                 * for the service to end. If the user hits ^C we'll exit too. */
+        } else if (rcode < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }
@@ -1513,7 +1537,8 @@ static int make_transient_service_unit(
                 sd_bus *bus,
                 sd_bus_message **message,
                 const char *service,
-                const char *pty_path) {
+                const char *pty_path,
+                int pty_fd) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1540,7 +1565,7 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = transient_service_set_properties(m, pty_path);
+        r = transient_service_set_properties(m, pty_path, pty_fd);
         if (r < 0)
                 return r;
 
@@ -1610,12 +1635,16 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return 0;
+        return r; /* Return true when we get a non-null invocation ID. */
 }
 
 static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+
         assert(f);
+
+        if (!shall_set_terminal_title())
+                return;
 
         if (!arg_host)
                 (void) gethostname_strict(&hn);
@@ -1662,7 +1691,7 @@ static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, slave = -EBADF;
         int r;
 
         assert(bus);
@@ -1688,6 +1717,10 @@ static int start_transient_service(sd_bus *bus) {
 
                         if (unlockpt(master) < 0)
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
+
+                        slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (slave < 0)
+                                return log_error_errno(slave, "Failed to open pty slave: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
@@ -1718,6 +1751,9 @@ static int start_transient_service(sd_bus *bus) {
                         pty_path = strdup(s);
                         if (!pty_path)
                                 return log_oom();
+
+                        // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
+                        // and additionally returns the pty fd, for #33216 and #32999
                 } else
                         assert_not_reached();
         }
@@ -1744,9 +1780,10 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_path, slave);
         if (r < 0)
                 return r;
+        slave = safe_close(slave);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1869,12 +1906,13 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));
 
-                        if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%u",
-                                         sigchld_code_to_string(c.exit_code), c.exit_status);
-                        else if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s/status=%s",
-                                         sigchld_code_to_string(c.exit_code), signal_to_string(c.exit_status));
+                        if (c.exit_code > 0)
+                                log_info("Main processes terminated with: code=%s, status=%u/%s",
+                                         sigchld_code_to_string(c.exit_code),
+                                         c.exit_status,
+                                         strna(c.exit_code == CLD_EXITED ?
+                                               exit_status_to_string(c.exit_status, EXIT_STATUS_FULL) :
+                                               signal_to_string(c.exit_status)));
 
                         if (timestamp_is_set(c.inactive_enter_usec) &&
                             timestamp_is_set(c.inactive_exit_usec) &&
@@ -2190,7 +2228,7 @@ static int make_transient_trigger_unit(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, NULL);
+                r = transient_service_set_properties(m, /* pty_path = */ NULL, /* pty_fd = */ -EBADF);
                 if (r < 0)
                         return r;
 
@@ -2320,9 +2358,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         if (invoked_as(argv, "run0"))
                 r = parse_argv_sudo_mode(argc, argv);

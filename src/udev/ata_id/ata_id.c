@@ -86,14 +86,14 @@ static int disk_scsi_inquiry_command(
                 if (io_hdr.status != 0 ||
                     io_hdr.host_status != 0 ||
                     io_hdr.driver_status != 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v3 failed");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v3 failed.");
 
         } else {
                 /* even if the ioctl succeeds, we need to check the return value */
                 if (io_v4.device_status != 0 ||
                     io_v4.transport_status != 0 ||
                     io_v4.driver_status != 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed.");
         }
 
         return 0;
@@ -160,7 +160,7 @@ static int disk_identify_command(
         } else {
                 if (!((sense[0] & 0x7f) == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c) &&
                     !((sense[0] & 0x7f) == 0x70 && sense[12] == 0x00 && sense[13] == 0x1d))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed: %m");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed.");
         }
 
         return 0;
@@ -232,7 +232,7 @@ static int disk_identify_packet_device_command(
                         return log_debug_errno(errno, "ioctl v3 failed: %m");
         } else {
                 if ((sense[0] & 0x7f) != 0x72 || desc[0] != 0x9 || desc[1] != 0x0c)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed: %m");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed.");
         }
 
         return 0;
@@ -413,10 +413,8 @@ static int run(int argc, char *argv[]) {
         uint16_t word;
         int r, peripheral_device_type = -1;
 
-        log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
+        (void) udev_parse_config();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

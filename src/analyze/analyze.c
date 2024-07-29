@@ -34,6 +34,7 @@
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
+#include "analyze-smbios11.h"
 #include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
@@ -90,6 +91,7 @@
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;
+CapabilityMode arg_capability = CAPABILITY_LITERAL;
 char **arg_dot_from_patterns = NULL, **arg_dot_to_patterns = NULL;
 usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
@@ -108,7 +110,7 @@ unsigned arg_threshold = 100;
 unsigned arg_iterations = 1;
 usec_t arg_base_time = USEC_INFINITY;
 char *arg_unit = NULL;
-JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 bool arg_quiet = false;
 char *arg_profile = NULL;
 bool arg_legend = true;
@@ -241,6 +243,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  image-policy POLICY...     Analyze image policy string\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
+               "  smbios11                   List strings passed via SMBIOS Type #11\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -356,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 { "tldr",             no_argument,       NULL, ARG_TLDR             },
+                { "mask",             no_argument,       NULL, 'm'                  },
                 {}
         };
 
@@ -364,7 +368,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -549,6 +553,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_cat_flags = CAT_TLDR;
                         break;
 
+                case 'm':
+                        arg_capability = CAPABILITY_MASK;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -564,7 +572,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= requires one or more units to perform a security review.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures, capability, exit-status right now.");
 
@@ -603,14 +611,17 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
         if ((!arg_legend && !STRPTR_IN_SET(argv[optind], "plot", "architectures")) ||
-           (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)))
+           (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=.");
 
         if (arg_table && !streq_ptr(argv[optind], "plot"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --table is only supported for plot right now.");
 
-        if (arg_table && !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+        if (arg_table && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--table and --json= are mutually exclusive.");
+
+        if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
 
         return 1; /* work to do */
 }
@@ -657,6 +668,7 @@ static int run(int argc, char *argv[]) {
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
+                { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
                 {}
         };
 

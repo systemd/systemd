@@ -1,0 +1,19 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
+for DEPS in --requires --recommends --suggests; do
+    # We need --latest-limit=1 to only consider the newest version of the packages.
+    # --latest-limit=1 is per <name>.<arch> so we have to pass --arch= explicitly to make sure i686 packages
+    # are not considerd on x86-64.
+    dnf repoquery --arch="$DISTRIBUTION_ARCHITECTURE" --latest-limit=1 --quiet "$DEPS" "${PACKAGES[@]}" |
+        grep --invert-match --regexp systemd --regexp udev --regexp /bin/sh --regexp grubby --regexp sdubby --regexp libcurl-minimal |
+        sort --unique |
+        xargs --delimiter '\n' --no-run-if-empty mkosi-install
+done

@@ -70,6 +70,7 @@ extern const SyscallFilterSet syscall_filter_sets[];
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
+int seccomp_filter_set_add_by_name(Hashmap *s, bool b, const char *name);
 int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
 
 int seccomp_add_syscall_filter_item(
@@ -173,7 +174,7 @@ static inline int seccomp_parse_errno_or_action(const char *p) {
         return parse_errno(p);
 }
 
-static inline const char *seccomp_errno_or_action_to_string(int num) {
+static inline const char* seccomp_errno_or_action_to_string(int num) {
         if (num == SECCOMP_ERROR_NUMBER_KILL)
                 return "kill";
         return errno_to_name(num);

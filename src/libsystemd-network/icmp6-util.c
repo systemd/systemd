@@ -121,7 +121,7 @@ int icmp6_receive(
         /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
                          CMSG_SPACE_TIMEVAL) control = {};
-        struct iovec iov = {};
+        struct iovec iov = { buffer, size };
         union sockaddr_union sa = {};
         struct msghdr msg = {
                 .msg_name = &sa.sa,
@@ -132,8 +132,6 @@ int icmp6_receive(
                 .msg_controllen = sizeof(control),
         };
         ssize_t len;
-
-        iov = IOVEC_MAKE(buffer, size);
 
         len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
         if (len < 0)

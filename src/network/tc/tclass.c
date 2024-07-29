@@ -252,37 +252,56 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        strna(tclass_get_tca_kind(tclass)));
 }
 
-TClass* tclass_drop(TClass *tclass) {
+void tclass_mark_recursive(TClass *tclass) {
         QDisc *qdisc;
-        Link *link;
 
         assert(tclass);
+        assert(tclass->link);
 
-        link = ASSERT_PTR(tclass->link);
+        if (tclass_is_marked(tclass))
+                return;
 
-        tclass_mark(tclass); /* To avoid stack overflow. */
+        tclass_mark(tclass);
 
-        /* Also drop all child qdiscs assigned to the class. */
-        SET_FOREACH(qdisc, link->qdiscs) {
-                if (qdisc_is_marked(qdisc))
-                        continue;
-
+        /* Also mark all child qdiscs assigned to the class. */
+        SET_FOREACH(qdisc, tclass->link->qdiscs) {
                 if (qdisc->parent != tclass->classid)
                         continue;
 
-                qdisc_drop(qdisc);
+                qdisc_mark_recursive(qdisc);
         }
+}
 
-        tclass_unmark(tclass);
-        tclass_enter_removed(tclass);
+void link_tclass_drop_marked(Link *link) {
+        TClass *tclass;
 
-        if (tclass->state == 0) {
-                log_tclass_debug(tclass, link, "Forgetting");
-                tclass = tclass_free(tclass);
-        } else
-                log_tclass_debug(tclass, link, "Removed");
+        assert(link);
 
-        return tclass;
+        SET_FOREACH(tclass, link->tclasses) {
+                if (!tclass_is_marked(tclass))
+                        continue;
+
+                tclass_unmark(tclass);
+                tclass_enter_removed(tclass);
+
+                if (tclass->state == 0) {
+                        log_tclass_debug(tclass, link, "Forgetting");
+                        tclass_free(tclass);
+                } else
+                        log_tclass_debug(tclass, link, "Removed");
+        }
+}
+
+TClass* tclass_drop(TClass *tclass) {
+        assert(tclass);
+
+        tclass_mark_recursive(tclass);
+
+        /* link_tclass_drop_marked() may invalidate tclass, so run link_qdisc_drop_marked() first. */
+        link_qdisc_drop_marked(tclass->link);
+        link_tclass_drop_marked(tclass->link);
+
+        return NULL;
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {

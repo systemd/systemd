@@ -80,7 +80,7 @@
         <listitem><para>
         Enable journaled, bitmapped or direct (passthrough) mode. Journaled mode is the default when this option is not specified.
         It provides safety against crashes, but can be slow because all data has to be written twice.
-        Bitmap mode is more efficient since it requires only a single write, but it is less reliable because if data corruption happens when the machine crashes, it may not be detected.
+        Bitmap mode is more efficient since it requires only a single write, but it is less reliable because if data corruption happens when the machine crashes, it might not be detected.
         Direct mode disables the journal and the bitmap. Corresponds to the "direct writes" mode documented in
         <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-integrity.html">the dm-integrity documentation</ulink>.
         Note that without a journal, if there is a crash, it is possible that the integrity tags and data will not match. If used, the journal-*

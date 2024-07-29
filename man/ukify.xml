@@ -293,6 +293,29 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>OSRelease=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--os-release=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+
+          <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
+          may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+          will be picked up from the host system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+
+          <listitem><para>The kernel command line (the <literal>.cmdline</literal> section). The argument may
+          be a literal string, or <literal>@</literal> followed by a path name. If not specified, no command
+          line will be embedded.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>Initrd=<replaceable>INITRD</replaceable>...</varname></term>
           <term><option>--initrd=<replaceable>LINUX</replaceable></option></term>
 
@@ -314,24 +337,12 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>Cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
-          <term><option>--cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+          <term><varname>Splash=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--splash=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>The kernel command line (the <literal>.cmdline</literal> section). The argument may
-          be a literal string, or <literal>@</literal> followed by a path name. If not specified, no command
-          line will be embedded.</para>
-
-          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>OSRelease=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
-          <term><option>--os-release=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
-
-          <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
-          may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
-          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-          will be picked up from the host system.</para>
+          <listitem><para>A picture to display during boot (the <literal>.splash</literal> section). The
+          argument is a path to a BMP file. If not specified, the section will not be present.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -348,14 +359,33 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>Splash=<replaceable>PATH</replaceable></varname></term>
-          <term><option>--splash=<replaceable>PATH</replaceable></option></term>
+          <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
+          <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
 
-          <listitem><para>A picture to display during boot (the <literal>.splash</literal> section). The
-          argument is a path to a BMP file. If not specified, the section will not be present.
-          </para>
+          <listitem><para>Specify the kernel version (as in <command>uname -r</command>, the
+          <literal>.uname</literal> section). If not specified, an attempt will be made to extract the
+          version string from the kernel image. It is recommended to pass this explicitly if known, because
+          the extraction is based on heuristics and not very reliable. If not specified and extraction fails,
+          the section will not be present.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SBAT=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--sbat=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+
+          <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
+          whole groups of UKIs or addons with a single, static policy update that does not take space in
+          DBX/MOKX. If not specified manually, a default metadata entry consisting of
+          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
+          for UKIs and
+          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
+          for addons will be used, to ensure it is always possible to revoke them. For more information on
+          SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -366,19 +396,6 @@
           specified, and there's exactly one
           <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> argument, that key will be used.
           Otherwise, the section will not be present.</para>
-
-          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
-          <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
-
-          <listitem><para>Specify the kernel version (as in <command>uname -r</command>, the
-          <literal>.uname</literal> section). If not specified, an attempt will be made to extract the
-          version string from the kernel image. It is recommended to pass this explicitly if known, because
-          the extraction is based on heuristics and not very reliable. If not specified and extraction fails,
-          the section will not be present.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -487,23 +504,6 @@
           been signed, the signature will be appended anyway.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>SBAT=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
-          <term><option>--sbat=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
-
-          <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
-          whole groups of UKIs or addons with a single, static policy update that does not take space in
-          DBX/MOKX. If not specified manually, a default metadata entry consisting of
-          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
-          for UKIs and
-          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
-          for addons will be used, to ensure it is always possible to revoke them. For more information on
-          SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -648,7 +648,7 @@ $ ukify -c ukify.conf build \
     </example>
 
     <example>
-      <title>Kernel command line auxiliary PE</title>
+      <title>Kernel command line PE addon</title>
 
       <programlisting>ukify build \
       --secureboot-private-key=sb.key \
@@ -656,7 +656,7 @@ $ ukify -c ukify.conf build \
       --cmdline='debug' \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
-      --output=debug.cmdline
+      --output=debug.addon.efi
       </programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
@@ -664,9 +664,9 @@ $ ukify -c ukify.conf build \
     </example>
 
     <example>
-      <title>Decide signing policy and create certificate and keys</title>
+      <title>Decide signing policy, and create certificate and keys</title>
 
-      <para>First, let's create an config file that specifies what signatures shall be made:</para>
+      <para>First, let's create a configuration file that specifies what signatures shall be made:</para>
 
       <programlisting># cat >/etc/kernel/uki.conf &lt;&lt;EOF
 <xi:include href="uki.conf.example" parse="text" />EOF</programlisting>

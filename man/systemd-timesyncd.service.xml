@@ -66,6 +66,16 @@
     to achieve that, which will delay start of units that are ordered after
     <filename>time-sync.target</filename> until synchronization to an accurate reference clock is
     reached.</para>
+
+    <para><filename>systemd</filename> and <filename>systemd-timesyncd</filename> advance the system clock to
+    the "epoch" (the lowest date above which the system clock time is assumed to be set correctly). See
+    "System clock epoch" section in
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details.
+    <filename>systemd</filename> will set the clock when initializing, but
+    <filename>/var/lib/systemd/timesync/clock</filename> might not yet be available at that point.
+    <filename>systemd-timesyncd</filename> will advance the clock when it is started and notices that the
+    system clock is before the modification time of <filename>/var/lib/systemd/timesync/clock</filename>.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -78,36 +88,24 @@
         <listitem>
           <para>The modification time ("mtime") of this file is updated on each successful NTP
           synchronization or after each <varname>SaveIntervalSec=</varname> time interval, as specified in
-          <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
 
-          <para>When initializing, the local clock is advanced to the modification time of this file (if the
-          file timestamp is in the past this adjustment is not made). If the file does not exist yet, the
-          clock is instead advanced to the modification time of <filename>/usr/lib/clock-epoch</filename> –
-          if it exists – or to a time derived from the source tree at build time. This mechanism is used to
-          ensure that the system clock remains somewhat reasonably initialized and roughly monotonic across
-          reboots, in case no battery-buffered local RTC is available.</para>
+          <para>If present, the modification time of this file is used for the epoch by
+          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+          <filename>systemd-timesyncd.service</filename>.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/usr/lib/clock-epoch</filename></term>
-
-        <listitem><para>The modification time ("mtime") of this file is used for advancing the system clock
-        in case <filename>/var/lib/systemd/timesync/clock</filename> does not exist yet, see
-        above.</para>
-
-        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><filename>/run/systemd/timesync/synchronized</filename></term>
 
         <listitem>
-          <para>A file that is touched on each successful synchronization, to assist
-          <filename>systemd-time-wait-sync</filename> and other applications to detecting synchronization
-          with accurate reference clocks.</para>
+          <para>A file that is touched on each successful synchronization to assist
+          <filename>systemd-time-wait-sync</filename> and other applications in detecting synchronization to
+          an accurate reference clock.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>

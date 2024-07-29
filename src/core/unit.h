@@ -577,7 +577,7 @@ typedef struct UnitVTable {
         /* Freeze or thaw the unit. Returns > 0 to indicate that the request will be handled asynchronously; unit_frozen
          * or unit_thawed should be called once the operation is done. Returns 0 if done successfully, or < 0 on error. */
         int (*freezer_action)(Unit *u, FreezerAction a);
-        bool (*can_freeze)(Unit *u);
+        bool (*can_freeze)(const Unit *u);
 
         /* Return which kind of data can be cleaned */
         int (*can_clean)(Unit *u, ExecCleanMask *ret);
@@ -630,7 +630,10 @@ typedef struct UnitVTable {
         void (*notify_cgroup_oom)(Unit *u, bool managed_oom);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, const struct ucred *ucred, char * const *tags, FDSet *fds);
+        void (*notify_message)(Unit *u, PidRef *pidref, const struct ucred *ucred, char * const *tags, FDSet *fds);
+
+        /* Called whenever we learn a handoff timestamp */
+        void (*notify_handoff_timestamp)(Unit *u, const struct ucred *ucred, const dual_timestamp *ts);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *new_owner);
@@ -840,13 +843,12 @@ int unit_load(Unit *unit);
 int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
-const char *unit_description(Unit *u) _pure_;
-const char *unit_status_string(Unit *u, char **combined);
+const char* unit_description(Unit *u) _pure_;
+const char* unit_status_string(Unit *u, char **combined);
 
 bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
-FreezerState unit_freezer_state(Unit *u);
 
 const char* unit_sub_state_to_string(Unit *u);
 
@@ -859,7 +861,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
+int unit_kill(Unit *u, KillWhom w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
@@ -883,8 +885,8 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 
 int set_unit_path(const char *p);
 
-char *unit_dbus_path(Unit *u);
-char *unit_dbus_path_invocation_id(Unit *u);
+char* unit_dbus_path(Unit *u);
+char* unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
@@ -903,7 +905,7 @@ void unit_reset_failed(Unit *u);
 Unit *unit_following(Unit *u);
 int unit_following_set(Unit *u, Set **s);
 
-const char *unit_slice_name(Unit *u);
+const char* unit_slice_name(Unit *u);
 
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
@@ -913,7 +915,7 @@ bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
-void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyAtom atom, JobMode job_mode);
+void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
@@ -1034,11 +1036,11 @@ bool unit_can_start_refuse_manual(Unit *u);
 bool unit_can_stop_refuse_manual(Unit *u);
 bool unit_can_isolate_refuse_manual(Unit *u);
 
-bool unit_can_freeze(Unit *u);
+bool unit_can_freeze(const Unit *u);
 int unit_freezer_action(Unit *u, FreezerAction action);
-void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_tgt);
-void unit_frozen(Unit *u);
-void unit_thawed(Unit *u);
+void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_next, FreezerState *ret_objective);
+void unit_set_freezer_state(Unit *u, FreezerState state);
+void unit_freezer_complete(Unit *u, FreezerState kernel_state);
 
 Condition *unit_find_failed_condition(Unit *u);
 

@@ -36,6 +36,8 @@ test_append_files() {
     fi
     inst_binary mksquashfs
     inst_binary unsquashfs
+    inst_binary pkcheck
+    inst_binary veritysetup
     install_verity_minimal
 }
 

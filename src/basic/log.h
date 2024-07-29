@@ -35,9 +35,8 @@ typedef enum LogTarget{
  * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
 
-/* Note to readers: << and >> have lower precedence (are evaluated earlier) than & and | */
-#define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
-#define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
+#define SYNTHETIC_ERRNO(num)                (abs(num) | (1 << 30))
+#define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
 #define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
 
 /* The callback function to be invoked when syntax warnings are seen
@@ -49,7 +48,7 @@ static inline void clear_log_syntax_callback(dummy_t *dummy) {
           set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
 }
 
-const char *log_target_to_string(LogTarget target) _const_;
+const char* log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 void log_set_target(LogTarget target);
 void log_set_target_and_open(LogTarget target);
@@ -432,8 +431,8 @@ typedef struct LogRateLimit {
 #define log_ratelimit_error_errno(error, ...)     log_ratelimit_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_ratelimit_emergency_errno(error, ...) log_ratelimit_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
-const char *_log_set_prefix(const char *prefix, bool force);
-static inline const char *_log_unset_prefixp(const char **p) {
+const char* _log_set_prefix(const char *prefix, bool force);
+static inline const char* _log_unset_prefixp(const char **p) {
         assert(p);
         _log_set_prefix(*p, true);
         return NULL;

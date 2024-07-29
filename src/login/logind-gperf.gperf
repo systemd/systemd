@@ -37,6 +37,7 @@ Login.HandleHibernateKeyLongPress,  config_parse_handle_action,         0, offse
 Login.HandleLidSwitch,              config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch)
 Login.HandleLidSwitchExternalPower, config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_ep)
 Login.HandleLidSwitchDocked,        config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_docked)
+Login.HandleSecureAttentionKey,     config_parse_handle_action,         0, offsetof(Manager, handle_secure_attention_key)
 Login.PowerKeyIgnoreInhibited,      config_parse_bool,                  0, offsetof(Manager, power_key_ignore_inhibited)
 Login.SuspendKeyIgnoreInhibited,    config_parse_bool,                  0, offsetof(Manager, suspend_key_ignore_inhibited)
 Login.HibernateKeyIgnoreInhibited,  config_parse_bool,                  0, offsetof(Manager, hibernate_key_ignore_inhibited)
@@ -50,5 +51,6 @@ Login.RuntimeDirectoryInodesMax,    config_parse_iec_uint64,            0, offse
 Login.RemoveIPC,                    config_parse_bool,                  0, offsetof(Manager, remove_ipc)
 Login.InhibitorsMax,                config_parse_uint64,                0, offsetof(Manager, inhibitors_max)
 Login.SessionsMax,                  config_parse_uint64,                0, offsetof(Manager, sessions_max)
+Login.DesignatedMaintenanceTime,    config_parse_calendar,              0, offsetof(Manager, maintenance_time)
 Login.UserTasksMax,                 config_parse_compat_user_tasks_max, 0, 0
 Login.StopIdleSessionSec,           config_parse_sec_fix_0,             0, offsetof(Manager, stop_idle_session_usec)

@@ -9,13 +9,17 @@
 #if HAVE_XKBCOMMON
 static void *xkbcommon_dl = NULL;
 
-DLSYM_FUNCTION(xkb_context_new);
-DLSYM_FUNCTION(xkb_context_unref);
-DLSYM_FUNCTION(xkb_context_set_log_fn);
-DLSYM_FUNCTION(xkb_keymap_new_from_names);
-DLSYM_FUNCTION(xkb_keymap_unref);
+DLSYM_PROTOTYPE(xkb_context_new) = NULL;
+DLSYM_PROTOTYPE(xkb_context_unref) = NULL;
+DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
 static int dlopen_xkbcommon(void) {
+        ELF_NOTE_DLOPEN("xkbcommon",
+                        "Support for keyboard locale descriptions",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libxkbcommon.so.0");
+
         return dlopen_many_sym_or_warn(
                         &xkbcommon_dl, "libxkbcommon.so.0", LOG_DEBUG,
                         DLSYM_ARG(xkb_context_new),

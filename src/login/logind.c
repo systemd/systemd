@@ -1036,7 +1036,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                         else
                                 log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
 
-                        manager_handle_action(m, 0, m->idle_action, false, is_edge);
+                        manager_handle_action(m, /* inhibit_key= */ 0, m->idle_action, /* ignore_inhibited= */ false, is_edge, /* action_seat= */ NULL);
                         m->idle_action_not_before_usec = n;
                 }
 

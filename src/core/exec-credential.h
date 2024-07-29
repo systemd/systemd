@@ -9,11 +9,11 @@
 
 typedef struct ExecContext ExecContext;
 typedef struct ExecParameters ExecParameters;
-typedef struct Unit Unit;
 
 /* A credential configured with LoadCredential= */
 typedef struct ExecLoadCredential {
-        char *id, *path;
+        char *id;
+        char *path;
         bool encrypted;
 } ExecLoadCredential;
 
@@ -25,14 +25,19 @@ typedef struct ExecSetCredential {
         size_t size;
 } ExecSetCredential;
 
-ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc);
+ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
 
-ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
+ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 
-extern const struct hash_ops exec_set_credential_hash_ops;
-extern const struct hash_ops exec_load_credential_hash_ops;
+int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted);
+int exec_context_put_set_credential(
+                ExecContext *c,
+                const char *id,
+                void *data_consume,
+                size_t size,
+                bool encrypted);
 
 bool exec_params_need_credentials(const ExecParameters *p);
 
@@ -45,9 +50,8 @@ int exec_context_get_credential_directory(
                 const char *unit,
                 char **ret);
 
-int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c);
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
 
-int exec_context_destroy_credentials(Unit *u);
 int exec_setup_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,

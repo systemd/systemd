@@ -166,11 +166,7 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
                 }
         }
 
-        r = ordered_hashmap_ensure_allocated(&hwdb->properties, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_replace(hwdb->properties, key, (void *)entry);
+        r = ordered_hashmap_ensure_replace(&hwdb->properties, &string_hash_ops, key, (void *) entry);
         if (r < 0)
                 return r;
 
@@ -313,15 +309,15 @@ static int hwdb_new(const char *path, sd_hwdb **ret) {
 
                 if (!hwdb->f)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "hwdb.bin does not exist, please run 'systemd-hwdb update'");
+                                               "hwdb.bin does not exist, please run 'systemd-hwdb update'.");
         }
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0)
                 return log_debug_errno(errno, "Failed to stat %s: %m", path);
         if (hwdb->st.st_size < (off_t) offsetof(struct trie_header_f, strings_len) + 8)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "File %s is too short: %m", path);
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "File %s is too short.", path);
         if (file_offset_beyond_memory_size(hwdb->st.st_size))
-                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "File %s is too long: %m", path);
+                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "File %s is too long.", path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
@@ -330,7 +326,7 @@ static int hwdb_new(const char *path, sd_hwdb **ret) {
         if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
             (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to recognize the format of %s", path);
+                                       "Failed to recognize the format of %s.", path);
 
         log_debug("=== trie on-disk ===");
         log_debug("tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));

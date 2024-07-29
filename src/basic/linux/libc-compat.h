@@ -46,8 +46,8 @@
  *
  * This prevents the redefinition of a construct already defined by the kernel.
  */
-#ifndef _UAPI_LIBC_COMPAT_H
-#define _UAPI_LIBC_COMPAT_H
+#ifndef _LIBC_COMPAT_H
+#define _LIBC_COMPAT_H
 
 /* We have included glibc headers... */
 #if defined(__GLIBC__)
@@ -264,4 +264,4 @@
 
 #endif /* __GLIBC__ */
 
-#endif /* _UAPI_LIBC_COMPAT_H */
+#endif /* _LIBC_COMPAT_H */

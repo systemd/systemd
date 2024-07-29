@@ -83,8 +83,7 @@ static int run(int argc, char *argv[]) {
         /* This is mostly intended to be used for scripts which want
          * to detect whether AC power is plugged in or not. */
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

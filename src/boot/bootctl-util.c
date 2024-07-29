@@ -27,7 +27,7 @@ int sync_everything(void) {
         return r;
 }
 
-const char *get_efi_arch(void) {
+const char* get_efi_arch(void) {
         /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32-bit
          * while the kernel is running in 64-bit. */
 

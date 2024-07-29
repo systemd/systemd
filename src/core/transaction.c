@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
@@ -964,7 +965,7 @@ int transaction_add_job_and_dependencies(
 
         if (type != JOB_STOP) {
                 r = bus_unit_validate_load_state(unit, e);
-                /* The time-based cache allows to start new units without daemon-reload, but if they are
+                /* The time-based cache allows new units to be started without daemon-reload, but if they are
                  * already referenced (because of dependencies or ordering) then we have to force a load of
                  * the fragment. As an optimization, check first if anything in the usual paths was modified
                  * since the last time the cache was loaded. Also check if the last time an attempt to load

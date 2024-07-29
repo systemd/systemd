@@ -42,15 +42,12 @@ STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 /* For testing type compatibility. */
 _unused_ ConfigPerfItemLookup unused_lookup = load_fragment_gperf_lookup;
 
-TEST_RET(unit_file_get_set) {
+TEST_RET(unit_file_get_list) {
         int r;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         UnitFileList *p;
 
-        h = hashmap_new(&unit_file_list_hash_ops_free);
-        assert_se(h);
-
-        r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, h, NULL, NULL);
+        r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL, &h);
         if (IN_SET(r, -EPERM, -EACCES))
                 return log_tests_skipped_errno(r, "unit_file_get_list");
 

@@ -101,7 +101,7 @@
     If specified, the identifier returned by the peer after the connection is established will be checked and
     the connection will be rejected in case of a mismatch.</para>
 
-    <para>Note that the addresses passed to <function>sd_bus_set_address()</function> may not be verified
+    <para>Note that the addresses passed to <function>sd_bus_set_address()</function> might not be verified
     immediately. If they are invalid, an error may be returned e.g. from a subsequent call to
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>

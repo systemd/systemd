@@ -104,7 +104,6 @@ node /org/freedesktop/login1 {
                              out s seat_id,
                              out u vtnr,
                              out b existing);
-      @org.freedesktop.systemd1.Privileged("true")
       ReleaseSession(in  s session_id);
       ActivateSession(in  s session_id);
       ActivateSessionOnSeat(in  s session_id,
@@ -114,7 +113,7 @@ node /org/freedesktop/login1 {
       LockSessions();
       UnlockSessions();
       KillSession(in  s session_id,
-                  in  s who,
+                  in  s whom,
                   in  i signal_number);
       KillUser(in  u uid,
                in  i signal_number);
@@ -170,6 +169,8 @@ node /org/freedesktop/login1 {
       SetWallMessage(in  s wall_message,
                      in  b enable);
     signals:
+      SecureAttentionKey(s seat_id,
+                         o object_path);
       SessionNew(s session_id,
                  o object_path);
       SessionRemoved(s session_id,
@@ -245,6 +246,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandleLidSwitchDocked = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleSecureAttentionKey = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t HoldoffTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IdleAction = '...';
@@ -254,8 +257,9 @@ node /org/freedesktop/login1 {
       readonly b PreparingForShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (st) ScheduledShutdown = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DesignatedMaintenanceTime = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
       readonly b LidClosed = ...;
@@ -295,6 +299,10 @@ node /org/freedesktop/login1 {
     <!--property HandleSuspendKeyLongPress is not documented!-->
 
     <!--property HandleHibernateKeyLongPress is not documented!-->
+
+    <!--property HandleSecureAttentionKey is not documented!-->
+
+    <!--property DesignatedMaintenanceTime is not documented!-->
 
     <!--property StopIdleSessionUSec is not documented!-->
 
@@ -428,6 +436,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetWallMessage()"/>
 
+    <variablelist class="dbus-signal" generated="True" extra-ref="SecureAttentionKey()"/>
+
     <variablelist class="dbus-signal" generated="True" extra-ref="SessionNew()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="SessionRemoved()"/>
@@ -506,6 +516,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="HandleLidSwitchDocked"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="HandleSecureAttentionKey"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="HoldoffTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IdleAction"/>
@@ -517,6 +529,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="PreparingForSleep"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ScheduledShutdown"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DesignatedMaintenanceTime"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Docked"/>
 
@@ -651,15 +665,18 @@ node /org/freedesktop/login1 {
 #define SD_LOGIND_KEXEC_REBOOT                   (UINT64_C(1) &lt;&lt; 1)
 #define SD_LOGIND_SOFT_REBOOT                    (UINT64_C(1) &lt;&lt; 2)
 #define SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP (UINT64_C(1) &lt;&lt; 3)
+#define SD_LOGIND_SKIP_INHIBITORS                (UINT64_C(1) &lt;&lt; 4)
       </programlisting>
       <para>When the <varname>flags</varname> is 0 then these methods behave just like the versions without
-      flags. When <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is set, active inhibitors are
-      honoured for privileged users too. When <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set,
-      then <function>RebootWithFlags()</function> performs a kexec reboot if kexec kernel is loaded. When
-      <constant>SD_LOGIND_SOFT_REBOOT</constant> (0x04) is set, or
-      <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a new root file system
-      has been set up on <literal>/run/nextroot/</literal>, then <function>RebootWithFlags()</function>
-      performs a userspace reboot only. <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
+      flags. Since systemd version 256 <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is deprecated,
+      and active inhibitors are always honoured by default for privileged users too, and a new flag
+      <constant>SD_LOGIND_SKIP_INHIBITORS</constant> (0x04) can be specified to bypass inhibitors. When
+      <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then <function>RebootWithFlags()</function>
+      performs a kexec reboot if kexec kernel is loaded. When <constant>SD_LOGIND_SOFT_REBOOT</constant>
+      (0x04) is set, or <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a
+      new root file system has been set up on <literal>/run/nextroot/</literal>, then
+      <function>RebootWithFlags()</function> performs a userspace reboot only.
+      <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
       <constant>SD_LOGIND_KEXEC_REBOOT</constant> can be combined, with soft-reboot having precedence.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
@@ -689,7 +706,10 @@ node /org/freedesktop/login1 {
       <literal>challenge</literal> is returned, the operation is available but only after authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
-      time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
+      time <varname>usec</varname> in microseconds since the UNIX epoch. Alternatively, if
+      <varname>usec</varname> <literal>UINT64_MAX</literal> and a maintenance window is
+      configured, <filename>systemd-logind</filename> will use the next time of the maintenance window
+      instead. <varname>type</varname> can be one
       of <literal>poweroff</literal>, <literal>dry-poweroff</literal>, <literal>reboot</literal>,
       <literal>dry-reboot</literal>, <literal>halt</literal>, and <literal>dry-halt</literal>. (The
       <literal>dry-</literal> variants do not actually execute the shutdown action.)
@@ -714,9 +734,11 @@ node /org/freedesktop/login1 {
       should be a short human readable string identifying the reason why the lock is taken. Finally,
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
-      certain maximum time. The method returns a file descriptor. The lock is released the moment this file
-      descriptor and all its duplicates are closed. For more information on the inhibition logic see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
+      certain maximum time, while the <literal>block-weak</literal> and <literal>delay-weak</literal>
+      variants will create an inhibitor that is automatically ignored in some circumstances. The method
+      returns a file descriptor. The lock is released the moment this file descriptor and all its duplicates
+      are closed. For more information on the inhibition logic see
+      <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
 
@@ -725,6 +747,10 @@ node /org/freedesktop/login1 {
 
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
+
+      <para>The <function>SecureAttentionKey()</function> signal is sent when the user presses Ctrl+Alt+Shift+Esc to
+      request the login manager to display the greeter, for instance in the case of a deadlocked compositor.
+      </para>
 
       <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
       <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
@@ -740,7 +766,7 @@ node /org/freedesktop/login1 {
       that should be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
       completion of this work they should release their inhibition locks in order to not delay the operation
       any further. For more information see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>. The
+      <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>. The
       <function>PrepareForShutdownWithMetadata()</function> signal additionally sends a list of key/value
       pair metadata fields. Currently it sends a <varname>type</varname> string which defines the type of
       shutdown. The type can be one of <literal>power-off</literal>, <literal>reboot</literal>,
@@ -1141,7 +1167,7 @@ node /org/freedesktop/login1/session/1 {
       Unlock();
       SetIdleHint(in  b idle);
       SetLockedHint(in  b locked);
-      Kill(in  s who,
+      Kill(in  s whom,
            in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
@@ -1580,8 +1606,11 @@ node /org/freedesktop/login1/session/1 {
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
       <function>CanSleep()</function>,
-      <varname>SleepOperation</varname>, and
+      <varname>SleepOperation</varname>,
+      <varname>DesignatedMaintenanceTime</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
+      <para><varname>HandleSecureAttentionKey</varname>, and
+      <function>SecureAttentionKey()</function> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>

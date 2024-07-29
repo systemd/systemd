@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Driver=netdevsim
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path mac
+# Also set a fixed name. Workaround for bug in kernel 6.9:
+# https://github.com/torvalds/linux/commit/8debcf5832c3e8a6baaea27c75ad8a6ba5077beb
+AlternativeName=sim99
+MACAddressPolicy=persistent

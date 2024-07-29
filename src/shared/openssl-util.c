@@ -1302,7 +1302,7 @@ int pkey_generate_volume_keys(
                 return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
 
         case NID_undef:
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key.");
 
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
@@ -1416,7 +1416,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         sha256_direct(der, dersz, buffer);
         return 0;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint: %m");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint.");
 #endif
 }
 

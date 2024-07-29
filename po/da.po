@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
 "PO-Revision-Date: 2021-06-02 16:03+0000\n"
 "Last-Translator: scootergrisen <scootergrisen@gmail.com>\n"
 "Language-Team: Danish <https://translate.fedoraproject.org/projects/systemd/"
@@ -259,40 +259,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -1013,7 +1013,7 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Der kræves godkendelse for at genkonfigurere netværksgrænseflade."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:188
@@ -1157,7 +1157,7 @@ msgid ""
 msgstr ""
 "Der kræves godkendelse for at nulstille \"fejl\"-tilstanden på '$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

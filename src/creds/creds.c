@@ -3,6 +3,9 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+#include "sd-varlink.h"
+
 #include "build.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
@@ -12,7 +15,8 @@
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "json.h"
+#include "json-util.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
@@ -26,7 +30,6 @@
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "verbs.h"
 
@@ -40,7 +43,7 @@ typedef enum TranscodeMode {
         _TRANSCODE_INVALID = -EINVAL,
 } TranscodeMode;
 
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_system = false;
@@ -128,6 +131,29 @@ not_found:
         return 0;
 }
 
+static int is_tmpfs_with_noswap(dev_t devno) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        int r;
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_mtab(table, /* filename= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct libmnt_fs *fs = mnt_table_find_devno(table, devno, MNT_ITER_FORWARD);
+        if (!fs)
+                return -ENODEV;
+
+        r = mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        if (r < 0)
+                return r;
+
+        return r == 0;
+}
+
 static int add_credentials_to_table(Table *t, bool encrypted) {
         _cleanup_closedir_ DIR *d = NULL;
         const char *prefix;
@@ -184,12 +210,24 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                         secure = "insecure"; /* Anything that is accessible more than read-only to its owner is insecure */
                         secure_color = ansi_highlight_red();
                 } else {
-                        r = fd_is_fs_type(fd, RAMFS_MAGIC);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine backing file system of '%s': %m", de->d_name);
+                        struct statfs sfs;
+                        if (fstatfs(fd, &sfs) < 0)
+                                return log_error_errno(r, "fstatfs() failed on '%s': %m", de->d_name);
 
-                        secure = r > 0 ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
-                        secure_color = r > 0 ? ansi_highlight_green() : ansi_highlight_yellow4();
+                        bool is_secure;
+                        if (is_fs_type(&sfs, RAMFS_MAGIC))
+                                is_secure = true; /* ramfs is not swappable, hence "secure" */
+                        else if (is_fs_type(&sfs, TMPFS_MAGIC)) {
+                                r = is_tmpfs_with_noswap(st.st_dev);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if file system of '%s' has 'noswap' enabled, assuming not: %m", de->d_name);
+
+                                is_secure = r > 0;
+                        } else
+                                is_secure = false; /* everything else we assume is not "secure" */
+
+                        secure = is_secure ? "secure" : "weak";
+                        secure_color = is_secure ? ansi_highlight_green() : ansi_highlight_yellow4();
                 }
 
                 j = path_join(prefix, de->d_name);
@@ -235,7 +273,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_isempty(t)) {
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && table_isempty(t)) {
                 log_info("No credentials");
                 return 0;
         }
@@ -332,19 +370,19 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         int r;
 
         if (arg_transcode == TRANSCODE_OFF &&
-            arg_json_format_flags != JSON_FORMAT_OFF) {
+            arg_json_format_flags != SD_JSON_FORMAT_OFF) {
                 _cleanup_(erase_and_freep) char *suffixed = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 r = make_cstring(data, size, MAKE_CSTRING_REFUSE_TRAILING_NUL, &suffixed);
                 if (r < 0)
                         return log_error_errno(r, "Unable to convert binary string to C string: %m");
 
-                r = json_parse(suffixed, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(suffixed, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 
-                json_variant_dump(v, arg_json_format_flags, f, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, f, NULL);
                 return 0;
         }
 
@@ -382,9 +420,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 int encrypted;
 
                 if (!credential_name_valid(*cn)) {
-                        log_error("Credential name '%s' is not valid.", *cn);
-                        if (ret >= 0)
-                                ret = -EINVAL;
+                        RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' is not valid.", *cn));
                         continue;
                 }
 
@@ -409,16 +445,11 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                         if (r >= 0) /* Found */
                                 break;
 
-                        log_error_errno(r, "Failed to read credential '%s': %m", *cn);
-                        if (ret >= 0)
-                                ret = r;
+                        RET_GATHER(ret, log_error_errno(r, "Failed to read credential '%s': %m", *cn));
                 }
 
                 if (encrypted >= 2) { /* Found nowhere */
-                        log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Credential '%s' not set.", *cn);
-                        if (ret >= 0)
-                                ret = -ENOENT;
-
+                        RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Credential '%s' not set.", *cn));
                         continue;
                 }
 
@@ -1025,7 +1056,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
                 arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         arg_varlink = r;
@@ -1095,7 +1126,7 @@ static void method_encrypt_parameters_done(MethodEncryptParameters *p) {
 }
 
 static int settle_scope(
-                Varlink *link,
+                sd_varlink *link,
                 CredentialScope *scope,
                 uid_t *uid,
                 CredentialFlags *flags,
@@ -1109,7 +1140,7 @@ static int settle_scope(
         assert(uid);
         assert(flags);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1132,22 +1163,22 @@ static int settle_scope(
         } else {
                 assert(*scope == CREDENTIAL_SYSTEM);
                 if (uid_is_valid(*uid))
-                        return varlink_error_invalid_parameter_name(link, "uid");
+                        return sd_varlink_error_invalid_parameter_name(link, "uid");
         }
 
         return 0;
 }
 
-static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, name),      0 },
-                { "text",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, text),      0 },
-                { "data",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodEncryptParameters, data),      0 },
-                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, timestamp), 0 },
-                { "notAfter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, not_after), 0 },
-                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodEncryptParameters, scope),     0 },
-                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodEncryptParameters, uid),       0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodEncryptParameters, name),      0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodEncryptParameters, text),      0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodEncryptParameters, data),      0 },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, timestamp), 0 },
+                { "notAfter",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, not_after), 0 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodEncryptParameters, scope),     0 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodEncryptParameters, uid),       0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1166,28 +1197,28 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.name && !credential_name_valid(p.name))
-                return varlink_error_invalid_parameter_name(link, "name");
+                return sd_varlink_error_invalid_parameter_name(link, "name");
         /* Specifying both or neither the text string and the binary data is not allowed */
         if (!!p.text == !!p.data.iov_base)
-                return varlink_error_invalid_parameter_name(link, "data");
+                return sd_varlink_error_invalid_parameter_name(link, "data");
         if (p.timestamp == UINT64_MAX) {
                 p.timestamp = now(CLOCK_REALTIME);
                 timestamp_fresh = true;
         } else
                 timestamp_fresh = timestamp_is_fresh(p.timestamp);
         if (p.not_after != UINT64_MAX && p.not_after < p.timestamp)
-                return varlink_error_invalid_parameter_name(link, "notAfter");
+                return sd_varlink_error_invalid_parameter_name(link, "notAfter");
 
         r = settle_scope(link, &p.scope, &p.uid, &cflags, /* any_scope_after_polkit= */ NULL);
         if (r < 0)
                 return r;
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1220,20 +1251,20 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         cflags,
                         &output);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r < 0)
                 return r;
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output));
         if (r < 0)
                 return r;
 
         /* Let's also mark the (theoretically encrypted) reply as sensitive, in case the NULL encryption scheme was used. */
-        json_variant_sensitive(reply);
+        sd_json_variant_sensitive(reply);
 
-        return varlink_reply(link, reply);
+        return sd_varlink_reply(link, reply);
 }
 
 typedef struct MethodDecryptParameters {
@@ -1250,14 +1281,14 @@ static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
         iovec_done_erase(&p->blob);
 }
 
-static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodDecryptParameters, name),      0              },
-                { "blob",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodDecryptParameters, blob),      JSON_MANDATORY },
-                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodDecryptParameters, timestamp), 0              },
-                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodDecryptParameters, scope),     0              },
-                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodDecryptParameters, uid),       0              },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),      0                 },
+                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),      SD_JSON_MANDATORY },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp), 0                 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),     0                 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),       0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1275,12 +1306,12 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
         if (p.name && !credential_name_valid(p.name))
-                return varlink_error_invalid_parameter_name(link, "name");
+                return sd_varlink_error_invalid_parameter_name(link, "name");
         if (p.timestamp == UINT64_MAX) {
                 p.timestamp = now(CLOCK_REALTIME);
                 timestamp_fresh = true;
@@ -1291,7 +1322,7 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
         if (r < 0)
                 return r;
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
 
@@ -1332,27 +1363,27 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
         }
 
         if (r == -EBADMSG)
-                return varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
         if (r == -EREMOTE)
-                return varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
         if (r == -ESTALE)
-                return varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
         if (r == -ESRCH)
-                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r == -EMEDIUMTYPE)
-                return varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
         if (r < 0)
                 return r;
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
-        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("data", &output)));
+        r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("data", &output));
         if (r < 0)
                 return r;
 
-        json_variant_sensitive(reply);
+        sd_json_variant_sensitive(reply);
 
-        return varlink_reply(link, reply);
+        return sd_varlink_reply(link, reply);
 }
 
 static int run(int argc, char *argv[]) {
@@ -1365,29 +1396,29 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
                 _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.Credentials.Encrypt", vl_method_encrypt,
                                 "io.systemd.Credentials.Decrypt", vl_method_decrypt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                varlink_server_set_userdata(varlink_server, &polkit_registry);
+                sd_varlink_server_set_userdata(varlink_server, &polkit_registry);
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 

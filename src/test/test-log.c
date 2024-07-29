@@ -13,11 +13,6 @@
 #include "strv.h"
 #include "tests.h"
 
-assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
-assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
-assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
-assert_cc(!IS_SYNTHETIC_ERRNO(0));
-
 #define X10(x) x x x x x x x x x x
 #define X100(x) X10(X10(x))
 #define X1000(x) X100(X10(x))
@@ -226,6 +221,15 @@ static void test_log_prefix(void) {
 
 int main(int argc, char* argv[]) {
         test_setup_logging(LOG_DEBUG);
+
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(-EINVAL)));
+        assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
+        assert_cc(!IS_SYNTHETIC_ERRNO(-EINVAL));
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
+        assert_cc(!IS_SYNTHETIC_ERRNO(0));
+        ASSERT_EQ(ERRNO_VALUE(EINVAL), EINVAL);
+        ASSERT_EQ(ERRNO_VALUE(SYNTHETIC_ERRNO(-EINVAL)), EINVAL);
 
         test_assert_return_is_critical();
         test_file();

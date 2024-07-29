@@ -24,10 +24,10 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "signal-util.h"
 #include "sort-util.h"
-#include "spawn-polkit-agent.h"
 #include "string-table.h"
 #include "verbs.h"
 #include "web-util.h"
@@ -42,7 +42,7 @@ static bool arg_quiet = false;
 static bool arg_ask_password = true;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
 
 #define PROGRESS_PREFIX "Total: "
@@ -298,7 +298,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTar");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -377,7 +377,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRaw");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -447,7 +447,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open directory '%s': %m", path);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystem");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -545,7 +545,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                                 image_class_to_string(arg_image_class),
                                 fd >= 0 ? fd : STDOUT_FILENO,
                                 arg_format,
-                                /* flags= */ 0);
+                                /* flags= */ UINT64_C(0));
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -604,7 +604,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                                 image_class_to_string(arg_image_class),
                                 fd >= 0 ? fd : STDOUT_FILENO,
                                 arg_format,
-                                /* flags= */ 0);
+                                /* flags= */ UINT64_C(0));
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -653,7 +653,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -726,7 +726,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -912,6 +912,11 @@ static int list_images(int argc, char *argv[], void *userdata) {
         (void) table_hide_column_from_display(t, 8);
         (void) table_hide_column_from_display(t, 10);
 
+        /* Starting in v257, these fields would be automatically formatted with underscores. However, this
+         * command was introduced in v256, so changing the field name would be a breaking change. */
+        (void) table_set_json_field_name(t, 8, "usage-exclusive");
+        (void) table_set_json_field_name(t, 10, "limit-exclusive");
+
         for (;;) {
                 uint64_t crtime, mtime, usage, usage_exclusive, limit, limit_exclusive;
                 const char *class, *name, *type, *path;
@@ -932,7 +937,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, read_only ? "ro" : "rw",
@@ -1151,7 +1156,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         arg_legend = false;
                         break;
 

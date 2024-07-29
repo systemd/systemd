@@ -66,6 +66,23 @@ sd_login_sources = files('sd-login/sd-login.c')
 
 ############################################################
 
+sd_json_sources = files(
+        'sd-json/json-util.c',
+        'sd-json/sd-json.c',
+)
+
+############################################################
+
+sd_varlink_sources = files(
+        'sd-varlink/sd-varlink.c',
+        'sd-varlink/sd-varlink-idl.c',
+        'sd-varlink/varlink-io.systemd.c',
+        'sd-varlink/varlink-org.varlink.service.c',
+        'sd-varlink/varlink-util.c',
+)
+
+############################################################
+
 libsystemd_sources = files(
         'sd-bus/bus-common-errors.c',
         'sd-bus/bus-container.c',
@@ -109,7 +126,7 @@ libsystemd_sources = files(
         'sd-network/sd-network.c',
         'sd-path/sd-path.c',
         'sd-resolve/sd-resolve.c',
-) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
+) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources + sd_json_sources + sd_varlink_sources
 
 libsystemd_c_args = ['-fvisibility=default']
 
@@ -118,8 +135,9 @@ libsystemd_static = static_library(
         libsystemd_sources,
         include_directories : libsystemd_includes,
         c_args : libsystemd_c_args,
-        link_with : [libbasic],
+        link_with : [libbasic_static],
         dependencies : [threads,
+                        libm,
                         librt,
                         userspace],
         build_by_default : false)
@@ -158,6 +176,10 @@ libsystemd_tests += [
                 'sources' : files('sd-journal/test-journal-enum.c'),
                 'timeout' : 360,
         },
+        {
+                'sources' : files('sd-event/test-event.c'),
+                'timeout' : 120,
+        }
 ]
 
 ############################################################
@@ -170,7 +192,6 @@ simple_tests += files(
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
         'sd-device/test-sd-device.c',
-        'sd-event/test-event.c',
         'sd-journal/test-journal-flush.c',
         'sd-journal/test-journal-interleaving.c',
         'sd-journal/test-journal-stream.c',

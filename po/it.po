@@ -2,13 +2,13 @@
 #
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
-# Daniele Medri <dmedri@gmail.com>, 2013-2023.
+# Daniele Medri <dmedri@gmail.com>, 2013-2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2023-11-10 10:20+0100\n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-05-02 04:40+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: italian\n"
 "Language: it\n"
@@ -135,14 +135,12 @@ msgstr ""
 "utente."
 
 #: src/home/org.freedesktop.home1.policy:73
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Crea un'area home"
+msgstr "Attiva un'area home"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Autenticazione richiesta per creare l'area home di un utente."
+msgstr "Autenticazione richiesta per attivare l'area home di un utente."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -279,40 +277,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Troppi tentativi d'accesso falliti per l'utente %s, rifiuto."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "Record utente bloccato, accesso negato."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Record utente non è ancora valido, accesso negato."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Record utente non più valido, accesso negato."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "Record utente non valido, accesso negato."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Troppi tentativi d'accesso, riprova in %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "Aggiornamento password richiesto."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "La password è scaduta, aggiornamento richiesto."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr "La password è scaduta, ma non può essere cambiata, login rifiutato."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "La password scadrà a breve, per piacere cambiala."
 
@@ -372,46 +370,39 @@ msgid "Authentication is required to get system description."
 msgstr "L'autenticazione è necessaria per ottenere la descrizione del sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importa un'immagine VM o un container"
+msgstr "Importa un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr "Autenticazione richiesta per importare un'immagine VM o un container"
+msgstr "Autenticazione richiesta per importare un'immagine"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Esporta un'immagine VM o un container"
+msgstr "Esporta un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr "Autenticazione richiesta per esportare un'immagine VM o un container"
+msgstr "Autenticazione richiesta per esportare un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Scarica un'immagine VM o un container"
+msgstr "Scarica un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr "Autenticazione richiesta per scaricare un'immagine VM o un container"
+msgstr "Autenticazione richiesta per scaricare un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Annulla il trasferimento di un'immagine disco"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
 msgstr ""
-"Autenticazione richiesta per modificare la password dell'area home di un "
-"utente."
+"Autenticazione richiesta per annullare il trasferimento in corso di "
+"un'immagine disco"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -1046,14 +1037,20 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Autenticazione richiesta per riconfigurare l'interfaccia di rete."
 
 #: src/network/org.freedesktop.network1.policy:187
-msgid "Specify whether persistent storage for systemd-networkd is available."
+#, fuzzy
+#| msgid ""
+#| "Specify whether persistent storage for systemd-networkd is available."
+msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Specifica se è disponibile l'archiviazione persistente per systemd-networkd."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Autenticazione richiesta per specificare se è disponibile l'archiviazione "
+"persistente per systemd-networkd."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1196,7 +1193,7 @@ msgstr ""
 "Autenticazione richiesta per eliminare i file e le directory associate a "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "common-signal.h"
 #include "cgroup-util.h"
@@ -16,7 +17,6 @@
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
-#include "varlink.h"
 
 struct libmnt_monitor;
 typedef struct Unit Unit;
@@ -286,6 +286,9 @@ struct Manager {
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
 
+        int handoff_timestamp_fds[2];
+        sd_event_source *handoff_timestamp_event_source;
+
         RuntimeScope runtime_scope;
 
         LookupPaths lookup_paths;
@@ -483,12 +486,12 @@ struct Manager {
         unsigned sigchldgen;
         unsigned notifygen;
 
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
          * we're a user manager, this object manages the client connection from the user manager to
          * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
-        Varlink *managed_oom_varlink;
+        sd_varlink *managed_oom_varlink;
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
@@ -616,8 +619,6 @@ int manager_ref_uid(Manager *m, uid_t uid, bool clean_ipc);
 void manager_unref_gid(Manager *m, gid_t gid, bool destroy_now);
 int manager_ref_gid(Manager *m, gid_t gid, bool clean_ipc);
 
-char* manager_taint_string(const Manager *m);
-
 void manager_ref_console(Manager *m);
 void manager_unref_console(Manager *m);
 
@@ -658,22 +659,23 @@ void unit_defaults_done(UnitDefaults *defaults);
 
 enum {
         /* most important … */
-        EVENT_PRIORITY_USER_LOOKUP      = SD_EVENT_PRIORITY_NORMAL-10,
-        EVENT_PRIORITY_MOUNT_TABLE      = SD_EVENT_PRIORITY_NORMAL-9,
-        EVENT_PRIORITY_SWAP_TABLE       = SD_EVENT_PRIORITY_NORMAL-9,
-        EVENT_PRIORITY_CGROUP_AGENT     = SD_EVENT_PRIORITY_NORMAL-8, /* cgroupv1 */
-        EVENT_PRIORITY_CGROUP_INOTIFY   = SD_EVENT_PRIORITY_NORMAL-8, /* cgroupv2 */
-        EVENT_PRIORITY_CGROUP_OOM       = SD_EVENT_PRIORITY_NORMAL-7,
-        EVENT_PRIORITY_EXEC_FD          = SD_EVENT_PRIORITY_NORMAL-6,
-        EVENT_PRIORITY_NOTIFY           = SD_EVENT_PRIORITY_NORMAL-5,
-        EVENT_PRIORITY_SIGCHLD          = SD_EVENT_PRIORITY_NORMAL-4,
-        EVENT_PRIORITY_SIGNALS          = SD_EVENT_PRIORITY_NORMAL-3,
-        EVENT_PRIORITY_CGROUP_EMPTY     = SD_EVENT_PRIORITY_NORMAL-2,
-        EVENT_PRIORITY_TIME_CHANGE      = SD_EVENT_PRIORITY_NORMAL-1,
-        EVENT_PRIORITY_TIME_ZONE        = SD_EVENT_PRIORITY_NORMAL-1,
-        EVENT_PRIORITY_IPC              = SD_EVENT_PRIORITY_NORMAL,
-        EVENT_PRIORITY_REWATCH_PIDS     = SD_EVENT_PRIORITY_IDLE,
-        EVENT_PRIORITY_SERVICE_WATCHDOG = SD_EVENT_PRIORITY_IDLE+1,
-        EVENT_PRIORITY_RUN_QUEUE        = SD_EVENT_PRIORITY_IDLE+2,
+        EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-11,
+        EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-10,
+        EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-10,
+        EVENT_PRIORITY_CGROUP_AGENT      = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv1 */
+        EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv2 */
+        EVENT_PRIORITY_CGROUP_OOM        = SD_EVENT_PRIORITY_NORMAL-8,
+        EVENT_PRIORITY_HANDOFF_TIMESTAMP = SD_EVENT_PRIORITY_NORMAL-7,
+        EVENT_PRIORITY_EXEC_FD           = SD_EVENT_PRIORITY_NORMAL-6,
+        EVENT_PRIORITY_NOTIFY            = SD_EVENT_PRIORITY_NORMAL-5,
+        EVENT_PRIORITY_SIGCHLD           = SD_EVENT_PRIORITY_NORMAL-4,
+        EVENT_PRIORITY_SIGNALS           = SD_EVENT_PRIORITY_NORMAL-3,
+        EVENT_PRIORITY_CGROUP_EMPTY      = SD_EVENT_PRIORITY_NORMAL-2,
+        EVENT_PRIORITY_TIME_CHANGE       = SD_EVENT_PRIORITY_NORMAL-1,
+        EVENT_PRIORITY_TIME_ZONE         = SD_EVENT_PRIORITY_NORMAL-1,
+        EVENT_PRIORITY_IPC               = SD_EVENT_PRIORITY_NORMAL,
+        EVENT_PRIORITY_REWATCH_PIDS      = SD_EVENT_PRIORITY_IDLE,
+        EVENT_PRIORITY_SERVICE_WATCHDOG  = SD_EVENT_PRIORITY_IDLE+1,
+        EVENT_PRIORITY_RUN_QUEUE         = SD_EVENT_PRIORITY_IDLE+2,
         /* … to least important */
 };

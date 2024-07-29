@@ -7,6 +7,8 @@
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
+#include "efivars.h"
+#include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "linux.h"
@@ -489,7 +491,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         query_screen_resolution(&screen_width, &screen_height);
 
         secure = secure_boot_mode();
-        (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", &device_part_uuid);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", &device_part_uuid);
 
         printf("  systemd-boot version: " GIT_VERSION "\n");
         if (loaded_image_path)
@@ -618,16 +620,21 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 }
 
 static EFI_STATUS set_reboot_into_firmware(void) {
-        uint64_t osind = 0;
         EFI_STATUS err;
 
+        uint64_t osind = 0;
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
+
+        if (FLAGS_SET(osind, EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                return EFI_SUCCESS;
+
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                log_error_status(err, "Error setting OsIndications: %m");
-        return err;
+                return log_error_status(err, "Error setting OsIndications, ignoring: %m");
+
+        return EFI_SUCCESS;
 }
 
 _noreturn_ static EFI_STATUS poweroff_system(void) {
@@ -879,6 +886,7 @@ static bool menu_run(
 
                 switch (key) {
                 case KEYPRESS(0, SCAN_UP, 0):
+                case KEYPRESS(0, SCAN_VOLUME_UP, 0):  /* Handle phones/tablets that only have a volume up/down rocker + power key (and otherwise just touchscreen input) */
                 case KEYPRESS(0, 0, 'k'):
                 case KEYPRESS(0, 0, 'K'):
                         if (idx_highlight > 0)
@@ -886,6 +894,7 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, SCAN_DOWN, 0):
+                case KEYPRESS(0, SCAN_VOLUME_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
                         if (idx_highlight < config->n_entries-1)
@@ -923,9 +932,10 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '\n'):
                 case KEYPRESS(0, 0, '\r'):
-                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, 0):      /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
+                case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
                         action = ACTION_RUN;
                         break;
 
@@ -1103,14 +1113,14 @@ static bool menu_run(
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
         if (default_efivar_saved != config->idx_default_efivar)
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
+                efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
 
         if (console_mode_efivar_saved != config->console_mode_efivar) {
                 if (config->console_mode_efivar == CONSOLE_MODE_KEEP)
                         efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", EFI_VARIABLE_NON_VOLATILE);
                 else
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
-                                               config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
+                                                config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 
         if (timeout_efivar_saved != config->timeout_sec_efivar) {
@@ -1121,15 +1131,15 @@ static bool menu_run(
                 case TIMEOUT_MENU_DISABLED:
                         assert_not_reached();
                 case TIMEOUT_MENU_FORCE:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
                         break;
                 case TIMEOUT_MENU_HIDDEN:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
                         break;
                 default:
                         assert(config->timeout_sec_efivar < UINT32_MAX);
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
-                                               config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
+                        efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
                 }
         }
 
@@ -1334,7 +1344,7 @@ static void boot_entry_parse_tries(
                 return;
 
         /* Boot counter in the middle of the name? */
-        if (!streq16(counter, suffix))
+        if (!strcaseeq16(counter, suffix))
                 return;
 
         entry->tries_left = tries_left;
@@ -1395,7 +1405,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
         new_path = xasprintf("%ls\\%ls", entry->path, entry->next_name);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
+        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
         if (streq16(entry->loader, old_path)) {
@@ -1525,7 +1535,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
         assert(var);
         assert(ret_value);
 
-        err = efivar_get(MAKE_GUID_PTR(LOADER), var, &value);
+        err = efivar_get_str16(MAKE_GUID_PTR(LOADER), var, &value);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -1552,7 +1562,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
-        size_t content_size, value = 0;  /* avoid false maybe-uninitialized warning */
+        size_t content_size;
         EFI_STATUS err;
 
         assert(root_dir);
@@ -1601,16 +1611,17 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         } else if (err != EFI_NOT_FOUND)
                 log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
 
-        err = efivar_get_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
-        if (err == EFI_SUCCESS)
+        uint64_t value;
+        err = efivar_get_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
+        if (err == EFI_SUCCESS && value <= INT64_MAX)
                 config->console_mode_efivar = value;
 
-        err = efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", &config->entry_oneshot);
+        err = efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", &config->entry_oneshot);
         if (err == EFI_SUCCESS)
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", EFI_VARIABLE_NON_VOLATILE);
 
-        (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
 
         strtolower16(config->entry_default_config);
         strtolower16(config->entry_default_efivar);
@@ -1620,7 +1631,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         config->use_saved_entry = streq16(config->entry_default_config, u"@saved");
         config->use_saved_entry_efivar = streq16(config->entry_default_efivar, u"@saved");
         if (config->use_saved_entry || config->use_saved_entry_efivar)
-                (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
+                (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
 static void config_load_type1_entries(
@@ -1655,15 +1666,21 @@ static void config_load_type1_entries(
                         continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-
                 if (!endswith_no_case(f->FileName, u".conf"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
-                if (err == EFI_SUCCESS)
-                        boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                err = file_read(entries_dir,
+                                f->FileName,
+                                /* offset= */ 0,
+                                /* size= */ 0,
+                                &content,
+                                /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -1855,23 +1872,24 @@ static void generate_boot_entry_titles(Config *config) {
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
-        EFI_STATUS err;
         static const char * const sections[] = {
                 ".sdmagic",
                 NULL
         };
-        size_t offset = 0, size = 0, read;
         _cleanup_free_ char *content = NULL;
+        PeSectionVector vector = {};
+        EFI_STATUS err;
+        size_t read;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
+        err = pe_file_locate_sections(root_dir, loader_path, sections, &vector);
+        if (err != EFI_SUCCESS || vector.size != sizeof(SD_MAGIC))
                 return false;
 
-        err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        err = file_read(root_dir, loader_path, vector.file_offset, vector.size, &content, &read);
+        if (err != EFI_SUCCESS || vector.size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2012,7 +2030,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (char **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (void**) &boot_order, &boot_order_size);
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
@@ -2021,7 +2039,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 size_t buf_size;
 
                 _cleanup_free_ char16_t *name = xasprintf("Boot%04x", boot_order[i]);
-                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, &buf, &buf_size);
+                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, (void**) &buf, &buf_size);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2077,6 +2095,139 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
+static void boot_entry_add_type2(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *dir,
+                const uint16_t *filename) {
+
+        enum {
+                SECTION_CMDLINE,
+                SECTION_OSREL,
+                _SECTION_MAX,
+        };
+        static const char * const section_names[_SECTION_MAX + 1] = {
+                [SECTION_CMDLINE] = ".cmdline",
+                [SECTION_OSREL]   = ".osrel",
+                NULL,
+        };
+
+        EFI_STATUS err;
+
+        assert(config);
+        assert(device);
+        assert(dir);
+        assert(filename);
+
+        /* Look for .osrel and .cmdline sections in the .efi binary */
+        PeSectionVector sections[_SECTION_MAX] = {};
+        err = pe_file_locate_sections(dir, filename, section_names, sections);
+        if (err != EFI_SUCCESS || !PE_SECTION_VECTOR_IS_SET(sections + SECTION_OSREL))
+                return;
+
+        _cleanup_free_ char *content = NULL;
+        err = file_read(dir,
+                        filename,
+                        sections[SECTION_OSREL].file_offset,
+                        sections[SECTION_OSREL].size,
+                        &content,
+                        /* ret_size= */ NULL);
+        if (err != EFI_SUCCESS)
+                return;
+
+        _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+        char *line, *key, *value;
+        size_t pos = 0;
+
+        /* read properties from the embedded os-release file */
+        while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                if (streq8(key, "PRETTY_NAME")) {
+                        free(os_pretty_name);
+                        os_pretty_name = xstr8_to_16(value);
+
+                } else if (streq8(key, "IMAGE_ID")) {
+                        free(os_image_id);
+                        os_image_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "NAME")) {
+                        free(os_name);
+                        os_name = xstr8_to_16(value);
+
+                } else if (streq8(key, "ID")) {
+                        free(os_id);
+                        os_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "IMAGE_VERSION")) {
+                        free(os_image_version);
+                        os_image_version = xstr8_to_16(value);
+
+                } else if (streq8(key, "VERSION")) {
+                        free(os_version);
+                        os_version = xstr8_to_16(value);
+
+                } else if (streq8(key, "VERSION_ID")) {
+                        free(os_version_id);
+                        os_version_id = xstr8_to_16(value);
+
+                } else if (streq8(key, "BUILD_ID")) {
+                        free(os_build_id);
+                        os_build_id = xstr8_to_16(value);
+                }
+
+        const char16_t *good_name, *good_version, *good_sort_key;
+        if (!bootspec_pick_name_version_sort_key(
+                            os_pretty_name,
+                            os_image_id,
+                            os_name,
+                            os_id,
+                            os_image_version,
+                            os_version,
+                            os_version_id,
+                            os_build_id,
+                            &good_name,
+                            &good_version,
+                            &good_sort_key))
+                return;
+
+        BootEntry *entry = xnew(BootEntry, 1);
+        *entry = (BootEntry) {
+                .id = xstrdup16(filename),
+                .type = LOADER_UNIFIED_LINUX,
+                .title = xstrdup16(good_name),
+                .version = xstrdup16(good_version),
+                .device = device,
+                .loader = xasprintf("\\EFI\\Linux\\%ls", filename),
+                .sort_key = xstrdup16(good_sort_key),
+                .key = 'l',
+                .tries_done = -1,
+                .tries_left = -1,
+        };
+
+        strtolower16(entry->id);
+        config_add_entry(config, entry);
+        boot_entry_parse_tries(entry, u"\\EFI\\Linux", filename, u".efi");
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
+                return;
+
+        content = mfree(content);
+
+        /* read the embedded cmdline file */
+        size_t cmdline_len;
+        err = file_read(dir,
+                        filename,
+                        sections[SECTION_CMDLINE].file_offset,
+                        sections[SECTION_CMDLINE].size,
+                        &content,
+                        &cmdline_len);
+        if (err == EFI_SUCCESS) {
+                entry->options = xstrn8_to_16(content, cmdline_len);
+                mangle_stub_cmdline(entry->options);
+                entry->options_implied = true;
+        }
+}
+
 static void config_load_type2_entries(
                 Config *config,
                 EFI_HANDLE *device,
@@ -2098,25 +2249,6 @@ static void config_load_type2_entries(
                 return;
 
         for (;;) {
-                enum {
-                        SECTION_CMDLINE,
-                        SECTION_OSREL,
-                        _SECTION_MAX,
-                };
-
-                static const char * const sections[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = ".cmdline",
-                        [SECTION_OSREL]   = ".osrel",
-                        NULL,
-                };
-
-                _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-                const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_free_ char *content = NULL;
-                size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
-                char *line, *key, *value;
-
                 err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
@@ -2127,98 +2259,10 @@ static void config_load_type2_entries(
                         continue;
                 if (!endswith_no_case(f->FileName, u".efi"))
                         continue;
-                if (startswith(f->FileName, u"auto-"))
+                if (startswith_no_case(f->FileName, u"auto-"))
                         continue;
 
-                /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
-                        continue;
-
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
-                if (err != EFI_SUCCESS)
-                        continue;
-
-                /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
-                        if (streq8(key, "PRETTY_NAME")) {
-                                free(os_pretty_name);
-                                os_pretty_name = xstr8_to_16(value);
-
-                        } else if (streq8(key, "IMAGE_ID")) {
-                                free(os_image_id);
-                                os_image_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "NAME")) {
-                                free(os_name);
-                                os_name = xstr8_to_16(value);
-
-                        } else if (streq8(key, "ID")) {
-                                free(os_id);
-                                os_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "IMAGE_VERSION")) {
-                                free(os_image_version);
-                                os_image_version = xstr8_to_16(value);
-
-                        } else if (streq8(key, "VERSION")) {
-                                free(os_version);
-                                os_version = xstr8_to_16(value);
-
-                        } else if (streq8(key, "VERSION_ID")) {
-                                free(os_version_id);
-                                os_version_id = xstr8_to_16(value);
-
-                        } else if (streq8(key, "BUILD_ID")) {
-                                free(os_build_id);
-                                os_build_id = xstr8_to_16(value);
-                        }
-
-                if (!bootspec_pick_name_version_sort_key(
-                                    os_pretty_name,
-                                    os_image_id,
-                                    os_name,
-                                    os_id,
-                                    os_image_version,
-                                    os_version,
-                                    os_version_id,
-                                    os_build_id,
-                                    &good_name,
-                                    &good_version,
-                                    &good_sort_key))
-                        continue;
-
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(f->FileName),
-                        .type = LOADER_UNIFIED_LINUX,
-                        .title = xstrdup16(good_name),
-                        .version = xstrdup16(good_version),
-                        .device = device,
-                        .loader = xasprintf("\\EFI\\Linux\\%ls", f->FileName),
-                        .sort_key = xstrdup16(good_sort_key),
-                        .key = 'l',
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-
-                strtolower16(entry->id);
-                config_add_entry(config, entry);
-                boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
-
-                if (szs[SECTION_CMDLINE] == 0)
-                        continue;
-
-                content = mfree(content);
-
-                /* read the embedded cmdline file */
-                size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
-                if (err == EFI_SUCCESS) {
-                        entry->options = xstrn8_to_16(content, cmdline_len);
-                        mangle_stub_cmdline(entry->options);
-                        entry->options_implied = true;
-                }
+                boot_entry_add_type2(config, device, linux_dir, f->FileName);
         }
 }
 
@@ -2459,7 +2503,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(entry->loader || !entry->call);
 
         /* Always export the selected boot entry to the system in a volatile var. */
-        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
 
         /* Do not save or delete if this was a oneshot boot. */
         if (streq16(config->entry_oneshot, entry->id))
@@ -2470,7 +2514,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 if (streq16(config->entry_saved, entry->id))
                         return;
 
-                (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
+                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
         } else
                 /* Delete the non-volatile var if not needed. */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", EFI_VARIABLE_NON_VOLATILE);
@@ -2480,7 +2524,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         EFI_STATUS err;
         _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
 
-        if (secure_boot_mode() != SECURE_BOOT_SETUP)
+        if (!IN_SET(secure_boot_mode(), SECURE_BOOT_SETUP, SECURE_BOOT_AUDIT))
                 return EFI_SUCCESS;
 
         /* the lack of a 'keys' directory is not fatal and is silently ignored */
@@ -2526,9 +2570,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         return EFI_SUCCESS;
 }
 
-static void export_variables(
+static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const char16_t *loaded_image_path,
                 uint64_t init_usec) {
 
         static const uint64_t loader_features =
@@ -2548,28 +2591,11 @@ static void export_variables(
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 0;
 
-        _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
-
         assert(loaded_image);
 
-        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
-
-        infostr = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", infostr, 0);
-
-        typestr = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", typestr, 0);
-
+        (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
-
-        /* the filesystem path to this image, to prevent adding ourselves to the menu */
-        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", loaded_image_path, 0);
-
-        /* export the device path this image is started from */
-        _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
-        if (uuid)
-                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 
 static void config_load_all_entries(
@@ -2669,7 +2695,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
-        _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
@@ -2684,9 +2709,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
-
-        export_variables(loaded_image, loaded_image_path, init_usec);
+        export_common_variables(loaded_image);
+        export_loader_variables(loaded_image, init_usec);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS)
@@ -2694,6 +2718,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         (void) load_drivers(image, loaded_image, root_dir);
 
+        _cleanup_free_ char16_t *loaded_image_path = NULL;
+        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.n_entries == 0)

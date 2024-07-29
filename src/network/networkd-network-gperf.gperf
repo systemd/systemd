@@ -3,7 +3,9 @@
 #if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
+#include <netinet/icmp6.h>
 #include <stddef.h>
+
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
 #include "netem.h"
@@ -409,8 +411,8 @@ IPv6SendRA.HomeAgent,                        config_parse_bool,                 
 IPv6SendRA.HomeAgentLifetimeSec,             config_parse_router_home_agent_lifetime,                  0,                             offsetof(Network, home_agent_lifetime_usec)
 IPv6SendRA.HomeAgentPreference,              config_parse_uint16,                                      0,                             offsetof(Network, router_home_agent_preference)
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
-IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              0,                             0
-IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              0,                             0
+IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              ND_OPT_PI_FLAG_ONLINK,         0
+IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              ND_OPT_PI_FLAG_AUTO,           0
 IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.Assign,                           config_parse_prefix_boolean,                              0,                             0

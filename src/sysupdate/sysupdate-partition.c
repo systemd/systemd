@@ -40,7 +40,7 @@ int read_partition_info(
 
         p = fdisk_table_get_partition(t, i);
         if (!p)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
         if (fdisk_partition_is_used(p) <= 0) {
                 *ret = (PartitionInfo) PARTITION_INFO_NULL;

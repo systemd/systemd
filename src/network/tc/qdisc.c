@@ -285,37 +285,57 @@ int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **ret) 
         return -ENOENT;
 }
 
-QDisc* qdisc_drop(QDisc *qdisc) {
+void qdisc_mark_recursive(QDisc *qdisc) {
         TClass *tclass;
-        Link *link;
 
         assert(qdisc);
+        assert(qdisc->link);
 
-        link = ASSERT_PTR(qdisc->link);
+        if (qdisc_is_marked(qdisc))
+                return;
 
-        qdisc_mark(qdisc); /* To avoid stack overflow. */
+        qdisc_mark(qdisc);
 
-        /* also drop all child classes assigned to the qdisc. */
-        SET_FOREACH(tclass, link->tclasses) {
-                if (tclass_is_marked(tclass))
-                        continue;
-
+        /* also mark all child classes assigned to the qdisc. */
+        SET_FOREACH(tclass, qdisc->link->tclasses) {
                 if (TC_H_MAJ(tclass->classid) != qdisc->handle)
                         continue;
 
-                tclass_drop(tclass);
+                tclass_mark_recursive(tclass);
         }
+}
 
-        qdisc_unmark(qdisc);
-        qdisc_enter_removed(qdisc);
+void link_qdisc_drop_marked(Link *link) {
+        QDisc *qdisc;
 
-        if (qdisc->state == 0) {
-                log_qdisc_debug(qdisc, link, "Forgetting");
-                qdisc = qdisc_free(qdisc);
-        } else
-                log_qdisc_debug(qdisc, link, "Removed");
+        assert(link);
 
-        return qdisc;
+        SET_FOREACH(qdisc, link->qdiscs) {
+                if (!qdisc_is_marked(qdisc))
+                        continue;
+
+                qdisc_unmark(qdisc);
+                qdisc_enter_removed(qdisc);
+
+                if (qdisc->state == 0) {
+                        log_qdisc_debug(qdisc, link, "Forgetting");
+                        qdisc_free(qdisc);
+                } else
+                        log_qdisc_debug(qdisc, link, "Removed");
+        }
+}
+
+QDisc* qdisc_drop(QDisc *qdisc) {
+        assert(qdisc);
+        assert(qdisc->link);
+
+        qdisc_mark_recursive(qdisc);
+
+        /* link_qdisc_drop_marked() may invalidate qdisc, so run link_tclass_drop_marked() first. */
+        link_tclass_drop_marked(qdisc->link);
+        link_qdisc_drop_marked(qdisc->link);
+
+        return NULL;
 }
 
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {

@@ -74,24 +74,24 @@
     <refsect2>
       <title>Image Options</title>
 
-      <varlistentry>
-        <term><option>-D</option></term>
-        <term><option>--directory=</option></term>
-
-        <listitem><para>Directory to use as file system root for the virtual machine.</para>
-
-        <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
-        If neither are specified <option>--directory=.</option> is assumed.</para>
-
-        <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
-        to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
-        for this is given later.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
-
       <variablelist>
+        <varlistentry>
+          <term><option>-D</option></term>
+          <term><option>--directory=</option></term>
+
+          <listitem><para>Directory to use as file system root for the virtual machine.</para>
+
+          <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
+          If neither are specified <option>--directory=.</option> is assumed.</para>
+
+          <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
+          to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
+          for this is given later.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>

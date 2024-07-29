@@ -70,6 +70,7 @@ int server_forward_socket(
                 Server *s,
                 const struct iovec *iovec,
                 size_t n_iovec,
+                const dual_timestamp *ts,
                 int priority) {
 
         _cleanup_free_ struct iovec *iov_alloc = NULL;
@@ -81,6 +82,7 @@ int server_forward_socket(
         assert(s);
         assert(iovec);
         assert(n_iovec > 0);
+        assert(ts);
 
         if (LOG_PRI(priority) > s->max_level_socket)
                 return 0;
@@ -90,8 +92,8 @@ int server_forward_socket(
                 return r;
 
         /* We need a newline after each iovec + 4 for each we have to serialize in a binary safe way
-         * + 1 for the final __REALTIME_TIMESTAMP metadata field. */
-        size_t n = n_iovec * 5 + 1;
+         * + 2 for the final __REALTIME_TIMESTAMP and __MONOTONIC_TIMESTAMP metadata fields. */
+        size_t n = n_iovec * 5 + 2;
 
         if (n < ALLOCA_MAX / (sizeof(struct iovec) + sizeof(le64_t)) / 2) {
                 iov = newa(struct iovec, n);
@@ -139,11 +141,15 @@ int server_forward_socket(
                 iov[iov_idx++] = nl;
         }
 
-        /* Synthesise __REALTIME_TIMESTAMP as the last argument so systemd-journal-upload can receive these
-         * export messages. */
-        char buf[sizeof("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 2];
-        xsprintf(buf, "__REALTIME_TIMESTAMP="USEC_FMT"\n\n", now(CLOCK_REALTIME));
-        iov[iov_idx++] = IOVEC_MAKE_STRING(buf);
+        /* Synthesise __REALTIME_TIMESTAMP and __MONOTONIC_TIMESTAMP as the last arguments so
+         * systemd-journal-upload can receive these export messages. */
+        char realtime_buf[STRLEN("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 1];
+        xsprintf(realtime_buf, "__REALTIME_TIMESTAMP="USEC_FMT"\n", ts->realtime);
+        iov[iov_idx++] = IOVEC_MAKE_STRING(realtime_buf);
+
+        char monotonic_buf[STRLEN("__MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 2];
+        xsprintf(monotonic_buf, "__MONOTONIC_TIMESTAMP="USEC_FMT"\n\n", ts->monotonic);
+        iov[iov_idx++] = IOVEC_MAKE_STRING(monotonic_buf);
 
         if (writev(s->forward_socket_fd, iov, iov_idx) < 0) {
                 log_debug_errno(errno, "Failed to forward log message over socket: %m");

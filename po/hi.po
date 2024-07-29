@@ -1,0 +1,1107 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Scrambled 777 <weblate.scrambled777@simplelogin.com>, 2024.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"PO-Revision-Date: 2024-06-03 00:35+0000\n"
+"Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
+"Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
+"main/hi/>\n"
+"Language: hi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 5.5.5\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "पासफ्रेज़ को सिस्टम पर वापस भेजें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "दर्ज किए गए पासफ्रेज़ को सिस्टम में वापस भेजने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "सिस्टम सेवाएं और अन्य यूनिटें प्रबंधित करें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "सिस्टम सेवा या यूनिट फाइलें प्रबंधित करें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr "सिस्टम सेवा या यूनिट फाइलों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "सिस्टम और सेवा प्रबंधक पर्यावरण चर निर्धारित या अनिर्धारित करें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"सिस्टम और सेवा प्रबंधक पर्यावरण चर को निर्धारित या अनिर्धारित करने के लिए प्रमाणीकरण "
+"आवश्यक है।"
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "systemd स्थिति पुनः लोड करें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "systemd स्थिति को पुनः लोड करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "दर सीमा के बिना systemd स्थिति को डंप करें"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "दर सीमा के बिना systemd स्थिति को डंप करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "एक गृह क्षेत्र बनाएं"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "उपयोक्ता का गृह क्षेत्र बनाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "एक गृह क्षेत्र हटाएं"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "उपयोक्ता के गृह क्षेत्र को हटाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "गृह क्षेत्र की प्रत्यय-पत्र की जांच करें"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"उपयोक्ता के गृह क्षेत्र के विरुद्ध प्रत्यय-पत्र की जांच करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "गृह क्षेत्र का अद्यतन करें"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "उपयोक्ता के गृह क्षेत्र का अद्यतन करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr "गृह क्षेत्र का आकार बदलें"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to resize a user's home area."
+msgstr "उपयोक्ता के गृह क्षेत्र का आकार बदलने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr "गृह क्षेत्र का पासवर्ड बदलें"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "उपयोक्ता के गृह क्षेत्र का पासवर्ड बदलने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Activate a home area"
+msgstr "गृह क्षेत्र सक्रिय करें"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid "Authentication is required to activate a user's home area."
+msgstr "उपयोक्ता के गृह क्षेत्र को सक्रिय करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/pam_systemd_home.c:293
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"उपयोक्ता %s का होम वर्तमान में अनुपस्थित है, कृपया आवश्यक स्टोरेज उपकरण या बैकअप फाइल "
+"सिस्टम प्लग इन करें।"
+
+#: src/home/pam_systemd_home.c:298
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "उपयोक्ता %s के लिए बहुत बार लॉगिन प्रयास, बाद में पुनः प्रयास करें।"
+
+#: src/home/pam_systemd_home.c:310
+msgid "Password: "
+msgstr "पासवर्ड: "
+
+#: src/home/pam_systemd_home.c:312
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "पासवर्ड गलत है या उपयोक्ता %s के प्रमाणीकरण के लिए पर्याप्त नहीं है।"
+
+#: src/home/pam_systemd_home.c:313
+msgid "Sorry, try again: "
+msgstr "क्षमा करें, पुनः प्रयास करें: "
+
+#: src/home/pam_systemd_home.c:335
+msgid "Recovery key: "
+msgstr "पुनर्प्राप्ति कुंजी: "
+
+#: src/home/pam_systemd_home.c:337
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"पासवर्ड/पुनर्प्राप्ति कुंजी गलत है या उपयोक्ता %s के प्रमाणीकरण के लिए पर्याप्त नहीं है।"
+
+#: src/home/pam_systemd_home.c:338
+msgid "Sorry, reenter recovery key: "
+msgstr "क्षमा करें, पुनर्प्राप्ति कुंजी पुनः दर्ज करें: "
+
+#: src/home/pam_systemd_home.c:358
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "उपयोक्ता %s का सुरक्षा टोकन सम्मिलित नहीं किया गया।"
+
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+msgid "Try again with password: "
+msgstr "पासवर्ड के साथ पुनः प्रयास करें: "
+
+#: src/home/pam_systemd_home.c:361
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"पासवर्ड गलत है या पर्याप्त नहीं है, और उपयोक्ता %s का विन्यस्त किया गया सुरक्षा टोकन "
+"सम्मिलित नहीं किया गया है।"
+
+#: src/home/pam_systemd_home.c:381
+msgid "Security token PIN: "
+msgstr "सुरक्षा टोकन PIN: "
+
+#: src/home/pam_systemd_home.c:398
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर भौतिक रूप से प्रमाणित करें।"
+
+#: src/home/pam_systemd_home.c:409
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर उपस्थिति की पुष्टि करें।"
+
+#: src/home/pam_systemd_home.c:420
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर उपयोक्ता को सत्यापित करें।"
+
+#: src/home/pam_systemd_home.c:429
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"सुरक्षा टोकन PIN बंद है, कृपया पहले खोलें। (संकेत: हटाना और पुनः सम्मिलित करना पर्याप्त हो "
+"सकता है।)"
+
+#: src/home/pam_systemd_home.c:437
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "उपयोक्ता %s के लिए सुरक्षा टोकन PIN गलत है।"
+
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
+msgid "Sorry, retry security token PIN: "
+msgstr "क्षमा करें, सुरक्षा टोकन PIN का पुन: प्रयास करें: "
+
+#: src/home/pam_systemd_home.c:456
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr "उपयोक्ता %s का सुरक्षा टोकन PIN गलत है (केवल कुछ प्रयास शेष हैं!)"
+
+#: src/home/pam_systemd_home.c:475
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr "उपयोक्ता %s का सुरक्षा टोकन PIN गलत है (केवल एक प्रयास शेष है!)"
+
+#: src/home/pam_systemd_home.c:643
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr "उपयोक्ता %s का होम वर्तमान में सक्रिय नहीं है, कृपया पहले स्थानीय रूप से लॉगिन करें।"
+
+#: src/home/pam_systemd_home.c:645
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "उपयोक्ता %s का होम फिलहाल बंद है, कृपया पहले स्थानीय स्तर पर खोलें।"
+
+#: src/home/pam_systemd_home.c:677
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "उपयोक्ता %s के लिए बहुत सारे असफल लॉगिन प्रयास, अस्वीकार कर रहे हैं।"
+
+#: src/home/pam_systemd_home.c:964
+msgid "User record is blocked, prohibiting access."
+msgstr "उपयोक्ता रिकॉर्ड अवरुद्ध कर दिया गया है, पहुंच पर रोक लगा दी गई है।"
+
+#: src/home/pam_systemd_home.c:968
+msgid "User record is not valid yet, prohibiting access."
+msgstr "उपयोक्ता रिकॉर्ड अभी तक मान्य नहीं है, पहुंच प्रतिबंधित है।"
+
+#: src/home/pam_systemd_home.c:972
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "उपयोक्ता रिकॉर्ड अब मान्य नहीं है, पहुंच पर रोक लगा दी गई है।"
+
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
+msgid "User record not valid, prohibiting access."
+msgstr "उपयोक्ता रिकॉर्ड मान्य नहीं है, पहुंच प्रतिबंधित है।"
+
+#: src/home/pam_systemd_home.c:989
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "बहुत अधिक लॉगिन, %s में पुनः प्रयास करें।"
+
+#: src/home/pam_systemd_home.c:1000
+msgid "Password change required."
+msgstr "पासवर्ड परिवर्तन आवश्यक है।"
+
+#: src/home/pam_systemd_home.c:1004
+msgid "Password expired, change required."
+msgstr "पासवर्ड समाप्त हो गया, परिवर्तन आवश्यक है।"
+
+#: src/home/pam_systemd_home.c:1010
+msgid "Password is expired, but can't change, refusing login."
+msgstr "पासवर्ड समाप्त हो गया है, लेकिन बदल नहीं सकता, लॉगिन करने से इंकार कर रहा है।"
+
+#: src/home/pam_systemd_home.c:1014
+msgid "Password will expire soon, please change."
+msgstr "पासवर्ड जल्द ही समाप्त हो जाएगा, कृपया बदलें।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "होस्टनाम निर्धारित करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "स्थानीय होस्टनाम निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "स्थैतिक होस्टनाम निर्धारित करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"स्थैतिक रूप से विन्यस्त किए गए स्थानीय होस्टनाम, साथ ही सुंदर होस्टनाम को निर्धारित करने "
+"के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "मशीन जानकारी निर्धारित करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "स्थानीय मशीन जानकारी निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "उत्पाद UUID प्राप्त करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "उत्पाद UUID प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "हार्डवेयर क्रमांक प्राप्त करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "हार्डवेयर क्रमांक प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "सिस्टम विवरण प्राप्त करें"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "सिस्टम विवरण प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "डिस्क छवि आयात करें"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image"
+msgstr "छवि आयात करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "डिस्क छवि निर्यात करें"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image"
+msgstr "डिस्क छवि निर्यात करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "डिस्क छवि डाउनलोड करें"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image"
+msgstr "डिस्क छवि डाउनलोड करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "डिस्क छवि का स्थानांतरण रद्द करें"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr "डिस्क छवि के चल रहे स्थानांतरण को रद्द करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "सिस्टम लोकेल निर्धारित करें"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "सिस्टम लोकेल निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "सिस्टम कीबोर्ड सेटिंग निर्धारित करें"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "सिस्टम कीबोर्ड सेटिंग्स निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "अनुप्रयोग को सिस्टम शटडाउन को बाधित करने अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "सिस्टम शटडाउन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "अनुप्रयोग को सिस्टम शटडाउन में देरी करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "सिस्टम शटडाउन में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "अनुप्रयोग को सिस्टम निद्रा को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "सिस्टम निद्रा को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "अनुप्रयोग को सिस्टम निद्रा में देरी करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "सिस्टम निद्रा में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "अनुप्रयोग को स्वचालित सिस्टम निलंबन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"स्वचालित सिस्टम निलंबन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "अनुप्रयोग को पॉवर कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"किसी अनुप्रयोग के लिए पॉवर कुंजी के सिस्टम संचालन को बाधित करने के लिए प्रमाणीकरण आवश्यक "
+"है।"
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "अनुप्रयोग को सस्पेंड कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"सस्पेंड कुंजी के सिस्टम संचालन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक "
+"है।"
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "अनुप्रयोग को हाइबरनेट कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"हाइबरनेट कुंजी के सिस्टम संचालन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण "
+"आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "अनुप्रयोग को नोटबुक के ढक्कन स्विच के सिस्टम संचालन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"किसी अनुप्रयोग के लिए नोटबुक के ढक्कन स्विच के सिस्टम संचालन को बाधित करने के लिए "
+"प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "अनुप्रयोग को रीबूट कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"किसी अनुप्रयोग के लिए रीबूट कुंजी के सिस्टम संचालन को बाधित करने के लिए प्रमाणीकरण आवश्यक "
+"है।"
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "गैर-लॉगिन उपयोक्ता को प्रोग्राम चलाने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr "गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए स्पष्ट अनुरोध आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "गैर-लॉगिन उपयोक्ताओं को प्रोग्राम चलाने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "सीटों पर उपकरण जोड़ने की अनुमति दें"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "किसी उपकरण को सीट से जोड़ने के लिए प्रमाणीकरण की आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "सीट से जुड़े उपकरण को रीसेट करें"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "उपकरण सीटों से कैसे जुड़े हैं, इसे रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "सिस्टम को बंद करें"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "सिस्टम को बंद करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को बंद करें"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को बंद करने के लिए प्रमाणीकरण की आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को बंद करें"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को बंद करने के लिए प्रमाणीकरण की "
+"आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "सिस्टम को रीबूट करें"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "सिस्टम को रीबूट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "जब अन्य उपयोक्ता लॉगिन होने पर भी सिस्टम को रीबूट करें"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को रीबूट करने के लिए प्रमाणीकरण की आवश्यकता होती "
+"है।"
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को रीबूट करें"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को रीबूट करने के लिए प्रमाणीकरण की "
+"आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "सिस्टम को रोकें"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "सिस्टम को रोकने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को रोकें"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को रोकने के लिए प्रमाणीकरण की आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को रोकें"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को रोकने के लिए प्रमाणीकरण की "
+"आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "सिस्टम को निलंबित करें"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "सिस्टम को निलंबित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को निलंबित करें"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को निलंबित करने के लिए प्रमाणीकरण की आवश्यकता "
+"होती है।"
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को निलंबित करें"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को निलंबित करने के लिए प्रमाणीकरण की "
+"आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "सिस्टम को हाइबरनेट करें"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "सिस्टम को हाइबरनेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को हाइबरनेट करें"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"जब अन्य उपयोक्ता लॉगिन हों तो सिस्टम को हाइबरनेट करने के लिए प्रमाणीकरण की आवश्यकता "
+"होती है।"
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को हाइबरनेट करें"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"जब कोई अनुप्रयोग इसे बाधित कर रहा हो तो सिस्टम को हाइबरनेट करने के लिए प्रमाणीकरण की "
+"आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "सक्रिय सत्र, उपयोक्ता और सीटें प्रबंधित करें"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr "सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "सक्रिय सत्रों को लॉक या अनलॉक करें"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "सक्रिय सत्रों को लॉक या अनलॉक करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "कर्नेल में रीबूट \"कारण\" निर्धारित करें"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "कर्नेल में रीबूट \"कारण\" निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "सेटअप अंतराफलक को बूट करने के लिए फर्मवेयर को इंगित करें"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"सेटअप अंतराफलक को बूट करने के लिए फर्मवेयर को इंगित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "बूट लोडर को बूट लोडर मेनू पर बूट करने के लिए इंगित करें"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"बूट लोडर को बूट लोडर मेनू पर बूट करने के लिए इंगित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "किसी विशिष्ट प्रविष्टि को बूट करने के लिए बूट लोडर को इंगित करें"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"बूट लोडर को एक विशिष्ट बूट लोडर प्रविष्टि में बूट करने के लिए इंगित करने के लिए प्रमाणीकरण "
+"की आवश्यकता होती है।"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "वॉल संदेश निर्धारित करें"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message"
+msgstr "वॉल संदेश निर्धारित करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "सत्र बदलें"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "आभासी टर्मिनल को बदलने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "किसी स्थानीय कंटेनर में लॉगिन करें"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "स्थानीय कंटेनर में लॉगिन करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "स्थानीय होस्ट में लॉगिन करें"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "स्थानीय होस्ट में लॉगिन करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "स्थानीय कंटेनर में एक शैल प्राप्त करें"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "स्थानीय कंटेनर में शैल प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "स्थानीय होस्ट पर एक शैल प्राप्त करें"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "स्थानीय होस्ट पर शैल प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "स्थानीय कंटेनर में एक छद्म TTY प्राप्त करें"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "स्थानीय कंटेनर में छद्म TTY प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "स्थानीय होस्ट पर एक छद्म TTY प्राप्त करें"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "स्थानीय होस्ट पर छद्म TTY प्राप्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "स्थानीय आभासी मशीन और कंटेनर प्रबंधित करें"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Manage local virtual machine and container images"
+msgstr "स्थानीय आभासी मशीन और कंटेनर छवियां प्रबंधित करें"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "स्थानीय आभासी मशीन और कंटेनर छवियों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "NTP सर्वर निर्धारित करें"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "NTP सर्वर निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "DNS सर्वर निर्धारित करें"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "DNS सर्वर निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "डोमेन निर्धारित करें"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "डोमेन निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "तयशुदा मार्ग निर्धारित करें"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "तयशुदा मार्ग निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "LLMNR सक्षम/अक्षम करें"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "LLMNR को सक्षम या अक्षम करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "मल्टीकास्ट DNS सक्षम/अक्षम करें"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "मल्टिकास्ट DNS को सक्षम या अक्षम करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "TLS पर DNS सक्षम/अक्षम करें"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "TLS पर DNS को सक्षम या अक्षम करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "DNSSEC सक्षम/अक्षम करें"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "DNSSEC को सक्षम या अक्षम करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "DNSSEC नकारात्मक ट्रस्ट एंकर निर्धारित करें"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "DNSSEC नकारात्मक ट्रस्ट एंकर निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "NTP सेटिंग्स पूर्ववत करें"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "NTP सेटिंग्स को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "DNS सेटिंग्स पूर्ववत करें"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "DNS सेटिंग्स को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "DHCP सर्वर बलपूर्वक नवीनीकरण संदेश भेजता है"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to send force renew message."
+msgstr "बलपूर्वक नवीनीकरण संदेश भेजने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "गतिशील पते नवीनीकृत करें"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "गतिशील पतों को नवीनीकृत करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "नेटवर्क सेटिंग्स पुनः लोड करें"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "नेटवर्क सेटिंग्स को पुनः लोड करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "नेटवर्क अंतराफलक पुनः विन्यस्त करें"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "नेटवर्क अंतराफलक को पुन: विन्यस्त करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "निर्दिष्ट करें कि क्या systemd-networkd के लिए सतत भंडारण उपलब्ध है"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"यह निर्दिष्ट करने के लिए प्रमाणीकरण आवश्यक है कि systemd-networkd के लिए सतत भंडारण "
+"उपलब्ध है या नहीं।"
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "वहनीय सेवा छवि का निरीक्षण करें"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "वहनीय सेवा छवि का निरीक्षण करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "वहनीय सेवा छवि संलग्न या अलग करें"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "वहनीय सेवा छवि को संलग्न या अलग करने के लिए प्रमाणीकरण की आवश्यकता होती है।"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "वहनीय सेवा छवि मिटाएं या संशोधित करें"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "वहनीय सेवा छवि को मिटाने या संशोधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "DNS-SD सेवा पंजीकृत करें"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "DNS-SD सेवा पंजीकृत करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "DNS-SD सेवा को अपंजीकृत करें"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr "DNS-SD सेवा को अपंजीकृत करने के लिए प्रमाणीकरण आवश्यक है"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "नाम समाधान सेटिंग पूर्ववत करें"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "नाम समाधान सेटिंग्स को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "सिस्टम समय निर्धारित करें"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "सिस्टम समयक्षेत्र निर्धारित करें"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "सिस्टम समयक्षेत्र निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "RTC को स्थानीय समयक्षेत्र या UTC पर निर्धारित करें"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"यह नियंत्रित करने के लिए प्रमाणीकरण आवश्यक है कि क्या RTC स्थानीय या UTC समय संग्रहीत "
+"करता है।"
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "नेटवर्क समय समन्वयन चालू या बंद करें"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"यह नियंत्रित करने के लिए प्रमाणीकरण आवश्यक है कि नेटवर्क समय समन्वयन सक्षम किया जाएगा "
+"या नहीं।"
+
+#: src/core/dbus-unit.c:353
+msgid "Authentication is required to start '$(unit)'."
+msgstr "'$(unit)' शुरू करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:354
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "'$(unit)' को रोकने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:355
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "'$(unit)' को पुनः लोड करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "'$(unit)' को पुनः आरंभ करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:549
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:577
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "'$(unit)' की \"विफल\" स्थिति को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:607
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "'$(unit)' पर गुण निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:704
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr "'$(unit)' से जुड़ी फाइलों और निर्देशिकाओं को हटाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/core/dbus-unit.c:741
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Testsuite: Success Stop (EXTEND_TIMEOUT_USEC > WATCHDOG_USEC however < TimeoutStopSec)
+
+[Service]
+# EXTEND_TIMEOUT_USEC=4 seconds once during shutdown, but sleep for 6 seconds.
+# Therefore stop time is 6 seconds and < TimeoutStopSec so still successful.
+Type=notify
+TimeoutStartSec=4
+TimeoutStopSec=8
+RuntimeMaxSec=4
+Environment=SERVICE=success_stop extend_timeout_interval=4 sleep_interval=6 start_intervals=0 run_intervals=0 stop_intervals=1
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-16-EXTEND-TIMEOUT.units/extend-timeout.sh

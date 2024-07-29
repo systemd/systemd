@@ -84,6 +84,14 @@ if [[ "$COMPILER" == clang ]]; then
     CXX="clang++-$COMPILER_VERSION"
     AR="llvm-ar-$COMPILER_VERSION"
 
+    if systemd-analyze compare-versions "$COMPILER_VERSION" ge 17; then
+        CFLAGS="-fno-sanitize=function"
+        CXXFLAGS="-fno-sanitize=function"
+    else
+        CFLAGS=""
+        CXXFLAGS=""
+    fi
+
     # Prefer the distro version if available
     if ! apt-get -y install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
@@ -99,6 +107,8 @@ elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
     AR="gcc-ar-$COMPILER_VERSION"
+    CFLAGS=""
+    CXXFLAGS=""
 
     if ! apt-get -y install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
         # Latest gcc stack deb packages provided by
@@ -111,9 +121,12 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
-# PPA with some newer build dependencies (like zstd)
-sudo add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
-sudo add-apt-repository -y --no-update --enable-source
+# This is added by default, and it is often broken, but we don't need anything from it
+sudo rm -f /etc/apt/sources.list.d/microsoft-prod.{list,sources}
+# add-apt-repository --enable-source does not work on deb822 style sources.
+for f in /etc/apt/sources.list.d/*.sources; do
+    sudo sed -i "s/Types: deb/Types: deb deb-src/g" "$f"
+done
 sudo apt-get -y update
 sudo apt-get -y build-dep systemd
 sudo apt-get -y install "${PACKAGES[@]}"
@@ -121,7 +134,7 @@ sudo apt-get -y install "${PACKAGES[@]}"
 # always support all the features we need (like --optimization=). Since the build-dep
 # command above installs the distro versions, let's install the pip ones just
 # locally and add the local bin directory to the $PATH.
-pip3 install --user -r .github/workflows/requirements.txt --require-hashes
+pip3 install --user -r .github/workflows/requirements.txt --require-hashes --break-system-packages
 export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
@@ -139,8 +152,8 @@ for args in "${ARGS[@]}"; do
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
-         CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
-         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
+         CC="$CC" CC_LD="$LINKER" CFLAGS="$CFLAGS" \
+         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="$CXXFLAGS" \
          meson setup \
                -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" -Ddebug=false \

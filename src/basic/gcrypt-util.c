@@ -7,40 +7,45 @@
 
 static void *gcrypt_dl = NULL;
 
-static DLSYM_FUNCTION(gcry_control);
-static DLSYM_FUNCTION(gcry_check_version);
-DLSYM_FUNCTION(gcry_md_close);
-DLSYM_FUNCTION(gcry_md_copy);
-DLSYM_FUNCTION(gcry_md_ctl);
-DLSYM_FUNCTION(gcry_md_get_algo_dlen);
-DLSYM_FUNCTION(gcry_md_open);
-DLSYM_FUNCTION(gcry_md_read);
-DLSYM_FUNCTION(gcry_md_reset);
-DLSYM_FUNCTION(gcry_md_setkey);
-DLSYM_FUNCTION(gcry_md_write);
-DLSYM_FUNCTION(gcry_mpi_add);
-DLSYM_FUNCTION(gcry_mpi_add_ui);
-DLSYM_FUNCTION(gcry_mpi_cmp);
-DLSYM_FUNCTION(gcry_mpi_cmp_ui);
-DLSYM_FUNCTION(gcry_mpi_get_nbits);
-DLSYM_FUNCTION(gcry_mpi_invm);
-DLSYM_FUNCTION(gcry_mpi_mod);
-DLSYM_FUNCTION(gcry_mpi_mul);
-DLSYM_FUNCTION(gcry_mpi_mulm);
-DLSYM_FUNCTION(gcry_mpi_new);
-DLSYM_FUNCTION(gcry_mpi_powm);
-DLSYM_FUNCTION(gcry_mpi_print);
-DLSYM_FUNCTION(gcry_mpi_release);
-DLSYM_FUNCTION(gcry_mpi_scan);
-DLSYM_FUNCTION(gcry_mpi_set_ui);
-DLSYM_FUNCTION(gcry_mpi_sub);
-DLSYM_FUNCTION(gcry_mpi_subm);
-DLSYM_FUNCTION(gcry_mpi_sub_ui);
-DLSYM_FUNCTION(gcry_prime_check);
-DLSYM_FUNCTION(gcry_randomize);
-DLSYM_FUNCTION(gcry_strerror);
+static DLSYM_PROTOTYPE(gcry_control) = NULL;
+static DLSYM_PROTOTYPE(gcry_check_version) = NULL;
+DLSYM_PROTOTYPE(gcry_md_close) = NULL;
+DLSYM_PROTOTYPE(gcry_md_copy) = NULL;
+DLSYM_PROTOTYPE(gcry_md_ctl) = NULL;
+DLSYM_PROTOTYPE(gcry_md_get_algo_dlen) = NULL;
+DLSYM_PROTOTYPE(gcry_md_open) = NULL;
+DLSYM_PROTOTYPE(gcry_md_read) = NULL;
+DLSYM_PROTOTYPE(gcry_md_reset) = NULL;
+DLSYM_PROTOTYPE(gcry_md_setkey) = NULL;
+DLSYM_PROTOTYPE(gcry_md_write) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_add) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_add_ui) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_cmp) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_cmp_ui) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_get_nbits) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_invm) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_mod) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_mul) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_mulm) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_new) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_powm) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_print) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_release) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_scan) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_set_ui) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_sub) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_subm) = NULL;
+DLSYM_PROTOTYPE(gcry_mpi_sub_ui) = NULL;
+DLSYM_PROTOTYPE(gcry_prime_check) = NULL;
+DLSYM_PROTOTYPE(gcry_randomize) = NULL;
+DLSYM_PROTOTYPE(gcry_strerror) = NULL;
 
 static int dlopen_gcrypt(void) {
+        ELF_NOTE_DLOPEN("gcrypt",
+                        "Support for journald forward-sealing",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libgcrypt.so.20");
+
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,
                         "libgcrypt.so.20", LOG_DEBUG,

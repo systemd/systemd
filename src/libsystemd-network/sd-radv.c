@@ -614,7 +614,6 @@ int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         sd_radv_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
@@ -626,19 +625,13 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->opt.in6_addr,
-                                             cur->opt.prefixlen,
-                                             (const union in_addr_union*) &p->opt.in6_addr,
-                                             p->opt.prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
+                if (!in6_addr_prefix_intersect(&cur->opt.in6_addr, cur->opt.prefixlen,
+                                               &p->opt.in6_addr, p->opt.prefixlen))
+                        continue; /* no intersection */
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
                         found = cur;
-                        break;
+                        break; /* same prefix */
                 }
 
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
@@ -672,19 +665,6 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 log_radv(ra, "Added prefix %s", addr_p);
         }
 
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s, ignoring: %m", addr_p);
-        else
-                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", addr_p);
-
         return 0;
 }
 
@@ -715,34 +695,16 @@ void sd_radv_remove_prefix(
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         sd_radv_route_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
 
-        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
-
-        LIST_FOREACH(prefix, cur, ra->route_prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->opt.in6_addr,
-                                             cur->opt.prefixlen,
-                                             (const union in_addr_union*) &p->opt.in6_addr,
-                                             p->opt.prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                if (cur->opt.prefixlen == p->opt.prefixlen) {
+        LIST_FOREACH(prefix, cur, ra->route_prefixes)
+                if (cur->opt.prefixlen == p->opt.prefixlen &&
+                    in6_addr_equal(&cur->opt.in6_addr, &p->opt.in6_addr)) {
                         found = cur;
                         break;
                 }
-
-                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
-                                      "IPv6 route prefix %s conflicts with %s, ignoring.",
-                                      addr_p,
-                                      IN6_ADDR_PREFIX_TO_STRING(&cur->opt.in6_addr, cur->opt.prefixlen));
-        }
 
         if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
@@ -756,7 +718,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 LIST_APPEND(prefix, ra->route_prefixes, p);
 
                 log_radv(ra, "Updated/replaced IPv6 route prefix %s (lifetime: %s)",
-                         strna(addr_p),
+                         IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen),
                          FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
         } else {
                 /* The route prefix is new. Let's simply add it. */
@@ -765,56 +727,25 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 LIST_APPEND(prefix, ra->route_prefixes, p);
                 ra->n_route_prefixes++;
 
-                log_radv(ra, "Added route prefix %s", strna(addr_p));
+                log_radv(ra, "Added route prefix %s",
+                         IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen));
         }
-
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added route prefix %s.", strna(addr_p));
 
         return 0;
 }
 
 int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
         sd_radv_pref64_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
 
-        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen);
-
-        LIST_FOREACH(prefix, cur, ra->pref64_prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->in6_addr,
-                                             cur->prefixlen,
-                                             (const union in_addr_union*) &p->in6_addr,
-                                             p->prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                if (cur->prefixlen == p->prefixlen) {
+        LIST_FOREACH(prefix, cur, ra->pref64_prefixes)
+                if (cur->prefixlen == p->prefixlen &&
+                    in6_addr_equal(&cur->in6_addr, &p->in6_addr)) {
                         found = cur;
                         break;
                 }
-
-                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
-                                      "IPv6 PREF64 prefix %s conflicts with %s, ignoring.",
-                                      addr_p,
-                                      IN6_ADDR_PREFIX_TO_STRING(&cur->in6_addr, cur->prefixlen));
-        }
 
         if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
@@ -828,7 +759,7 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 LIST_APPEND(prefix, ra->pref64_prefixes, p);
 
                 log_radv(ra, "Updated/replaced IPv6 PREF64 prefix %s (lifetime: %s)",
-                         strna(addr_p),
+                         IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen),
                          FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
         } else {
                 /* The route prefix is new. Let's simply add it. */
@@ -837,22 +768,9 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 LIST_APPEND(prefix, ra->pref64_prefixes, p);
                 ra->n_pref64_prefixes++;
 
-                log_radv(ra, "Added PREF64 prefix %s", strna(addr_p));
+                log_radv(ra, "Added PREF64 prefix %s",
+                         IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen));
         }
-
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added PREF64 prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added PREF64 prefix %s.", strna(addr_p));
 
         return 0;
 }

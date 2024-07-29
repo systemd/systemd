@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "build.h"
 #include "bus-locator.h"
@@ -48,7 +49,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
-#include "varlink.h"
 #include "varlink-io.systemd.sysext.h"
 #include "verbs.h"
 
@@ -76,7 +76,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, Mutabl
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
@@ -411,7 +411,7 @@ static int verb_unmerge(int argc, char **argv, void *userdata) {
                        arg_no_reload);
 }
 
-static int parse_image_class_parameter(Varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
+static int parse_image_class_parameter(sd_varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
         _cleanup_strv_free_ char **h = NULL;
         ImageClass c;
         int r;
@@ -424,7 +424,7 @@ static int parse_image_class_parameter(Varlink *link, const char *value, ImageCl
 
         c = image_class_from_string(value);
         if (!IN_SET(c, IMAGE_SYSEXT, IMAGE_CONFEXT))
-                return varlink_error_invalid_parameter_name(link, "class");
+                return sd_varlink_error_invalid_parameter_name(link, "class");
 
         if (hierarchies) {
                 r = parse_env_extension_hierarchies(&h, image_class_info[c].name_env);
@@ -443,11 +443,11 @@ typedef struct MethodUnmergeParameters {
         int no_reload;
 } MethodUnmergeParameters;
 
-static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
-                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodUnmergeParameters, no_reload), 0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
+                { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodUnmergeParameters, no_reload), 0 },
                 {}
         };
         MethodUnmergeParameters p = {
@@ -459,7 +459,7 @@ static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
@@ -473,7 +473,7 @@ static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMeth
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
@@ -1918,13 +1918,13 @@ typedef struct MethodMergeParameters {
         int noexec;
 } MethodMergeParameters;
 
-static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, MethodMergeParameters *p) {
+static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters, MethodMergeParameters *p) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
-                { "force",    JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, force),     0 },
-                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, no_reload), 0 },
-                { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, noexec),    0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
+                { "force",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
+                { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
+                { "noexec",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
                 {}
         };
 
@@ -1932,10 +1932,10 @@ static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, Method
         assert(parameters);
         assert(p);
 
-        return varlink_dispatch(link, parameters, dispatch_table, p);
+        return sd_varlink_dispatch(link, parameters, dispatch_table, p);
 }
 
-static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
@@ -1968,7 +1968,7 @@ static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethod
         if (r < 0)
                 return r;
         if (r > 0)
-                return varlink_errorb(link, "io.systemd.sysext.AlreadyMerged", JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("hierarchy", which)));
+                return sd_varlink_errorbo(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_PAIR_STRING("hierarchy", which));
 
         r = merge(image_class,
                   hierarchies ?: arg_hierarchies,
@@ -1979,7 +1979,7 @@ static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethod
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static int refresh(
@@ -2019,7 +2019,7 @@ static int refresh(
          * 4. If there was no overlayfs mount so far, and no extensions installed, we implement a NOP.
          */
 
-        return 0;
+        return r;
 }
 
 static int verb_refresh(int argc, char **argv, void *userdata) {
@@ -2038,7 +2038,7 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
                        arg_noexec);
 }
 
-static int vl_method_refresh(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         MethodMergeParameters p = {
                 .force = -1,
@@ -2067,7 +2067,7 @@ static int vl_method_refresh(Varlink *link, JsonVariant *parameters, VarlinkMeth
         if (r < 0)
                 return r;
 
-        return varlink_reply(link, NULL);
+        return sd_varlink_reply(link, NULL);
 }
 
 static int verb_list(int argc, char **argv, void *userdata) {
@@ -2084,7 +2084,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && hashmap_isempty(images)) {
                 log_info("No OS extensions found.");
                 return 0;
         }
@@ -2113,15 +2113,15 @@ typedef struct MethodListParameters {
         const char *class;
 } MethodListParameters;
 
-static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
-        static const JsonDispatch dispatch_table[] = {
-                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodListParameters, class),     0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(MethodListParameters, class), 0 },
                 {}
         };
         MethodListParameters p = {
         };
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         ImageClass image_class = arg_image_class;
         Image *img;
@@ -2129,7 +2129,7 @@ static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodF
 
         assert(link);
 
-        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
@@ -2148,12 +2148,12 @@ static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodF
         HASHMAP_FOREACH(img, images) {
                 if (v) {
                         /* Send previous item with more=true */
-                        r = varlink_notify(link, v);
+                        r = sd_varlink_notify(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                v = json_variant_unref(v);
+                v = sd_json_variant_unref(v);
 
                 r = image_to_json(img, &v);
                 if (r < 0)
@@ -2161,9 +2161,9 @@ static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodF
         }
 
         if (v)  /* Send final item with more=false */
-                return varlink_reply(link, v);
+                return sd_varlink_reply(link, v);
 
-        return varlink_error(link, "io.systemd.sysext.NoImagesFound", NULL);
+        return sd_varlink_error(link, "io.systemd.sysext.NoImagesFound", NULL);
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -2313,7 +2313,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
@@ -2367,19 +2367,19 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to parse environment variable: %m");
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_sysext);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_sysext);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.sysext.Merge", vl_method_merge,
                                 "io.systemd.sysext.Unmerge", vl_method_unmerge,
@@ -2388,7 +2388,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r == -EPERM)
                         return log_error_errno(r, "Invoked by unprivileged Varlink peer, refusing.");
                 if (r < 0)

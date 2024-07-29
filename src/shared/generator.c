@@ -970,6 +970,5 @@ void log_setup_generator(void) {
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         }
 
-        log_parse_environment();
-        (void) log_open();
+        log_setup();
 }
