@@ -21,7 +21,7 @@
 #include "strv.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
-#include "udev-ctrl.h"
+#include "udev-connection.h"
 #include "virt.h"
 
 static bool arg_verbose = false;
@@ -490,17 +490,17 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (ping) {
-                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+                _cleanup_(udev_connection_done) UdevConnection conn = {};
 
-                r = udev_ctrl_new(&uctrl);
+                r = udev_connection_init(&conn, ping_timeout_usec);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize udev control: %m");
 
-                r = udev_ctrl_send_ping(uctrl);
+                r = udev_connection_send_ping(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to udev daemon: %m");
 
-                r = udev_ctrl_wait(uctrl, ping_timeout_usec);
+                r = udev_connection_wait(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         }
