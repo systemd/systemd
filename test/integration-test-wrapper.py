@@ -154,6 +154,7 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
+        *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
         'qemu' if args.vm or os.getuid() != 0 else 'boot',
     ]
 
