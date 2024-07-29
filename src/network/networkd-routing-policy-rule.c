@@ -483,9 +483,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return r;
         }
 
-        if (rule->l3mdev)
-                r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
-        else if (rule->table < 256)
+        if (rule->table < 256)
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
         else {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
@@ -1783,6 +1781,9 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                         rule->family = AF_INET6;
                 /* rule->family can be AF_UNSPEC only when Family=both. */
         }
+
+        if (rule->l3mdev)
+                rule->table = RT_TABLE_UNSPEC;
 
         return 0;
 }
