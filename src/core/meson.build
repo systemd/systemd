@@ -181,6 +181,7 @@ executables += [
                         libkmod_cflags,
                         libseccomp,
                         libselinux,
+                        libmount,
                 ],
         },
         libexec_template + {

@@ -14,6 +14,7 @@
 #include "cgroup.h"
 #include "fdset.h"
 #include "hashmap.h"
+#include "libmount-util.h"
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
@@ -495,6 +496,12 @@ struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+
+        /* Used in mount_load_proc_self_mountinfo() so that libmount doesn't
+         * need to resolve the same tags multiple times. This is beneficial
+         * when /proc/self/mountinfo contains a /dev/root entry and the kernel
+         * command line contains an entry like root=<tag>=<value> */
+        struct libmnt_cache *tag_cache;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
