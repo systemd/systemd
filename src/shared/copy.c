@@ -461,7 +461,7 @@ int copy_bytes_full(
                 /* As a fallback just copy bits by hand */
                 {
                         uint8_t buf[MIN(m, COPY_BUFFER_SIZE)], *p = buf;
-                        ssize_t z;
+                        size_t z;
 
                         n = read(fdf, buf, sizeof buf);
                         if (n < 0)
