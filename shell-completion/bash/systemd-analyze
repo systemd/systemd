@@ -204,7 +204,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[PLOT]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend'
+            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend --scale-svg --detailed'
         fi
 
     elif __contains_word "$verb" ${VERBS[ARCHITECTURES]}; then

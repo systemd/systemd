@@ -12,7 +12,7 @@
 #include "unit-def.h"
 #include "version.h"
 
-#define SCALE_X (0.1 / 1000.0) /* pixels per us */
+#define SCALE_X (0.1 * arg_svg_timescale / 1000.0) /* pixels per us */
 #define SCALE_Y (20.0)
 
 #define svg(...) printf(__VA_ARGS__)
@@ -29,6 +29,9 @@
                 svg(format, ## __VA_ARGS__);                            \
                 svg("</text>\n");                                       \
         } while (false)
+
+#define svg_timestamp(b, t, y) \
+        svg_text(b, t, y, "%u.%03us", (unsigned)((t) / USEC_PER_SEC), (unsigned)(((t) % USEC_PER_SEC) / USEC_PER_MSEC))
 
 
 typedef struct HostInfo {
@@ -366,6 +369,8 @@ static int produce_plot_as_svg(
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
         svg_text(true, boot->userspace_time, y, "systemd");
+        if (arg_detailed_svg)
+                svg_timestamp(false, boot->userspace_time, y);
         y++;
 
         for (; u->has_data; u++)
