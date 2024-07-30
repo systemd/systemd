@@ -821,6 +821,56 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
         return 0;
 }
 
+static int remove_macvlan_impl(char **interface_pairs) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r;
+
+        assert(interface_pairs);
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        STRV_FOREACH_PAIR(a, b, interface_pairs) {
+                _cleanup_free_ char *n = NULL;
+
+                n = strdup(*b);
+                if (!n)
+                        return log_oom();
+
+                (void) net_shorten_ifname(n, /* check_naming_scheme= */ true);
+
+                r = remove_one_link(rtnl, n);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove macvlan interface %s, ignoring: %m", n);
+        }
+
+        return 0;
+}
+
+int remove_macvlan(int child_netns_fd, char **interface_pairs) {
+        _cleanup_close_ int parent_netns_fd = -EBADF;
+        int r;
+
+        /* In some cases the kernel might pin the macvlan links on the container even after the namespace
+         * died. Hence, let's better remove them explicitly too. See issue #680. */
+
+        assert(child_netns_fd >= 0);
+
+        if (strv_isempty(interface_pairs))
+                return 0;
+
+        r = netns_fork_and_wait(child_netns_fd, &parent_netns_fd);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = remove_macvlan_impl(interface_pairs);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        return 0;
+}
+
 int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
