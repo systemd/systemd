@@ -377,6 +377,13 @@ CHANGES WITH 256:
         * A new unit systemd-udev-load-credentials.service has been added
           to pick up udev.conf drop-ins and udev rules from credentials.
 
+        * 'udevadm test' and 'udevadm test-builtin' commands now do not change
+          any settings; sysfs attributes, sysctls, udev database and so on.
+          E.g. 'udevadm test-builtin net_setup_link /sys/class/net/INTERFACE'
+          does not change any interface settings, but only prints which .link
+          file matches the interface. So, even privileged users can safely
+          invoke the commands.
+
         * An allowlist/denylist may be specified to filter which sysfs
           attributes are used when crafting network interface names. Those
           lists are stored as hwdb entries
