@@ -27,6 +27,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
