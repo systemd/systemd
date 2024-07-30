@@ -3938,7 +3938,7 @@ static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
         return 1;
 }
 
-static int kill_or_sigqueue(PidRef* pidref, int signo, int code, int value) {
+static int kill_or_sigqueue(PidRef *pidref, int signo, int code, int value) {
         assert(pidref_is_set(pidref));
         assert(SIGNAL_VALID(signo));
 
@@ -4058,14 +4058,32 @@ int unit_kill(
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
         if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-
                 if (crt && crt->cgroup_path) {
                         _cleanup_set_free_ Set *pid_set = NULL;
 
-                        /* Exclude the main/control pids from being killed via the cgroup */
-                        r = unit_pid_set(u, &pid_set);
-                        if (r < 0)
-                                return log_oom();
+                        if (signo == SIGKILL) {
+                                r = cg_kill_kernel_sigkill(crt->cgroup_path);
+                                if (r >= 0) {
+                                        killed = true;
+                                        log_unit_info(u, "Killed unit cgroup with SIGKILL on client request.");
+                                        goto finish;
+                                }
+                                if (r != -EOPNOTSUPP) {
+                                        if (ret >= 0)
+                                                sd_bus_error_set_errnof(ret_error, r,
+                                                                        "Failed to kill unit cgroup: %m",
+                                                                        signal_to_string(signo));
+                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup: %m"));
+                                        goto finish;
+                                }
+                                /* Fall back to manual enumeration */
+                        } else {
+                                /* Exclude the main/control pids from being killed via the cgroup if
+                                 * not SIGKILL */
+                                r = unit_pid_set(u, &pid_set);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 
                         r = cg_kill_recursive(crt->cgroup_path, signo, 0, pid_set, kill_common_log, u);
                         if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
@@ -4075,18 +4093,16 @@ int unit_kill(
                                                         "Failed to send signal SIG%s to auxiliary processes: %m",
                                                         signal_to_string(signo));
 
-                                log_unit_warning_errno(
-                                                u, r,
-                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
-                                                signal_to_string(signo));
-
-                                RET_GATHER(ret, r);
+                                RET_GATHER(ret, log_unit_warning_errno(
+                                                        u, r,
+                                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                                                        signal_to_string(signo)));
                         }
-
                         killed = killed || r >= 0;
                 }
         }
 
+finish:
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
         if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
