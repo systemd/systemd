@@ -4172,6 +4172,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>$DEBUG_STARTUP</varname></term>
+
+          <listitem><para>If <varname>RestartWithDebug=</varname> is enabled, and a previous attempt at
+          starting the unit failed, this variable will be passed to the service to indicate that additional
+          logging should be enabled at startup. See
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
       </variablelist>
 
       <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part

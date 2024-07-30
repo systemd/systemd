@@ -127,6 +127,8 @@ struct Service {
         usec_t restart_usec;
         unsigned restart_steps;
         usec_t restart_max_delay_usec;
+        bool restart_with_debug;
+        int original_log_level_max;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
