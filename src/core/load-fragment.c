@@ -4895,8 +4895,7 @@ int config_parse_import_credential(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *s = NULL;
-        Set** import_credentials = ASSERT_PTR(data);
+        ExecContext *context = ASSERT_PTR(data);
         Unit *u = userdata;
         int r;
 
@@ -4906,23 +4905,40 @@ int config_parse_import_credential(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                *import_credentials = set_free_free(*import_credentials);
+                context->import_credentials = ordered_set_free(context->import_credentials);
                 return 0;
         }
 
-        r = unit_cred_printf(u, rvalue, &s);
+        const char *p = rvalue;
+        _cleanup_free_ char *word = NULL, *glob = NULL;
+
+        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_cred_printf(u, word, &glob);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
-                return 0;
-        }
-        if (!credential_glob_valid(s)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name or glob \"%s\" not valid, ignoring.", s);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
                 return 0;
         }
 
-        r = set_put_strdup(import_credentials, s);
+        if (!credential_glob_valid(glob)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name or glob \"%s\" not valid, ignoring.", glob);
+                return 0;
+        }
+
+        if (!isempty(p) && !credential_name_valid(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", p);
+                return 0;
+        }
+
+        r = exec_context_put_import_credential(context, glob, empty_to_null(p));
         if (r < 0)
-                return log_error_errno(r, "Failed to store credential name '%s': %m", rvalue);
+                return log_error_errno(r, "Failed to store import credential '%s': %m", rvalue);
 
         return 0;
 }
