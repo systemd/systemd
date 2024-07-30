@@ -5598,6 +5598,10 @@ static int run_container(
                 r = move_back_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
+
+                r = remove_macvlan(child_netns_fd, arg_network_macvlan);
+                if (r < 0)
+                        return r;
         }
 
         r = wait_for_container(TAKE_PID(*pid), &container_status);
