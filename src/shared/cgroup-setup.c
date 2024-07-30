@@ -913,12 +913,6 @@ int cg_migrate_recursive(
         if (r < 0 && ret >= 0)
                 ret = r;
 
-        if (flags & CGROUP_REMOVE) {
-                r = cg_rmdir(cfrom, pfrom);
-                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
-                        return r;
-        }
-
         return ret;
 }
 
