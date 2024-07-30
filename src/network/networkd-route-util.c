@@ -259,7 +259,7 @@ int link_address_is_reachable(
                 return 0;
         }
 
-        r = link_get_address(link, route->family, &route->prefsrc, 0, &a);
+        r = link_get_address(link, route->family, &route->prefsrc, &a);
         if (r < 0)
                 return r;
 
@@ -312,7 +312,7 @@ int manager_address_is_reachable(
         if (r < 0)
                 return r;
 
-        r = link_get_address(link, found->family, &found->prefsrc, 0, &a);
+        r = link_get_address(link, found->family, &found->prefsrc, &a);
         if (r < 0)
                 return r;
 
