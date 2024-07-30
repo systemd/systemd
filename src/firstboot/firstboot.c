@@ -902,6 +902,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
+        bool found = false;
 
         assert(password);
 
@@ -926,6 +927,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                                 i->pw_passwd = (char *) password;
                                 if (shell)
                                         i->pw_shell = (char *) shell;
+                                found = true;
                         }
 
                         r = putpwent_sane(i, passwd);
@@ -936,6 +938,12 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                         return r;
 
         } else {
+                r = fchmod(fileno(passwd), 0644);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (!found) {
                 struct passwd root = {
                         .pw_name = (char *) "root",
                         .pw_passwd = (char *) password,
@@ -947,10 +955,6 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                 };
 
                 if (errno != ENOENT)
-                        return -errno;
-
-                r = fchmod(fileno(passwd), 0644);
-                if (r < 0)
                         return -errno;
 
                 r = putpwent_sane(&root, passwd);
@@ -973,6 +977,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
+        bool found = false;
 
         assert(hashed_password);
 
@@ -996,6 +1001,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                         if (streq(i->sp_namp, "root")) {
                                 i->sp_pwdp = (char *) hashed_password;
                                 i->sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+                                found = true;
                         }
 
                         r = putspent_sane(i, shadow);
@@ -1006,6 +1012,12 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                         return r;
 
         } else {
+                r = fchmod(fileno(shadow), 0000);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (!found) {
                 struct spwd root = {
                         .sp_namp = (char*) "root",
                         .sp_pwdp = (char *) hashed_password,
@@ -1019,10 +1031,6 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                 };
 
                 if (errno != ENOENT)
-                        return -errno;
-
-                r = fchmod(fileno(shadow), 0000);
-                if (r < 0)
                         return -errno;
 
                 r = putspent_sane(&root, shadow);
