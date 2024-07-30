@@ -1142,10 +1142,13 @@ static int process_root_account(int rfd) {
                 password = PASSWORD_SEE_SHADOW;
                 hashed_password = _hashed_password;
 
-        } else if (arg_delete_root_password)
-                password = hashed_password = PASSWORD_NONE;
-        else
-                password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
+        } else if (arg_delete_root_password) {
+                password = PASSWORD_SEE_SHADOW;
+                hashed_password = PASSWORD_NONE;
+        } else {
+                password = PASSWORD_SEE_SHADOW;
+                hashed_password = PASSWORD_LOCKED_AND_INVALID;
+        }
 
         r = write_root_passwd(rfd, pfd, password, arg_root_shell);
         if (r < 0)
