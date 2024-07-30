@@ -630,7 +630,7 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
-        c->import_credentials = set_free_free(c->import_credentials);
+        c->import_credentials = ordered_set_free(c->import_credentials);
 
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);
