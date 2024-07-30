@@ -38,6 +38,15 @@ ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc) {
         return mfree(lc);
 }
 
+ExecImportCredential* exec_import_credential_free(ExecImportCredential *lc) {
+        if (!lc)
+                return NULL;
+
+        free(lc->glob);
+        free(lc->rename);
+        return mfree(lc);
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_set_credential_hash_ops,
         char, string_hash_func, string_compare_func,
@@ -47,6 +56,11 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         exec_load_credential_hash_ops,
         char, string_hash_func, string_compare_func,
         ExecLoadCredential, exec_load_credential_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        exec_import_credential_hash_ops,
+        char, string_hash_func, string_compare_func,
+        ExecImportCredential, exec_import_credential_free);
 
 int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted) {
         ExecLoadCredential *old;
@@ -140,6 +154,37 @@ int exec_context_put_set_credential(
         return 0;
 }
 
+int exec_context_put_import_credential(ExecContext *c, const char *glob, const char *rename) {
+        _cleanup_(exec_import_credential_freep) ExecImportCredential *ic = NULL;
+        int r;
+
+        assert(c);
+
+        ic = new(ExecImportCredential, 1);
+        if (!ic)
+                return -ENOMEM;
+
+        *ic = (ExecImportCredential) {
+                .glob = strdup(glob),
+                .rename = rename ? strdup(rename) : NULL,
+        };
+        if (!ic->glob || (rename && !ic->rename))
+                return -ENOMEM;
+
+        if (ordered_set_contains(c->import_credentials, ic))
+                return 0;
+
+        r = ordered_set_ensure_put(&c->import_credentials, &exec_import_credential_hash_ops, ic);
+        if (r < 0) {
+                assert(r != -EEXIST);
+                return r;
+        }
+
+        TAKE_PTR(ic);
+
+        return 0;
+}
+
 bool exec_params_need_credentials(const ExecParameters *p) {
         assert(p);
 
@@ -151,7 +196,7 @@ bool exec_context_has_credentials(const ExecContext *c) {
 
         return !hashmap_isempty(c->set_credentials) ||
                 !hashmap_isempty(c->load_credentials) ||
-                !set_isempty(c->import_credentials);
+                !ordered_set_isempty(c->import_credentials);
 }
 
 bool exec_context_has_encrypted_credentials(const ExecContext *c) {
@@ -381,7 +426,7 @@ static int maybe_decrypt_and_write_credential(
 }
 
 static int load_credential_glob(
-                const char *path,
+                ExecImportCredential *ic,
                 bool encrypted,
                 char * const *search_path,
                 ReadFullFileFlags flags,
@@ -393,7 +438,7 @@ static int load_credential_glob(
 
         int r;
 
-        assert(path);
+        assert(ic);
         assert(search_path);
         assert(write_dfd >= 0);
         assert(left);
@@ -402,7 +447,7 @@ static int load_credential_glob(
                 _cleanup_globfree_ glob_t pglob = {};
                 _cleanup_free_ char *j = NULL;
 
-                j = path_join(*d, path);
+                j = path_join(*d, ic->glob);
                 if (!j)
                         return -ENOMEM;
 
@@ -432,6 +477,16 @@ static int load_credential_glob(
                         r = path_extract_filename(*p, &fn);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
+
+                        if (ic->rename) {
+                                _cleanup_free_ char *renamed = NULL;
+
+                                renamed = strjoin(ic->rename, fn + strlen(ic->glob) - !!endswith(ic->glob, "*"));
+                                if (!renamed)
+                                        return log_oom_debug();
+
+                                free_and_replace(fn, renamed);
+                        }
 
                         r = maybe_decrypt_and_write_credential(
                                         write_dfd,
@@ -656,7 +711,7 @@ static int acquire_credentials(
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -EBADF;
-        const char *ic;
+        ExecImportCredential *ic;
         ExecLoadCredential *lc;
         ExecSetCredential *sc;
         int r;
@@ -731,7 +786,7 @@ static int acquire_credentials(
 
         /* Next, look for system credentials and credentials in the credentials store. Note that these do not
          * override any credentials found earlier. */
-        SET_FOREACH(ic, context->import_credentials) {
+        ORDERED_SET_FOREACH(ic, context->import_credentials) {
                 _cleanup_free_ char **search_path = NULL;
 
                 search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_TRUSTED);
