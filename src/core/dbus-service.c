@@ -327,6 +327,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RestartSteps", "u", bus_property_get_unsigned, offsetof(Service, restart_steps), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartMaxDelayUSec", "t", bus_property_get_usec, offsetof(Service, restart_max_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartUSecNext", "t", property_get_restart_usec_next, 0, 0),
+        SD_BUS_PROPERTY("RestartWithDebug", "b", bus_property_get_bool, offsetof(Service, restart_with_debug), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutAbortUSec", "t", property_get_timeout_abort_usec, 0, 0),
@@ -565,6 +566,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "RestartMaxDelayUSec"))
                 return bus_set_transient_usec(u, name, &s->restart_max_delay_usec, message, flags, error);
+
+        if (streq(name, "RestartWithDebug"))
+                return bus_set_transient_bool(u, name, &s->restart_with_debug, message, flags, error);
 
         if (streq(name, "TimeoutStartUSec")) {
                 r = bus_set_transient_usec(u, name, &s->timeout_start_usec, message, flags, error);

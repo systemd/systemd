@@ -415,6 +415,7 @@ Service.ExecStopPost,                    config_parse_exec,                     
 Service.RestartSec,                      config_parse_sec,                            0,                                  offsetof(Service, restart_usec)
 Service.RestartSteps,                    config_parse_unsigned,                       0,                                  offsetof(Service, restart_steps)
 Service.RestartMaxDelaySec,              config_parse_sec,                            0,                                  offsetof(Service, restart_max_delay_usec)
+Service.RestartWithDebug,                config_parse_bool,                           0,                                  offsetof(Service, restart_with_debug)
 Service.TimeoutSec,                      config_parse_service_timeout,                0,                                  0
 Service.TimeoutStartSec,                 config_parse_service_timeout,                0,                                  0
 Service.TimeoutStopSec,                  config_parse_sec_fix_0,                      0,                                  offsetof(Service, timeout_stop_usec)
