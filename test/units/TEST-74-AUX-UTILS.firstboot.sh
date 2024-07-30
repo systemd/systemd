@@ -211,7 +211,7 @@ echo -ne "\nfoobar\n" | systemd-firstboot --root="$ROOT" --prompt-hostname
 grep -q "foobar" "$ROOT/etc/hostname"
 # With no root password provided, a locked account should be created.
 systemd-firstboot --root="$ROOT" --prompt-root-password </dev/null
-grep -q "^root:!\*:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
 grep -q "^root:!\*:" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 echo -ne "\n/bin/fooshell\n" | systemd-firstboot --root="$ROOT" --prompt-root-shell
@@ -262,7 +262,7 @@ grep -E "[a-z0-9]{32}" "$ROOT/etc/machine-id"
 rm -fv "$ROOT/etc/machine-id"
 
 systemd-firstboot --root="$ROOT" --delete-root-password
-grep -q "^root::0:0:" "$ROOT/etc/passwd"
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
 grep -q "^root::" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 
