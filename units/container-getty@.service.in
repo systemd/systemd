@@ -45,3 +45,5 @@ IgnoreSIGPIPE=no
 SendSIGHUP=yes
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=tty.container.%I.agetty.*:agetty.
+ImportCredential=tty.container.%I.login.*:login.
