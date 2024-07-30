@@ -347,7 +347,7 @@ static uint64_t msr(uint32_t index) {
         return val;
 }
 
-static bool detect_hyperv_sev(void) {
+static bool detect_hyperv_cvm(uint32_t isoltype) {
         uint32_t eax, ebx, ecx, edx, feat;
         char sig[13] = {};
 
@@ -364,7 +364,7 @@ static bool detect_hyperv_sev(void) {
         if (ebx & CPUID_HYPERV_ISOLATION && !(ebx & CPUID_HYPERV_CPU_MANAGEMENT)) {
                 __cpuid(CPUID_HYPERV_ISOLATION_CONFIG, eax, ebx, ecx, edx);
 
-                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == isoltype)
                         return true;
         }
 
@@ -389,7 +389,7 @@ static bool detect_sev(void) {
          * specific CPUID checks.
          */
         if (!(eax & EAX_SEV))
-                return detect_hyperv_sev();
+                return detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_SNP);
 
         msrval = msr(MSR_AMD64_SEV);
 
@@ -411,6 +411,9 @@ static bool detect_tdx(void) {
         cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
+                return true;
+
+        if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_TDX))
                 return true;
 
         return false;
