@@ -708,6 +708,14 @@ Table=1234</programlisting></para>
           number of dynamically created network interfaces with the same network configuration and
           automatic address range assignment.</para>
 
+          <para>If an IPv4 link-local address (169.254.0.0/16) is specified, IPv4 Address Conflict
+          Detection (<ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>) is enabled for the
+          address. To assign an IPv4 link-local address without IPv4 Address Conflict Detection, please use
+          [Address] section to configure the address and disable <varname>DuplicateAddressDetection=</varname>.
+          <programlisting>[Address]
+Address=169.254.10.1/24
+DuplicateAddressDetection=none</programlisting></para>
+
           <para>If an empty string is specified, then the all previous assignments in both [Network] and
           [Address] sections are cleared.</para>
 
@@ -1366,10 +1374,10 @@ Table=1234</programlisting></para>
           Detection. See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
           When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
           <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
-          <literal>ipv4</literal> for IPv4 link-local addresses, <literal>ipv6</literal> for IPv6
-          addresses, and <literal>none</literal> otherwise.</para>
+          <literal>ipv4</literal> for IPv4 link-local addresses (169.254.0.0/16), <literal>ipv6</literal>
+          for IPv6 addresses, and <literal>none</literal> otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v232"/>
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
