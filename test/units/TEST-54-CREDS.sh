@@ -289,6 +289,36 @@ systemd-run -p "ImportCredential=test.creds.*" \
                 '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
 cmp /tmp/ts54-concat <(echo -n abc)
 
+# Check that renaming with globs works as expected.
+systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.second' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.third' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n abc)
+
+# Check that renaming without globs works as expected.
+systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n a)
+
+# Test that multiple renames are processed in the correct order.
+systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            -p "ImportCredentialEx=test.creds.second:renamed.creds.first" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n a)
+
 # Now test encrypted credentials (only supported when built with OpenSSL though)
 if systemctl --version | grep -q -- +OPENSSL ; then
     echo -n $RANDOM >/tmp/test-54-plaintext
