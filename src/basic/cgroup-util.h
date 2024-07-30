@@ -186,9 +186,8 @@ int cg_cgroupid_open(int fsfd, uint64_t id);
 typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
         CGROUP_IGNORE_SELF        = 1 << 1,
-        CGROUP_REMOVE             = 1 << 2,
-        CGROUP_DONT_SKIP_UNMAPPED = 1 << 3,
-        CGROUP_NO_PIDFD           = 1 << 4,
+        CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
+        CGROUP_NO_PIDFD           = 1 << 3,
 } CGroupFlags;
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
@@ -213,8 +212,6 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret);
 int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret);
-
-int cg_rmdir(const char *controller, const char *path);
 
 int cg_is_threaded(const char *path);
 
