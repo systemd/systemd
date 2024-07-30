@@ -1382,7 +1382,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
+        if (link_get_ipv6_address(link, &gateway, NULL) >= 0) {
                 if (DEBUG_LOGGING)
                         log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route",
                                        IN6_ADDR_TO_STRING(&gateway));

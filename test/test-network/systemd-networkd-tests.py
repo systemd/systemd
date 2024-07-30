@@ -3707,6 +3707,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             print(output)
             self.assertIn('abcd::/16 via 2001:1234:56:8f63::1:1 proto static src 2001:1234:56:8f63::1', output)
 
+            output = check_output('ip -4 route list dev dummy98')
+            print(output)
+            self.assertIn('10.123.0.0/16 via 192.168.30.1 proto static src 10.10.10.1', output)
+
     def test_ip_link_mac_address(self):
         copy_network_unit('25-address-link-section.network', '12-dummy.netdev')
         start_networkd()
