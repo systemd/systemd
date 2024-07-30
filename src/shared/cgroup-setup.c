@@ -573,7 +573,7 @@ int cg_set_access_recursive(
         if (r < 0)
                 return r;
 
-        fd = open(fs, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        fd = open(fs, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
