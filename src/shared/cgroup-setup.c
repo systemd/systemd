@@ -635,10 +635,7 @@ int cg_migrate(
                         if (set_contains(s, PID_TO_PTR(pid)))
                                 continue;
 
-                        /* Ignore kernel threads. Since they can only exist in the root cgroup, we only
-                         * check for them there. */
-                        if (cfrom && empty_or_root(pfrom) &&
-                            pid_is_kernel_thread(pid) > 0)
+                        if (pid_is_kernel_thread(pid) > 0)
                                 continue;
 
                         r = cg_attach(cto, pto, pid);
