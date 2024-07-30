@@ -208,19 +208,16 @@ int cg_read_event(
 }
 
 bool cg_ns_supported(void) {
-        static thread_local int enabled = -1;
+        static thread_local int supported = -1;
 
-        if (enabled >= 0)
-                return enabled;
+        if (supported >= 0)
+                return supported;
 
-        if (access("/proc/self/ns/cgroup", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
-                enabled = false;
-        } else
-                enabled = true;
-
-        return enabled;
+        if (access("/proc/self/ns/cgroup", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
+        return (supported = false);
 }
 
 bool cg_freezer_supported(void) {
@@ -229,9 +226,14 @@ bool cg_freezer_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) == 0;
+        if (cg_all_unified() <= 0)
+                return (supported = false);
 
-        return supported;
+        if (access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether cgroup freezer is available, assuming not: %m");
+        return (supported = false);
 }
 
 bool cg_kill_supported(void) {
@@ -241,15 +243,13 @@ bool cg_kill_supported(void) {
                 return supported;
 
         if (cg_all_unified() <= 0)
-                supported = false;
-        else if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check if cgroup.kill is available, assuming not: %m");
-                supported = false;
-        } else
-                supported = true;
+                return (supported = false);
 
-        return supported;
+        if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether cgroup.kill is available, assuming not: %m");
+        return (supported = false);
 }
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret) {
