@@ -5424,7 +5424,7 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
         (void) ignore_signals(SIGPIPE);
 
         if (crt->cgroup_path) {
-                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0, NULL, NULL);
+                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
                         _exit(EXIT_CGROUP);

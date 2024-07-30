@@ -788,8 +788,11 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
         return created;
 }
 
-int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
+int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid) {
         int r;
+
+        assert(path);
+        assert(pid >= 0);
 
         r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, path, pid);
         if (r < 0)
@@ -806,7 +809,6 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
 
         for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                const char *p = NULL;
 
                 if (!FLAGS_SET(supported, bit))
                         continue;
@@ -814,12 +816,7 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
                 if (FLAGS_SET(done, bit))
                         continue;
 
-                if (path_callback)
-                        p = path_callback(bit, userdata);
-                if (!p)
-                        p = path;
-
-                (void) cg_attach_fallback(cgroup_controller_to_string(c), p, pid);
+                (void) cg_attach_fallback(cgroup_controller_to_string(c), path, pid);
                 done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 

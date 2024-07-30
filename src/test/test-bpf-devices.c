@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(path_extract_directory(cgroup, &parent));
 
         ASSERT_OK(cg_mask_supported(&supported));
-        r = cg_attach_everywhere(supported, parent, 0, NULL, NULL);
+        r = cg_attach_everywhere(supported, parent, 0);
         ASSERT_OK(r);
 
         return 0;
