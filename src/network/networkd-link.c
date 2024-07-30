@@ -1769,25 +1769,22 @@ static int link_carrier_gained(Link *link) {
 }
 
 static int link_carrier_lost_impl(Link *link) {
-        int r, ret = 0;
+        int ret = 0;
 
         assert(link);
 
         link->previous_ssid = mfree(link->previous_ssid);
 
+        ret = link_handle_bound_by_list(link);
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                return ret;
 
         if (!link->network)
-                return 0;
+                return ret;
 
-        r = link_stop_engines(link, false);
-        if (r < 0)
-                ret = r;
-
-        r = link_drop_managed_config(link);
-        if (r < 0 && ret >= 0)
-                ret = r;
+        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_drop_managed_config(link));
 
         return ret;
 }
@@ -1808,22 +1805,17 @@ static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *us
 static int link_carrier_lost(Link *link) {
         uint16_t dhcp_mtu;
         usec_t usec;
-        int r;
 
         assert(link);
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return 0;
+                usec = 0;
 
-        if (!link->network)
-                return 0;
+        else if (!link->network)
+                usec = 0;
 
-        if (link->network->ignore_carrier_loss_set)
+        else if (link->network->ignore_carrier_loss_set)
                 /* If IgnoreCarrierLoss= is explicitly specified, then use the specified value. */
                 usec = link->network->ignore_carrier_loss_usec;
 
