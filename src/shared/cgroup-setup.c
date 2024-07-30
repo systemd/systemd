@@ -653,89 +653,6 @@ int cg_migrate(
         return ret;
 }
 
-int cg_migrate_recursive(
-                const char *cfrom,
-                const char *pfrom,
-                const char *cto,
-                const char *pto,
-                CGroupFlags flags) {
-
-        _cleanup_closedir_ DIR *d = NULL;
-        int r, ret = 0;
-        char *fn;
-
-        assert(cfrom);
-        assert(pfrom);
-        assert(cto);
-        assert(pto);
-
-        ret = cg_migrate(cfrom, pfrom, cto, pto, flags);
-
-        r = cg_enumerate_subgroups(cfrom, pfrom, &d);
-        if (r < 0) {
-                if (ret >= 0 && r != -ENOENT)
-                        return r;
-
-                return ret;
-        }
-
-        while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                _cleanup_free_ char *p = NULL;
-
-                p = path_join(empty_to_root(pfrom), fn);
-                free(fn);
-                if (!p)
-                        return -ENOMEM;
-
-                r = cg_migrate_recursive(cfrom, p, cto, pto, flags);
-                if (r != 0 && ret >= 0)
-                        ret = r;
-        }
-
-        if (r < 0 && ret >= 0)
-                ret = r;
-
-        if (flags & CGROUP_REMOVE) {
-                r = cg_rmdir(cfrom, pfrom);
-                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
-                        return r;
-        }
-
-        return ret;
-}
-
-int cg_migrate_recursive_fallback(
-                const char *cfrom,
-                const char *pfrom,
-                const char *cto,
-                const char *pto,
-                CGroupFlags flags) {
-
-        int r;
-
-        assert(cfrom);
-        assert(pfrom);
-        assert(cto);
-        assert(pto);
-
-        r = cg_migrate_recursive(cfrom, pfrom, cto, pto, flags);
-        if (r < 0) {
-                char prefix[strlen(pto) + 1];
-
-                /* This didn't work? Then let's try all prefixes of the destination */
-
-                PATH_FOREACH_PREFIX(prefix, pto) {
-                        int q;
-
-                        q = cg_migrate_recursive(cfrom, pfrom, cto, prefix, flags);
-                        if (q >= 0)
-                                return q;
-                }
-        }
-
-        return r;
-}
-
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
         CGroupController c;
         CGroupMask done;
@@ -823,42 +740,6 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid) {
         return 0;
 }
 
-int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata) {
-        CGroupController c;
-        CGroupMask done;
-        int r = 0, q;
-
-        assert(to_callback);
-
-        supported &= CGROUP_MASK_V1;
-        mask = CGROUP_MASK_EXTEND_JOINED(mask);
-        done = 0;
-
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                const char *to = NULL;
-
-                if (!FLAGS_SET(supported, bit))
-                        continue;
-
-                if (FLAGS_SET(done, bit))
-                        continue;
-
-                if (!FLAGS_SET(mask, bit))
-                        continue;
-
-                to = to_callback(bit, userdata);
-
-                /* Remember first error and try continuing */
-                q = cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, from, cgroup_controller_to_string(c), to, 0);
-                r = (r < 0) ? r : q;
-
-                done |= CGROUP_MASK_EXTEND_JOINED(bit);
-        }
-
-        return r;
-}
-
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root) {
         int r, q;
 
@@ -873,35 +754,6 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
                 return r;
 
         return cg_trim_v1_controllers(supported, _CGROUP_MASK_ALL, path, delete_root);
-}
-
-int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *path, bool delete_root) {
-        CGroupController c;
-        CGroupMask done;
-        int r = 0, q;
-
-        supported &= CGROUP_MASK_V1;
-        mask = CGROUP_MASK_EXTEND_JOINED(mask);
-        done = 0;
-
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-
-                if (!FLAGS_SET(supported, bit))
-                        continue;
-
-                if (FLAGS_SET(done, bit))
-                        continue;
-
-                if (FLAGS_SET(mask, bit)) {
-                        /* Remember first error and try continuing */
-                        q = cg_trim(cgroup_controller_to_string(c), path, delete_root);
-                        r = (r < 0) ? r : q;
-                }
-                done |= CGROUP_MASK_EXTEND_JOINED(bit);
-        }
-
-        return r;
 }
 
 int cg_enable_everywhere(
@@ -1010,4 +862,152 @@ int cg_enable_everywhere(
                 *ret_result_mask = ret;
 
         return 0;
+}
+
+int cg_migrate_recursive(
+                const char *cfrom,
+                const char *pfrom,
+                const char *cto,
+                const char *pto,
+                CGroupFlags flags) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, ret = 0;
+        char *fn;
+
+        assert(cfrom);
+        assert(pfrom);
+        assert(cto);
+        assert(pto);
+
+        ret = cg_migrate(cfrom, pfrom, cto, pto, flags);
+
+        r = cg_enumerate_subgroups(cfrom, pfrom, &d);
+        if (r < 0) {
+                if (ret >= 0 && r != -ENOENT)
+                        return r;
+
+                return ret;
+        }
+
+        while ((r = cg_read_subgroup(d, &fn)) > 0) {
+                _cleanup_free_ char *p = NULL;
+
+                p = path_join(empty_to_root(pfrom), fn);
+                free(fn);
+                if (!p)
+                        return -ENOMEM;
+
+                r = cg_migrate_recursive(cfrom, p, cto, pto, flags);
+                if (r != 0 && ret >= 0)
+                        ret = r;
+        }
+
+        if (r < 0 && ret >= 0)
+                ret = r;
+
+        if (flags & CGROUP_REMOVE) {
+                r = cg_rmdir(cfrom, pfrom);
+                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
+                        return r;
+        }
+
+        return ret;
+}
+
+int cg_migrate_recursive_fallback(
+                const char *cfrom,
+                const char *pfrom,
+                const char *cto,
+                const char *pto,
+                CGroupFlags flags) {
+
+        int r;
+
+        assert(cfrom);
+        assert(pfrom);
+        assert(cto);
+        assert(pto);
+
+        r = cg_migrate_recursive(cfrom, pfrom, cto, pto, flags);
+        if (r < 0) {
+                char prefix[strlen(pto) + 1];
+
+                /* This didn't work? Then let's try all prefixes of the destination */
+
+                PATH_FOREACH_PREFIX(prefix, pto) {
+                        int q;
+
+                        q = cg_migrate_recursive(cfrom, pfrom, cto, prefix, flags);
+                        if (q >= 0)
+                                return q;
+                }
+        }
+
+        return r;
+}
+
+int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata) {
+        CGroupController c;
+        CGroupMask done;
+        int r = 0, q;
+
+        assert(to_callback);
+
+        supported &= CGROUP_MASK_V1;
+        mask = CGROUP_MASK_EXTEND_JOINED(mask);
+        done = 0;
+
+        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
+                const char *to = NULL;
+
+                if (!FLAGS_SET(supported, bit))
+                        continue;
+
+                if (FLAGS_SET(done, bit))
+                        continue;
+
+                if (!FLAGS_SET(mask, bit))
+                        continue;
+
+                to = to_callback(bit, userdata);
+
+                /* Remember first error and try continuing */
+                q = cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, from, cgroup_controller_to_string(c), to, 0);
+                r = (r < 0) ? r : q;
+
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
+        }
+
+        return r;
+}
+
+int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *path, bool delete_root) {
+        CGroupController c;
+        CGroupMask done;
+        int r = 0, q;
+
+        supported &= CGROUP_MASK_V1;
+        mask = CGROUP_MASK_EXTEND_JOINED(mask);
+        done = 0;
+
+        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
+
+                if (!FLAGS_SET(supported, bit))
+                        continue;
+
+                if (FLAGS_SET(done, bit))
+                        continue;
+
+                if (FLAGS_SET(mask, bit)) {
+                        /* Remember first error and try continuing */
+                        q = cg_trim(cgroup_controller_to_string(c), path, delete_root);
+                        r = (r < 0) ? r : q;
+                }
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
+        }
+
+        return r;
 }
