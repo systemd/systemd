@@ -822,9 +822,6 @@ static int link_handle_bound_by_list(Link *link) {
 
         /* Update up or down state of interfaces which depend on this interface's carrier state. */
 
-        if (hashmap_isempty(link->bound_by_links))
-                return 0;
-
         HASHMAP_FOREACH(l, link->bound_by_links) {
                 r = link_handle_bound_to_list(l);
                 if (r < 0)
