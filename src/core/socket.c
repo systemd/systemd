@@ -2480,7 +2480,7 @@ static int socket_start(Unit *u) {
                 /* If the service is already active we cannot start the
                  * socket */
                 if (!IN_SET(service->state,
-                            SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
+                            SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
                             SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED))
                         return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
                                                     "Socket service %s already active, refusing.", UNIT(service)->id);
@@ -3367,7 +3367,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 return;
 
         if (IN_SET(SERVICE(other)->state,
-                   SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
+                   SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                    SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED))
                socket_enter_listening(s);
