@@ -91,6 +91,13 @@ systemd-firstboot --root="$ROOT" --root-password-file=root.passwd
 grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
 grep -q "^root:[^!*]" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow" root.passwd
+# Make sure the root password is set if /etc/passwd and /etc/shadow exist but
+# don't have a root entry.
+touch "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-password=foo
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:[^!*]" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 # If /etc/passwd and /etc/shadow exist, they will only be updated if the shadow
 # password is !unprovisioned.
 echo "root:x:0:0:root:/root:/bin/sh" >"$ROOT/etc/passwd"
