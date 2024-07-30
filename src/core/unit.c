@@ -4684,20 +4684,19 @@ int unit_make_transient(Unit *u) {
 }
 
 static int log_kill(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
 
         (void) pidref_get_comm(pid, &comm);
 
-        /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
-           only, like for example systemd's own PAM stub process. */
-        if (comm && comm[0] == '(')
+        if (ignore_leftover_process(comm))
                 /* Although we didn't log anything, as this callback is used in unit_kill_context we must return 1
                  * here to let the manager know that a process was killed. */
                 return 1;
 
-        log_unit_notice(userdata,
+        log_unit_notice(u,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
                         pid->pid,
                         strna(comm),
@@ -4712,6 +4711,7 @@ static int operation_to_signal(
                 bool *ret_noteworthy) {
 
         assert(c);
+        assert(ret_noteworthy);
 
         switch (k) {
 
