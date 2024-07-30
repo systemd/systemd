@@ -76,7 +76,7 @@ static uint64_t msr(uint64_t index) {
         return ret;
 }
 
-static bool detect_hyperv_sev(void) {
+static bool detect_hyperv_cvm(uint32_t isoltype) {
         uint32_t eax, ebx, ecx, edx, feat;
         char sig[13] = {};
 
@@ -100,7 +100,7 @@ static bool detect_hyperv_sev(void) {
                 ebx = ecx = edx = 0;
                 cpuid(&eax, &ebx, &ecx, &edx);
 
-                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == isoltype)
                         return true;
         }
 
@@ -133,7 +133,7 @@ static ConfidentialVirtualization detect_sev(void) {
         if (!(eax & EAX_SEV)) {
                 log_debug("No sev in CPUID, trying hyperv CPUID");
 
-                if (detect_hyperv_sev())
+                if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_SNP))
                         return CONFIDENTIAL_VIRTUALIZATION_SEV_SNP;
 
                 log_debug("No hyperv CPUID");
@@ -169,6 +169,11 @@ static ConfidentialVirtualization detect_tdx(void) {
         cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
+                return CONFIDENTIAL_VIRTUALIZATION_TDX;
+
+        log_debug("No tdx in CPUID, trying hyperv CPUID");
+
+        if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_TDX))
                 return CONFIDENTIAL_VIRTUALIZATION_TDX;
 
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
