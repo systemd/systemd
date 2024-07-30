@@ -6,7 +6,16 @@ Name=dummy98
 Address=2001:1234:56:8f63::1/64
 IPv6AcceptRA=no
 
+[Address]
+Address=10.10.10.1/32
+Peer=192.168.30.1/32
+
 [Route]
 Destination=abcd::/16
 Gateway=2001:1234:56:8f63::1:1
 PreferredSource=2001:1234:56:8f63::1
+
+[Route]
+Destination=10.123.0.0/16
+Gateway=192.168.30.1
+PreferredSource=10.10.10.1
