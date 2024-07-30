@@ -1714,6 +1714,13 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
 
+        /* Process BindCarrier= setting specified by other interfaces. This is independent of the .network
+         * file assigned to this interface, but depends on .network files assigned to other interfaces.
+         * Hence, this can and should be called earlier. */
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         /* If a wireless interface was connected to an access point, and the SSID is changed (that is,
          * both previous_ssid and ssid are non-NULL), then the connected wireless network could be
          * changed. So, always reconfigure the link. Which means e.g. the DHCP client will be
@@ -1745,10 +1752,6 @@ static int link_carrier_gained(Link *link) {
          * link_reconfigure_impl(). Note, link_reconfigure_impl() returns 1 when the link is reconfigured. */
         r = link_reconfigure_impl(link, force_reconfigure);
         if (r != 0)
-                return r;
-
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
                 return r;
 
         if (link->iftype == ARPHRD_CAN)
