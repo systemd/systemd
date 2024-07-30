@@ -12,6 +12,7 @@
 [Match]
 Type=wlan
 WLANInterfaceType=station
+SSID=*
 
 [Network]
 DHCP=yes
