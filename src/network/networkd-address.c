@@ -135,8 +135,6 @@ void link_get_address_states(
                 *ret_all = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
 }
 
-static void address_hash_func(const Address *a, struct siphash *state);
-static int address_compare_func(const Address *a1, const Address *a2);
 static void address_detach(Address *address);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -446,7 +444,7 @@ static int address_ipv4_prefix(const Address *a, struct in_addr *ret) {
         return 0;
 }
 
-static void address_hash_func(const Address *a, struct siphash *state) {
+void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress_typesafe(a->family, state);
@@ -476,7 +474,7 @@ static void address_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-static int address_compare_func(const Address *a1, const Address *a2) {
+int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);

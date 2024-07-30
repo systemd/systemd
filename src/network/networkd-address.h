@@ -88,6 +88,8 @@ void link_get_address_states(
                 LinkAddressState *ret_ipv6,
                 LinkAddressState *ret_all);
 
+void address_hash_func(const Address *a, struct siphash *state);
+int address_compare_func(const Address *a1, const Address *a2);
 extern const struct hash_ops address_hash_ops;
 
 bool address_can_update(const Address *existing, const Address *requesting);
@@ -117,10 +119,6 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
 static inline int link_get_ipv6_address(Link *link, const struct in6_addr *address, unsigned char prefixlen, Address **ret) {
         assert(address);
         return link_get_address(link, AF_INET6, &(union in_addr_union) { .in6 = *address }, prefixlen, ret);
-}
-static inline int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret) {
-        assert(address);
-        return link_get_address(link, AF_INET, &(union in_addr_union) { .in = *address }, prefixlen, ret);
 }
 int manager_get_address(Manager *manager, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret);
 bool manager_has_address(Manager *manager, int family, const union in_addr_union *address);
