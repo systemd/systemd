@@ -112,8 +112,14 @@ systemd-firstboot --root="$ROOT" --root-password=foo
 grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
 grep -q "^root:[^!*]" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
-# Set the shell together with the password, as firstboot won't touch
-# /etc/passwd if it already exists
+systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1"
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-shell=/bin/fooshell
+grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
+grep -q "^root:!\*:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1" --root-shell=/bin/fooshell
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
