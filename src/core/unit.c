@@ -5840,7 +5840,8 @@ static bool ignore_leftover_process(const char *comm) {
         return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
 }
 
-int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
+static int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5852,7 +5853,7 @@ int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) 
 
         /* During start we print a warning */
 
-        log_unit_warning(userdata,
+        log_unit_warning(u,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
                          "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
                          pid->pid, strna(comm));
@@ -5860,7 +5861,8 @@ int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) 
         return 1;
 }
 
-int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
+static int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5872,20 +5874,19 @@ int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
 
         /* During stop we only print an informational message */
 
-        log_unit_info(userdata,
+        log_unit_info(u,
                       "Unit process " PID_FMT " (%s) remains running after unit stopped.",
                       pid->pid, strna(comm));
 
         return 1;
 }
 
-int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
+int unit_warn_leftover_processes(Unit *u, bool start) {
         assert(u);
 
         (void) unit_pick_cgroup_path(u);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-
         if (!crt || !crt->cgroup_path)
                 return 0;
 
@@ -5894,7 +5895,7 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
                         /* sig= */ 0,
                         /* flags= */ 0,
                         /* set= */ NULL,
-                        log_func,
+                        start ? unit_log_leftover_process_start : unit_log_leftover_process_stop,
                         u);
 }
 
