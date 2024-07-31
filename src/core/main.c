@@ -2001,7 +2001,7 @@ static int do_reexecute(
 
         r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
         if (r < 0)
-                log_error_errno(r, "Failed to apply the starting ambient set, ignoring: %m.");
+                log_warning_errno(r, "Failed to apply the starting ambient set, ignoring: %m");
 
         args_size = argc + 5;
         args = newa(const char*, args_size);
@@ -2383,6 +2383,7 @@ static int initialize_runtime(
 
         int r;
 
+        assert(original_ambient_set);
         assert(ret_error_message);
 
         /* Sets up various runtime parameters. Many of these initializations are conditionalized:
@@ -2506,7 +2507,7 @@ static int initialize_runtime(
          * Preserve the ambient set for later use with sd-executor processes. */
         r = capability_get_ambient(original_ambient_set);
         if (r < 0)
-                log_error_errno(r, "Failed to save ambient capabilities, ignoring: %m.");
+                log_warning_errno(r, "Failed to save ambient capabilities, ignoring: %m");
 
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the manager itself to
