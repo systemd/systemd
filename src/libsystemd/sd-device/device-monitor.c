@@ -686,7 +686,7 @@ static uint64_t string_bloom64(const char *str) {
         return bits;
 }
 
-int device_monitor_send_device(
+int device_monitor_send(
                 sd_device_monitor *m,
                 const union sockaddr_union *destination,
                 sd_device *device) {

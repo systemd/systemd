@@ -18,4 +18,4 @@ typedef enum MonitorNetlinkGroup {
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd);
 int device_monitor_get_address(sd_device_monitor *m, union sockaddr_union *ret);
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender);
-int device_monitor_send_device(sd_device_monitor *m, const union sockaddr_union *destination, sd_device *device);
+int device_monitor_send(sd_device_monitor *m, const union sockaddr_union *destination, sd_device *device);
