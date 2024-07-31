@@ -7,7 +7,7 @@
  * this x86 specific linux_exec function passes the initrd by setting the
  * corresponding fields in the setup_header struct.
  *
- * see https://docs.kernel.org/x86/boot.html
+ * see https://docs.kernel.org/arch/x86/boot.html
  */
 
 #include "initrd.h"
