@@ -95,6 +95,7 @@ typedef enum ServiceTimeoutFailureMode {
 typedef enum ServiceRestartMode {
         SERVICE_RESTART_MODE_NORMAL,
         SERVICE_RESTART_MODE_DIRECT,
+        SERVICE_RESTART_MODE_DEBUG,
         _SERVICE_RESTART_MODE_MAX,
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
@@ -234,6 +235,8 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        int original_log_level_max;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

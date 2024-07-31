@@ -936,19 +936,37 @@
         <listitem>
           <para>Takes a string value that specifies how a service should restart:
             <itemizedlist>
-              <listitem><para>If set to <option>normal</option> (the default), the service restarts by
-              going through a failed/inactive state.</para></listitem>
+              <listitem>
+                <para>If set to <option>normal</option> (the default), the service restarts by going through
+                a failed/inactive state.</para>
 
-              <listitem><para>If set to <option>direct</option>, the service transitions to the activating
-              state directly during auto-restart, skipping failed/inactive state.
-              <varname>ExecStopPost=</varname> is invoked.
-              <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para></listitem>
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>direct</option>, the service transitions to the activating
+                state directly during auto-restart, skipping failed/inactive state.
+                <varname>ExecStopPost=</varname> is invoked.
+                <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para>
+
+                <para>This option is useful in cases where a dependency can fail temporarily but we don't
+                want these temporary failures to make the dependent units fail. Dependent units are not
+                notified of these temporary failures.</para>
+
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>debug</option>, the service manager will log messages that are
+                related to this unit at debug level while automated restarts are attempted, until either the
+                service hits the rate limit or it succeeds. This is useful to be able to get additional
+                information when a service fails to start, without needing to proactively or permanently
+                enable debug level logging in systemd, which is very verbose.</para>
+
+                <xi:include href="version-info.xml" xpointer="v257"/>
+              </listitem>
             </itemizedlist>
           </para>
-
-          <para>This option is useful in cases where a dependency can fail temporarily
-          but we don't want these temporary failures to make the dependent units fail.
-          When this option is set to <option>direct</option>, dependent units are not notified of these temporary failures.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
