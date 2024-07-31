@@ -99,12 +99,12 @@ int journal_acquire_boot(sd_journal *j) {
 
                 r = journal_find_boot(j, arg_boot_id, arg_boot_offset, &boot_id);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to find journal entry from the specified boot (%s%+i): %m",
+                        return log_error_errno(r, "Failed to find journal entry for the specified boot (%s%+i): %m",
                                                sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
                                                arg_boot_offset);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "No journal boot entry found from the specified boot (%s%+i).",
+                                               "No journal boot entry found for the specified boot (%s%+i).",
                                                sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
                                                arg_boot_offset);
 
