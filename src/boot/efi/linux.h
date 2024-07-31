@@ -16,4 +16,5 @@ EFI_STATUS linux_exec_efi_handover(
                 const void *linux_buffer,
                 size_t linux_length,
                 const void *initrd_buffer,
-                size_t initrd_length);
+                size_t initrd_length,
+                size_t kernel_size_in_memory);
