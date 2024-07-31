@@ -442,8 +442,6 @@ static int load_credential_glob(
                                         ownership_ok,
                                         data, size,
                                         left);
-                        if (r == -EEXIST)
-                                continue;
                         if (r < 0)
                                 return r;
                 }
