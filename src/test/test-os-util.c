@@ -125,7 +125,7 @@ TEST(os_release_support_ended) {
         int r;
 
         ASSERT_TRUE(os_release_support_ended("1999-01-01", false, NULL));
-        ASSERT_FALSE(os_release_support_ended("2037-12-31", false, NULL));
+        ASSERT_FALSE(os_release_support_ended("2067-12-31", false, NULL));
         assert_se(os_release_support_ended("-1-1-1", true, NULL) == -EINVAL);
 
         r = os_release_support_ended(NULL, false, NULL);
