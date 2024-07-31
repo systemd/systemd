@@ -231,13 +231,13 @@ fail:
         /* Let's unset the socket fd in the monitor object before we destroy it so that the fd passed in is
          * not closed on failure. */
         if (fd >= 0)
-                m->sock = -1;
+                m->sock = -EBADF;
 
         return r;
 }
 
 _public_ int sd_device_monitor_new(sd_device_monitor **ret) {
-        return device_monitor_new_full(ret, MONITOR_GROUP_UDEV, -1);
+        return device_monitor_new_full(ret, MONITOR_GROUP_UDEV, -EBADF);
 }
 
 _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
