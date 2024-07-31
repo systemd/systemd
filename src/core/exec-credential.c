@@ -310,7 +310,7 @@ static int write_credential(
                 gid_t gid,
                 bool ownership_ok) {
 
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -318,47 +318,47 @@ static int write_credential(
         assert(id);
         assert(data || size == 0);
 
-        r = tempfn_random_child("", "cred", &tmp);
+        r = tempfn_random_child(id, "cred", &tmp);
         if (r < 0)
                 return r;
 
         fd = openat(dfd, tmp, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL|O_NOFOLLOW|O_NOCTTY, 0600);
-        if (fd < 0) {
-                tmp = mfree(tmp);
+        if (fd < 0)
                 return -errno;
-        }
 
         r = loop_write(fd, data, size);
         if (r < 0)
-                return r;
+                goto fail;
 
-        if (fchmod(fd, 0400) < 0) /* Take away "w" bit */
-                return -errno;
+        r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
+        if (r < 0)
+                goto fail;
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
                 if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                                return r;
+                        /* Ideally we use ACLs, since we can neatly express what we want to express:
+                         * the user gets read access and nothing else. But if the backing fs can't
+                         * support that (e.g. ramfs), then we can use file ownership instead. But that's
+                         * only safe if we can then re-mount the whole thing read-only, so that the user
+                         * can no longer chmod() the file to gain write access. */
+                        if (!ownership_ok || (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r)))
+                                goto fail;
 
-                        if (!ownership_ok) /* Ideally we use ACLs, since we can neatly express what we want
-                                            * to express: that the user gets read access and nothing
-                                            * else. But if the backing fs can't support that (e.g. ramfs)
-                                            * then we can use file ownership instead. But that's only safe if
-                                            * we can then re-mount the whole thing read-only, so that the
-                                            * user can no longer chmod() the file to gain write access. */
-                                return r;
-
-                        if (fchown(fd, uid, gid) < 0)
-                                return -errno;
+                        r = RET_NERRNO(fchown(fd, uid, gid));
+                        if (r < 0)
+                                goto fail;
                 }
         }
 
         if (renameat(dfd, tmp, dfd, id) < 0)
-                return -errno;
+                goto fail;
 
-        tmp = mfree(tmp);
         return 0;
+
+fail:
+        (void) unlinkat(dfd, tmp, /* flags = */ 0);
+        return r;
 }
 
 typedef enum CredentialSearchPath {
