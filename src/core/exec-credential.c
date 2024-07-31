@@ -417,6 +417,17 @@ static int load_credential_glob(
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
 
+                        r = path_extract_filename(*p, &fn);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
+
+                        if (faccessat(write_dfd, fn, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                                log_debug("Skipping credential with duplicated ID %s at %s", fn, *p);
+                                continue;
+                        }
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to test if credential %s exists: %m", fn);
+
                         /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
                         r = read_full_file_full(
                                         AT_FDCWD,
@@ -428,10 +439,6 @@ static int load_credential_glob(
                                         &data, &size);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
-
-                        r = path_extract_filename(*p, &fn);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
 
                         r = maybe_decrypt_and_write_credential(
                                         write_dfd,

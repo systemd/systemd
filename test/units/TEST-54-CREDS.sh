@@ -273,8 +273,11 @@ rm -rf /tmp/ts54-creds
 # Check that globs work as expected
 mkdir -p /run/credstore
 echo -n a >/run/credstore/test.creds.first
-echo -n b >/run/credstore/test.creds.second
+# Make sure that when multiple credentials of the same name are found, the first one is used (/etc/credstore
+# is searched before /run/credstore).
+echo -n ignored >/run/credstore/test.creds.second
 mkdir -p /etc/credstore
+echo -n b >/etc/credstore/test.creds.second
 echo -n c >/etc/credstore/test.creds.third
 systemd-run -p "ImportCredential=test.creds.*" \
             --unit=test-54-ImportCredential.service \
