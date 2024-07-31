@@ -3,7 +3,20 @@
 set -e
 set -o nounset
 
-useradd --uid 4711 --create-home --user-group testuser
+if [[ "$DISTRIBUTION" =~ ubuntu|debian ]]; then
+    SUDO_GROUP=sudo
+else
+    SUDO_GROUP=wheel
+fi
+
+useradd \
+    --uid 4711 \
+    --user-group \
+    --create-home \
+    --password "$(openssl passwd -1 testuser)" \
+    --groups "$SUDO_GROUP",systemd-journal \
+    --shell /bin/bash \
+    testuser
 
 if command -v authselect >/dev/null; then
     # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
