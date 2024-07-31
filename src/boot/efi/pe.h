@@ -26,4 +26,4 @@ EFI_STATUS pe_file_locate_sections(
                 const char *const section_names[],
                 PeSectionVector sections[]);
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address);
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory);
