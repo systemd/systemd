@@ -3520,6 +3520,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <literal>[]</literal> wildcards are not permitted, nor are <literal>*</literal> wildcards anywhere
         except at the end of the glob expression.</para>
 
+        <para>Optionally, the credential name or glob may be followed by a colon followed by a rename pattern.
+        If specified, all credentials matching the credential name or glob are renamed according to the given
+        pattern. For example, if <literal>ImportCredential=my.original.cred:my.renamed.cred</literal> is
+        specified, the service manager will read the <literal>my.original.cred</literal> credential and make
+        it available as the <literal>my.renamed.cred</literal> credential to the service. Similarly, if
+        <literal>ImportCredential=my.original.*:my.renamed.</literal> is specified, the service manager will
+        read all credentials starting with <literal>my.original.</literal> and make them available as
+        <literal>my.renamed.xxx</literal> to the service.</para>
+
+        <para>If <varname>ImportCredential=</varname> is specified multiple times and multiple credentials
+        end up with the same name after renaming, the first one is kept and later ones are dropped.</para>.
+
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
         credentials found by <varname>ImportCredential=</varname>.</para>
