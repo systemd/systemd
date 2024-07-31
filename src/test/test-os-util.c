@@ -126,7 +126,12 @@ TEST(os_release_support_ended) {
         int r;
 
         ASSERT_TRUE(os_release_support_ended("1999-01-01", false, NULL));
+#if SIZEOF_TIME_T == 4
+        /* Dates past 2038 overflow time_t on 32-bit systems, so keep a safe date here. */
         ASSERT_FALSE(os_release_support_ended("2037-12-31", false, NULL));
+#else
+        ASSERT_FALSE(os_release_support_ended("9999-12-30", false, NULL));
+#endif
         ASSERT_ERROR(os_release_support_ended("1-1-1", true, NULL), ERANGE);
 
         r = os_release_support_ended(NULL, false, NULL);
