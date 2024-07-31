@@ -5041,7 +5041,7 @@ int exec_invoke(
                  *
                  * The requested ambient capabilities are raised in the inheritable set if the second
                  * argument is true. */
-                if (!needs_ambient_hack) {
+                if (!needs_ambient_hack && capability_ambient_set != 0) {
                         r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
