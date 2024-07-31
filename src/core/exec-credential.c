@@ -868,10 +868,6 @@ static int acquire_credentials(
                 const char *data;
                 size_t size, add;
 
-                /* Note that we check ahead of time here instead of relying on O_EXCL|O_CREAT later to return
-                 * EEXIST if the credential already exists. That's because the TPM2-based decryption is kinda
-                 * slow and involved, hence it's nice to be able to skip that if the credential already
-                 * exists anyway. */
                 if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                         log_debug("Skipping credential with duplicated ID %s", sc->id);
                         continue;
