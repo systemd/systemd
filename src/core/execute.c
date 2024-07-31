@@ -396,6 +396,7 @@ int exec_spawn(
         assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
+        LOG_CONTEXT_SET_LOG_LEVEL(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level());
 
         r = exec_context_load_environment(unit, context, &params->files_env);
         if (r < 0)
