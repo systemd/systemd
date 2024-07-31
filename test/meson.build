@@ -374,6 +374,7 @@ foreach dirname : [
         'TEST-83-BTRFS',
         'TEST-84-STORAGETM',
         'TEST-85-NETWORK',
+        'TEST-86-MULTI-PROFILE-UKI',
 ]
         subdir(dirname)
 endforeach

@@ -3,6 +3,20 @@
 
 #include "efi.h"
 
+/* This is the actual PE format of the section header*/
+typedef struct PeSectionHeader {
+        uint8_t  Name[8];
+        uint32_t VirtualSize;
+        uint32_t VirtualAddress;
+        uint32_t SizeOfRawData;
+        uint32_t PointerToRawData;
+        uint32_t PointerToRelocations;
+        uint32_t PointerToLinenumbers;
+        uint16_t NumberOfRelocations;
+        uint16_t NumberOfLinenumbers;
+        uint32_t Characteristics;
+} _packed_ PeSectionHeader;
+
 /* This is a subset of the full PE section header structure, with validated values, and without
  * the noise. */
 typedef struct PeSectionVector {
@@ -15,14 +29,26 @@ static inline bool PE_SECTION_VECTOR_IS_SET(const PeSectionVector *v) {
         return v && v->size != 0;
 }
 
-EFI_STATUS pe_memory_locate_sections(
+EFI_STATUS pe_section_table_from_base(
                 const void *base,
-                const char *const section_names[],
+                const PeSectionHeader **ret_section_table,
+                size_t *ret_n_section_table);
+
+EFI_STATUS pe_section_table_from_file(
+                EFI_FILE *handle,
+                PeSectionHeader **ret_section_table,
+                size_t *ret_n_section_table);
+
+EFI_STATUS pe_locate_profile_sections(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const char* const section_names[],
+                unsigned profile,
+                size_t validate_base,
                 PeSectionVector sections[]);
 
-EFI_STATUS pe_file_locate_sections(
-                EFI_FILE *dir,
-                const char16_t *path,
+EFI_STATUS pe_memory_locate_sections(
+                const void *base,
                 const char *const section_names[],
                 PeSectionVector sections[]);
 

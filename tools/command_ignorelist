@@ -568,3 +568,4 @@ file-hierarchy.xml /refsect1[title="Home Directory"]/variablelist/varlistentry[t
 file-hierarchy.xml /refsect1[title="Home Directory"]/variablelist/varlistentry[term="~/.local/lib/arch-id/"]
 file-hierarchy.xml /refsect1[title="Home Directory"]/variablelist/varlistentry[term="~/.local/share/"]
 file-hierarchy.xml /refsect1[title="Home Directory"]/variablelist/varlistentry[term="~/.local/state/"]
+systemd-measure.xml /refsect1[title="Options"]/variablelist/varlistentry[term="--linux=PATH"]

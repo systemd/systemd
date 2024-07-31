@@ -267,7 +267,8 @@
         <term><option>kernel-identify</option> <replaceable>kernel</replaceable></term>
 
         <listitem><para>Takes a kernel image as argument. Checks what kind of kernel the image is. Returns
-        one of <literal>uki</literal>, <literal>pe</literal>, and <literal>unknown</literal>.
+        one of <literal>uki</literal>, <literal>addon</literal>, <literal>pe</literal>, and
+        <literal>unknown</literal>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -358,6 +359,24 @@
         <command>systemd-boot</command> being installed.</para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--print-loader-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>: it shows the
+        absolute path to the boot loader EFI binary used for the current boot if this information is
+        available. Note that no attempt is made to verify whether the binary still exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--print-stub-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>: it shows the
+        absolute path to the UKI/stub EFI binary used for the current boot if this information is
+        available. Note that no attempt is made to verify whether the binary still exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>

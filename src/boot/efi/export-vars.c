@@ -10,7 +10,8 @@ void export_common_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         assert(loaded_image);
 
         /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS) {
+        if (loaded_image->DeviceHandle &&
+            efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
                 if (uuid)
                         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
@@ -22,8 +23,8 @@ void export_common_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
          * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
          * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
          * is non-NULL explicitly.) */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
-            loaded_image->FilePath) {
+        if (loaded_image->FilePath &&
+            efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
                 if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS)
                         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", s, 0);

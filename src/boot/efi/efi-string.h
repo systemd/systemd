@@ -23,8 +23,8 @@ static inline size_t strsize16(const char16_t *s) {
         return s ? (strlen16(s) + 1) * sizeof(*s) : 0;
 }
 
-void strtolower8(char *s);
-void strtolower16(char16_t *s);
+char* strtolower8(char *s);
+char16_t* strtolower16(char16_t *s);
 
 int strncmp8(const char *s1, const char *s2, size_t n);
 int strncmp16(const char16_t *s1, const char16_t *s2, size_t n);
