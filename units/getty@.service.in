@@ -55,6 +55,8 @@ IgnoreSIGPIPE=no
 SendSIGHUP=yes
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=tty.virtual.%I.agetty.*:agetty.
+ImportCredential=tty.virtual.%I.login.*:login.
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.
