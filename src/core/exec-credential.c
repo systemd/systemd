@@ -547,10 +547,10 @@ static int load_credential(
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
         _cleanup_strv_free_ char **search_path = NULL;
-        _cleanup_(erase_and_freep) char *data = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
-        bool missing_ok = true;
+        bool missing_ok;
+        _cleanup_(erase_and_freep) char *data = NULL;
         size_t size, maxsz;
         int r;
 
@@ -603,7 +603,7 @@ static int load_credential(
 
                 missing_ok = true;
         } else
-                source = NULL;
+                return -EINVAL;
 
         if (args->encrypted) {
                 flags |= READ_FULL_FILE_UNBASE64;
@@ -638,7 +638,7 @@ static int load_credential(
                                 bindname,
                                 &data, &size);
         else
-                r = -ENOENT;
+                assert_not_reached();
 
         if (r == -ENOENT && (missing_ok || hashmap_contains(args->context->set_credentials, id))) {
                 /* Make a missing inherited credential non-fatal, let's just continue. After all apps
