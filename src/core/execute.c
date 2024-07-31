@@ -467,6 +467,12 @@ int exec_spawn(
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         dual_timestamp start_timestamp;
 
+        /* Restore the original ambient capability set the manager was started with to pass it to
+         * sd-executor. */
+        r = capability_ambient_set_apply(unit->manager->original_ambient_set, /* also_inherit= */ false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to apply the starting ambient set: %m");
+
         /* Record the start timestamp before we fork so that it is guaranteed to be earlier than the
          * handoff timestamp. */
         dual_timestamp_now(&start_timestamp);
@@ -481,6 +487,10 @@ int exec_spawn(
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
+
+        /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
+        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+
         if (r == -EUCLEAN && subcgroup_path)
                 return log_unit_error_errno(unit, r,
                                             "Failed to spawn process into cgroup '%s', because the cgroup "
