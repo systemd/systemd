@@ -26,6 +26,7 @@ typedef struct Manager Manager;
 #include "nsflags.h"
 #include "numa-util.h"
 #include "open-file.h"
+#include "ordered-set.h"
 #include "path-util.h"
 #include "runtime-scope.h"
 #include "set.h"
@@ -363,7 +364,7 @@ struct ExecContext {
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
         Hashmap *load_credentials; /* output id → ExecLoadCredential */
-        Set *import_credentials;
+        OrderedSet *import_credentials; /* ExecImportCredential */
 
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 };
