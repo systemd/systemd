@@ -39,6 +39,8 @@ IgnoreSIGPIPE=no
 SendSIGHUP=yes
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=tty.console.agetty.*:agetty.
+ImportCredential=tty.console.login.*:login.
 
 [Install]
 WantedBy=getty.target
