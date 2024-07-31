@@ -51,7 +51,7 @@ static void test_receive_device_fail(void) {
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
         assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, &sa, loopback) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, loopback) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
 }
 
@@ -88,7 +88,7 @@ static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool
         if ((subsystem_filter || tag_filter) && use_bpf)
                 assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
@@ -126,11 +126,11 @@ static void test_subsystem_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device subsystem:%s syspath:%s", s, p);
-                assert_se(device_monitor_send_device(monitor_server, &sa, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
         }
 
         log_device_info(device, "Sending device subsystem:%s syspath:%s", subsystem, syspath);
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
@@ -165,11 +165,11 @@ static void test_tag_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, &sa, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
@@ -207,16 +207,16 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, &sa, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
 
                 /* The sysattr filter is not implemented in BPF yet. So, sending multiple devices may fills up
-                 * buffer and device_monitor_send_device() may return EAGAIN. Let's send one device here,
+                 * buffer and device_monitor_send() may return EAGAIN. Let's send one device here,
                  * which should be filtered out by the receiver. */
                 break;
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
@@ -260,16 +260,16 @@ static void test_parent_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, &sa, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
 
                 /* The parent filter is not implemented in BPF yet. So, sending multiple devices may fills up
-                 * buffer and device_monitor_send_device() may return EAGAIN. Let's send one device here,
+                 * buffer and device_monitor_send() may return EAGAIN. Let's send one device here,
                  * which should be filtered out by the receiver. */
                 break;
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
@@ -302,12 +302,12 @@ static void test_sd_device_monitor_filter_remove(sd_device *device) {
         assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, "hoge", NULL) >= 0);
         assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
 
         assert_se(sd_device_monitor_filter_remove(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
@@ -329,7 +329,7 @@ static void test_sd_device_monitor_low_level_api(sd_device *device) {
         fd = sd_device_monitor_get_fd(monitor_client);
         assert_se(fd >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, &sa, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
 
         for (;;) {
                 r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
