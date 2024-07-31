@@ -91,11 +91,11 @@ static void send_by_enumerator(
                 ASSERT_OK(device_add_property(d, "SEQNUM", "10"));
 
                 log_device_debug(d, "Sending device subsystem:%s syspath:%s", s, p);
-                ASSERT_OK(device_monitor_send_device(monitor_server, address, d));
+                ASSERT_OK(device_monitor_send(monitor_server, address, d));
 
                 /* The sysattr and parent filters are not implemented in BPF yet. So, sending multiple
-                 * devices may fills up buffer and device_monitor_send_device() may return EAGAIN. Let's
-                 * send only a few devices here, which should be filtered out by the receiver. */
+                 * devices may fills up buffer and device_monitor_send() may return EAGAIN. Let's send only a
+                 * few devices here, which should be filtered out by the receiver. */
                 if (n != SIZE_MAX && ++i >= n)
                         break;
         }
@@ -129,7 +129,7 @@ TEST(refuse_invalid_device) {
         prepare_monitor(&monitor_server, &monitor_client, &sa);
 
         ASSERT_OK(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath));
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, loopback));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, loopback));
         ASSERT_OK(sd_event_run(sd_device_monitor_get_event(monitor_client), 0));
 }
 
@@ -159,7 +159,7 @@ static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool
                 ASSERT_OK(sd_device_monitor_filter_update(monitor_client));
 
         ASSERT_OK(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath));
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -211,7 +211,7 @@ TEST(sd_device_monitor_filter_add_match_subsystem_devtype) {
         send_by_enumerator(monitor_server, &sa, e, SIZE_MAX, NULL);
 
         log_device_info(device, "Sending device subsystem:%s syspath:%s", subsystem, syspath);
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -235,7 +235,7 @@ TEST(sd_device_monitor_filter_add_match_tag) {
         send_by_enumerator(monitor_server, &sa, e, SIZE_MAX, NULL);
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -262,7 +262,7 @@ TEST(sd_device_monitor_filter_add_match_sysattr) {
         send_by_enumerator(monitor_server, &sa, e, 5, NULL);
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -296,7 +296,7 @@ TEST(sd_device_monitor_add_match_parent) {
         send_by_enumerator(monitor_server, &sa, e, 5, parent_syspath);
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -315,12 +315,12 @@ TEST(sd_device_monitor_filter_remove) {
         ASSERT_OK(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, "hoge", NULL));
         ASSERT_OK(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath));
 
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_OK(sd_event_run(sd_device_monitor_get_event(monitor_client), 0));
 
         ASSERT_OK(sd_device_monitor_filter_remove(monitor_client));
 
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
@@ -337,7 +337,7 @@ TEST(sd_device_monitor_receive) {
 
         prepare_monitor(&monitor_server, &monitor_client, &sa);
 
-        ASSERT_OK(device_monitor_send_device(monitor_server, &sa, device));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
 
         ASSERT_OK(fd = sd_device_monitor_get_fd(monitor_client));
         for (;;) {

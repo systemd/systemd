@@ -450,7 +450,7 @@ static int event_run(Event *event) {
                 if (worker->state != WORKER_IDLE)
                         continue;
 
-                r = device_monitor_send_device(manager->monitor, &worker->address, event->dev);
+                r = device_monitor_send(manager->monitor, &worker->address, event->dev);
                 if (r < 0) {
                         log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
                                                worker->pid);
