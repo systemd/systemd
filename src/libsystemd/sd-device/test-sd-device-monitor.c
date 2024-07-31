@@ -9,6 +9,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "io-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
@@ -29,6 +30,7 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
 static void test_receive_device_fail(void) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
+        union sockaddr_union sa;
         const char *syspath;
 
         log_info("/* %s */", __func__);
@@ -47,14 +49,16 @@ static void test_receive_device_fail(void) {
         assert_se(sd_device_monitor_set_description(monitor_client, "receiver") >= 0);
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, loopback) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, loopback) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
 }
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         const char *syspath, *subsystem, *devtype = NULL;
+        union sockaddr_union sa;
 
         log_device_info(device, "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */", __func__,
                         true_false(subsystem_filter), true_false(tag_filter), true_false(use_bpf));
@@ -69,6 +73,7 @@ static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool
         assert_se(sd_device_monitor_set_description(monitor_client, "receiver") >= 0);
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
         if (subsystem_filter) {
                 assert_se(sd_device_get_subsystem(device, &subsystem) >= 0);
@@ -83,7 +88,7 @@ static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool
         if ((subsystem_filter || tag_filter) && use_bpf)
                 assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
@@ -91,6 +96,7 @@ static void test_subsystem_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *subsystem;
+        union sockaddr_union sa;
 
         log_device_info(device, "/* %s */", __func__);
 
@@ -106,6 +112,7 @@ static void test_subsystem_filter(sd_device *device) {
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, subsystem, NULL) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, false) >= 0);
@@ -119,17 +126,18 @@ static void test_subsystem_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device subsystem:%s syspath:%s", s, p);
-                assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
         }
 
         log_device_info(device, "Sending device subsystem:%s syspath:%s", subsystem, syspath);
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
 static void test_tag_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        union sockaddr_union sa;
         const char *syspath;
 
         log_device_info(device, "/* %s */", __func__);
@@ -145,6 +153,7 @@ static void test_tag_filter(sd_device *device) {
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_filter_add_match_tag(monitor_client, "TEST_SD_DEVICE_MONITOR") >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         FOREACH_DEVICE(e, d) {
@@ -156,11 +165,11 @@ static void test_tag_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
@@ -169,6 +178,7 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *sysattr_value;
+        union sockaddr_union sa;
 
         log_device_info(device, "/* %s(%s) */", __func__, sysattr);
 
@@ -184,6 +194,7 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_filter_add_match_sysattr(monitor_client, sysattr, sysattr_value, true) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_sysattr(e, sysattr, sysattr_value, false) >= 0);
@@ -196,16 +207,16 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
 
                 /* The sysattr filter is not implemented in BPF yet. So, sending multiple devices may fills up
-                 * buffer and device_monitor_send_device() may return EAGAIN. Let's send one device here,
+                 * buffer and device_monitor_send() may return EAGAIN. Let's send one device here,
                  * which should be filtered out by the receiver. */
                 break;
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
@@ -214,6 +225,7 @@ static void test_parent_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *parent_syspath;
+        union sockaddr_union sa;
         sd_device *parent;
         int r;
 
@@ -234,6 +246,7 @@ static void test_parent_filter(sd_device *device) {
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_filter_add_match_parent(monitor_client, parent, true) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         FOREACH_DEVICE(e, d) {
@@ -247,22 +260,23 @@ static void test_parent_filter(sd_device *device) {
                 assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
-                assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
+                assert_se(device_monitor_send(monitor_server, &sa, d) >= 0);
 
                 /* The parent filter is not implemented in BPF yet. So, sending multiple devices may fills up
-                 * buffer and device_monitor_send_device() may return EAGAIN. Let's send one device here,
+                 * buffer and device_monitor_send() may return EAGAIN. Let's send one device here,
                  * which should be filtered out by the receiver. */
                 break;
         }
 
         log_device_info(device, "Sending device syspath:%s", syspath);
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 
 }
 
 static void test_sd_device_monitor_filter_remove(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        union sockaddr_union sa;
         const char *syspath;
 
         log_device_info(device, "/* %s */", __func__);
@@ -277,17 +291,60 @@ static void test_sd_device_monitor_filter_remove(sd_device *device) {
         assert_se(sd_device_monitor_set_description(monitor_client, "receiver") >= 0);
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
+
+        /* Check if sd_device_monitor_start() and _stop() can be called multiple times. */
+        assert_se(sd_device_monitor_stop(monitor_client) >= 0);
+        assert_se(sd_device_monitor_stop(monitor_client) >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, NULL, NULL) >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
 
         assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, "hoge", NULL) >= 0);
         assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
 
         assert_se(sd_device_monitor_filter_remove(monitor_client) >= 0);
 
-        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
+}
+
+static void test_sd_device_monitor_low_level_api(sd_device *device) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        union sockaddr_union sa;
+        const char *syspath;
+        int fd, r;
+
+        log_device_info(device, "/* %s */", __func__);
+
+        assert_se(sd_device_get_syspath(device, &syspath) >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1) >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1) >= 0);
+        assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
+        assert_se(device_monitor_get_address(monitor_client, &sa) >= 0);
+        fd = sd_device_monitor_get_fd(monitor_client);
+        assert_se(fd >= 0);
+
+        assert_se(device_monitor_send(monitor_server, &sa, device) >= 0);
+
+        for (;;) {
+                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                if (r == -EINTR)
+                        continue;
+                assert_se(r > 0);
+                break;
+        }
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        assert_se(sd_device_monitor_receive(monitor_client, &dev) > 0);
+
+        const char *s;
+        assert_se(sd_device_get_syspath(dev, &s) >= 0);
+        assert_se(streq(s, syspath));
 }
 
 int main(int argc, char *argv[]) {
@@ -343,6 +400,7 @@ int main(int argc, char *argv[]) {
         test_send_receive_one(sda,  true,  true,  true);
 
         test_parent_filter(sda);
+        test_sd_device_monitor_low_level_api(sda);
 
         return 0;
 }

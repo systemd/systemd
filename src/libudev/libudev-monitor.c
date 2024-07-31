@@ -109,14 +109,12 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor) {
  * udev_monitor_enable_receiving:
  * @udev_monitor: the monitor which should receive events
  *
- * Binds the @udev_monitor socket to the event source.
+ * Deprecated, and alias of udev_monitor_filter_update().
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
-        assert_return(udev_monitor, -EINVAL);
-
-        return device_monitor_enable_receiving(udev_monitor->monitor);
+        return udev_monitor_filter_update(udev_monitor);
 }
 
 /**
@@ -188,7 +186,7 @@ _public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) {
 _public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor) {
         assert_return(udev_monitor, -EINVAL);
 
-        return device_monitor_get_fd(udev_monitor->monitor);
+        return sd_device_monitor_get_fd(udev_monitor->monitor);
 }
 
 static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
@@ -199,13 +197,13 @@ static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_
 
         for (;;) {
                 /* r == 0 means a device is received but it does not pass the current filter. */
-                r = device_monitor_receive_device(udev_monitor->monitor, ret);
+                r = sd_device_monitor_receive(udev_monitor->monitor, ret);
                 if (r != 0)
                         return r;
 
                 for (;;) {
                         /* Wait for next message */
-                        r = fd_wait_for_event(device_monitor_get_fd(udev_monitor->monitor), POLLIN, 0);
+                        r = fd_wait_for_event(sd_device_monitor_get_fd(udev_monitor->monitor), POLLIN, 0);
                         if (r == -EINTR)
                                 continue;
                         if (r < 0)
