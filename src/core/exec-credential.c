@@ -779,8 +779,10 @@ static int acquire_credentials(
                  * EEXIST if the credential already exists. That's because the TPM2-based decryption is kinda
                  * slow and involved, hence it's nice to be able to skip that if the credential already
                  * exists anyway. */
-                if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                        log_debug("Skipping credential with duplicated ID %s", sc->id);
                         continue;
+                }
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
