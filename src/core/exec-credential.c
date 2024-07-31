@@ -183,6 +183,7 @@ int exec_context_put_import_credential(ExecContext *c, const char *glob, const c
         int r;
 
         assert(c);
+        assert(glob);
 
         rename = empty_to_null(rename);
 
@@ -368,7 +369,7 @@ typedef enum CredentialSearchPath {
         _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
 } CredentialSearchPath;
 
-static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
+static char** credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
@@ -396,7 +397,6 @@ static char **credential_search_path(const ExecParameters *params, CredentialSea
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
-
                 log_debug("Credential search path is: %s", strempty(t));
         }
 
@@ -708,7 +708,7 @@ static int load_cred_recurse_dir_cb(
                 return -ENOMEM;
 
         if (!credential_name_valid(sub_id))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID %s, which is not valid, refusing", sub_id);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID '%s', which is not valid, refusing.", sub_id);
 
         if (faccessat(args->dfd, sub_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                 log_debug("Skipping credential with duplicated ID %s at %s", sub_id, path);
@@ -747,9 +747,6 @@ static int acquire_credentials(
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -EBADF;
-        ExecImportCredential *ic;
-        ExecLoadCredential *lc;
-        ExecSetCredential *sc;
         int r;
 
         assert(context);
@@ -766,6 +763,7 @@ static int acquire_credentials(
                 return r;
 
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
+        ExecLoadCredential *lc;
         HASHMAP_FOREACH(lc, context->load_credentials) {
                 _cleanup_close_ int sub_fd = -EBADF;
 
@@ -775,11 +773,11 @@ static int acquire_credentials(
                  * propagate a credential passed to us from further up. */
 
                 if (path_is_absolute(lc->path)) {
-                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC);
                         if (sub_fd < 0 && !IN_SET(errno,
                                                   ENOTDIR,  /* Not a directory */
                                                   ENOENT))  /* Doesn't exist? */
-                                return log_debug_errno(errno, "Failed to open '%s': %m", lc->path);
+                                return log_debug_errno(errno, "Failed to open credential source '%s': %m", lc->path);
                 }
 
                 if (sub_fd < 0)
@@ -822,6 +820,7 @@ static int acquire_credentials(
 
         /* Next, look for system credentials and credentials in the credentials store. Note that these do not
          * override any credentials found earlier. */
+        ExecImportCredential *ic;
         ORDERED_SET_FOREACH(ic, context->import_credentials) {
                 _cleanup_free_ char **search_path = NULL;
 
@@ -863,6 +862,7 @@ static int acquire_credentials(
 
         /* Finally, we add in literally specified credentials. If the credentials already exist, we'll not
          * add them, so that they can act as a "default" if the same credential is specified multiple times. */
+        ExecSetCredential *sc;
         HASHMAP_FOREACH(sc, context->set_credentials) {
                 _cleanup_(iovec_done_erase) struct iovec plaintext = {};
                 const char *data;
