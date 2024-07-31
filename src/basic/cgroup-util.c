@@ -149,7 +149,9 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 if (pid == 0)
                         return -EREMOTE;
 
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
+                /* We might read kernel thread pids from cgroup.procs for which we cannot create a pidfd so
+                 * catch those and don't try to create a pidfd for them. */
+                if (FLAGS_SET(flags, CGROUP_NO_PIDFD) || pid_is_kernel_thread(pid) > 0) {
                         *ret = PIDREF_MAKE_FROM_PID(pid);
                         return 1;
                 }
