@@ -149,7 +149,9 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 if (pid == 0)
                         return -EREMOTE;
 
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
+                /* We might read kernel thread pids from cgroup.procs for which we cannot create a pidfd so
+                 * catch those and don't try to create a pidfd for them. */
+                if (FLAGS_SET(flags, CGROUP_NO_PIDFD) || pid_is_kernel_thread(pid)) {
                         *ret = PIDREF_MAKE_FROM_PID(pid);
                         return 1;
                 }
@@ -368,6 +370,12 @@ static int cg_kill_items(
 
                         if (set_get(s, PID_TO_PTR(pidref.pid)) == PID_TO_PTR(pidref.pid))
                                 continue;
+
+                        /* Ignore kernel threads to mimick the behavior of cgroup.kill. */
+                        if (pidref_is_kernel_thread(&pidref) > 0) {
+                                log_debug("Ignoring kernel thread with pid " PID_FMT " in cgroup '%s'", pidref.pid, path);
+                                continue;
+                        }
 
                         if (log_kill)
                                 ret_log_kill = log_kill(&pidref, sig, userdata);
