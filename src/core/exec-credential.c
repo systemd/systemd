@@ -864,10 +864,6 @@ static int acquire_credentials(
          * add them, so that they can act as a "default" if the same credential is specified multiple times. */
         ExecSetCredential *sc;
         HASHMAP_FOREACH(sc, context->set_credentials) {
-                _cleanup_(iovec_done_erase) struct iovec plaintext = {};
-                const char *data;
-                size_t size, add;
-
                 if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                         log_debug("Skipping credential with duplicated ID %s", sc->id);
                         continue;
@@ -875,35 +871,9 @@ static int acquire_credentials(
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
-                if (sc->encrypted) {
-                        r = decrypt_credential_and_warn(
-                                        sc->id,
-                                        now(CLOCK_REALTIME),
-                                        /* tpm2_device= */ NULL,
-                                        /* tpm2_signature_path= */ NULL,
-                                        getuid(),
-                                        &IOVEC_MAKE(sc->data, sc->size),
-                                        CREDENTIAL_ANY_SCOPE,
-                                        &plaintext);
-                        if (r < 0)
-                                return r;
-
-                        data = plaintext.iov_base;
-                        size = plaintext.iov_len;
-                } else {
-                        data = sc->data;
-                        size = sc->size;
-                }
-
-                add = strlen(sc->id) + size;
-                if (add > left)
-                        return -E2BIG;
-
-                r = write_credential(dfd, sc->id, data, size, uid, gid, ownership_ok);
+                r = maybe_decrypt_and_write_credential(dfd, sc->id, sc->encrypted, uid, gid, ownership_ok, sc->data, sc->size, &left);
                 if (r < 0)
                         return r;
-
-                left -= add;
         }
 
         r = fd_acl_make_read_only(dfd); /* Now take away the "w" bit */
