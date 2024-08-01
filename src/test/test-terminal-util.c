@@ -279,7 +279,7 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("COLORTERM", "24bit",     terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
         test_get_color_mode_with_env("COLORTERM", "invalid",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
         test_get_color_mode_with_env("COLORTERM", "42",        terminal_is_dumb() ? COLOR_OFF : COLOR_256);
-        unsetenv("COLORTERM");
+        ASSERT_OK(unsetenv("COLORTERM"));
         reset_terminal_feature_caches();
 }
 
