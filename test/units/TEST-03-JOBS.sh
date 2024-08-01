@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2016
+
 set -eux
 set -o pipefail
 
@@ -165,5 +167,12 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
+# Test shortcutting auto restart
+
+(! systemctl start shortcut-restart.service)
+timeout 15 bash -c 'while [[ "$(systemctl show shortcut-restart.service -P SubState)" != "auto-restart" ]]; do sleep .5; done'
+systemctl start --no-block shortcut-restart.service
+timeout 15 bash -c 'while [[ "$(systemctl show shortcut-restart.service -P SubState)" != "start-pre" ]]; do sleep .5; done'
 
 touch /testok
