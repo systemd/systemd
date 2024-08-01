@@ -322,6 +322,12 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         return dns_stream_complete(s, -r);
         }
 
+        if (revents & EPOLLERR) {
+                socklen_t errlen = sizeof(r);
+                if (getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &r, &errlen) == 0)
+                        return dns_stream_complete(s, r);
+        }
+
         if ((revents & EPOLLOUT) &&
             s->write_packet &&
             s->n_written < sizeof(s->write_size) + s->write_packet->size) {
