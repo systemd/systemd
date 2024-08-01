@@ -256,7 +256,7 @@ TEST(calendar_spec_from_string) {
 
 static int intro(void) {
         /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
-        ASSERT_OK(unsetenv("TZ"));
+        ASSERT_OK_ERRNO(unsetenv("TZ"));
 
         return EXIT_SUCCESS;
 }
