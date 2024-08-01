@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2016
+
 set -eux
 set -o pipefail
 
@@ -165,5 +167,31 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
+# Test shortcutting auto restart
+
+export UNIT_NAME="TEST-03-JOBS-shortcut-restart.service"
+TMP_FILE="/tmp/test-03-shortcut-restart-test$RANDOM"
+
+cat >"/run/systemd/system/$UNIT_NAME" <<EOF
+[Service]
+Type=oneshot
+ExecStart=rm -v "$TMP_FILE"
+Restart=on-failure
+RestartSec=1d
+RemainAfterExit=yes
+EOF
+
+(! systemctl start "$UNIT_NAME")
+timeout 10 bash -c 'while [[ "$(systemctl show "$UNIT_NAME" -P SubState)" != "auto-restart" ]]; do sleep .5; done'
+touch "$TMP_FILE"
+assert_eq "$(systemctl show "$UNIT_NAME" -P SubState)" "auto-restart"
+
+timeout 30 systemctl start "$UNIT_NAME"
+systemctl --quiet is-active "$UNIT_NAME"
+assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "1"
+[[ ! -f "$TMP_FILE" ]]
+
+rm /run/systemd/system/"$UNIT_NAME"
 
 touch /testok
