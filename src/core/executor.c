@@ -210,7 +210,9 @@ static int run(int argc, char *argv[]) {
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the executor itself to
          * operate. */
-        capability_ambient_set_apply(0, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to clear ambient capabilities, ignoring: %m");
 
         /* This call would collect all passed fds and enable CLOEXEC. We'll unset it in exec_invoke (flag_fds)
          * for fds that shall be passed to the child.
