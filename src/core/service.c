@@ -2774,14 +2774,12 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return 0;
 
-        /* A service that will be restarted must be stopped first to trigger BindsTo and/or OnFailure
-         * dependencies. If a user does not want to wait for the holdoff time to elapse, the service should
-         * be manually restarted, not started. We simply return EAGAIN here, so that any start jobs stay
-         * queued, and assume that the auto restart timer will eventually trigger the restart. */
-        if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
-                return -EAGAIN;
-
-        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_AUTO_RESTART_QUEUED));
+        /* SERVICE_*_BEFORE_AUTO_RESTART are not to be expected here, as those are intermediate states
+         * that should never be seen outside of service_enter_dead(). */
+        assert(IN_SET(s->state,
+                      SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_AUTO_RESTART_QUEUED,
+                      SERVICE_AUTO_RESTART)); /* As mentioned in unit_start(), we allow manual starts to
+                                                 act as "hurry up" signals for auto restart. */
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
