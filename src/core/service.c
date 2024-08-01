@@ -2567,13 +2567,16 @@ fail:
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
-static void service_enter_restart(Service *s) {
+static void service_enter_restart(Service *s, bool shortcut) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        assert(s);
+        /* shortcut: a manual start request is received, restart immediately */
 
-        if (unit_has_job_type(UNIT(s), JOB_STOP)) {
+        assert(s);
+        assert(s->state == SERVICE_AUTO_RESTART);
+
+        if (!shortcut && unit_has_job_type(UNIT(s), JOB_STOP)) {
                 /* Don't restart things if we are going down anyway */
                 log_unit_info(UNIT(s), "Stop job pending for unit, skipping automatic restart.");
                 return;
@@ -2598,7 +2601,8 @@ static void service_enter_restart(Service *s) {
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                         LOG_UNIT_INVOCATION_ID(UNIT(s)),
                         LOG_UNIT_MESSAGE(UNIT(s),
-                                         "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                                         "Scheduled restart job%s, restart counter is at %u.",
+                                         shortcut ? " immediately on client request" : "", s->n_restarts),
                         "N_RESTARTS=%u", s->n_restarts);
 
         service_set_state(s, SERVICE_AUTO_RESTART_QUEUED);
@@ -2758,10 +2762,8 @@ static void service_run_next_main(Service *s) {
 }
 
 static int service_start(Unit *u) {
-        Service *s = SERVICE(u);
+        Service *s = ASSERT_PTR(SERVICE(u));
         int r;
-
-        assert(s);
 
         /* We cannot fulfill this request right now, try again later
          * please! */
@@ -2774,13 +2776,17 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return 0;
 
-        /* A service that will be restarted must be stopped first to trigger BindsTo and/or OnFailure
-         * dependencies. If a user does not want to wait for the holdoff time to elapse, the service should
-         * be manually restarted, not started. We simply return EAGAIN here, so that any start jobs stay
-         * queued, and assume that the auto restart timer will eventually trigger the restart. */
-        if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
-                return -EAGAIN;
+        if (s->state == SERVICE_AUTO_RESTART) {
+                /* As mentioned in unit_start(), we allow manual starts to act as "hurry up" signals
+                 * for auto restart. We need to re-enqueue the job though, as the job type has changed
+                 * (JOB_RESTART_DEPENDENCIES). */
 
+                service_enter_restart(s, /* shortcut = */ true);
+                return -EAGAIN;
+        }
+
+        /* SERVICE_*_BEFORE_AUTO_RESTART are not to be expected here, as those are intermediate states
+         * that should never be seen outside of service_enter_dead(). */
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_AUTO_RESTART_QUEUED));
 
         r = unit_acquire_invocation_id(u);
@@ -4290,7 +4296,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
 
-                service_enter_restart(s);
+                service_enter_restart(s, /* shortcut = */ false);
                 break;
 
         case SERVICE_CLEANING:
