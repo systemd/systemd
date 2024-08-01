@@ -4432,6 +4432,17 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertIn('rtt 1s', output)
         self.assertIn('ack-filter-aggressive', output)
 
+        # Test for replacing existing qdisc. See #31226.
+        with open(os.path.join(network_unit_dir, '25-qdisc-cake.network'), mode='w', encoding='utf-8') as f:
+            f.write('Bandwidth=250M\n')
+
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertIn('bandwidth 250Mbit', output)
+
     @expectedFailureIfModuleIsNotAvailable('sch_codel')
     def test_qdisc_codel(self):
         copy_network_unit('25-qdisc-codel.network', '12-dummy.netdev')
