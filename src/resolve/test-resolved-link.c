@@ -161,7 +161,7 @@ static void link_alloc_env_setup(LinkAllocEnv *env, int family, DnsServerType se
         env->manager = (Manager) {};
         env->ifindex = 1;
 
-        sd_event_new(&env->manager.event);
+        ASSERT_OK(sd_event_new(&env->manager.event));
         ASSERT_NOT_NULL(env->manager.event);
 
         ASSERT_OK(link_new(&env->manager, &env->link, env->ifindex));
