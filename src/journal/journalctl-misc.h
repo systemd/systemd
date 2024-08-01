@@ -9,4 +9,5 @@ int action_disk_usage(void);
 int action_list_boots(void);
 int action_list_fields(void);
 int action_list_field_names(void);
+int action_list_invocations(void);
 int action_list_namespaces(void);
