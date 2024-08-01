@@ -633,7 +633,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
-                if (s->transactions) {
+                if (error != ECONNRESET && s->transactions) {
                         DnsTransaction *t;
 
                         t = s->transactions;
