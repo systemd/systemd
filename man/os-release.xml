@@ -331,21 +331,32 @@
 
           <listitem><para>A lower-case string (no spaces or other characters outside of 0-9, a-z, ".",
           "_", and "-"), describing what kind of release this version of the OS is. Known values follow:
-          <literal>stable</literal> is for normal releases of the system, suitable for production use.
-          Generally, stable releases become end-of-life soon after the next major stable release is out.
-          Examples include Fedora 40, Ubuntu 23.10, OpenSUSE Tumbleweed, and Arch Linux.
-          <literal>lts</literal> is for long term support releases of the system, suitable for production
-          use and supported for an extended period of time. Generally, LTS releases continue to recieve
-          support even if newer major releases of the distribution are available. Examples include Ubuntu
-          24.04, Debian 12 Bookworm and RHEL 9.4.
-          <literal>pre-release</literal> is for unstable versions of the system, unsuitable for production
-          use, such as alpha, beta, or rolling unstable releases. Examples include Fedora Rawhide, Debian
-          Testing, Fedora 40 Beta, and GNOME OS Nightly.
-          <literal>experiment</literal> is for experimental builds of the system, created specifically to
-          test some work-in-progress feature. This is meant to be used in combination with <varname>EXPERIMENT=</varname>.
-          If unset, or an unknown value, assume that the release is <literal>stable</literal>.</para>
+          </para>
 
-          <para>Examples: <literal>RELEASE_TYPE=pre-release</literal>, <literal>RELEASE_TYPE=lts</literal>.
+          <itemizedlist>
+            <listitem><para><literal>stable</literal> is for normal releases of the system, suitable for
+            production use. Generally, stable releases become end-of-life soon after the next major stable
+            release is out, although this might not be the case if, for example, a distribution adopts a
+            rolling release model and still be production ready. Examples include Fedora 40, Ubuntu 23.10,
+            OpenSUSE Tumbleweed, and Arch Linux.</para></listitem>
+
+            <listitem><para><literal>lts</literal> is for long term support releases of the system, suitable
+            for production use and supported for an extended period of time. Generally, LTS releases
+            continue to recieve support even if newer major releases of the distribution are available.
+            Examples include Ubuntu 24.04, Debian 12 Bookworm and RHEL 9.4.</para></listitem>
+
+            <listitem><para><literal>development</literal> is for unstable versions of the system,
+            unsuitable for production use, such as alpha, beta, or rolling unstable releases. Examples
+            include Fedora Rawhide, Debian Testing, Fedora 40 Beta, and GNOME OS Nightly.</para></listitem>
+
+            <listitem><para><literal>experiment</literal> is for experimental builds of the system, created
+            specifically to test some work-in-progress feature. This is meant to be used in combination with
+            <varname>EXPERIMENT=</varname>.</para></listitem>
+          </itemizedlist>
+
+          <para>If unset, or an unknown value, assume that the release is <literal>stable</literal>.</para>
+
+          <para>Examples: <literal>RELEASE_TYPE=development</literal>, <literal>RELEASE_TYPE=lts</literal>.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
