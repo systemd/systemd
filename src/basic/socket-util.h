@@ -396,3 +396,5 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
 #define SOMAXCONN_DELUXE INT_MAX
 
 int vsock_get_local_cid(unsigned *ret);
+
+int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups);

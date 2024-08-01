@@ -1044,4 +1044,7 @@ global:
         sd_varlink_take_fd;
         sd_varlink_unref;
         sd_varlink_wait;
+        sd_device_monitor_is_running;
+        sd_device_monitor_get_fd;
+        sd_device_monitor_receive;
 } LIBSYSTEMD_256;
