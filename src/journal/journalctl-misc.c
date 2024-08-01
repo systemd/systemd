@@ -104,7 +104,7 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
 
         assert(ids);
         assert(n_ids > 0);
-        assert(n_ids < INT64_MAX);
+        assert((uint64_t) n_ids < (uint64_t) INT64_MAX); /* The casts are for 32 bits systems. */
         assert(name);
 
         table = table_new("idx", name, "first entry", "last entry");
