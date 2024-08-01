@@ -102,6 +102,8 @@ RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
 bool arg_man = true;
 bool arg_generators = false;
+double arg_svg_timescale = 1.0;
+bool arg_detailed_svg = false;
 char *arg_root = NULL;
 static char *arg_image = NULL;
 char *arg_security_policy = NULL;
@@ -277,6 +279,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             security review of the unit(s)\n"
                "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
                "     --table                 Output plot's raw time data as a table\n"
+               "     --scale-svg=FACTOR      Stretch x-axis of plot by FACTOR (default: 1.0)\n"
+               "     --detailed              Detail SVG plot,e.g.show activation timestamps\n\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
@@ -325,6 +329,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TABLE,
                 ARG_NO_LEGEND,
                 ARG_TLDR,
+                ARG_SCALE_FACTOR_SVG,
+                ARG_DETAILED_SVG,
         };
 
         static const struct option options[] = {
@@ -360,6 +366,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 { "tldr",             no_argument,       NULL, ARG_TLDR             },
                 { "mask",             no_argument,       NULL, 'm'                  },
+                { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
+                { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
                 {}
         };
 
@@ -555,6 +563,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'm':
                         arg_capability = CAPABILITY_MASK;
+                        break;
+
+                case ARG_SCALE_FACTOR_SVG:
+                        arg_svg_timescale = strtod(optarg, NULL);
+                        break;
+
+                case ARG_DETAILED_SVG:
+                        arg_detailed_svg = true;
                         break;
 
                 case '?':
