@@ -114,6 +114,44 @@ TEST(sd_device_monitor_is_running) {
         ASSERT_EQ(sd_device_monitor_is_running(m), 0);
 }
 
+TEST(sd_device_monitor_start_stop) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        union sockaddr_union sa;
+        const char *syspath;
+
+        prepare_loopback(&device);
+
+        ASSERT_OK(sd_device_get_syspath(device, &syspath));
+
+        prepare_monitor(&monitor_server, &monitor_client, &sa);
+
+        /* Sending devices before starting client. */
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        send_by_enumerator(monitor_server, &sa, e, 5, syspath);
+
+        /* sd_device_monitor_start() can be called multiple times. */
+        ASSERT_OK(sd_device_monitor_start(monitor_client, NULL, NULL));
+        ASSERT_OK(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath));
+
+        /* Sending devices after client being started. */
+        send_by_enumerator(monitor_server, &sa, e, 5, syspath);
+
+        /* sd_device_monitor_stop() can be called multiple times. */
+        ASSERT_OK(sd_device_monitor_stop(monitor_client));
+        ASSERT_OK(sd_device_monitor_stop(monitor_client));
+
+        /* Sending devices before restarting client. */
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        send_by_enumerator(monitor_server, &sa, e, 5, syspath);
+
+        /* Restart monitor, and check if the previously sent devices are ignored. */
+        ASSERT_OK(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath));
+        ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
+        ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
+}
+
 TEST(refuse_invalid_device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
