@@ -24,7 +24,7 @@ test_append_files() {
     inst_binary ssh
     inst_binary sshd
     inst_binary ssh-keygen
-    image_install -o /usr/lib/ssh/sshd-session
+    image_install -o /usr/lib/ssh/sshd-session /usr/libexec/openssh/sshd-session
 }
 
 do_test "$@"
