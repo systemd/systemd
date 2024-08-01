@@ -4432,6 +4432,25 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertIn('rtt 1s', output)
         self.assertIn('ack-filter-aggressive', output)
 
+    @expectedFailureIfModuleIsNotAvailable('sch_cake')
+    def test_qdisc_replace(self):
+        copy_network_unit('12-dummy.netdev')
+        copy_network_unit('25-qdisc-cake.network', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertIn('bandwidth 500Mbit', output)
+
+        copy_network_unit('25-qdisc-cake.network')
+        restart_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertIn('bandwidth 250Mbit', output)
+
     @expectedFailureIfModuleIsNotAvailable('sch_codel')
     def test_qdisc_codel(self):
         copy_network_unit('25-qdisc-codel.network', '12-dummy.netdev')

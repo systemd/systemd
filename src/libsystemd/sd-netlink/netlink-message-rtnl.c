@@ -592,7 +592,7 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
                 return r;
 
         if (nlmsg_type == RTM_NEWLINK)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
         else if (nlmsg_type == RTM_NEWLINKPROP)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL | NLM_F_APPEND;
 
@@ -892,7 +892,7 @@ int sd_rtnl_message_new_addrlabel(
                 return r;
 
         if (nlmsg_type == RTM_NEWADDRLABEL)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         addrlabel = NLMSG_DATA((*ret)->hdr);
 
@@ -950,7 +950,7 @@ int sd_rtnl_message_new_routing_policy_rule(
                 return r;
 
         if (nlmsg_type == RTM_NEWRULE)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         frh = NLMSG_DATA((*ret)->hdr);
         frh->family = ifal_family;
@@ -1143,7 +1143,7 @@ int sd_rtnl_message_new_traffic_control(
                 return r;
 
         if (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS))
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         tcm = NLMSG_DATA((*ret)->hdr);
         tcm->tcm_ifindex = ifindex;
@@ -1212,7 +1212,7 @@ int sd_rtnl_message_new_mdb(
                 return r;
 
         if (nlmsg_type == RTM_NEWMDB)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         bpm = NLMSG_DATA((*ret)->hdr);
         bpm->family = AF_BRIDGE;
