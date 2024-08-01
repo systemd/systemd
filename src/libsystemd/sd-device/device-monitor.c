@@ -246,6 +246,13 @@ _public_ int sd_device_monitor_new(sd_device_monitor **ret) {
         return device_monitor_new_full(ret, MONITOR_GROUP_UDEV, -EBADF);
 }
 
+_public_ int sd_device_monitor_is_running(sd_device_monitor *m) {
+        if (!m)
+                return 0;
+
+        return sd_event_source_get_enabled(m->event_source, NULL);
+}
+
 _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
         assert_return(m, -EINVAL);
 

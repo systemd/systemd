@@ -149,6 +149,7 @@ sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
 sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
 int sd_device_monitor_set_description(sd_device_monitor *m, const char *description);
 int sd_device_monitor_get_description(sd_device_monitor *m, const char **ret);
+int sd_device_monitor_is_running(sd_device_monitor *m);
 int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata);
 int sd_device_monitor_stop(sd_device_monitor *m);
 
