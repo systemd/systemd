@@ -99,6 +99,19 @@ static void send_by_enumerator(
         }
 }
 
+TEST(sd_device_monitor_is_running) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+
+        ASSERT_EQ(sd_device_monitor_is_running(NULL), 0);
+
+        ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -1));
+        ASSERT_EQ(sd_device_monitor_is_running(m), 0);
+        ASSERT_OK(sd_device_monitor_start(m, NULL, NULL));
+        ASSERT_EQ(sd_device_monitor_is_running(m), 1);
+        ASSERT_OK(sd_device_monitor_stop(m));
+        ASSERT_EQ(sd_device_monitor_is_running(m), 0);
+}
+
 TEST(refuse_invalid_device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
