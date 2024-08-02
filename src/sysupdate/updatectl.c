@@ -118,7 +118,7 @@ static Userdata* userdata_new(
         return TAKE_PTR(u);
 }
 
-static int ensure_targets(sd_bus *bus, char **argv, char ***ret_targets) {
+static int ensure_targets(sd_bus *bus, bool skip_streams, char **argv, char ***ret_targets) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **targets = NULL;
@@ -143,6 +143,8 @@ static int ensure_targets(sd_bus *bus, char **argv, char ***ret_targets) {
 
                         if (streq(class, "host"))
                                 id = strdup(".host");
+                        else if (skip_streams && streq(class, "stream"))
+                                continue;
                         else
                                 id = strjoin(class, ":", name);
                         if (!id)
@@ -288,7 +290,7 @@ static int list_targets(sd_bus *bus) {
 
         assert(bus);
 
-        r = ensure_targets(bus, /* argv= */ NULL, &targets);
+        r = ensure_targets(bus, /* skip_streams= */ true, /* argv= */ NULL, &targets);
         if (r < 0)
                 return r;
 
@@ -690,7 +692,7 @@ static int verb_check(int argc, char **argv, void *userdata) {
         unsigned remaining = 0;
         int r;
 
-        r = ensure_targets(bus, argv + 1, &targets);
+        r = ensure_targets(bus, /* skip_streams= */ false,  argv + 1, &targets);
         if (r < 0)
                 return r;
 
@@ -1066,7 +1068,7 @@ static int verb_update(int argc, char **argv, void *userdata) {
         bool did_anything = false;
         int r;
 
-        r = ensure_targets(bus, argv + 1, &targets);
+        r = ensure_targets(bus, /* skip_streams= */ true, argv + 1, &targets);
         if (r < 0)
                 return r;
 
@@ -1119,7 +1121,7 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
         size_t n;
         int r;
 
-        r = ensure_targets(bus, argv + 1, &targets);
+        r = ensure_targets(bus, /* skip_streams= */ true, argv + 1, &targets);
         if (r < 0)
                 return r;
 
@@ -1381,6 +1383,50 @@ static int verb_enable(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int verb_streams(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **targets = NULL;
+        _cleanup_strv_free_ char **streams = NULL;
+        int r;
+
+        r = ensure_targets(bus, /* skip_streams= */ false, /* argv= */ NULL, &targets);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(target, targets)
+                if (startswith(*target, "stream"))
+                        printf("%s\n", *target);
+
+        return 0;
+}
+
+static int verb_switch(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **targets = NULL;
+        bool did_anything = false;
+        int r;
+
+        /* We actually only ever have one target here, but let's reuse the functions we already have */
+        r = ensure_targets(bus, /* skip_streams= */ false, argv + 1, &targets);
+        if (r < 0)
+                return r;
+
+        r = do_update(bus, targets);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                did_anything = true;
+
+        if (!arg_reboot)
+                return 0;
+
+        if (did_anything)
+                return reboot_now();
+
+        log_info("Nothing was updated... skipping reboot.");
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1399,6 +1445,8 @@ static int help(void) {
                "  features [FEATURE]            List and inspect optional features on host OS\n"
                "  enable FEATURE...             Enable optional feature on host OS\n"
                "  disable FEATURE...            Disable optional feature on host OS\n"
+               "  streams                       List available streams for the host OS\n"
+               "  switch STREAM                 Switch the host OS to the given stream\n"
                "  -h --help                     Show this help\n"
                "     --version                  Show package version\n"
                "\n%3$sOptions:%4$s\n"
@@ -1503,6 +1551,8 @@ static int run(int argc, char *argv[]) {
                 { "features", VERB_ANY, 2,        VERB_ONLINE_ONLY,              verb_features },
                 { "enable",   2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
                 { "disable",  2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
+                { "streams",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_streams  },
+                { "switch",   1,        1,        VERB_ONLINE_ONLY,              verb_switch   },
                 {}
         };
 
