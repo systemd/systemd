@@ -3938,7 +3938,7 @@ static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
         return 1;
 }
 
-static int kill_or_sigqueue(PidRef* pidref, int signo, int code, int value) {
+static int kill_or_sigqueue(PidRef *pidref, int signo, int code, int value) {
         assert(pidref_is_set(pidref));
         assert(SIGNAL_VALID(signo));
 
@@ -4058,14 +4058,31 @@ int unit_kill(
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
         if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-
                 if (crt && crt->cgroup_path) {
                         _cleanup_set_free_ Set *pid_set = NULL;
 
-                        /* Exclude the main/control pids from being killed via the cgroup */
-                        r = unit_pid_set(u, &pid_set);
-                        if (r < 0)
-                                return log_oom();
+                        if (signo == SIGKILL) {
+                                r = cg_kill_kernel_sigkill(crt->cgroup_path);
+                                if (r >= 0) {
+                                        killed = true;
+                                        log_unit_info(u, "Killed unit cgroup with SIGKILL on client request.");
+                                        goto finish;
+                                }
+                                if (r != -EOPNOTSUPP) {
+                                        if (ret >= 0)
+                                                sd_bus_error_set_errnof(ret_error, r,
+                                                                        "Failed to kill unit cgroup: %m");
+                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup: %m"));
+                                        goto finish;
+                                }
+                                /* Fall back to manual enumeration */
+                        } else {
+                                /* Exclude the main/control pids from being killed via the cgroup if
+                                 * not SIGKILL */
+                                r = unit_pid_set(u, &pid_set);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 
                         r = cg_kill_recursive(crt->cgroup_path, signo, 0, pid_set, kill_common_log, u);
                         if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
@@ -4075,18 +4092,16 @@ int unit_kill(
                                                         "Failed to send signal SIG%s to auxiliary processes: %m",
                                                         signal_to_string(signo));
 
-                                log_unit_warning_errno(
-                                                u, r,
-                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
-                                                signal_to_string(signo));
-
-                                RET_GATHER(ret, r);
+                                RET_GATHER(ret, log_unit_warning_errno(
+                                                        u, r,
+                                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                                                        signal_to_string(signo)));
                         }
-
                         killed = killed || r >= 0;
                 }
         }
 
+finish:
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
         if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
@@ -4683,21 +4698,24 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
+static bool ignore_leftover_process(const char *comm) {
+        return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
+}
+
 static int log_kill(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
 
         (void) pidref_get_comm(pid, &comm);
 
-        /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
-           only, like for example systemd's own PAM stub process. */
-        if (comm && comm[0] == '(')
+        if (ignore_leftover_process(comm))
                 /* Although we didn't log anything, as this callback is used in unit_kill_context we must return 1
                  * here to let the manager know that a process was killed. */
                 return 1;
 
-        log_unit_notice(userdata,
+        log_unit_notice(u,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
                         pid->pid,
                         strna(comm),
@@ -4712,6 +4730,7 @@ static int operation_to_signal(
                 bool *ret_noteworthy) {
 
         assert(c);
+        assert(ret_noteworthy);
 
         switch (k) {
 
@@ -5424,7 +5443,7 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
         (void) ignore_signals(SIGPIPE);
 
         if (crt->cgroup_path) {
-                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0, NULL, NULL);
+                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
                         _exit(EXIT_CGROUP);
@@ -5836,11 +5855,8 @@ int unit_prepare_exec(Unit *u) {
         return 0;
 }
 
-static bool ignore_leftover_process(const char *comm) {
-        return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
-}
-
-int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
+static int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5852,7 +5868,7 @@ int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) 
 
         /* During start we print a warning */
 
-        log_unit_warning(userdata,
+        log_unit_warning(u,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
                          "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
                          pid->pid, strna(comm));
@@ -5860,7 +5876,8 @@ int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) 
         return 1;
 }
 
-int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
+static int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5872,20 +5889,19 @@ int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
 
         /* During stop we only print an informational message */
 
-        log_unit_info(userdata,
+        log_unit_info(u,
                       "Unit process " PID_FMT " (%s) remains running after unit stopped.",
                       pid->pid, strna(comm));
 
         return 1;
 }
 
-int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
+int unit_warn_leftover_processes(Unit *u, bool start) {
         assert(u);
 
         (void) unit_pick_cgroup_path(u);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-
         if (!crt || !crt->cgroup_path)
                 return 0;
 
@@ -5894,7 +5910,7 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
                         /* sig= */ 0,
                         /* flags= */ 0,
                         /* set= */ NULL,
-                        log_func,
+                        start ? unit_log_leftover_process_start : unit_log_leftover_process_stop,
                         u);
 }
 
