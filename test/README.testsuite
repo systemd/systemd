@@ -86,6 +86,45 @@ mkosi in the systemd reposistory, so any local modifications to the mkosi
 configuration (e.g. in `mkosi.local.conf`) are automatically picked up and used
 by the integration tests as well.
 
+## Iterating on an integration test
+
+To iterate on an integration test, let's first get a shell in the integration test environment by running
+the following:
+
+```shell
+$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 meson test -C build --no-rebuild -i TEST-01-BASIC
+```
+
+This will get us a shell in the integration test environment after booting the machine without running the
+integration test itself. After booting, we can verify the integration test passes by running it manually,
+for example with `systemctl start TEST-01-BASIC`.
+
+Now you can extend the test in whatever way you like to add more coverage of existing features or to add
+coverage for a new feature. Once you've finished writing the logic and want to rerun the test, run the
+the following on the host:
+
+```shell
+$ mkosi -t none
+```
+
+This will rebuild the distribution packages without rebuilding the entire integration test image. Next, run
+the following in the integration test machine:
+
+```shell
+$ systemctl soft-reboot
+$ systemctl start TEST-01-BASIC
+```
+
+A soft-reboot is required to make sure all the leftover state from the previous run of the test is cleaned
+up by soft-rebooting into the btrfs snapshot we made before running the test. After the soft-reboot,
+re-running the test will first install the new packages we just built, make a new snapshot and finally run
+the test again. You can keep running the loop of `mkosi -t none`, `systemctl soft-reboot` and
+`systemctl start ...` until the changes to the integration test are working.
+
+If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),
+there's no need to run `systemctl start ...`, running `systemctl soft-reboot` on its own is sufficient to
+rerun the test.
+
 ## Running the integration tests the old fashioned way
 
 The extended testsuite only works with UID=0. It consists of the subdirectories
@@ -181,7 +220,7 @@ sec).
 `NSPAWN_TIMEOUT=infinity`: Set a timeout for tests under systemd-nspawn
 (defaults to 1800 sec).
 
-`INTERACTIVE_DEBUG=1`: Configure the machine to be more *user-friendly* for
+`TEST_SHELL=1`: Configure the machine to be more *user-friendly* for
 interactive debugging (e.g. by setting a usable default terminal, suppressing
 the shutdown after the test, etc.).
 
@@ -200,11 +239,11 @@ one with `$QEMU_BIN`.
 
 ### Debugging the qemu image
 
-If you want to log in the testsuite virtual machine, use `INTERACTIVE_DEBUG=1`
+If you want to log in the testsuite virtual machine, use `TEST_SHELL=1`
 and log in as root:
 
 ```shell
-$ sudo make -C test/TEST-01-BASIC INTERACTIVE_DEBUG=1 run
+$ sudo make -C test/TEST-01-BASIC TEST_SHELL=1 run
 ```
 
 The root password is empty.
