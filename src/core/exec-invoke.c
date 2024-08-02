@@ -4351,7 +4351,7 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
                 }
 
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
+                r = cg_attach_everywhere(params->cgroup_supported, p, 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_exec_error_errno(context, params, r,
