@@ -371,7 +371,7 @@ static int cg_kill_items(
                         if (set_get(s, PID_TO_PTR(pidref.pid)) == PID_TO_PTR(pidref.pid))
                                 continue;
 
-                        /* Ignore kernel threads to mimick the behavior of cgroup.kill. */
+                        /* Ignore kernel threads to mimic the behavior of cgroup.kill. */
                         if (pidref_is_kernel_thread(&pidref) > 0) {
                                 log_debug("Ignoring kernel thread with pid " PID_FMT " in cgroup '%s'", pidref.pid, path);
                                 continue;
