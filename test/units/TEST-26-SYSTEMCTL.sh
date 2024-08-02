@@ -126,10 +126,12 @@ test_list_unit_files --root=/
 # is-* verbs
 # Should return 4 for a missing unit file
 assert_rc 4 systemctl --quiet is-active not-found.service
+assert_rc 4 systemctl --quiet is-activating not-found.service
 assert_rc 4 systemctl --quiet is-failed not-found.service
 assert_rc 4 systemctl --quiet is-enabled not-found.service
 # is-active: return 3 when the unit exists but inactive
 assert_rc 3 systemctl --quiet is-active "$UNIT_NAME"
+assert_rc 3 systemctl --quiet is-activating "$UNIT_NAME"
 # is-enabled: return 1 when the unit exists but disabled
 assert_rc 1 systemctl --quiet is-enabled "$UNIT_NAME"
 

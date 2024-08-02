@@ -219,6 +219,19 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
         </varlistentry>
 
         <varlistentry>
+          <term><command>is-activating <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Check whether any of the specified units are activating
+            (i.e. starting). Returns an exit code
+            <constant>0</constant> if at least one is activating, or
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>is-failed <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>

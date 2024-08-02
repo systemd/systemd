@@ -63,6 +63,16 @@ int verb_is_active(int argc, char *argv[], void *userdata) {
         return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
+int verb_is_activating(int argc, char *argv[], void *userdata) {
+
+        static const UnitActiveState states[] = {
+                UNIT_ACTIVATING,
+        };
+
+        /* According to LSB: 3, "program is not running" */
+        return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
+}
+
 int verb_is_failed(int argc, char *argv[], void *userdata) {
 
         static const UnitActiveState states[] = {
