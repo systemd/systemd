@@ -661,9 +661,10 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         r = passes_filter(m, device);
         if (r < 0)
                 return log_device_monitor_errno(device, m, r, "Failed to check received device passing filter: %m");
-        if (r == 0)
+        if (r == 0) {
                 log_device_monitor(device, m, "Received device does not pass filter, ignoring.");
-        else
+                *ret = NULL;
+        } else
                 *ret = TAKE_PTR(device);
 
         return r;
