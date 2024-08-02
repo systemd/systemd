@@ -181,7 +181,7 @@ sec).
 `NSPAWN_TIMEOUT=infinity`: Set a timeout for tests under systemd-nspawn
 (defaults to 1800 sec).
 
-`INTERACTIVE_DEBUG=1`: Configure the machine to be more *user-friendly* for
+`TEST_SHELL=1`: Configure the machine to be more *user-friendly* for
 interactive debugging (e.g. by setting a usable default terminal, suppressing
 the shutdown after the test, etc.).
 
@@ -200,11 +200,11 @@ one with `$QEMU_BIN`.
 
 ### Debugging the qemu image
 
-If you want to log in the testsuite virtual machine, use `INTERACTIVE_DEBUG=1`
+If you want to log in the testsuite virtual machine, use `TEST_SHELL=1`
 and log in as root:
 
 ```shell
-$ sudo make -C test/TEST-01-BASIC INTERACTIVE_DEBUG=1 run
+$ sudo make -C test/TEST-01-BASIC TEST_SHELL=1 run
 ```
 
 The root password is empty.
