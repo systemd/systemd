@@ -23,6 +23,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memstream-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
@@ -54,6 +55,9 @@ static DLSYM_PROTOTYPE(dwfl_begin) = NULL;
 static DLSYM_PROTOTYPE(dwfl_build_id_find_elf) = NULL;
 static DLSYM_PROTOTYPE(dwfl_core_file_attach) = NULL;
 static DLSYM_PROTOTYPE(dwfl_core_file_report) = NULL;
+#if HAVE_DWFL_SET_SYSROOT
+static DLSYM_PROTOTYPE(dwfl_set_sysroot) = NULL;
+#endif
 static DLSYM_PROTOTYPE(dwfl_end) = NULL;
 static DLSYM_PROTOTYPE(dwfl_errmsg) = NULL;
 static DLSYM_PROTOTYPE(dwfl_errno) = NULL;
@@ -114,6 +118,9 @@ int dlopen_dw(void) {
                         DLSYM_ARG(dwfl_module_getelf),
                         DLSYM_ARG(dwfl_begin),
                         DLSYM_ARG(dwfl_core_file_report),
+#if HAVE_DWFL_SET_SYSROOT
+                        DLSYM_ARG(dwfl_set_sysroot),
+#endif
                         DLSYM_ARG(dwfl_report_end),
                         DLSYM_ARG(dwfl_getmodules),
                         DLSYM_ARG(dwfl_core_file_attach),
@@ -580,7 +587,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         return DWARF_CB_OK;
 }
 
-static int parse_core(int fd, const char *executable, char **ret, sd_json_variant **ret_package_metadata) {
+static int parse_core(int fd, const char *root, char **ret, sd_json_variant **ret_package_metadata) {
 
         const Dwfl_Callbacks callbacks = {
                 .find_elf = sym_dwfl_build_id_find_elf,
@@ -614,7 +621,17 @@ static int parse_core(int fd, const char *executable, char **ret, sd_json_varian
         if (!c.dwfl)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_begin() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (sym_dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
+        if (empty_or_root(root))
+                root = NULL;
+#if HAVE_DWFL_SET_SYSROOT
+        if (root && sym_dwfl_set_sysroot(c.dwfl, root) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not set root directory, dwfl_set_sysroot() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
+#else
+        if (root)
+                log_warning("Compiled without dwfl_set_sysroot() support, ignoring provided root directory.");
+#endif
+
+        if (sym_dwfl_core_file_report(c.dwfl, c.elf, NULL) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (sym_dwfl_report_end(c.dwfl, NULL, NULL) != 0)
@@ -641,7 +658,7 @@ static int parse_core(int fd, const char *executable, char **ret, sd_json_varian
         return 0;
 }
 
-static int parse_elf(int fd, const char *executable, char **ret, sd_json_variant **ret_package_metadata) {
+static int parse_elf(int fd, const char *executable, const char *root, char **ret, sd_json_variant **ret_package_metadata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *elf_metadata = NULL;
         _cleanup_set_free_ Set *modules = NULL;
         _cleanup_(stack_context_done) StackContext c = {
@@ -672,7 +689,7 @@ static int parse_elf(int fd, const char *executable, char **ret, sd_json_variant
         if (elf_header.e_type == ET_CORE) {
                 _cleanup_free_ char *out = NULL;
 
-                r = parse_core(fd, executable, ret ? &out : NULL, &package_metadata);
+                r = parse_core(fd, root, ret ? &out : NULL, &package_metadata);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to inspect core file: %m");
 
@@ -743,7 +760,7 @@ static int parse_elf(int fd, const char *executable, char **ret, sd_json_variant
         return 0;
 }
 
-int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, sd_json_variant **ret_package_metadata) {
+int parse_elf_object(int fd, const char *executable, const char *root, bool fork_disable_dump, char **ret, sd_json_variant **ret_package_metadata) {
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR,
                                  return_pipe[2] = EBADF_PAIR,
                                  json_pipe[2] = EBADF_PAIR;
@@ -813,7 +830,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                                 goto child_fail;
                 }
 
-                r = parse_elf(fd, executable, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                r = parse_elf(fd, executable, root, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
                 if (r < 0)
                         goto child_fail;
 
