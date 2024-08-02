@@ -2035,7 +2035,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 end_state = SERVICE_FAILED;
                 restart_state = SERVICE_FAILED_BEFORE_AUTO_RESTART;
         }
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
 
         if (!allow_restart)
                 log_unit_debug(UNIT(s), "Service restart not allowed.");
@@ -2387,11 +2387,11 @@ static int service_adverse_to_leftover_processes(Service *s) {
          * instances running, lets not stress the rigor of these. Also ExecStartPre= parts of the service
          * aren't as rigoriously written to protect aganst against multiple use. */
 
-        if (unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_start) > 0 &&
+        if (unit_warn_leftover_processes(UNIT(s), /* start = */ true) > 0 &&
             IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
             !s->kill_context.send_sigkill)
-               return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
-                                           "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
+                                            "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
 
         return 0;
 }

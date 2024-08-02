@@ -670,7 +670,8 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
+
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
@@ -752,7 +753,7 @@ static void swap_enter_activating(Swap *s) {
 
         assert(s);
 
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_start);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
 
         s->control_command_id = SWAP_EXEC_ACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
