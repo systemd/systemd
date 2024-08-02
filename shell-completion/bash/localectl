@@ -36,7 +36,7 @@ _localectl() {
     local i verb comps locale_vals
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local OPTS='-h --help --version --no-convert --no-pager --no-ask-password
-                    -H --host -M --machine'
+                    -H --host -M --machine -l --full'
 
     if __contains_word "$prev" $OPTS; then
         case $prev in
