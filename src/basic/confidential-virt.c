@@ -209,6 +209,23 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
+#elif defined(__s390x__)
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
+        int fd;
+        char c;
+
+        fd = open("/sys/firmware/uv/prot_virt_guest", O_RDONLY);
+        if (fd < 0) {
+                log_debug("unable to open /sys/firmware/uv/prot_virt_guest");
+                return CONFIDENTIAL_VIRTUALIZATION_NONE;
+        }
+
+        if (read(fd, &c, 1) == 1 && c == '1')
+                return CONFIDENTIAL_VIRTUALIZATION_PROTVIRT;
+
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
+}
+
 #else /* ! x86_64 */
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
@@ -226,11 +243,12 @@ ConfidentialVirtualization detect_confidential_virtualization(void) {
 }
 
 static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUALIZATION_MAX] = {
-        [CONFIDENTIAL_VIRTUALIZATION_NONE]    = "none",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV]     = "sev",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]  = "sev-es",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP] = "sev-snp",
-        [CONFIDENTIAL_VIRTUALIZATION_TDX]     = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_NONE]     = "none",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV]      = "sev",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]   = "sev-es",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP]  = "sev-snp",
+        [CONFIDENTIAL_VIRTUALIZATION_TDX]      = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_PROTVIRT] = "protvirt",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
