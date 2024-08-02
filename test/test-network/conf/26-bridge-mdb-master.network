@@ -12,3 +12,7 @@ MulticastGroupAddress=ff02:aaaa:fee5:0000:0000:0000:0001:0004
 [BridgeMDB]
 VLANId=4067
 MulticastGroupAddress=224.0.1.2
+
+[BridgeMDB]
+VLANId=4069
+MulticastGroupAddress=01:80:c2:00:00:0e

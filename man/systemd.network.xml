@@ -4570,7 +4570,7 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>MulticastGroupAddress=</varname></term>
         <listitem>
-          <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
+          <para>Specifies the IPv4, IPv6, or L2 MAC multicast group address to add. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
