@@ -87,7 +87,7 @@ static int exec_list(
                          * EROFS is returned when /sys is read only. In that case, all subsequent
                          * writes will also fail, hence return immediately.
                          *
-                         * EACCES or EPERM may be returned when this is invoked by non-priviledged user.
+                         * EACCES or EPERM may be returned when this is invoked by non-privileged user.
                          * We do NOT return immediately, but continue operation and propagate the error.
                          * Why? Some device can be owned by a user, e.g., network devices configured in
                          * a network namespace. See, https://github.com/systemd/systemd/pull/18559 and
