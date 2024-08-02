@@ -16,7 +16,9 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "udevadm.h"
+#include "udev-connection.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static char **arg_env = NULL;
@@ -40,6 +42,159 @@ static bool arg_has_control_commands(void) {
                 !strv_isempty(arg_env) ||
                 arg_max_children >= 0 ||
                 arg_ping;
+}
+
+static int send_reload(UdevConnection *conn) {
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_reload(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
+static int send_set_log_level(UdevConnection *conn, int level) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_set_log_level(conn->uctrl, level);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("level", SD_JSON_BUILD_INTEGER(level)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.service.SetLogLevel", v, NULL);
+}
+
+static int send_stop_exec_queue(UdevConnection *conn) {
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_stop_exec_queue(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.StopExecQueue", NULL, NULL);
+}
+
+static int send_start_exec_queue(UdevConnection *conn) {
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_start_exec_queue(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.StartExecQueue", NULL, NULL);
+}
+
+static int send_pending_env(sd_varlink *link, char **assignments, char **names, bool set) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        char **env = set ? assignments : names;
+        int r;
+
+        assert(link);
+
+        if (!env)
+                return 0;
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR(set ? "assignments" : "names", SD_JSON_BUILD_STRV(env)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(
+                        link,
+                        set ? "io.systemd.udev.SetEnvironment" : "io.systemd.udev.UnsetEnvironment",
+                        v,
+                        NULL);
+}
+
+static int send_set_env(UdevConnection *conn, char **env) {
+        _cleanup_free_ char **assignments = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        bool set = true;
+        int r;
+
+        assert(conn);
+        assert(env);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl) {
+                STRV_FOREACH(e, env) {
+                        r = udev_ctrl_send_set_env(conn->uctrl, *e);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
+
+        STRV_FOREACH(e, env) {
+                char *eq;
+                bool has_value;
+
+                eq = strchr(*e, '=');
+                assert(eq);
+
+                has_value = *(eq + 1);
+                if (has_value != set) {
+                        r = send_pending_env(conn->link, assignments, names, set);
+                        if (r < 0)
+                                return r;
+
+                        set = has_value;
+                        if (set)
+                                assignments = mfree(assignments);
+                        else
+                                names = strv_free(names);
+                }
+
+                if (set)
+                        r = strv_extend(&assignments, *e);
+                else {
+                        char *key;
+
+                        key = strndup(*e, eq - *e);
+                        if (!key)
+                                return log_oom();
+
+                        r = strv_consume(&names, key);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend env. list: %m");
+        }
+
+        return send_pending_env(conn->link, assignments, names, set);
+}
+
+static int send_set_children_max(UdevConnection *conn, unsigned n) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_set_children_max(conn->uctrl, n);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("n", SD_JSON_BUILD_UNSIGNED(n)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.SetChildrenMax", v, NULL);
+}
+
+static int send_exit(UdevConnection *conn) {
+        assert(conn);
+        assert(!conn->link != !conn->uctrl);
+
+        if (conn->uctrl)
+                return udev_ctrl_send_exit(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.Exit", NULL, NULL);
 }
 
 static int help(void) {
@@ -175,63 +330,63 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int send_control_commands(void) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_(udev_connection_done) UdevConnection conn = {};
         int r;
 
-        r = udev_ctrl_new(&uctrl);
+        r = udev_connection_init(&conn, arg_timeout);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control: %m");
+                return log_error_errno(r, "Failed to initialize udev connection: %m");
 
         if (arg_exit) {
-                r = udev_ctrl_send_exit(uctrl);
+                r = send_exit(&conn);
                 if (r < 0)
                        return log_error_errno(r, "Failed to send exit request: %m");
                 return 0;
         }
 
         if (arg_log_level >= 0) {
-                r = udev_ctrl_send_set_log_level(uctrl, arg_log_level);
+                r = send_set_log_level(&conn, arg_log_level);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set log level: %m");
         }
 
         if (arg_start_exec_queue == false) {
-                r = udev_ctrl_send_stop_exec_queue(uctrl);
+                r = send_stop_exec_queue(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to stop exec queue: %m");
         }
 
         if (arg_start_exec_queue == true) {
-                r = udev_ctrl_send_start_exec_queue(uctrl);
+                r = send_start_exec_queue(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to start exec queue: %m");
         }
 
         if (arg_reload) {
-                r = udev_ctrl_send_reload(uctrl);
+                r = send_reload(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
 
-        STRV_FOREACH(env, arg_env) {
-                r = udev_ctrl_send_set_env(uctrl, *env);
+        if (arg_env) {
+                r = send_set_env(&conn, arg_env);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to update environment: %m");
         }
 
         if (arg_max_children >= 0) {
-                r = udev_ctrl_send_set_children_max(uctrl, arg_max_children);
+                r = send_set_children_max(&conn, arg_max_children);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set number of children: %m");
         }
 
         if (arg_ping) {
-                r = udev_ctrl_send_ping(uctrl);
+                r = udev_connection_send_ping(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send a ping message: %m");
         }
 
-        r = udev_ctrl_wait(uctrl, arg_timeout);
+        r = udev_connection_wait(&conn);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
