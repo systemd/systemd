@@ -5077,6 +5077,10 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
             self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
 
+        # Old kernel may not support L2 bridge MDB entries
+        if call_quiet('bridge mdb add dev bridge99 port bridge99 grp 01:80:c2:00:00:0f permanent vid 4070') == 0:
+            self.assertRegex(output, 'dev bridge99 port bridge99 grp 01:80:c2:00:00:0e permanent *vid 4069')
+
     def test_bridge_keep_master(self):
         check_output('ip link add bridge99 type bridge')
         check_output('ip link set bridge99 up')
