@@ -186,9 +186,8 @@ int cg_cgroupid_open(int fsfd, uint64_t id);
 typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
         CGROUP_IGNORE_SELF        = 1 << 1,
-        CGROUP_REMOVE             = 1 << 2,
-        CGROUP_DONT_SKIP_UNMAPPED = 1 << 3,
-        CGROUP_NO_PIDFD           = 1 << 4,
+        CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
+        CGROUP_NO_PIDFD           = 1 << 3,
 } CGroupFlags;
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
@@ -213,8 +212,6 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret);
 int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret);
-
-int cg_rmdir(const char *controller, const char *path);
 
 int cg_is_threaded(const char *path);
 
@@ -263,9 +260,6 @@ int cg_get_xattr_malloc(const char *path, const char *name, char **ret);
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
-int cg_install_release_agent(const char *controller, const char *agent);
-int cg_uninstall_release_agent(const char *controller);
-
 int cg_is_empty(const char *controller, const char *path);
 int cg_is_empty_recursive(const char *controller, const char *path);
 
@@ -303,8 +297,6 @@ char* cg_unescape(const char *p) _pure_;
 bool cg_controller_is_valid(const char *p);
 
 int cg_slice_to_path(const char *unit, char **ret);
-
-typedef const char* (*cg_migrate_callback_t)(CGroupMask mask, void *userdata);
 
 int cg_mask_supported(CGroupMask *ret);
 int cg_mask_supported_subtree(const char *root, CGroupMask *ret);
