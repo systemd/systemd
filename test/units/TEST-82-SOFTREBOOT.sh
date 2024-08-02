@@ -19,6 +19,21 @@ at_exit() {
 
 trap at_exit EXIT
 
+# Because this test tests soft-reboot, we have to get rid of the symlink we put at
+# /run/nextroot to allow rebooting into the previous snapshot if the test fails for
+# the duration of the test. However, let's make sure we put the symlink back in place
+# if the test fails.
+if [[ -L /run/nextroot ]]; then
+    at_error() {
+        mountpoint -q /run/nextroot && umount -R /run/nextroot
+        rm -rf /run/nextroot
+        ln -sf /snapshot /run/nextroot
+    }
+
+    trap at_error ERR
+    rm -f /run/nextroot
+fi
+
 systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
