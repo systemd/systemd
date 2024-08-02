@@ -17,7 +17,11 @@ systemd-cat journalctl --list-boots
 run_subtests
 
 if [[ "$REBOOT_COUNT" -lt "$NUM_REBOOT" ]]; then
+    SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1
+    export SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT
     systemctl_final reboot
+    # Now block until the reboot killing spree kills us.
+    exec sleep infinity
 elif [[ "$REBOOT_COUNT" -gt "$NUM_REBOOT" ]]; then
     assert_not_reached
 fi
