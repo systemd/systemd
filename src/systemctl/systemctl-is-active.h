@@ -2,4 +2,5 @@
 #pragma once
 
 int verb_is_active(int argc, char *argv[], void *userdata);
+int verb_is_activating(int argc, char *argv[], void *userdata);
 int verb_is_failed(int argc, char *argv[], void *userdata);
