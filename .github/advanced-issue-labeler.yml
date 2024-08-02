@@ -31,7 +31,7 @@ policy:
           - name: dissect
             keys: ['systemd-dissect']
 
-          - name: env
+          - name: env-generator
             keys: ['systemd-env-generator']
 
           - name: fsck
