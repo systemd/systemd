@@ -34,6 +34,7 @@ static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static bool arg_convert = true;
+static bool arg_full = false;
 
 typedef struct StatusInfo {
         char **locale;
@@ -75,6 +76,9 @@ static int print_status_info(StatusInfo *i) {
         table = table_new_vertical();
         if (!table)
                 return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -408,6 +412,7 @@ static int help(void) {
                "\nOptions:\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
+               "  -l --full                Do not ellipsize output\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
@@ -438,6 +443,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
@@ -451,7 +457,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hlH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -460,6 +466,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case 'l':
+                        arg_full = true;
+                        break;
 
                 case ARG_NO_CONVERT:
                         arg_convert = false;
