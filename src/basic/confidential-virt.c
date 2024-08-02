@@ -194,33 +194,36 @@ static bool detect_hypervisor(void) {
         return is_hv;
 }
 
-ConfidentialVirtualization detect_confidential_virtualization(void) {
-        static thread_local ConfidentialVirtualization cached_found = _CONFIDENTIAL_VIRTUALIZATION_INVALID;
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         char sig[13] = {};
-        ConfidentialVirtualization cv = CONFIDENTIAL_VIRTUALIZATION_NONE;
-
-        if (cached_found >= 0)
-                return cached_found;
 
         /* Skip everything on bare metal */
         if (detect_hypervisor()) {
                 cpuid_leaf(0, sig, true);
 
                 if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
-                        cv = detect_sev();
+                        return detect_sev();
                 else if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
-                        cv = detect_tdx();
+                        return detect_tdx();
         }
 
-        cached_found = cv;
-        return cv;
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
 #else /* ! x86_64 */
-ConfidentialVirtualization detect_confidential_virtualization(void) {
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
 #endif /* ! x86_64 */
+
+ConfidentialVirtualization detect_confidential_virtualization(void) {
+        static thread_local ConfidentialVirtualization cached_found = _CONFIDENTIAL_VIRTUALIZATION_INVALID;
+
+        if (cached_found == _CONFIDENTIAL_VIRTUALIZATION_INVALID)
+                cached_found = detect_confidential_virtualization_impl();
+
+        return cached_found;
+}
 
 static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUALIZATION_MAX] = {
         [CONFIDENTIAL_VIRTUALIZATION_NONE]    = "none",
