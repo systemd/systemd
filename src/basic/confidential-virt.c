@@ -11,6 +11,7 @@
 #include "confidential-virt-fundamental.h"
 #include "confidential-virt.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "missing_threads.h"
 #include "string-table.h"
 #include "utf8.h"
@@ -209,6 +210,24 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
+#elif defined(__s390x__)
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
+
+        r = read_full_virtual_file("/sys/firmware/uv/prot_virt_guest", &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read /sys/firmware/uv/prot_virt_guest: %m");
+                return CONFIDENTIAL_VIRTUALIZATION_NONE;
+        }
+
+        if (readsize >= 1 && s[0] == '1')
+                return CONFIDENTIAL_VIRTUALIZATION_PROTVIRT;
+
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
+}
+
 #else /* ! x86_64 */
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
@@ -226,11 +245,12 @@ ConfidentialVirtualization detect_confidential_virtualization(void) {
 }
 
 static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUALIZATION_MAX] = {
-        [CONFIDENTIAL_VIRTUALIZATION_NONE]    = "none",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV]     = "sev",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]  = "sev-es",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP] = "sev-snp",
-        [CONFIDENTIAL_VIRTUALIZATION_TDX]     = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_NONE]     = "none",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV]      = "sev",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]   = "sev-es",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP]  = "sev-snp",
+        [CONFIDENTIAL_VIRTUALIZATION_TDX]      = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_PROTVIRT] = "protvirt",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
