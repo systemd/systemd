@@ -5,6 +5,8 @@
 
 #include "sd-device.h"
 
+#include "socket-util.h"
+
 typedef enum MonitorNetlinkGroup {
         MONITOR_GROUP_NONE,
         MONITOR_GROUP_KERNEL,
@@ -14,9 +16,6 @@ typedef enum MonitorNetlinkGroup {
 } MonitorNetlinkGroup;
 
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd);
-int device_monitor_disconnect(sd_device_monitor *m);
+int device_monitor_get_address(sd_device_monitor *m, union sockaddr_union *ret);
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender);
-int device_monitor_enable_receiving(sd_device_monitor *m);
-int device_monitor_get_fd(sd_device_monitor *m);
-int device_monitor_send_device(sd_device_monitor *m, sd_device_monitor *destination, sd_device *device);
-int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret);
+int device_monitor_send(sd_device_monitor *m, const union sockaddr_union *destination, sd_device *device);
