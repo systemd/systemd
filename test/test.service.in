@@ -7,6 +7,7 @@ Before=getty-pre.target
 
 [Service]
 ExecStartPre=rm -f /failed /testok
+ExecStartPre=/usr/lib/systemd/tests/integration-test-setup.sh
 ExecStart=@command@
 Type=oneshot
 MemoryAccounting=@memory-accounting@
