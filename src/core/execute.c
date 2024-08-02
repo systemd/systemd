@@ -151,7 +151,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         /* Note that this is potentially a "destructive" reset of a TTY device. It's about getting rid of the
          * remains of previous uses of the TTY. It's *not* about getting things set up for coming uses. We'll
          * potentially invalidate the TTY here through hangups or VT disallocations, and hence do not keep a
-         * continous fd open. */
+         * continuous fd open. */
 
         const char *path = exec_context_tty_path(context);
 
