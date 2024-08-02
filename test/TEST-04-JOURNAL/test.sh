@@ -19,7 +19,7 @@ test_append_files() {
 
     # Since we nuke the journal repeatedly during this test, let's redirect
     # stdout/stderr to the console as well to make the test a bit more debug-able.
-    if ! get_bool "${INTERACTIVE_DEBUG:-}"; then
+    if ! get_bool "${TEST_SHELL:-}"; then
         dropin_dir="${workspace:?}/etc/systemd/system/TEST-04-JOURNAL.service.d/"
         mkdir -p "$dropin_dir"
         printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
