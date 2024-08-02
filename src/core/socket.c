@@ -2061,7 +2061,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         else
                 unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
@@ -2262,7 +2262,7 @@ static void socket_enter_start_pre(Socket *s) {
 
         socket_unwatch_control_pid(s);
 
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_start);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
 
         s->control_command_id = SOCKET_EXEC_START_PRE;
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
