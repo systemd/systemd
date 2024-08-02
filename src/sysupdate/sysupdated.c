@@ -49,6 +49,7 @@ typedef enum TargetClass {
         /* sysupdate-specific classes */
         TARGET_HOST,
         TARGET_COMPONENT,
+        TARGET_STREAM,
 
         _TARGET_CLASS_MAX,
         _TARGET_CLASS_INVALID = -EINVAL,
@@ -118,6 +119,7 @@ static const char* const target_class_table[_TARGET_CLASS_MAX] = {
         [TARGET_CONFEXT]   = "confext",
         [TARGET_COMPONENT] = "component",
         [TARGET_HOST]      = "host",
+        [TARGET_STREAM]    = "stream",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
@@ -376,6 +378,8 @@ static int target_get_argument(Target *t, char **ret) {
         if (t->class != TARGET_HOST) {
                 if (t->class == TARGET_COMPONENT)
                         target_arg = strjoin("--component=", t->name);
+                else if (t->class == TARGET_STREAM)
+                        target_arg = strjoin("--stream=", t->name);
                 else if (IN_SET(t->image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
                         target_arg = strjoin("--root=", t->path);
                 else if (IN_SET(t->image_type, IMAGE_RAW, IMAGE_BLOCK))
@@ -418,7 +422,7 @@ static int job_start(Job *j) {
                         "systemd-sysupdate",
                         "--json=short",
                         NULL, /* maybe --verify=no */
-                        NULL, /* maybe --component=, --root=, or --image= */
+                        NULL, /* maybe --component=, --stream=, --root=, or --image= */
                         NULL, /* maybe --offline */
                         NULL, /* list, check-new, update, vacuum, features */
                         NULL, /* maybe version (for list, update), maybe feature (features) */
@@ -1394,6 +1398,35 @@ static int target_list_components(Target *t, char ***ret_components, bool *ret_h
         return 0;
 }
 
+static int target_list_streams(Target *t, char ***ret_streams) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **streams = NULL;
+        _cleanup_free_ char *target_arg = NULL;
+        sd_json_variant *v;
+        int r;
+
+        if (t) {
+                r = target_get_argument(t, &target_arg);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sysupdate_run_simple(&json, "streams", target_arg, NULL);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(json, "streams");
+        if (!v)
+                return -EINVAL;
+        r = sd_json_variant_strv(v, &streams);
+        if (r < 0)
+                return r;
+
+        if (ret_streams)
+                *ret_streams = TAKE_PTR(streams);
+        return 0;
+}
+
 static int manager_ensure_targets(Manager *m);
 
 static int target_object_find(
@@ -1792,6 +1825,30 @@ static int manager_enumerate_components(Manager *m) {
         return 0;
 }
 
+static int manager_enumerate_streams(Manager *m) {
+        _cleanup_strv_free_ char **streams = NULL;
+        Target *t;
+        int r;
+
+        r = target_list_streams(NULL, &streams);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(stream, streams) {
+                _cleanup_free_ char *path = NULL;
+
+                path = strjoin("sysupdate@", *stream, ".d");
+                if (!path)
+                        return -ENOMEM;
+
+                r = target_new(m, TARGET_STREAM, *stream, path, &t);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int manager_enumerate_targets(Manager *m) {
         static const TargetClass discoverable_classes[] = {
                 TARGET_MACHINE,
@@ -1809,6 +1866,10 @@ static int manager_enumerate_targets(Manager *m) {
                         log_warning_errno(r, "Failed to enumerate %ss, ignoring: %m",
                                           target_class_to_string(*class));
         }
+
+        r = manager_enumerate_streams(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enumerate streams, ignoring: %m");
 
         return manager_enumerate_components(m);
 }
