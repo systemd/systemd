@@ -71,6 +71,7 @@ static int bridge_mdb_new_static(
         *mdb = (BridgeMDB) {
                 .network = network,
                 .section = TAKE_PTR(n),
+                .type = _BRIDGE_MDB_ENTRY_TYPE_INVALID,
         };
 
         r = hashmap_ensure_put(&network->bridge_mdb_entries_by_section, &config_section_hash_ops, mdb->section, mdb);
@@ -267,9 +268,9 @@ static int bridge_mdb_verify(BridgeMDB *mdb) {
         case BRIDGE_MDB_ENTRY_TYPE_L2:
                 if (!ether_addr_is_multicast(&mdb->l2_addr))
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                "%s: MulticastGroupAddress= is not an L2 multicast address. "
-                                "Ignoring [BridgeMDB] section from line %u.",
-                                mdb->section->filename, mdb->section->line);
+                                                 "%s: MulticastGroupAddress= is not an L2 multicast address. "
+                                                 "Ignoring [BridgeMDB] section from line %u.",
+                                                 mdb->section->filename, mdb->section->line);
                 break;
         case BRIDGE_MDB_ENTRY_TYPE_L3:
                 if (mdb->family == AF_UNSPEC)
@@ -303,9 +304,9 @@ static int bridge_mdb_verify(BridgeMDB *mdb) {
                 break;
         default:
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                        "%s: [BridgeMDB] section without MulticastGroupAddress= field configured. "
-                        "Ignoring [BridgeMDB] section from line %u.",
-                        mdb->section->filename, mdb->section->line);
+                                         "%s: [BridgeMDB] section without MulticastGroupAddress= field configured. "
+                                         "Ignoring [BridgeMDB] section from line %u.",
+                                         mdb->section->filename, mdb->section->line);
         }
 
         return 0;
@@ -391,7 +392,8 @@ int config_parse_mdb_group_address(
         else {
                 r = in_addr_from_string_auto(rvalue, &mdb->family, &mdb->group_addr);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Cannot parse multicast group address as either L2 MAC, IPv4 or IPv6, ignoring: %m");
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                        "Cannot parse multicast group address as either L2 MAC, IPv4 or IPv6, ignoring: %m");
                         return 0;
                 }
                 mdb->type = BRIDGE_MDB_ENTRY_TYPE_L3;
