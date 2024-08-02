@@ -403,7 +403,7 @@ def kernel_initrd():
     if not items:
         return None
 
-    # This doesn't necessarilly give us the latest version, since we're just
+    # This doesn't necessarily give us the latest version, since we're just
     # using alphanumeric ordering. But this is fine, a predictable result is
     # enough.
     linux = items[-1]
