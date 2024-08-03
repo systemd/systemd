@@ -124,8 +124,9 @@ struct Service {
         /* If set we'll read the main daemon PID from this file */
         char *pid_file;
 
-        usec_t restart_usec;
+        unsigned n_restarts;
         unsigned restart_steps;
+        usec_t restart_usec;
         usec_t restart_max_delay_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
@@ -143,8 +144,6 @@ struct Service {
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
-        ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
-
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -154,13 +153,14 @@ struct Service {
         /* The exit status of the real main process */
         ExecStatus main_exec_status;
 
+        ExecCommand *exec_command[_SERVICE_EXEC_COMMAND_MAX];
+
+        /* The currently executed main process, which may be NULL if the main process got started via
+         * forking mode and not by us */
+        ExecCommand *main_command;
+
         /* The currently executed control process */
         ExecCommand *control_command;
-
-        /* The currently executed main process, which may be NULL if
-         * the main process got started via forking mode and not by
-         * us */
-        ExecCommand *main_command;
 
         /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
@@ -224,9 +224,6 @@ struct Service {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
-
-        unsigned n_restarts;
-        bool flush_n_restarts;
 
         OOMPolicy oom_policy;
 
