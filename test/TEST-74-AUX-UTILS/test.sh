@@ -31,7 +31,7 @@ test_append_files() {
     inst_binary ssh
     inst_binary sshd
     inst_binary ssh-keygen
-    image_install -o /usr/lib/ssh/sshd-session
+    image_install -o /usr/lib/ssh/sshd-session /usr/libexec/openssh/sshd-session
     inst_binary usermod
     instmods vmw_vsock_virtio_transport
     instmods vsock_loopback

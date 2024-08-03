@@ -272,7 +272,7 @@ void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResu
                 }
         }
 
-        r = device_monitor_send_device(monitor, NULL, dev);
+        r = device_monitor_send(monitor, NULL, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r,
                                          "Failed to broadcast event to libudev listeners, ignoring: %m");

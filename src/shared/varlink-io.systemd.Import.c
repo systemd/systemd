@@ -80,7 +80,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(type, RemoteType, 0),
                 SD_VARLINK_FIELD_COMMENT("The image class"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, 0),
-                SD_VARLINK_FIELD_COMMENT("The whether and how thoroughly to verify the download before installing it locally. Defauts to 'signature'."),
+                SD_VARLINK_FIELD_COMMENT("The whether and how thoroughly to verify the download before installing it locally. Defaults to 'signature'."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(verify, ImageVerify, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, an existing image by the local name is deleted. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),

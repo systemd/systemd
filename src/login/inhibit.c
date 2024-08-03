@@ -157,7 +157,7 @@ static int help(void) {
                "                          handle-lid-switch\n"
                "     --who=STRING         A descriptive string who is inhibiting\n"
                "     --why=STRING         A descriptive string why is being inhibited\n"
-               "     --mode=MODE          One of block or delay\n"
+               "     --mode=MODE          One of block, block-weak, delay, or delay-weak\n"
                "     --list               List active inhibitors\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,

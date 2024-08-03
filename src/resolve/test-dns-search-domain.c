@@ -120,7 +120,7 @@ TEST(dns_search_domain_unlink_link) {
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
         DnsSearchDomain *sd2 = NULL;
 
-        link_new(&manager, &link, 1);
+        ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
 
         dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_LINK, link, "local");

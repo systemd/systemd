@@ -25,11 +25,19 @@ typedef struct ExecSetCredential {
         size_t size;
 } ExecSetCredential;
 
+typedef struct ExecImportCredential {
+        char *glob;
+        char *rename;
+} ExecImportCredential;
+
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
 
 ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
+
+ExecImportCredential* exec_import_credential_free(ExecImportCredential *lc);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecImportCredential*, exec_import_credential_free);
 
 int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted);
 int exec_context_put_set_credential(
@@ -38,6 +46,7 @@ int exec_context_put_set_credential(
                 void *data_consume,
                 size_t size,
                 bool encrypted);
+int exec_context_put_import_credential(ExecContext *c, const char *glob, const char *rename);
 
 bool exec_params_need_credentials(const ExecParameters *p);
 

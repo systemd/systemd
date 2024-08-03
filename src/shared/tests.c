@@ -291,7 +291,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         if (r < 0)
                 return r;
 
-        r = cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
+        r = cg_attach_everywhere(supported, cgroup_subroot, 0);
         if (r < 0)
                 return r;
 

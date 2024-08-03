@@ -63,21 +63,10 @@ ToolsTree=default
 ```
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
-all current changes you made to the project tree. To avoid having to build a new
-image all the time when iterating on a patch, add the following to
-`mkosi.local.conf`:
-
-```conf
-[Host]
-RuntimeBuildSources=yes
-```
-
-After enabling this setting, the source and build directories will be mounted to
-`/work/src` and `/work/build` respectively when booting the image as a container
-or virtual machine. To build the latest changes and re-install after booting the
-image, run one of the following commands in another terminal on your host (
-choose the right one depending on the distribution of the container or virtual
-machine):
+all current changes you made to the project tree. To build the latest changes
+and re-install after booting the image, run one of the following commands in
+another terminal on your host (choose the right one depending on the
+distribution of the container or virtual machine):
 
 ```sh
 mkosi -t none && mkosi ssh dnf upgrade --disablerepo="*" "/work/build/*.rpm" # CentOS/Fedora

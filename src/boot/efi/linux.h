@@ -13,4 +13,5 @@ EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
-                const struct iovec *initrd);
+                const struct iovec *initrd,
+                size_t kernel_size_in_memory);

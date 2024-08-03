@@ -1382,7 +1382,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
+        if (link_get_ipv6_address(link, &gateway, NULL) >= 0) {
                 if (DEBUG_LOGGING)
                         log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route",
                                        IN6_ADDR_TO_STRING(&gateway));
@@ -2080,12 +2080,6 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 
         assert(link);
         assert(link->network);
-
-        /* Do not start DHCPv6 client if the router lifetime is zero, as the message sent as a signal of
-         * that the router is e.g. shutting down, revoked, etc,. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
 
         switch (link->network->ndisc_start_dhcp6_client) {
         case IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO:

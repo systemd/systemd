@@ -834,7 +834,7 @@ static void install_embedded_devicetree(
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset,
                         sections[UNIFIED_SECTION_DTB].size);
         if (err != EFI_SUCCESS)
-                log_error_status(err, "Error loading embedded devicetree, igoring: %m");
+                log_error_status(err, "Error loading embedded devicetree, ignoring: %m");
 }
 
 static void load_all_addons(

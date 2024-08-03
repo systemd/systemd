@@ -457,11 +457,11 @@ TEST(skip) {
         test_skip_one(setup_interleaved);
 }
 
-static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
+static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         char t[] = "/var/tmp/journal-boot-id-XXXXXX";
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_free_ LogId *ids = NULL;
+        size_t n_ids;
 
         mkdtemp_chdir_chattr(t);
 
@@ -471,55 +471,55 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
         assert_se(journal_get_boots(
                                 j,
                                 /* advance_older = */ false, /* max_ids = */ SIZE_MAX,
-                                &boots, &n_boots) >= 0);
-        assert_se(boots);
-        assert_se(n_boots == n_boots_expected);
+                                &ids, &n_ids) >= 0);
+        assert_se(ids);
+        assert_se(n_ids == n_ids_expected);
 
-        for (size_t i = 0; i < n_boots; i++) {
+        for (size_t i = 0; i < n_ids; i++) {
                 sd_id128_t id;
 
                 /* positive offset */
                 assert_se(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1), &id) == 1);
-                assert_se(sd_id128_equal(id, boots[i].id));
+                assert_se(sd_id128_equal(id, ids[i].id));
 
                 /* negative offset */
-                assert_se(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1) - (int) n_boots, &id) == 1);
-                assert_se(sd_id128_equal(id, boots[i].id));
+                assert_se(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1) - (int) n_ids, &id) == 1);
+                assert_se(sd_id128_equal(id, ids[i].id));
 
-                for (size_t k = 0; k < n_boots; k++) {
+                for (size_t k = 0; k < n_ids; k++) {
                         int offset = (int) k - (int) i;
 
                         /* relative offset */
-                        assert_se(journal_find_boot(j, boots[i].id, offset, &id) == 1);
-                        assert_se(sd_id128_equal(id, boots[k].id));
+                        assert_se(journal_find_boot(j, ids[i].id, offset, &id) == 1);
+                        assert_se(sd_id128_equal(id, ids[k].id));
                 }
         }
 
-        for (size_t i = 0; i <= n_boots_expected + 1; i++) {
-                _cleanup_free_ BootId *boots_limited = NULL;
-                size_t n_boots_limited;
+        for (size_t i = 0; i <= n_ids_expected + 1; i++) {
+                _cleanup_free_ LogId *ids_limited = NULL;
+                size_t n_ids_limited;
 
                 assert_se(journal_get_boots(
                                         j,
                                         /* advance_older = */ false, /* max_ids = */ i,
-                                        &boots_limited, &n_boots_limited) >= 0);
-                assert_se(boots_limited || i == 0);
-                assert_se(n_boots_limited == MIN(i, n_boots_expected));
-                assert_se(memcmp_safe(boots, boots_limited, n_boots_limited * sizeof(BootId)) == 0);
+                                        &ids_limited, &n_ids_limited) >= 0);
+                assert_se(ids_limited || i == 0);
+                assert_se(n_ids_limited == MIN(i, n_ids_expected));
+                assert_se(memcmp_safe(ids, ids_limited, n_ids_limited * sizeof(LogId)) == 0);
         }
 
-        for (size_t i = 0; i <= n_boots_expected + 1; i++) {
-                _cleanup_free_ BootId *boots_limited = NULL;
-                size_t n_boots_limited;
+        for (size_t i = 0; i <= n_ids_expected + 1; i++) {
+                _cleanup_free_ LogId *ids_limited = NULL;
+                size_t n_ids_limited;
 
                 assert_se(journal_get_boots(
                                         j,
                                         /* advance_older = */ true, /* max_ids = */ i,
-                                        &boots_limited, &n_boots_limited) >= 0);
-                assert_se(boots_limited || i == 0);
-                assert_se(n_boots_limited == MIN(i, n_boots_expected));
-                for (size_t k = 0; k < n_boots_limited; k++)
-                        assert_se(memcmp(&boots[n_boots - k - 1], &boots_limited[k], sizeof(BootId)) == 0);
+                                        &ids_limited, &n_ids_limited) >= 0);
+                assert_se(ids_limited || i == 0);
+                assert_se(n_ids_limited == MIN(i, n_ids_expected));
+                for (size_t k = 0; k < n_ids_limited; k++)
+                        assert_se(memcmp(&ids[n_ids - k - 1], &ids_limited[k], sizeof(LogId)) == 0);
         }
 
         test_done(t);

@@ -26,6 +26,7 @@ typedef enum JournalctlAction {
         ACTION_LIST_BOOTS,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_LIST_INVOCATIONS,
         ACTION_LIST_NAMESPACES,
         ACTION_FLUSH,
         ACTION_RELINQUISH_VAR,
@@ -76,6 +77,9 @@ extern char **arg_syslog_identifier;
 extern char **arg_exclude_identifier;
 extern char **arg_system_units;
 extern char **arg_user_units;
+extern bool arg_invocation;
+extern sd_id128_t arg_invocation_id;
+extern int arg_invocation_offset;
 extern const char *arg_field;
 extern bool arg_catalog;
 extern bool arg_reverse;

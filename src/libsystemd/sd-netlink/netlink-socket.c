@@ -17,36 +17,21 @@
 
 static int broadcast_groups_get(sd_netlink *nl) {
         _cleanup_free_ uint32_t *groups = NULL;
-        socklen_t len = 0, old_len;
+        size_t len;
         int r;
 
         assert(nl);
         assert(nl->fd >= 0);
 
-        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0) {
-                if (errno != ENOPROTOOPT)
-                        return -errno;
-
+        r = netlink_socket_get_multicast_groups(nl->fd, &len, &groups);
+        if (r == -ENOPROTOOPT) {
                 nl->broadcast_group_dont_leave = true;
                 return 0;
         }
+        if (r < 0)
+                return r;
 
-        if (len == 0)
-                return 0;
-
-        groups = new0(uint32_t, len);
-        if (!groups)
-                return -ENOMEM;
-
-        old_len = len;
-
-        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len) < 0)
-                return -errno;
-
-        if (old_len != len)
-                return -EIO;
-
-        for (unsigned i = 0; i < len; i++)
+        for (size_t i = 0; i < len; i++)
                 for (unsigned j = 0; j < sizeof(uint32_t) * 8; j++)
                         if (groups[i] & (1U << j)) {
                                 unsigned group = i * sizeof(uint32_t) * 8 + j + 1;

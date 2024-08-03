@@ -27,7 +27,7 @@ TEST(parse_os_release) {
                 log_info("ID: %s", id);
         }
 
-        ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1), 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1));
         ASSERT_EQ(parse_os_release(NULL, "ID", &id2), 0);
         log_info("ID: %s", strnull(id2));
 
@@ -36,7 +36,7 @@ TEST(parse_os_release) {
                                 "ID=the-id  \n"
                                 "NAME=the-name"), 0);
 
-        ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1), 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1));
         ASSERT_EQ(parse_os_release(NULL, "ID", &id, "NAME", &name), 0);
         log_info("ID: %s NAME: %s", id, name);
         ASSERT_STREQ(id, "the-id");
@@ -48,7 +48,7 @@ TEST(parse_os_release) {
                                 "ID=\"the-id\"  \n"
                                 "NAME='the-name'"), 0);
 
-        ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", tmpfile2, 1), 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile2, 1));
         ASSERT_EQ(parse_os_release(NULL, "ID", &id, "NAME", &name), 0);
         log_info("ID: %s NAME: %s", id, name);
         ASSERT_STREQ(id, "the-id");
@@ -58,7 +58,7 @@ TEST(parse_os_release) {
         log_info("FOOBAR: %s", strnull(foobar));
         ASSERT_NULL(foobar);
 
-        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_OS_RELEASE"));
 }
 
 TEST(parse_extension_release) {
@@ -111,14 +111,14 @@ TEST(load_os_release_pairs) {
                                 "ID=\"the-id\"  \n"
                                 "NAME='the-name'"), 0);
 
-        ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1), 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1));
 
         _cleanup_strv_free_ char **pairs = NULL;
         ASSERT_EQ(load_os_release_pairs(NULL, &pairs), 0);
         assert_se(strv_equal(pairs, STRV_MAKE("ID", "the-id",
                                               "NAME", "the-name")));
 
-        ASSERT_EQ(unsetenv("SYSTEMD_OS_RELEASE"), 0);
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_OS_RELEASE"));
 }
 
 TEST(os_release_support_ended) {

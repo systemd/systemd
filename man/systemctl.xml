@@ -2288,17 +2288,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
           locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
-          <literal>no</literal>. Defaults to <literal>auto</literal>, which will behave like
-          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal> for
-          non-interactive invocations. <literal>yes</literal> lets the request respect inhibitor locks.
-          <literal>no</literal> lets the request ignore inhibitor locks.</para>
+          <literal>no</literal>. Defaults to <literal>auto</literal>, which means logind will perform the
+          check and respect active inhibitor locks, but systemctl will only do a client-side check for
+          interactive invocations (i.e. from a TTY), so that a more friendly and informative error can be
+          returned to users. <literal>no</literal> disables both the systemctl and logind checks.</para>
 
           <para>Applications can establish inhibitor locks to prevent certain important operations (such as
           CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
           privileged users may override these locks. If any locks are taken, shutdown and sleep state
-          requests will normally fail (unless privileged). However, if <literal>no</literal> is specified or
-          <literal>auto</literal> is specified on a non-interactive requests, the operation will be
-          attempted. If locks are present, the operation may require additional privileges.</para>
+          requests will normally fail (unless explicitly overridden with <literal>no</literal>).</para>
 
           <para>Option <option>--force</option> provides another way to override inhibitors.</para>
 

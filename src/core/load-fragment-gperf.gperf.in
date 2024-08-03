@@ -153,7 +153,7 @@
 {{type}}.SetCredentialEncrypted,           config_parse_set_credential,                 1,                                  offsetof({{type}}, exec_context)
 {{type}}.LoadCredential,                   config_parse_load_credential,                0,                                  offsetof({{type}}, exec_context)
 {{type}}.LoadCredentialEncrypted,          config_parse_load_credential,                1,                                  offsetof({{type}}, exec_context)
-{{type}}.ImportCredential,                 config_parse_import_credential,              0,                                  offsetof({{type}}, exec_context.import_credentials)
+{{type}}.ImportCredential,                 config_parse_import_credential,              0,                                  offsetof({{type}}, exec_context)
 {{type}}.TimeoutCleanSec,                  config_parse_sec,                            0,                                  offsetof({{type}}, exec_context.timeout_clean_usec)
 {% if HAVE_PAM %}
 {{type}}.PAMName,                          config_parse_unit_string_printf,             0,                                  offsetof({{type}}, exec_context.pam_name)

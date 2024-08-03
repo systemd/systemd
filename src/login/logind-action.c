@@ -234,7 +234,7 @@ static int handle_action_execute(
         /* If the actual operation is inhibited, warn and fail */
         if (inhibit_what_is_valid(inhibit_operation) &&
             !ignore_inhibited &&
-            manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
+            manager_is_inhibited(m, inhibit_operation, /* block= */ true, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 (void) pidref_get_comm(&offending->pid, &comm);
@@ -372,7 +372,7 @@ int manager_handle_action(
 
         /* If the key handling is inhibited, don't do anything */
         if (inhibit_key > 0) {
-                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0, NULL)) {
+                if (manager_is_inhibited(m, inhibit_key, /* block= */ true, NULL, true, false, 0, NULL)) {
                         log_debug("Refusing %s operation, %s is inhibited.",
                                   handle_action_to_string(handle),
                                   inhibit_what_to_string(inhibit_key));

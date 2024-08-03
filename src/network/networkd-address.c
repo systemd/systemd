@@ -135,8 +135,6 @@ void link_get_address_states(
                 *ret_all = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
 }
 
-static void address_hash_func(const Address *a, struct siphash *state);
-static int address_compare_func(const Address *a1, const Address *a2);
 static void address_detach(Address *address);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -446,7 +444,7 @@ static int address_ipv4_prefix(const Address *a, struct in_addr *ret) {
         return 0;
 }
 
-static void address_hash_func(const Address *a, struct siphash *state) {
+void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress_typesafe(a->family, state);
@@ -476,7 +474,7 @@ static void address_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-static int address_compare_func(const Address *a1, const Address *a2) {
+int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
@@ -988,7 +986,14 @@ int address_get_harder(Link *link, const Address *in, Address **ret) {
         return 0;
 }
 
-int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
+int link_get_address_full(
+                Link *link,
+                int family,
+                const union in_addr_union *address,
+                const union in_addr_union *peer, /* optional, can be NULL */
+                unsigned char prefixlen,         /* optional, can be 0 */
+                Address **ret) {
+
         Address *a;
         int r;
 
@@ -996,11 +1001,11 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        /* This find an Address object on the link which matches the given address and prefix length
-         * and does not have peer address. When the prefixlen is zero, then an Address object with an
-         * arbitrary prefixlen will be returned. */
+        /* This finds an Address object on the link which matches the given address, peer, and prefix length.
+         * If the prefixlen is zero, then an Address object with an arbitrary prefixlen will be returned.
+         * If the peer is NULL, then an Address object with an arbitrary peer will be returned. */
 
-        if (family == AF_INET6 || prefixlen != 0) {
+        if (family == AF_INET6 || (prefixlen != 0 && peer)) {
                 _cleanup_(address_unrefp) Address *tmp = NULL;
 
                 /* In this case, we can use address_get(). */
@@ -1011,6 +1016,8 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
 
                 tmp->family = family;
                 tmp->in_addr = *address;
+                if (peer)
+                        tmp->in_addr_peer = *peer;
                 tmp->prefixlen = prefixlen;
 
                 r = address_get(link, tmp, &a);
@@ -1020,7 +1027,7 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
                 if (family == AF_INET6) {
                         /* IPv6 addresses are managed without peer address and prefix length. Hence, we need
                          * to check them explicitly. */
-                        if (in_addr_is_set(family, &a->in_addr_peer))
+                        if (peer && !in_addr_equal(family, &a->in_addr_peer, peer))
                                 return -ENOENT;
                         if (prefixlen != 0 && a->prefixlen != prefixlen)
                                 return -ENOENT;
@@ -1039,7 +1046,10 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
                 if (!in_addr_equal(family, &a->in_addr, address))
                         continue;
 
-                if (in_addr_is_set(family, &a->in_addr_peer))
+                if (peer && !in_addr_equal(family, &a->in_addr_peer, peer))
+                        continue;
+
+                if (prefixlen != 0 && a->prefixlen != prefixlen)
                         continue;
 
                 if (ret)
@@ -1051,7 +1061,14 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
         return -ENOENT;
 }
 
-int manager_get_address(Manager *manager, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
+int manager_get_address_full(
+                Manager *manager,
+                int family,
+                const union in_addr_union *address,
+                const union in_addr_union *peer,
+                unsigned char prefixlen,
+                Address **ret) {
+
         Link *link;
 
         assert(manager);
@@ -1062,24 +1079,11 @@ int manager_get_address(Manager *manager, int family, const union in_addr_union 
                 if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
-                if (link_get_address(link, family, address, prefixlen, ret) >= 0)
+                if (link_get_address_full(link, family, address, peer, prefixlen, ret) >= 0)
                         return 0;
         }
 
         return -ENOENT;
-}
-
-bool manager_has_address(Manager *manager, int family, const union in_addr_union *address) {
-        Address *a;
-
-        assert(manager);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(address);
-
-        if (manager_get_address(manager, family, address, 0, &a) < 0)
-                return false;
-
-        return address_is_ready(a);
 }
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {

@@ -2554,13 +2554,14 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
-        if (!set_isempty(c->import_credentials)) {
-                char *ic;
-                SET_FOREACH(ic, c->import_credentials) {
-                        r = serialize_item(f, "exec-context-import-credentials", ic);
-                        if (r < 0)
-                                return r;
-                }
+        ExecImportCredential *ic;
+        ORDERED_SET_FOREACH(ic, c->import_credentials) {
+                r = serialize_item_format(f, "exec-context-import-credentials", "%s%s%s",
+                                          ic->glob,
+                                          ic->rename ? " " : "",
+                                          strempty(ic->rename));
+                if (r < 0)
+                        return r;
         }
 
         r = serialize_image_policy(f, "exec-context-root-image-policy", c->root_image_policy);
@@ -3688,11 +3689,15 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-import-credentials="))) {
-                        r = set_ensure_allocated(&c->import_credentials, &string_hash_ops);
+                        _cleanup_free_ char *glob = NULL, *rename = NULL;
+
+                        r = extract_many_words(&val, " ", EXTRACT_DONT_COALESCE_SEPARATORS, &glob, &rename);
                         if (r < 0)
                                 return r;
+                        if (r == 0)
+                                return -EINVAL;
 
-                        r = set_put_strdup(&c->import_credentials, val);
+                        r = exec_context_put_import_credential(c, glob, rename);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-image-policy="))) {

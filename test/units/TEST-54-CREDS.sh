@@ -273,9 +273,32 @@ rm -rf /tmp/ts54-creds
 # Check that globs work as expected
 mkdir -p /run/credstore
 echo -n a >/run/credstore/test.creds.first
-echo -n b >/run/credstore/test.creds.second
+# Make sure that when multiple credentials of the same name are found, the first one is used (/etc/credstore
+# is searched before /run/credstore).
+echo -n ignored >/run/credstore/test.creds.second
 mkdir -p /etc/credstore
+echo -n b >/etc/credstore/test.creds.second
 echo -n c >/etc/credstore/test.creds.third
+# Credential name cannot contain ':'
+echo -n hoge >/etc/credstore/test.creds.hoge:invalid
+
+# Check if credentials with invalid names are not imported.
+systemd-run -p "ImportCredential=test.creds.*" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            test ! -e '${CREDENTIALS_DIRECTORY}/test.creds.hoge:invalid'
+
+# Check if credentials with invalid names are not imported (with renaming).
+systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            test ! -e '${CREDENTIALS_DIRECTORY}/renamed.creds.hoge:invalid'
+
+# Check that all valid credentials are imported.
 systemd-run -p "ImportCredential=test.creds.*" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
@@ -285,6 +308,60 @@ systemd-run -p "ImportCredential=test.creds.*" \
                 '${CREDENTIALS_DIRECTORY}/test.creds.second' \
                 '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
 cmp /tmp/ts54-concat <(echo -n abc)
+
+# Check that ImportCredentialEx= works without renaming.
+systemd-run -p "ImportCredentialEx=test.creds.*" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/test.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.second' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n abc)
+
+# Check that renaming with globs works as expected.
+systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.second' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.third' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n abc)
+
+# Check that renaming without globs works as expected.
+systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n a)
+
+# Test that multiple renames are processed in the correct order.
+systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            -p "ImportCredentialEx=test.creds.second:renamed.creds.first" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n a)
+
+# Test that a credential can be imported multiple times with different names.
+systemd-run -p "ImportCredentialEx=test.creds.first" \
+            -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            -p "ImportCredentialEx=test.creds.first:renamed.creds.second" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/test.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.second' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n aaa)
 
 # Now test encrypted credentials (only supported when built with OpenSSL though)
 if systemctl --version | grep -q -- +OPENSSL ; then

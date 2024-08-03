@@ -11,6 +11,7 @@
 #include "confidential-virt-fundamental.h"
 #include "confidential-virt.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "missing_threads.h"
 #include "string-table.h"
 #include "utf8.h"
@@ -76,7 +77,7 @@ static uint64_t msr(uint64_t index) {
         return ret;
 }
 
-static bool detect_hyperv_sev(void) {
+static bool detect_hyperv_cvm(uint32_t isoltype) {
         uint32_t eax, ebx, ecx, edx, feat;
         char sig[13] = {};
 
@@ -100,7 +101,7 @@ static bool detect_hyperv_sev(void) {
                 ebx = ecx = edx = 0;
                 cpuid(&eax, &ebx, &ecx, &edx);
 
-                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == isoltype)
                         return true;
         }
 
@@ -133,7 +134,7 @@ static ConfidentialVirtualization detect_sev(void) {
         if (!(eax & EAX_SEV)) {
                 log_debug("No sev in CPUID, trying hyperv CPUID");
 
-                if (detect_hyperv_sev())
+                if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_SNP))
                         return CONFIDENTIAL_VIRTUALIZATION_SEV_SNP;
 
                 log_debug("No hyperv CPUID");
@@ -171,6 +172,11 @@ static ConfidentialVirtualization detect_tdx(void) {
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
                 return CONFIDENTIAL_VIRTUALIZATION_TDX;
 
+        log_debug("No tdx in CPUID, trying hyperv CPUID");
+
+        if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_TDX))
+                return CONFIDENTIAL_VIRTUALIZATION_TDX;
+
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
 
@@ -189,40 +195,62 @@ static bool detect_hypervisor(void) {
         return is_hv;
 }
 
-ConfidentialVirtualization detect_confidential_virtualization(void) {
-        static thread_local ConfidentialVirtualization cached_found = _CONFIDENTIAL_VIRTUALIZATION_INVALID;
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         char sig[13] = {};
-        ConfidentialVirtualization cv = CONFIDENTIAL_VIRTUALIZATION_NONE;
-
-        if (cached_found >= 0)
-                return cached_found;
 
         /* Skip everything on bare metal */
         if (detect_hypervisor()) {
                 cpuid_leaf(0, sig, true);
 
                 if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
-                        cv = detect_sev();
+                        return detect_sev();
                 else if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
-                        cv = detect_tdx();
+                        return detect_tdx();
         }
 
-        cached_found = cv;
-        return cv;
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
+#elif defined(__s390x__)
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
+
+        r = read_full_virtual_file("/sys/firmware/uv/prot_virt_guest", &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read /sys/firmware/uv/prot_virt_guest: %m");
+                return CONFIDENTIAL_VIRTUALIZATION_NONE;
+        }
+
+        if (readsize >= 1 && s[0] == '1')
+                return CONFIDENTIAL_VIRTUALIZATION_PROTVIRT;
+
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
+}
+
 #else /* ! x86_64 */
-ConfidentialVirtualization detect_confidential_virtualization(void) {
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
 #endif /* ! x86_64 */
 
+ConfidentialVirtualization detect_confidential_virtualization(void) {
+        static thread_local ConfidentialVirtualization cached_found = _CONFIDENTIAL_VIRTUALIZATION_INVALID;
+
+        if (cached_found == _CONFIDENTIAL_VIRTUALIZATION_INVALID)
+                cached_found = detect_confidential_virtualization_impl();
+
+        return cached_found;
+}
+
 static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUALIZATION_MAX] = {
-        [CONFIDENTIAL_VIRTUALIZATION_NONE]    = "none",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV]     = "sev",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]  = "sev-es",
-        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP] = "sev-snp",
-        [CONFIDENTIAL_VIRTUALIZATION_TDX]     = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_NONE]     = "none",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV]      = "sev",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_ES]   = "sev-es",
+        [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP]  = "sev-snp",
+        [CONFIDENTIAL_VIRTUALIZATION_TDX]      = "tdx",
+        [CONFIDENTIAL_VIRTUALIZATION_PROTVIRT] = "protvirt",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
