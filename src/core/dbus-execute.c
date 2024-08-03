@@ -2225,7 +2225,9 @@ int bus_exec_context_set_transient_property(
                         if (!credential_glob_valid(glob))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name or glob is invalid: %s", glob);
 
-                        if (!isempty(rename) && !credential_name_valid(rename))
+                        rename = empty_to_null(rename);
+
+                        if (rename && !credential_name_valid(rename))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name is invalid: %s", rename);
 
                         empty = false;
