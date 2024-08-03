@@ -183,6 +183,7 @@ int exec_context_put_import_credential(ExecContext *c, const char *glob, const c
         int r;
 
         assert(c);
+        assert(glob);
 
         rename = empty_to_null(rename);
 
@@ -309,7 +310,7 @@ static int write_credential(
                 gid_t gid,
                 bool ownership_ok) {
 
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -322,42 +323,42 @@ static int write_credential(
                 return r;
 
         fd = openat(dfd, tmp, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL|O_NOFOLLOW|O_NOCTTY, 0600);
-        if (fd < 0) {
-                tmp = mfree(tmp);
+        if (fd < 0)
                 return -errno;
-        }
 
         r = loop_write(fd, data, size);
         if (r < 0)
-                return r;
+                goto fail;
 
-        if (fchmod(fd, 0400) < 0) /* Take away "w" bit */
-                return -errno;
+        r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
+        if (r < 0)
+                goto fail;
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
                 if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                                return r;
+                        /* Ideally we use ACLs, since we can neatly express what we want to express:
+                         * the user gets read access and nothing else. But if the backing fs can't
+                         * support that (e.g. ramfs), then we can use file ownership instead. But that's
+                         * only safe if we can then re-mount the whole thing read-only, so that the user
+                         * can no longer chmod() the file to gain write access. */
+                        if (!ownership_ok || (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r)))
+                                goto fail;
 
-                        if (!ownership_ok) /* Ideally we use ACLs, since we can neatly express what we want
-                                            * to express: that the user gets read access and nothing
-                                            * else. But if the backing fs can't support that (e.g. ramfs)
-                                            * then we can use file ownership instead. But that's only safe if
-                                            * we can then re-mount the whole thing read-only, so that the
-                                            * user can no longer chmod() the file to gain write access. */
-                                return r;
-
-                        if (fchown(fd, uid, gid) < 0)
-                                return -errno;
+                        r = RET_NERRNO(fchown(fd, uid, gid));
+                        if (r < 0)
+                                goto fail;
                 }
         }
 
         if (renameat(dfd, tmp, dfd, id) < 0)
-                return -errno;
+                goto fail;
 
-        tmp = mfree(tmp);
         return 0;
+
+fail:
+        (void) unlinkat(dfd, tmp, /* flags = */ 0);
+        return r;
 }
 
 typedef enum CredentialSearchPath {
@@ -368,7 +369,7 @@ typedef enum CredentialSearchPath {
         _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
 } CredentialSearchPath;
 
-static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
+static char** credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
@@ -396,33 +397,40 @@ static char **credential_search_path(const ExecParameters *params, CredentialSea
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
-
                 log_debug("Credential search path is: %s", strempty(t));
         }
 
         return TAKE_PTR(l);
 }
 
+struct load_cred_args {
+        const ExecContext *context;
+        const ExecParameters *params;
+        const char *unit;
+        bool encrypted;
+        int write_dfd;
+        uid_t uid;
+        gid_t gid;
+        bool ownership_ok;
+        uint64_t left;
+};
+
 static int maybe_decrypt_and_write_credential(
-                int dir_fd,
+                struct load_cred_args *args,
                 const char *id,
-                bool encrypted,
-                uid_t uid,
-                gid_t gid,
-                bool ownership_ok,
                 const char *data,
-                size_t size,
-                uint64_t *left) {
+                size_t size) {
 
         _cleanup_(iovec_done_erase) struct iovec plaintext = {};
         size_t add;
         int r;
 
-        assert(dir_fd >= 0);
+        assert(args);
+        assert(args->write_dfd >= 0);
         assert(id);
-        assert(left);
+        assert(data || size == 0);
 
-        if (encrypted) {
+        if (args->encrypted) {
                 r = decrypt_credential_and_warn(
                                 id,
                                 now(CLOCK_REALTIME),
@@ -440,34 +448,30 @@ static int maybe_decrypt_and_write_credential(
         }
 
         add = strlen(id) + size;
-        if (add > *left)
+        if (add > args->left)
                 return -E2BIG;
 
-        r = write_credential(dir_fd, id, data, size, uid, gid, ownership_ok);
+        r = write_credential(args->write_dfd, id, data, size, args->uid, args->gid, args->ownership_ok);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write credential '%s': %m", id);
 
-        *left -= add;
+        args->left -= add;
+
         return 0;
 }
 
 static int load_credential_glob(
+                struct load_cred_args *args,
                 const ExecImportCredential *ic,
-                bool encrypted,
                 char * const *search_path,
-                ReadFullFileFlags flags,
-                int write_dfd,
-                uid_t uid,
-                gid_t gid,
-                bool ownership_ok,
-                uint64_t *left) {
+                ReadFullFileFlags flags) {
 
         int r;
 
+        assert(args);
+        assert(args->write_dfd >= 0);
         assert(ic);
         assert(search_path);
-        assert(write_dfd >= 0);
-        assert(left);
 
         STRV_FOREACH(d, search_path) {
                 _cleanup_globfree_ glob_t pglob = {};
@@ -507,7 +511,7 @@ static int load_credential_glob(
                                 continue;
                         }
 
-                        if (faccessat(write_dfd, fn, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                        if (faccessat(args->write_dfd, fn, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                                 log_debug("Skipping credential with duplicated ID %s at %s", fn, *p);
                                 continue;
                         }
@@ -519,22 +523,14 @@ static int load_credential_glob(
                                         AT_FDCWD,
                                         *p,
                                         UINT64_MAX,
-                                        encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                        args->encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
                                         flags,
                                         NULL,
                                         &data, &size);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = maybe_decrypt_and_write_credential(
-                                        write_dfd,
-                                        fn,
-                                        encrypted,
-                                        uid,
-                                        gid,
-                                        ownership_ok,
-                                        data, size,
-                                        left);
+                        r = maybe_decrypt_and_write_credential(args, fn, data, size);
                         if (r < 0)
                                 return r;
                 }
@@ -544,36 +540,28 @@ static int load_credential_glob(
 }
 
 static int load_credential(
-                const ExecContext *context,
-                const ExecParameters *params,
+                struct load_cred_args *args,
                 const char *id,
-                const char *path,
-                bool encrypted,
-                const char *unit,
                 int read_dfd,
-                int write_dfd,
-                uid_t uid,
-                gid_t gid,
-                bool ownership_ok,
-                uint64_t *left) {
+                const char *path) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
         _cleanup_strv_free_ char **search_path = NULL;
-        _cleanup_(erase_and_freep) char *data = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
-        bool missing_ok = true;
+        bool missing_ok;
+        _cleanup_(erase_and_freep) char *data = NULL;
         size_t size, maxsz;
         int r;
 
-        assert(context);
-        assert(params);
+        assert(args);
+        assert(args->context);
+        assert(args->params);
+        assert(args->unit);
+        assert(args->write_dfd >= 0);
         assert(id);
-        assert(path);
-        assert(unit);
         assert(read_dfd >= 0 || read_dfd == AT_FDCWD);
-        assert(write_dfd >= 0);
-        assert(left);
+        assert(path);
 
         if (read_dfd >= 0) {
                 /* If a directory fd is specified, then read the file directly from that dir. In this case we
@@ -598,7 +586,7 @@ static int load_credential(
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
                  * via the source socket address in case we read off an AF_UNIX socket. */
-                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), unit, id) < 0)
+                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), args->unit, id) < 0)
                         return -ENOMEM;
 
                 missing_ok = false;
@@ -609,18 +597,19 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ALL);
+                search_path = credential_search_path(args->params, CREDENTIAL_SEARCH_PATH_ALL);
                 if (!search_path)
                         return -ENOMEM;
 
                 missing_ok = true;
         } else
-                source = NULL;
+                return -EINVAL;
 
-        if (encrypted)
+        if (args->encrypted) {
                 flags |= READ_FULL_FILE_UNBASE64;
-
-        maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
+                maxsz = CREDENTIAL_ENCRYPTED_SIZE_MAX;
+        } else
+                maxsz = CREDENTIAL_SIZE_MAX;
 
         if (search_path)
                 STRV_FOREACH(d, search_path) {
@@ -649,9 +638,9 @@ static int load_credential(
                                 bindname,
                                 &data, &size);
         else
-                r = -ENOENT;
+                assert_not_reached();
 
-        if (r == -ENOENT && (missing_ok || hashmap_contains(context->set_credentials, id))) {
+        if (r == -ENOENT && (missing_ok || hashmap_contains(args->context->set_credentials, id))) {
                 /* Make a missing inherited credential non-fatal, let's just continue. After all apps
                  * will get clear errors if we don't pass such a missing credential on as they
                  * themselves will get ENOENT when trying to read them, which should not be much
@@ -659,27 +648,15 @@ static int load_credential(
                  *
                  * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
                  * we are fine, too. */
-                log_full_errno(hashmap_contains(context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
+                log_full_errno(hashmap_contains(args->context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
                                r, "Couldn't read inherited credential '%s', skipping: %m", path);
                 return 0;
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        return maybe_decrypt_and_write_credential(write_dfd, id, encrypted, uid, gid, ownership_ok, data, size, left);
+        return maybe_decrypt_and_write_credential(args, id, data, size);
 }
-
-struct load_cred_args {
-        const ExecContext *context;
-        const ExecParameters *params;
-        bool encrypted;
-        const char *unit;
-        int dfd;
-        uid_t uid;
-        gid_t gid;
-        bool ownership_ok;
-        uint64_t *left;
-};
 
 static int load_cred_recurse_dir_cb(
                 RecurseDirEvent event,
@@ -708,28 +685,18 @@ static int load_cred_recurse_dir_cb(
                 return -ENOMEM;
 
         if (!credential_name_valid(sub_id))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID %s, which is not valid, refusing", sub_id);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID '%s', which is not valid, refusing.", sub_id);
 
-        if (faccessat(args->dfd, sub_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+        if (faccessat(args->write_dfd, sub_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                 log_debug("Skipping credential with duplicated ID %s at %s", sub_id, path);
                 return RECURSE_DIR_CONTINUE;
         }
         if (errno != ENOENT)
                 return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sub_id);
 
-        r = load_credential(
-                        args->context,
-                        args->params,
-                        sub_id,
-                        de->d_name,
-                        args->encrypted,
-                        args->unit,
-                        dir_fd,
-                        args->dfd,
-                        args->uid,
-                        args->gid,
-                        args->ownership_ok,
-                        args->left);
+        r = load_credential(args,
+                            sub_id,
+                            dir_fd, de->d_name);
         if (r < 0)
                 return r;
 
@@ -745,11 +712,7 @@ static int acquire_credentials(
                 gid_t gid,
                 bool ownership_ok) {
 
-        uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -EBADF;
-        ExecImportCredential *ic;
-        ExecLoadCredential *lc;
-        ExecSetCredential *sc;
         int r;
 
         assert(context);
@@ -765,9 +728,23 @@ static int acquire_credentials(
         if (r < 0)
                 return r;
 
+        struct load_cred_args args = {
+                .context = context,
+                .params = params,
+                .unit = unit,
+                .write_dfd = dfd,
+                .uid = uid,
+                .gid = gid,
+                .ownership_ok = ownership_ok,
+                .left = CREDENTIALS_TOTAL_SIZE_MAX,
+        };
+
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
+        ExecLoadCredential *lc;
         HASHMAP_FOREACH(lc, context->load_credentials) {
                 _cleanup_close_ int sub_fd = -EBADF;
+
+                args.encrypted = lc->encrypted;
 
                 /* If this is an absolute path, then try to open it as a directory. If that works, then we'll
                  * recurse into it. If it is an absolute path but it isn't a directory, then we'll open it as
@@ -775,28 +752,18 @@ static int acquire_credentials(
                  * propagate a credential passed to us from further up. */
 
                 if (path_is_absolute(lc->path)) {
-                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC);
                         if (sub_fd < 0 && !IN_SET(errno,
                                                   ENOTDIR,  /* Not a directory */
                                                   ENOENT))  /* Doesn't exist? */
-                                return log_debug_errno(errno, "Failed to open '%s': %m", lc->path);
+                                return log_debug_errno(errno, "Failed to open credential source '%s': %m", lc->path);
                 }
 
                 if (sub_fd < 0)
                         /* Regular file (incl. a credential passed in from higher up) */
-                        r = load_credential(
-                                        context,
-                                        params,
-                                        lc->id,
-                                        lc->path,
-                                        lc->encrypted,
-                                        unit,
-                                        AT_FDCWD,
-                                        dfd,
-                                        uid,
-                                        gid,
-                                        ownership_ok,
-                                        &left);
+                        r = load_credential(&args,
+                                            lc->id,
+                                            AT_FDCWD, lc->path);
                 else
                         /* Directory */
                         r = recurse_dir(sub_fd,
@@ -805,23 +772,14 @@ static int acquire_credentials(
                                         /* n_depth_max= */ UINT_MAX,
                                         RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
                                         load_cred_recurse_dir_cb,
-                                        &(struct load_cred_args) {
-                                                .context = context,
-                                                .params = params,
-                                                .encrypted = lc->encrypted,
-                                                .unit = unit,
-                                                .dfd = dfd,
-                                                .uid = uid,
-                                                .gid = gid,
-                                                .ownership_ok = ownership_ok,
-                                                .left = &left,
-                                        });
+                                        &args);
                 if (r < 0)
                         return r;
         }
 
         /* Next, look for system credentials and credentials in the credentials store. Note that these do not
          * override any credentials found earlier. */
+        ExecImportCredential *ic;
         ORDERED_SET_FOREACH(ic, context->import_credentials) {
                 _cleanup_free_ char **search_path = NULL;
 
@@ -829,16 +787,12 @@ static int acquire_credentials(
                 if (!search_path)
                         return -ENOMEM;
 
-                r = load_credential_glob(
-                                ic,
-                                /* encrypted = */ false,
-                                search_path,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER,
-                                dfd,
-                                uid,
-                                gid,
-                                ownership_ok,
-                                &left);
+                args.encrypted = false;
+
+                r = load_credential_glob(&args,
+                                         ic,
+                                         search_path,
+                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER);
                 if (r < 0)
                         return r;
 
@@ -847,31 +801,22 @@ static int acquire_credentials(
                 if (!search_path)
                         return -ENOMEM;
 
-                r = load_credential_glob(
-                                ic,
-                                /* encrypted = */ true,
-                                search_path,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64,
-                                dfd,
-                                uid,
-                                gid,
-                                ownership_ok,
-                                &left);
+                args.encrypted = true;
+
+                r = load_credential_glob(&args,
+                                         ic,
+                                         search_path,
+                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64);
                 if (r < 0)
                         return r;
         }
 
         /* Finally, we add in literally specified credentials. If the credentials already exist, we'll not
          * add them, so that they can act as a "default" if the same credential is specified multiple times. */
+        ExecSetCredential *sc;
         HASHMAP_FOREACH(sc, context->set_credentials) {
-                _cleanup_(iovec_done_erase) struct iovec plaintext = {};
-                const char *data;
-                size_t size, add;
+                args.encrypted = sc->encrypted;
 
-                /* Note that we check ahead of time here instead of relying on O_EXCL|O_CREAT later to return
-                 * EEXIST if the credential already exists. That's because the TPM2-based decryption is kinda
-                 * slow and involved, hence it's nice to be able to skip that if the credential already
-                 * exists anyway. */
                 if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                         log_debug("Skipping credential with duplicated ID %s", sc->id);
                         continue;
@@ -879,35 +824,9 @@ static int acquire_credentials(
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
-                if (sc->encrypted) {
-                        r = decrypt_credential_and_warn(
-                                        sc->id,
-                                        now(CLOCK_REALTIME),
-                                        /* tpm2_device= */ NULL,
-                                        /* tpm2_signature_path= */ NULL,
-                                        getuid(),
-                                        &IOVEC_MAKE(sc->data, sc->size),
-                                        CREDENTIAL_ANY_SCOPE,
-                                        &plaintext);
-                        if (r < 0)
-                                return r;
-
-                        data = plaintext.iov_base;
-                        size = plaintext.iov_len;
-                } else {
-                        data = sc->data;
-                        size = sc->size;
-                }
-
-                add = strlen(sc->id) + size;
-                if (add > left)
-                        return -E2BIG;
-
-                r = write_credential(dfd, sc->id, data, size, uid, gid, ownership_ok);
+                r = maybe_decrypt_and_write_credential(&args, sc->id, sc->data, sc->size);
                 if (r < 0)
                         return r;
-
-                left -= add;
         }
 
         r = fd_acl_make_read_only(dfd); /* Now take away the "w" bit */
