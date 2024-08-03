@@ -279,6 +279,24 @@ echo -n ignored >/run/credstore/test.creds.second
 mkdir -p /etc/credstore
 echo -n b >/etc/credstore/test.creds.second
 echo -n c >/etc/credstore/test.creds.third
+# Credential name cannot contain ':'
+echo -n hoge >/etc/credstore/test.creds.hoge:invalid
+
+# Check if credentials with invalid names are not imported.
+systemd-run -p "ImportCredential=test.creds.*" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            test ! -e '${CREDENTIALS_DIRECTORY}/test.creds.hoge:invalid'
+
+# Check if credentials with invalid names are not imported (with renaming).
+systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            test ! -e '${CREDENTIALS_DIRECTORY}/renamed.creds.hoge:invalid'
 
 # Check that all valid credentials are imported.
 systemd-run -p "ImportCredential=test.creds.*" \

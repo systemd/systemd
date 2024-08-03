@@ -502,6 +502,11 @@ static int load_credential_glob(
                                 free_and_replace(fn, renamed);
                         }
 
+                        if (!credential_name_valid(fn)) {
+                                log_debug("Skipping credential with invalid name: %s", fn);
+                                continue;
+                        }
+
                         if (faccessat(write_dfd, fn, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                                 log_debug("Skipping credential with duplicated ID %s at %s", fn, *p);
                                 continue;
