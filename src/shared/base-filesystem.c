@@ -56,8 +56,7 @@ static const BaseFilesystem table[] = {
         /* aarch64 ELF ABI actually says dynamic loader is in /lib/, but Fedora puts it in /lib64/ anyway and
          * just symlinks /lib/ld-linux-aarch64.so.1 to ../lib64/ld-linux-aarch64.so.1. For this to work
          * correctly, /lib64/ must be symlinked to /usr/lib64/. */
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-aarch64.so.1" },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__alpha__)
@@ -66,24 +65,20 @@ static const BaseFilesystem table[] = {
         /* No /lib64 on arm. The linker is /lib/ld-linux-armhf.so.3. */
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__i386__) || defined(__x86_64__)
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-x86-64.so.2" },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__ia64__)
 #elif defined(__loongarch_lp64)
 #  define KNOW_LIB64_DIRS 1
 #  if defined(__loongarch_double_float)
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-loongarch-lp64d.so.1" },
 #  elif defined(__loongarch_single_float)
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-loongarch-lp64f.so.1" },
 #  elif defined(__loongarch_soft_float)
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-loongarch-lp64s.so.1" },
 #  else
 #    error "Unknown LoongArch ABI"
@@ -100,8 +95,7 @@ static const BaseFilesystem table[] = {
 #  endif
 #elif defined(__powerpc__)
 #  if defined(__PPC64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld64.so.2" },
 #    define KNOW_LIB64_DIRS 1
 #  elif defined(__powerpc64__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -113,16 +107,14 @@ static const BaseFilesystem table[] = {
 #  if __riscv_xlen == 32
 #  elif __riscv_xlen == 64
         /* Same situation as for aarch64 */
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-riscv64-lp64d.so.1" },
 #    define KNOW_LIB64_DIRS 1
 #  else
 #    error "Unknown RISC-V ABI"
 #  endif
 #elif defined(__s390x__)
-        { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64\0"
+        { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-lsb-s390x.so.3" },
 #    define KNOW_LIB64_DIRS 1
 #elif defined(__s390__)
