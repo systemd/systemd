@@ -2074,13 +2074,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else {
+        } else
+                /* If we shan't restart, the restart counter would be flushed out. But rather than doing that
+                 * immediately here, this is delegated to service_start(), i.e. next start, so that the user
+                 * can still introspect the counter. */
                 service_set_state(s, end_state);
-
-                /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
-                 * user can still introspect the counter. Do so on the next start. */
-                s->flush_n_restarts = true;
-        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
@@ -2595,7 +2593,6 @@ static void service_enter_restart(Service *s, bool shortcut) {
          * fully stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset
          * the counter explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts++;
-        s->flush_n_restarts = false;
 
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
@@ -2799,6 +2796,10 @@ static int service_start(Unit *u) {
         s->main_pid_alien = false;
         s->forbid_restart = false;
 
+        /* This is not an automatic restart? Flush the restart counter then. */
+        if (s->state != SERVICE_AUTO_RESTART_QUEUED)
+                s->n_restarts = 0;
+
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
         s->status_bus_error = mfree(s->status_bus_error);
@@ -2813,12 +2814,6 @@ static int service_start(Unit *u) {
 
         exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         exec_status_reset(&s->main_exec_status);
-
-        /* This is not an automatic restart? Flush the restart counter then */
-        if (s->flush_n_restarts) {
-                s->n_restarts = 0;
-                s->flush_n_restarts = false;
-        }
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt)
@@ -3005,7 +3000,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
-        (void) serialize_bool(f, "flush-n-restarts", s->flush_n_restarts);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         service_serialize_exec_command(u, f, s->control_command);
@@ -3348,12 +3342,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
 
-        } else if (streq(key, "flush-n-restarts")) {
-                r = parse_boolean(value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized flush restart counter setting '%s': %m", value);
-                else
-                        s->flush_n_restarts = r;
         } else if (streq(key, "forbid-restart")) {
                 r = parse_boolean(value);
                 if (r < 0)
@@ -4875,7 +4863,6 @@ static void service_reset_failed(Unit *u) {
         s->reload_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
-        s->flush_n_restarts = false;
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
