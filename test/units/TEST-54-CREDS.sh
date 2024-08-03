@@ -332,6 +332,19 @@ systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
             cat '${CREDENTIALS_DIRECTORY}/renamed.creds.first' >/tmp/ts54-concat
 cmp /tmp/ts54-concat <(echo -n a)
 
+# Test that a credential can be imported multiple times with different names.
+systemd-run -p "ImportCredentialEx=test.creds.first" \
+            -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+            -p "ImportCredentialEx=test.creds.first:renamed.creds.second" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/test.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/renamed.creds.second' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n aaa)
+
 # Now test encrypted credentials (only supported when built with OpenSSL though)
 if systemctl --version | grep -q -- +OPENSSL ; then
     echo -n $RANDOM >/tmp/test-54-plaintext
