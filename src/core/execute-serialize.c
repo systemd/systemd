@@ -434,11 +434,11 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_strv(f, "exec-cgroup-context-ip-ingress-filter-path=", c->ip_filters_ingress);
+        r = serialize_strv(f, "exec-cgroup-context-ip-ingress-filter-path", c->ip_filters_ingress);
         if (r < 0)
                 return r;
 
-        r = serialize_strv(f, "exec-cgroup-context-ip-egress-filter-path=", c->ip_filters_egress);
+        r = serialize_strv(f, "exec-cgroup-context-ip-egress-filter-path", c->ip_filters_egress);
         if (r < 0)
                 return r;
 
