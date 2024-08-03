@@ -279,7 +279,20 @@ echo -n ignored >/run/credstore/test.creds.second
 mkdir -p /etc/credstore
 echo -n b >/etc/credstore/test.creds.second
 echo -n c >/etc/credstore/test.creds.third
+
+# Check that all valid credentials are imported.
 systemd-run -p "ImportCredential=test.creds.*" \
+            --unit=test-54-ImportCredential.service \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/test.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.second' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n abc)
+
+# Check that ImportCredentialEx= works without renaming.
+systemd-run -p "ImportCredentialEx=test.creds.*" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
