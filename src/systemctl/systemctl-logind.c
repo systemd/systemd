@@ -432,6 +432,14 @@ int help_boot_loader_entry(void) {
         sd_bus *bus;
         int r;
 
+        /* This is called without checking runtime scope and bus transport like we do in parse_argv().
+         * Loading boot entries is only supported by system scope. Let's gracefully adjust them. */
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+        if (arg_transport == BUS_TRANSPORT_CAPSULE) {
+                arg_host = NULL;
+                arg_transport = BUS_TRANSPORT_LOCAL;
+        }
+
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
