@@ -95,6 +95,7 @@ fsopen	430
 fspick	433
 fstat	108
 fstat64
+fstatat
 fstatat64
 fstatfs	100
 fstatfs64	266
@@ -191,6 +192,7 @@ listen	363
 listmount	458
 listxattr	230
 llistxattr	231
+llseek
 lookup_dcookie	110
 lremovexattr	234
 lseek	19
@@ -245,6 +247,7 @@ munlockall	153
 munmap	91
 name_to_handle_at	335
 nanosleep	162
+newfstat
 newfstatat	293
 nice	34
 old_adjtimex
@@ -502,6 +505,7 @@ uname	122
 unlink	10
 unlinkat	294
 unshare	303
+uretprobe
 userfaultfd	355
 ustat	62
 utime	30
