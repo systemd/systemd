@@ -258,6 +258,10 @@ EOF
     touch /run/TEST-82-SOFTREBOOT.touch
     systemctl --no-block --check-inhibitors=yes soft-reboot
 
+    # Ensure the property works too
+    type="$(busctl --json=short get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager PreparingForShutdownWithMetadata | jq -r '.data.type.data')"
+    test "$type" = "soft-reboot"
+
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity
 fi
