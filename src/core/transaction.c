@@ -955,9 +955,12 @@ int transaction_add_job_and_dependencies(
         if (MANAGER_IS_RELOADING(unit->manager))
                 unit_coldplug(unit);
 
-        if (by)
+        if (by) {
                 log_trace("Pulling in %s/%s from %s/%s", unit->id, job_type_to_string(type), by->unit->id, job_type_to_string(by->type));
 
+                if (type == JOB_STOP && unit->type == UNIT_SERVICE && by->unit->type == UNIT_SERVICE)
+                        log_unit_debug(unit, "Applying Conflicts= directive for: %s", by->unit->id);
+        }
         /* Safety check that the unit is a valid state, i.e. not in UNIT_STUB or UNIT_MERGED which should only be set
          * temporarily. */
         if (!UNIT_IS_LOAD_COMPLETE(unit->load_state))
