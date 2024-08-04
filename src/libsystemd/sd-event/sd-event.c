@@ -3867,7 +3867,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
                         return -EIO;
 
                 if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
-                        return -EINVAL;
+                        return -EIO;
 
                 if (e->signal_sources)
                         s = e->signal_sources[si.ssi_signo];
