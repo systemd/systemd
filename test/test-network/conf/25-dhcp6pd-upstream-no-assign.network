@@ -10,6 +10,7 @@ DHCPPrefixDelegation=yes
 
 [DHCPv6]
 WithoutRA=solicit
+UnassignedSubnetPolicy=blackhole
 
 [DHCPPrefixDelegation]
 UplinkInterface=:self

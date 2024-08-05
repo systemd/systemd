@@ -7147,6 +7147,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotIn('inet6 3ffe:501:ffff', output)
 
+        print('### ip -6 route show dev lo')
+        output = check_output('ip -6 route show dev lo')
+        print(output)
+        self.assertNotRegex(output, '3ffe:501:ffff:[2-9a-f]00::/56')
+
         self.check_dhcp6_prefix('veth99')
 
     @unittest.skipUnless(shutil.which('dhcpd'), reason="dhcpd is not available on CentOS Stream 10")
@@ -7164,6 +7169,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev veth99 scope global')
         print(output)
         self.assertNotIn('inet6 3ffe:501:ffff', output)
+
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertRegex(output, 'blackhole 3ffe:501:ffff:[2-9a-f]00::/56 dev lo proto dhcp')
 
         self.check_dhcp6_prefix('veth99')
 
