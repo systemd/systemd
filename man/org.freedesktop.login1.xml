@@ -256,6 +256,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a{sv} PreparingForShutdownWithMetadata = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
       readonly (st) ScheduledShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -525,6 +527,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="IdleActionUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PreparingForShutdown"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreparingForShutdownWithMetadata"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PreparingForSleep"/>
 
@@ -815,8 +819,14 @@ node /org/freedesktop/login1 {
 
       <para>The <varname>PreparingForShutdown</varname> and <varname>PreparingForSleep</varname> boolean
       properties are true during the interval between the two <function>PrepareForShutdown()</function> and
-      <function>PrepareForSleep()</function> signals respectively. Note that these properties do not
-      send out <function>PropertyChanged</function> signals.</para>
+      <function>PrepareForSleep()</function> signals respectively. The
+      <varname>PreparingForShutdownWithMetadata</varname> property provides a list of key/value pair
+      metadata fields. Currently it lists a <varname>preparing</varname> boolean that corresponds to the
+      <varname>PreparingForShutdown</varname> property, and, if a shutdown is being prepared, it will also
+      contain a <varname>type</varname> string which defines the type of shutdown. The type can be one of
+      <literal>power-off</literal>, <literal>reboot</literal>, <literal>halt</literal>,
+      <literal>kexec</literal> or <literal>soft-reboot</literal>. Note that these properties do not send out
+      <function>PropertyChanged</function> signals.</para>
 
       <para>The <varname>RebootParameter</varname> property shows the value set with the
       <function>SetRebootParameter()</function> method described above.</para>
@@ -1609,7 +1619,8 @@ node /org/freedesktop/login1/session/1 {
       <varname>SleepOperation</varname>,
       <varname>DesignatedMaintenanceTime</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
-      <para><varname>HandleSecureAttentionKey</varname>, and
+      <para><varname>HandleSecureAttentionKey</varname>,
+      <varname>PreparingForShutdownWithMetadata</varname>, and
       <function>SecureAttentionKey()</function> were added in version 257.</para>
     </refsect2>
     <refsect2>

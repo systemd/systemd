@@ -341,6 +341,35 @@ static int property_get_preparing(
         return sd_bus_message_append(reply, "b", b);
 }
 
+static int property_get_preparing_shutdown_with_metadata(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        if (!m->delayed_action)
+                return sd_bus_message_append(reply, "a{sv}", 1, "preparing", "b", false);
+
+        return sd_bus_message_append(
+                        reply,
+                        "a{sv}",
+                        2,
+                        "preparing",
+                        "b",
+                        m->delayed_action->inhibit_what & INHIBIT_SHUTDOWN,
+                        "type",
+                        "s",
+                        handle_action_to_string(m->delayed_action->handle));
+}
+
 static int property_get_sleep_operations(
                 sd_bus *bus,
                 const char *path,
@@ -3718,6 +3747,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleAction", "s", property_get_handle_action, offsetof(Manager, idle_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
+        SD_BUS_PROPERTY("PreparingForShutdownWithMetadata", "a{sv}", property_get_preparing_shutdown_with_metadata, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, 0),
