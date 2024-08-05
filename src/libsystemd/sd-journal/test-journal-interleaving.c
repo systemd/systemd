@@ -871,6 +871,540 @@ TEST(generic_array_bisect) {
         test_generic_array_bisect_one(100, 40);
 }
 
+static void test_sd_journal_seek_monotonic_usec(
+                sd_journal *j,
+                bool next,
+                sd_id128_t boot_id,
+                usec_t seek_usec,
+                usec_t entry_usec) {
+
+        log_debug("/* %s(next=%s, seek_usec="USEC_FMT", entry_usec="USEC_FMT") */",
+                  __func__, yes_no(next), seek_usec, entry_usec);
+
+        ASSERT_OK(sd_journal_seek_monotonic_usec(j, boot_id, seek_usec));
+        if (next)
+                ASSERT_TRUE(sd_journal_next(j));
+        else
+                ASSERT_TRUE(sd_journal_previous(j));
+
+        usec_t t;
+        sd_id128_t id;
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, &t, &id));
+        ASSERT_EQ(t, entry_usec);
+        ASSERT_TRUE(sd_id128_equal(id, boot_id));
+}
+
+static void test_sd_journal_seek_realtime_usec(
+                sd_journal *j,
+                bool next,
+                usec_t seek_usec,
+                usec_t entry_usec) {
+
+        log_debug("/* %s(next=%s, seek_usec="USEC_FMT", entry_usec="USEC_FMT") */",
+                  __func__, yes_no(next), seek_usec, entry_usec);
+
+        ASSERT_OK(sd_journal_seek_realtime_usec(j, seek_usec));
+        if (next)
+                ASSERT_TRUE(sd_journal_next(j));
+        else
+                ASSERT_TRUE(sd_journal_previous(j));
+
+        usec_t t;
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &t));
+        ASSERT_EQ(t, entry_usec);
+}
+
+TEST(realtime_strict_order) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        JournalFile *f;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-strict-order-XXXXXX", &t);
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_OK(journal_file_open(
+                                  -EBADF,
+                                  "test.journal",
+                                  O_RDWR|O_CREAT,
+                                  JOURNAL_STRICT_ORDER,
+                                  0644,
+                                  /* compress_threshold_bytes = */ UINT64_MAX,
+                                  /* metrics = */ NULL,
+                                  m,
+                                  /* template = */ NULL,
+                                  &f));
+
+        uint64_t seqnum = 0;
+        sd_id128_t seqnum_id, boot_id;
+        ASSERT_OK(sd_id128_randomize(&seqnum_id));
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+
+        struct iovec iovec[2];
+        const char *q = strjoina("_BOOT_ID=", SD_ID128_TO_STRING(boot_id));
+        iovec[0] = IOVEC_MAKE_STRING(q);
+
+        dual_timestamp base, ts;
+        dual_timestamp_now(&base);
+
+        ts = base;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=1");
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ts.realtime = base.realtime + 20;
+        ts.monotonic = base.monotonic + 20;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=2");
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ts.realtime = base.realtime - 30;
+        ts.monotonic = base.monotonic + 30;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=3");
+
+        ASSERT_EQ(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL), -EREMCHG);
+
+        ASSERT_OK(journal_file_rotate(
+                                  &f,
+                                  m,
+                                  /* file_flags = */ 0,
+                                  /* compress_threshold_bytes = */ UINT64_MAX,
+                                  /* deferred_closes = */ NULL));
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ts.realtime = base.realtime - 20;
+        ts.monotonic = base.monotonic + 40;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=4");
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ts.realtime = base.realtime + 50;
+        ts.monotonic = base.monotonic + 50;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=5");
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ts.realtime = base.realtime + 60;
+        ts.monotonic = base.monotonic + 60;
+        iovec[1] = CONST_IOVEC_MAKE_STRING("NUMBER=6");
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &boot_id,
+                                  iovec, 2,
+                                  &seqnum,
+                                  &seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        journal_file_offline_close(f);
+
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_TRUE(sd_journal_next(j));
+        test_check_numbers_down(j, 6);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_TRUE(sd_journal_previous(j));
+        test_check_numbers_up(j, 6);
+
+        log_info("base = { .realtime = "USEC_FMT", .monotonic = "USEC_FMT" }", base.realtime, base.monotonic);
+
+        /* The expected values for the 5 test cases below are intentional.
+         * The first (already archived in the above) matches the first entry whose realtime is base.realtime.
+         * The second (the active file) matches an entry corresponds to the requested realtime.
+         * In such cases, the seqnum is compared, and the first entry win in this case. */
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 31, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 30, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 29, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 21, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 20, base.realtime);
+
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime - 19, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime -  1, base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime,      base.realtime);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime +  1, base.realtime + 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 19, base.realtime + 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 20, base.realtime + 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 21, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 49, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 50, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 51, base.realtime + 60);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 59, base.realtime + 60);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ true, base.realtime + 60, base.realtime + 60);
+
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime - 30, base.realtime - 30);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime - 29, base.realtime - 30);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime - 21, base.realtime - 30);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime - 20, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime - 19, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime -  1, base.realtime - 20);
+
+        /* Similar to the above, the expected values for the 6 test cases below are intentional. */
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime,      base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime +  1, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 19, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 20, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 21, base.realtime - 20);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 49, base.realtime - 20);
+
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 50, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 51, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 59, base.realtime + 50);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 60, base.realtime + 60);
+        test_sd_journal_seek_realtime_usec(j, /* next = */ false, base.realtime + 61, base.realtime + 60);
+
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic -  1, base.monotonic);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic,      base.monotonic);
+#if 0 // FIXME
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic +  1, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 19, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 20, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 21, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 29, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 30, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 31, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 39, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 40, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 41, base.monotonic + 50);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 49, base.monotonic + 50);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 50, base.monotonic + 50);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 51, base.monotonic + 60);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 59, base.monotonic + 60);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 60, base.monotonic + 60);
+
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic,      base.monotonic);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic +  1, base.monotonic);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 19, base.monotonic);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 20, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 21, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 29, base.monotonic + 20);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 30, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 31, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 39, base.monotonic + 30);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 40, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 41, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 49, base.monotonic + 40);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 50, base.monotonic + 50);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 51, base.monotonic + 50);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 59, base.monotonic + 50);
+#endif
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 60, base.monotonic + 60);
+        test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 61, base.monotonic + 60);
+}
+
+typedef struct TestEntry {
+        uint64_t seqnum;
+        sd_id128_t seqnum_id;
+        sd_id128_t boot_id;
+        dual_timestamp ts;
+        unsigned number;
+        unsigned data;
+} TestEntry;
+
+static void append_test_entry(
+                JournalFile *f,
+                TestEntry **entries,
+                size_t *n_entries,
+                uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
+                const sd_id128_t *boot_id,
+                const dual_timestamp *ts,
+                unsigned *number,
+                unsigned data) {
+
+        struct iovec iovec[3];
+        size_t n_iovec = 0;
+
+        (*number)++;
+
+        const char *q = strjoina("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id));
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(q);
+
+        _cleanup_free_ char *n = NULL;
+        ASSERT_OK(asprintf(&n, "NUMBER=%u", *number));
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(n);
+
+        _cleanup_free_ char *d = NULL;
+        ASSERT_OK(asprintf(&d, "DATA=%u", data));
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(d);
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  ts,
+                                  boot_id,
+                                  iovec, n_iovec,
+                                  seqnum,
+                                  seqnum_id,
+                                  /* ret_object = */ NULL,
+                                  /* ret_offset = */ NULL));
+
+        ASSERT_NOT_NULL(GREEDY_REALLOC(*entries, *n_entries + 1));
+        (*entries)[(*n_entries)++] = (TestEntry) {
+                .seqnum = *seqnum,
+                .seqnum_id = *seqnum_id,
+                .boot_id = *boot_id,
+                .ts = *ts,
+                .number = *number,
+                .data = data,
+        };
+}
+
+static void test_sd_journal_seek_monotonic_usec_with_match(
+                sd_journal *j,
+                bool next,
+                sd_id128_t boot_id,
+                usec_t seek_usec,
+                sd_id128_t expected_boot_id,
+                usec_t expected_usec) {
+
+        log_debug("/* %s(next=%s, boot_id=%s, seek_usec="USEC_FMT", expected_boot_id=%s, expected_usec="USEC_FMT") */",
+                  __func__, yes_no(next),
+                  SD_ID128_TO_STRING(boot_id), seek_usec,
+                  SD_ID128_TO_STRING(expected_boot_id), expected_usec);
+
+        ASSERT_OK(sd_journal_seek_monotonic_usec(j, boot_id, seek_usec));
+        if (next)
+                ASSERT_TRUE(sd_journal_next(j));
+        else
+                ASSERT_TRUE(sd_journal_previous(j));
+
+        usec_t t;
+        sd_id128_t id;
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, &t, &id));
+        ASSERT_EQ(t, expected_usec);
+        ASSERT_TRUE(sd_id128_equal(id, expected_boot_id));
+}
+
+static void test_sd_journal_seek_monotonic_usec_with_match_fail(
+                sd_journal *j,
+                bool next,
+                sd_id128_t boot_id,
+                usec_t seek_usec) {
+
+        log_debug("/* %s(next=%s, boot_id=%s, seek_usec="USEC_FMT") */",
+                  __func__, yes_no(next),
+                  SD_ID128_TO_STRING(boot_id), seek_usec);
+
+        ASSERT_OK(sd_journal_seek_monotonic_usec(j, boot_id, seek_usec));
+        if (next)
+                ASSERT_FALSE(sd_journal_next(j));
+        else
+                ASSERT_FALSE(sd_journal_previous(j));
+}
+
+static size_t find_match(TestEntry *entries, size_t n_entries, size_t start, bool next, unsigned data) {
+        if (next) {
+                for (size_t i = start; i < n_entries; i++)
+                        if (entries[i].data == data)
+                                return i;
+                return SIZE_MAX;
+        }
+
+        for (size_t i = start;; i--) {
+                if (entries[i].data == data)
+                        return i;
+                if (i == 0)
+                        return SIZE_MAX;
+        }
+}
+
+TEST(seek_monotonic_with_match) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ TestEntry *entries = NULL;
+        size_t n_entries = 0;
+        JournalFile *f;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-strict-order-XXXXXX", &t);
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_OK(journal_file_open(
+                                  -EBADF,
+                                  "test.journal",
+                                  O_RDWR|O_CREAT,
+                                  JOURNAL_STRICT_ORDER,
+                                  0644,
+                                  /* compress_threshold_bytes = */ UINT64_MAX,
+                                  /* metrics = */ NULL,
+                                  m,
+                                  /* template = */ NULL,
+                                  &f));
+
+        uint64_t seqnum = 1;
+        sd_id128_t seqnum_id, boot_id;
+        ASSERT_OK(sd_id128_randomize(&seqnum_id));
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+
+        dual_timestamp base, ts;
+        dual_timestamp_now(&base);
+
+        unsigned n = 0;
+
+        ts = base;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+        ts.realtime += 10;
+        ts.monotonic -= 1000;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+        ts.realtime += 10;
+        ts.monotonic -= 2000;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        journal_file_offline_close(f);
+
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        // FIXME
+        return;
+
+        log_info("no match");
+        for (size_t i = 0; i < n_entries; i++) {
+                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic - 1, entries[i].boot_id, entries[i].ts.monotonic);
+                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic, entries[i].boot_id, entries[i].ts.monotonic);
+                if (i + 1 < n_entries)
+                        test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic + 1, entries[i+1].boot_id, entries[i+1].ts.monotonic);
+                else
+                        test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic + 1);
+
+                if (i > 0)
+                        test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic - 1, entries[i-1].boot_id, entries[i-1].ts.monotonic);
+                else
+                        test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic - 1);
+                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic, entries[i].boot_id, entries[i].ts.monotonic);
+                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic + 1, entries[i].boot_id, entries[i].ts.monotonic);
+        }
+
+        unsigned a;
+        FOREACH_ARGUMENT(a, 100, 200, 300) {
+                log_info("match: DATA=%u", a);
+
+                sd_journal_flush_matches(j);
+
+                _cleanup_free_ char *match_str = NULL;
+                ASSERT_OK(asprintf(&match_str, "DATA=%u", a));
+                ASSERT_OK(sd_journal_add_match(j, match_str, SIZE_MAX));
+                for (size_t i = 0; i < n_entries; i++) {
+                        size_t k;
+
+                        k = find_match(entries, n_entries, i, /* next = */ true, a);
+                        if (k != SIZE_MAX) {
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic - 1, entries[k].boot_id, entries[k].ts.monotonic);
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic, entries[k].boot_id, entries[k].ts.monotonic);
+                        } else {
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic - 1);
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic);
+                        }
+
+                        k = find_match(entries, n_entries, i + 1, /* next = */ true, a);
+                        if (k != SIZE_MAX)
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic + 1, entries[k].boot_id, entries[k].ts.monotonic);
+                        else
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ true, entries[i].boot_id, entries[i].ts.monotonic + 1);
+
+                        k = i == 0 ? SIZE_MAX : find_match(entries, n_entries, i - 1, /* next = */ false, a);
+                        if (k != SIZE_MAX)
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic - 1, entries[k].boot_id, entries[k].ts.monotonic);
+                        else
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic - 1);
+
+                        k = find_match(entries, n_entries, i, /* next = */ false, a);
+                        if (k != SIZE_MAX) {
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic, entries[k].boot_id, entries[k].ts.monotonic);
+                                test_sd_journal_seek_monotonic_usec_with_match(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic + 1, entries[k].boot_id, entries[k].ts.monotonic);
+                        } else {
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic);
+                                test_sd_journal_seek_monotonic_usec_with_match_fail(j, /* next = */ false, entries[i].boot_id, entries[i].ts.monotonic + 1);
+                        }
+                }
+        }
+}
+
 static int intro(void) {
         /* journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
