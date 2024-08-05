@@ -1386,7 +1386,8 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest
 
 int remount_idmap_fd(
                 char **paths,
-                int userns_fd) {
+                int userns_fd,
+                int extra_set_flags) {
 
         int r;
 
@@ -1423,7 +1424,7 @@ int remount_idmap_fd(
                 /* Set the user namespace mapping attribute on the cloned mount point */
                 if (mount_setattr(mntfd, "", AT_EMPTY_PATH,
                                   &(struct mount_attr) {
-                                          .attr_set = MOUNT_ATTR_IDMAP,
+                                          .attr_set = MOUNT_ATTR_IDMAP | extra_set_flags,
                                           .userns_fd = userns_fd,
                                   }, sizeof(struct mount_attr)) < 0)
                         return log_debug_errno(errno, "Failed to change bind mount attributes for clone of '%s': %m", paths[i]);
@@ -1460,7 +1461,7 @@ int remount_idmap(
         if (userns_fd < 0)
                 return userns_fd;
 
-        return remount_idmap_fd(p, userns_fd);
+        return remount_idmap_fd(p, userns_fd, /* extra_flags= */ 0);
 }
 
 static void sub_mount_clear(SubMount *s) {
