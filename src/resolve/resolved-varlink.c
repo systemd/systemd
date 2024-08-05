@@ -282,7 +282,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send hostname reply: %m");
-                r = sd_varlink_error_errno(q->varlink_request, r);
+                (void) sd_varlink_error_errno(q->varlink_request, r);
         }
 }
 
@@ -495,7 +495,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send address reply: %m");
-                r = sd_varlink_error_errno(q->varlink_request, r);
+                (void) sd_varlink_error_errno(q->varlink_request, r);
         }
 }
 
@@ -841,7 +841,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to resolve service: %m");
-                r = sd_varlink_error_errno(q->varlink_request, r);
+                (void) sd_varlink_error_errno(q->varlink_request, r);
         }
 }
 
@@ -986,7 +986,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to send address reply: %m");
-                r = sd_varlink_error_errno(q->varlink_request, r);
+                (void) sd_varlink_error_errno(q->varlink_request, r);
         }
 }
 
@@ -1147,7 +1147,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send record reply: %m");
-                sd_varlink_error_errno(q->varlink_request, r);
+                (void) sd_varlink_error_errno(q->varlink_request, r);
         }
 }
 
