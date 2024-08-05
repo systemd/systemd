@@ -167,6 +167,7 @@ struct Network {
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
         bool dhcp_use_6rd;
+        uint8_t dhcp_6rd_prefix_route_type;
         bool dhcp_send_release;
         bool dhcp_send_decline;
         UseDomains dhcp_use_domains;
@@ -195,6 +196,7 @@ struct Network {
         DUID dhcp6_duid;
         uint8_t dhcp6_pd_prefix_length;
         struct in6_addr dhcp6_pd_prefix_hint;
+        uint8_t dhcp6_pd_prefix_route_type;
         char *dhcp6_hostname;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;

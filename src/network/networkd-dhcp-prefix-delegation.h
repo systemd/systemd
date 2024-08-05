@@ -23,3 +23,4 @@ void dhcp4_pd_prefix_lost(Link *uplink);
 int dhcp_pd_reconfigure_address(Address *address, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_pd_subnet_id);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_pd_prefix_route_type);
