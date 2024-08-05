@@ -2721,6 +2721,7 @@ int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) 
         d->items[d->n_items++] = (ExecDirectoryItem) {
                 .path = TAKE_PTR(p),
                 .symlinks = TAKE_PTR(s),
+                .idmapped = false,
         };
 
         return 1; /* new item is added */
