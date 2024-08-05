@@ -13,6 +13,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "parse-util.h"
@@ -697,6 +698,7 @@ static int dhcp_request_unreachable_route(
                 usec_t lifetime_usec,
                 NetworkConfigSource source,
                 const union in_addr_union *server_address,
+                uint8_t type, /* RTN_* */
                 unsigned *counter,
                 route_netlink_handler_t callback,
                 bool *configured) {
@@ -710,9 +712,13 @@ static int dhcp_request_unreachable_route(
         assert(addr);
         assert(IN_SET(source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6));
         assert(server_address);
+        assert(type == RTN_UNSPEC || route_type_is_reject(type));
         assert(counter);
         assert(callback);
         assert(configured);
+
+        if (type == RTN_UNSPEC)
+                return 0; /* Disabled. */
 
         if (prefixlen >= 64) {
                 log_link_debug(link, "Not adding a blocking route for DHCP delegated prefix %s since the prefix has length >= 64.",
@@ -729,7 +735,7 @@ static int dhcp_request_unreachable_route(
         route->family = AF_INET6;
         route->dst.in6 = *addr;
         route->dst_prefixlen = prefixlen;
-        route->type = RTN_UNREACHABLE;
+        route->type = type;
         route->protocol = RTPROT_DHCP;
         route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
@@ -758,8 +764,12 @@ static int dhcp4_request_unreachable_route(
                 usec_t lifetime_usec,
                 const union in_addr_union *server_address) {
 
+        assert(link);
+        assert(link->network);
+
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP4, server_address,
+                                              link->network->dhcp_6rd_prefix_route_type,
                                               &link->dhcp4_messages, dhcp4_unreachable_route_handler,
                                               &link->dhcp4_configured);
 }
@@ -771,8 +781,12 @@ static int dhcp6_request_unreachable_route(
                 usec_t lifetime_usec,
                 const union in_addr_union *server_address) {
 
+        assert(link);
+        assert(link->network);
+
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP6, server_address,
+                                              link->network->dhcp6_pd_prefix_route_type,
                                               &link->dhcp6_messages, dhcp6_unreachable_route_handler,
                                               &link->dhcp6_configured);
 }
@@ -1295,5 +1309,53 @@ int config_parse_dhcp_pd_subnet_id(
 
         *p = (int64_t) t;
 
+        return 0;
+}
+
+int config_parse_dhcp_pd_prefix_route_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *p = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *p = RTN_UNREACHABLE; /* Defaults to unreachable. */
+                return 0;
+        }
+
+        if (streq(rvalue, "none")) {
+                *p = RTN_UNSPEC; /* Indicate that the route is disabled. */
+                return 0;
+        }
+
+        r = route_type_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        if (!route_type_is_reject(r)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid route type is specified to %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *p = r;
         return 0;
 }

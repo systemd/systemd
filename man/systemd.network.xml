@@ -2763,6 +2763,23 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UnassignedSubnetPolicy=</varname></term>
+        <listitem>
+          <para>Takes <literal>none</literal>, or one of the reject type; <literal>unreachable</literal>,
+          <literal>prohibit</literal>, <literal>blackhole</literal>, or <literal>throw</literal>. If a reject
+          type is specified, the reject route corresponding to the acquired 6RD prefix will be configured.
+          For example, when <literal>unreachable</literal>,
+          <programlisting>unreachable 2001:db8::/56 dev lo proto dhcp metric 1024 pref medium</programlisting>
+          will be configured. See <ulink url="https://datatracker.ietf.org/doc/html/rfc7084">RFC 7084</ulink>.
+          If <literal>none</literal> is specified, such route will not be configured. This may be useful when
+          custom firewall rules that handle packets for unassigned subnets will be configured.
+          Defaults to <literal>unreachable</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6OnlyMode=</varname></term>
         <listitem>
           <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
@@ -2999,6 +3016,23 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           1…128. Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UnassignedSubnetPolicy=</varname></term>
+        <listitem>
+          <para>Takes <literal>none</literal> or one of the reject type; <literal>unreachable</literal>,
+          <literal>prohibit</literal>, <literal>blackhole</literal>, or <literal>throw</literal>. If a reject
+          type is specified, the reject route corresponding to the delegated prefix will be configured.
+          For example, when <literal>unreachable</literal>,
+          <programlisting>unreachable 2001:db8::/56 dev lo proto dhcp metric 1024 pref medium</programlisting>
+          will be configured. See <ulink url="https://datatracker.ietf.org/doc/html/rfc7084">RFC 7084</ulink>.
+          If <literal>none</literal> is specified, such route will not be configured. This may be useful when
+          custom firewall rules that handle packets for unassigned subnets will be configured.
+          Defaults to <literal>unreachable</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 

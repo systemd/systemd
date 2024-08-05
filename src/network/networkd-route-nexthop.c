@@ -148,7 +148,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         route_nexthop_free);
 
 static size_t route_n_nexthops(const Route *route) {
-        if (route->nexthop_id != 0 || route_type_is_reject(route))
+        if (route->nexthop_id != 0 || route_is_reject(route))
                 return 0;
 
         if (ordered_set_isempty(route->nexthops))
@@ -246,7 +246,7 @@ int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest) {
         assert(src);
         assert(dest);
 
-        if (src->nexthop_id != 0 || route_type_is_reject(src))
+        if (src->nexthop_id != 0 || route_is_reject(src))
                 return 0;
 
         if (nh)
@@ -292,7 +292,7 @@ bool route_nexthops_needs_adjust(const Route *route) {
                  * Hence, we cannot know if the nexthop is blackhole or not. */
                 return route->type != RTN_BLACKHOLE;
 
-        if (route_type_is_reject(route))
+        if (route_is_reject(route))
                 return false;
 
         if (ordered_set_isempty(route->nexthops))
@@ -350,7 +350,7 @@ int route_adjust_nexthops(Route *route, Link *link) {
                 return true; /* updated */
         }
 
-        if (route_type_is_reject(route))
+        if (route_is_reject(route))
                 return false;
 
         if (ordered_set_isempty(route->nexthops))
@@ -439,7 +439,7 @@ int route_nexthops_is_ready_to_configure(const Route *route, Manager *manager) {
                 return true;
         }
 
-        if (route_type_is_reject(route))
+        if (route_is_reject(route))
                 return true;
 
         if (ordered_set_isempty(route->nexthops))
@@ -468,7 +468,7 @@ int route_nexthops_to_string(const Route *route, char **ret) {
                 return 0;
         }
 
-        if (route_type_is_reject(route)) {
+        if (route_is_reject(route)) {
                 buf = strdup("gw: n/a");
                 if (!buf)
                         return -ENOMEM;
@@ -625,7 +625,7 @@ int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *m
         if (route->nexthop_id != 0)
                 return sd_netlink_message_append_u32(message, RTA_NH_ID, route->nexthop_id);
 
-        if (route_type_is_reject(route))
+        if (route_is_reject(route))
                 return 0;
 
         /* We request IPv6 multipath routes separately. Even though, if weight is non-zero, we need to use
@@ -750,7 +750,7 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
         if (r < 0 && r != -ENODATA)
                 return log_warning_errno(r, "rtnl: received route message with invalid nexthop id, ignoring: %m");
 
-        if (route->nexthop_id != 0 || route_type_is_reject(route))
+        if (route->nexthop_id != 0 || route_is_reject(route))
                 /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
                  * fib6_nh_init() in net/ipv6/route.c. However, we'd like to make it consistent with IPv4
                  * routes. Hence, skip reading of RTA_OIF. */
@@ -899,7 +899,7 @@ int route_section_verify_nexthops(Route *route) {
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
 
-        if (route_type_is_reject(route) &&
+        if (route_is_reject(route) &&
             (route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
              !ordered_set_isempty(route->nexthops)))

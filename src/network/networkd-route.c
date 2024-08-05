@@ -912,7 +912,7 @@ int link_request_route(
         assert(route);
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (route->family == AF_INET || route_type_is_reject(route) || ordered_set_isempty(route->nexthops))
+        if (route->family == AF_INET || route_is_reject(route) || ordered_set_isempty(route->nexthops))
                 return link_request_route_one(link, route, NULL, message_counter, netlink_handler);
 
         RouteNextHop *nh;

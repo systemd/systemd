@@ -402,6 +402,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_ip_service_type = -1,
                 .dhcp_broadcast = -1,
                 .dhcp_ipv6_only_mode = -1,
+                .dhcp_6rd_prefix_route_type = RTN_UNREACHABLE,
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
@@ -415,6 +416,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
                 .dhcp6_send_release = true,
+                .dhcp6_pd_prefix_route_type = RTN_UNREACHABLE,
 
                 .dhcp_pd = -1,
                 .dhcp_pd_announce = true,
