@@ -98,6 +98,9 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
 
         assert(device);
 
+        if (is_parent)
+                puts("");
+
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
         printf("  looking at %sdevice '%s':\n", is_parent ? "parent " : "", strempty(value));
@@ -150,10 +153,8 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
 
         typesafe_qsort(sysattrs, n_items, sysattr_compare);
 
-        for (size_t i = 0; i < n_items; i++)
-                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", sysattrs[i].name, sysattrs[i].value);
-
-        puts("");
+        FOREACH_ARRAY(i, sysattrs, n_items)
+                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", i->name, i->value);
 
         return 0;
 }
@@ -172,12 +173,12 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        r = print_all_attributes(device, false);
+        r = print_all_attributes(device, /* is_parent = */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes(parent, true);
+                r = print_all_attributes(parent, /* is_parent = */ true);
                 if (r < 0)
                         return r;
         }
