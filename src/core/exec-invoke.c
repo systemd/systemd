@@ -2280,6 +2280,56 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
+static int is_idmapping_supported(const char *path) {
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        int r;
+
+        assert(path);
+
+        dir_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (dir_fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return -errno;
+        }
+
+        mount_fd = open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return -errno;
+        }
+
+        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        userns_fd = userns_acquire(uid_map, gid_map);
+        if (userns_fd < 0) {
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+                        return false;
+                return userns_fd;
+        }
+
+        r = mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                          &(struct mount_attr) {
+                                .attr_set = MOUNT_ATTR_IDMAP | MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC,
+                                .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr));
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return r;
+        }
+
+        return true;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2315,6 +2365,10 @@ static int setup_exec_directory(
 
         FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
+                int idmapping_supported;
+                uid_t chown_uid;
+                gid_t chown_gid;
+                bool do_chown;
 
                 p = path_join(params->prefix[type], i->path);
                 if (!p) {
@@ -2563,12 +2617,42 @@ static int setup_exec_directory(
                 if (params->runtime_scope != RUNTIME_SCOPE_SYSTEM)
                         continue;
 
-                /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
-                 * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
-                 * assignments to exist. */
-                r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
-                if (r < 0)
+                /* Use 'nobody' uid/gid for exec directories if ID-mapping is supported. For backward compatibility,
+                 * continue doing chmod/chown if the directory was chmod/chowned before (if uid/gid is not 'nobody') */
+                idmapping_supported = is_idmapping_supported(pp ?: p);
+                if (idmapping_supported < 0)
                         goto fail;
+
+                log_debug("ID-mapping is%ssupported for exec directory %s", idmapping_supported ? " " : " not ", pp ?: p);
+
+                /* Change the ownership of the whole tree, if necessary. When dynamic users are used we
+                * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
+                * assignments to exist. */
+                if (uid == 0 || gid == 0 || !idmapping_supported) {
+                        do_chown = true;
+                        chown_uid = uid;
+                        chown_gid = gid;
+                } else {
+                        struct stat st;
+                        r = RET_NERRNO(stat(pp ?: p, &st));
+                        if (r < 0)
+                                goto fail;
+
+                        if (st.st_uid == UID_NOBODY && st.st_gid == GID_NOBODY)
+                                i->idmapped = true;
+                        else if (exec_directory_is_private(context, type) && st.st_uid == (uid_t)0 && st.st_gid == (gid_t)0) {
+                                do_chown = true;
+                                chown_uid = UID_NOBODY;
+                                chown_gid = GID_NOBODY;
+                                i->idmapped = true;
+                        }
+                }
+
+                if (do_chown) {
+                        r = path_chown_recursive(pp ?: p, chown_uid, chown_gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
@@ -2620,6 +2704,8 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                uid_t exec_directory_uid, /* only used for id-mapped mounts Exec directories */
+                gid_t exec_directory_gid, /* only used for id-mapped mounts Exec directories */
                 BindMount **ret_bind_mounts,
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
@@ -2718,6 +2804,9 @@ static int compile_bind_mounts(
                                 .destination = TAKE_PTR(d),
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
+                                .idmapped = i->idmapped,
+                                .uid = exec_directory_uid,
+                                .gid = exec_directory_gid,
                         };
                 }
         }
@@ -3054,7 +3143,9 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
-                char **reterr_path) {
+                char **reterr_path,
+                uid_t exec_directory_uid,
+                gid_t exec_directory_gid) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
@@ -3092,7 +3183,7 @@ static int apply_mount_namespace(
                         return r;
         }
 
-        r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
@@ -4882,7 +4973,9 @@ int exec_invoke(
                                           runtime,
                                           memory_pressure_path,
                                           needs_sandboxing,
-                                          &error_path);
+                                          &error_path,
+                                          uid,
+                                          gid);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
