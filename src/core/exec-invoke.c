@@ -2280,6 +2280,44 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
+static bool is_idmapping_supported(const char *path) {
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        int r;
+
+        assert(path);
+
+        dir_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (dir_fd < 0)
+                return false;
+
+        mount_fd = open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0)
+                return false;
+
+        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
+        if (r < 0)
+                return false;
+
+        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
+        if (r < 0)
+                return false;
+
+        userns_fd = userns_acquire(uid_map, gid_map);
+        if (userns_fd < 0)
+                return false;
+
+        r = mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                          &(struct mount_attr) {
+                                .attr_set = MOUNT_ATTR_IDMAP,
+                                .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr));
+        if (r < 0)
+                return false;
+
+        return true;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2563,12 +2601,37 @@ static int setup_exec_directory(
                 if (params->runtime_scope != RUNTIME_SCOPE_SYSTEM)
                         continue;
 
-                /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
-                 * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
-                 * assignments to exist. */
-                r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                /* Use 'nobody' uid/gid for exec directories if ID-mapping is supported. For backward compatibility,
+                 * continue doing chmod/chown if the directory was chmod/chowned before (if uid/gid is not 'nobody') */
+                bool idmapping_supported = is_idmapping_supported(pp ?: p);
+                log_debug("ID-mapping is%ssupported for exec directory %s", idmapping_supported ? " " : " not ", pp ?: p);
+
+                struct stat st;
+                r = RET_NERRNO(stat(pp ?: p, &st));
                 if (r < 0)
                         goto fail;
+
+                /* Change the ownership of the whole tree, if necessary. When dynamic users are used we
+                * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
+                * assignments to exist. */
+                if (uid == 0 || gid == 0) {
+                        i->idmapped = false;
+                        r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                        if (r < 0)
+                                goto fail;
+                } else if (idmapping_supported && st.st_uid == UID_NOBODY && st.st_gid == GID_NOBODY)
+                        i->idmapped = true;
+                else if (exec_directory_is_private(context, type) && idmapping_supported && st.st_uid == (uid_t)0 && st.st_gid == (gid_t)0) {
+                        r = path_chown_recursive(pp ?: p, UID_NOBODY, GID_NOBODY, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                        if (r < 0)
+                                goto fail;
+                        i->idmapped = true;
+                } else {
+                        i->idmapped = false;
+                        r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
@@ -2620,6 +2683,8 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                uid_t uid,
+                gid_t gid,
                 BindMount **ret_bind_mounts,
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
@@ -2718,6 +2783,9 @@ static int compile_bind_mounts(
                                 .destination = TAKE_PTR(d),
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
+                                .idmapped = i->idmapped,
+                                .uid = uid,
+                                .gid = gid,
                         };
                 }
         }
@@ -3040,7 +3108,9 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
-                char **error_path) {
+                char **error_path,
+                uid_t uid,
+                gid_t gid) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
@@ -3076,7 +3146,7 @@ static int apply_mount_namespace(
                         return r;
         }
 
-        r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, uid, gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
@@ -4831,7 +4901,9 @@ int exec_invoke(
                                           runtime,
                                           memory_pressure_path,
                                           needs_sandboxing,
-                                          &error_path);
+                                          &error_path,
+                                          uid,
+                                          gid);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
