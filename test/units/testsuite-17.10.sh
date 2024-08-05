@@ -70,6 +70,9 @@ udevadm info -q name -r /dev/null
 udevadm info --query symlink --root /sys/class/net/$netdev
 (! udevadm info -q hello -r /sys/class/net/$netdev)
 udevadm info -a /sys/class/net/$netdev
+udevadm info -a --json=off /sys/class/net/$netdev
+udevadm info -a --json=pretty /sys/class/net/$netdev | jq . >/dev/null
+udevadm info -a --json=short /sys/class/net/$netdev | jq . >/dev/null
 udevadm info -t >/dev/null
 udevadm info --tree /sys/class/net/$netdev
 udevadm info -x /sys/class/net/$netdev
