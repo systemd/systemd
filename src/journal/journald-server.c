@@ -1347,9 +1347,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         start = now(CLOCK_MONOTONIC);
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
-        if (r < 0)
-                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                 "Failed to read runtime journal: %m");
+        if (r < 0) {
+                log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to read runtime journal: %m");
+                goto finish;
+        }
 
         sd_journal_set_data_threshold(j, 0);
 
