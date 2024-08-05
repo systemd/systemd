@@ -148,12 +148,113 @@ EOF
     systemctl start testservice-34-check-writable.service
 }
 
+idmapped_mounts_avail() {
+    rm -rf /var/lib/testidmapped /var/lib/private/testidmapped
+
+    cat >/run/systemd/system/testservice-34-check-idmapped-avail.service <<\EOF
+[Unit]
+Description=Check id-mapped directories when DynamicUser=yes with StateDirectory
+
+[Service]
+Type=oneshot
+
+MountAPIVFS=yes
+DynamicUser=yes
+PrivateUsers=yes
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+StateDirectory=testidmapped:sampleservice
+ExecStart=echo "hello"
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-idmapped-avail.service
+    set +x
+    l=$(journalctl -b0 -u testservice-34-check-idmapped-avail.service)
+    if echo $l | grep -q "ID-mapping is supported"; then
+        set -x
+        return 0
+    else
+        set -x
+        return 1
+    fi
+}
+
+test_check_idmapped_mounts() {
+    rm -rf /var/lib/testidmapped /var/lib/private/testidmapped
+
+    cat >/run/systemd/system/testservice-34-check-idmapped.service <<\EOF
+[Unit]
+Description=Check id-mapped directories when DynamicUser=yes with StateDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+DynamicUser=yes
+PrivateUsers=yes
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+UMask=0000
+StateDirectory=testidmapped:sampleservice
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    touch /var/lib/sampleservice/testfile; \
+    [[ $(awk "NR==2 {print \$1}" /proc/self/uid_map) == $(stat -c "%%u" /var/lib/private/testidmapped/testfile) ]]; \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-idmapped.service
+
+    [[ $(stat -c "%u" /var/lib/private/testidmapped/testfile) == 65534 ]]
+}
+
+test_check_idmapped_mounts_root() {
+    rm -rf /var/lib/testidmapped /var/lib/private/testidmapped
+
+    cat >/run/systemd/system/testservice-34-check-idmapped.service <<\EOF
+[Unit]
+Description=Check id-mapped directories when DynamicUser=no with StateDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+User=root
+DynamicUser=no
+PrivateUsers=no
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+UMask=0000
+StateDirectory=testidmapped:sampleservice
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    touch /var/lib/sampleservice/testfile; \
+    [[ 0 == $(stat -c "%%u" /var/lib/testidmapped/testfile) ]]; \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-idmapped.service
+
+    [[ $(stat -c "%u" /var/lib/testidmapped/testfile) == 0 ]]
+}
+
 test_directory "StateDirectory" "/var/lib"
 test_directory "RuntimeDirectory" "/run"
 test_directory "CacheDirectory" "/var/cache"
 test_directory "LogsDirectory" "/var/log"
 
 test_check_writable
+
+if idmapped_mounts_avail; then
+    test_check_idmapped_mounts
+    test_check_idmapped_mounts_root
+fi
 
 systemd-analyze log-level info
 
