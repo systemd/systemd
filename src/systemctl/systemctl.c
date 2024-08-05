@@ -1075,6 +1075,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot access user instance remotely.");
 
+        if (arg_transport == BUS_TRANSPORT_CAPSULE && arg_runtime_scope != RUNTIME_SCOPE_USER)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot access system instance with --capsule=/-C.");
+
         if (arg_wait && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
