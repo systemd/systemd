@@ -31,6 +31,8 @@ systemd-analyze plot --json=short --no-legend >/dev/null || :
 systemd-analyze plot --json=off --no-legend >/dev/null || :
 systemd-analyze plot --table >/dev/null || :
 systemd-analyze plot --table --no-legend >/dev/null || :
+systemd-analyze plot --scale-svg=1.0 >/dev/null || :
+systemd-analyze plot --scale-svg=1.0 --detailed >/dev/null || :
 (! systemd-analyze plot --global)
 # legacy/deprecated options (moved to systemctl, but still usable from analyze)
 systemd-analyze log-level
