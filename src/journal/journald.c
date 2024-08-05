@@ -94,8 +94,7 @@ static int run(int argc, char *argv[]) {
 
                         /* The retention time is reached, so let's vacuum! */
                         if (t <= 0) {
-                                log_info("Retention time reached, rotating.");
-                                server_rotate(s);
+                                log_info("Retention time reached, vacuuming.");
                                 server_vacuum(s, /* verbose = */ false);
                                 continue;
                         }
