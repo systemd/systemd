@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "audit-fd.h"
+#include "audit-util.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
@@ -25,6 +26,8 @@
 #include "strv.h"
 
 static bool initialized = false;
+static uid_t manager_auid = UID_INVALID;
+static uid_t log_auid = UID_INVALID;
 
 struct audit_info {
         sd_bus_creds *creds;
@@ -44,22 +47,19 @@ static int audit_callback(
                 size_t msgbufsize) {
 
         const struct audit_info *audit = auditdata;
-        uid_t uid = 0, login_uid = 0;
+        uid_t uid = 0;
         gid_t gid = 0;
-        char login_uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char gid_buf[DECIMAL_STR_MAX(gid_t) + 1] = "n/a";
 
-        if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
-                xsprintf(login_uid_buf, UID_FMT, login_uid);
         if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
                 xsprintf(uid_buf, UID_FMT, uid);
         if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
                 xsprintf(gid_buf, GID_FMT, gid);
 
         (void) snprintf(msgbuf, msgbufsize,
-                        "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
-                        login_uid_buf, uid_buf, gid_buf,
+                        "uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
+                        uid_buf, gid_buf,
                         audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
                         audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
                         audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
@@ -112,9 +112,9 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
                 if (r >= 0) {
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, log_auid);
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, log_auid);
 
                         return 0;
                 }
@@ -163,6 +163,11 @@ static int access_init(sd_bus_error *error) {
 
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
         selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
+
+        r = audit_loginuid_from_pid(0, &manager_auid);
+        if (r < 0)
+                manager_auid = UID_INVALID;
+        log_auid = manager_auid;
 
         initialized = true;
         return 1;
@@ -257,6 +262,10 @@ int mac_selinux_access_check_internal(
                 .function = function,
         };
 
+        r = sd_bus_creds_get_audit_login_uid(creds, &log_auid);
+        if (r < 0)
+                log_auid = UID_INVALID;
+
         r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
         if (r < 0) {
                 errno = -(r = errno_or_else(EPERM));
@@ -264,6 +273,9 @@ int mac_selinux_access_check_internal(
                 if (enforce)
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
+
+        /* Reset that unrelated SELINUX_ERROR messages are issued under the auid of the systemd process. */
+        log_auid = manager_auid;
 
         log_full_errno_zerook(LOG_DEBUG, r,
                               "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
