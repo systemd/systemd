@@ -828,6 +828,11 @@ static void resolve_service_all_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
+        if (isempty(type)) {
+                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
+                goto finish;
+        }
+
         r = sd_varlink_replybo(
                         query->varlink_request,
                         SD_JSON_BUILD_PAIR("services", SD_JSON_BUILD_VARIANT(srv)),
