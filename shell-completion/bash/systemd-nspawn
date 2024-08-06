@@ -74,7 +74,7 @@ _systemd_nspawn() {
                       --pivot-root --property --private-users --private-users-ownership --network-namespace-path
                       --network-ipvlan --network-veth-extra --network-zone -p --port --system-call-filter --overlay
                       --overlay-ro --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
-                      --resolv-conf --timezone --root-hash-sig --background --oci-bundle --verity-data'
+                      --resolv-conf --timezone --root-hash-sig --background --oci-bundle --verity-data --init'
     )
 
     _init_completion || return

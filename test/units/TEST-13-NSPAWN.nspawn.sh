@@ -973,6 +973,36 @@ testcase_check_os_release() {
     rm -fr "$root" "$base"
 }
 
+testcase_init() {
+    local root common_opts
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.init.XXX)"
+    create_dummy_container "$root"
+
+    cat >"$root/sbin/custom-init" <<EOF
+#!/bin/bash
+echo "Hello from custom init, beautiful day, innit?"
+ip link
+EOF
+    chmod +x "$root/sbin/custom-init"
+
+    common_opts=(
+        --boot
+        --register=no
+        --directory="$root"
+        --machine=foo-bar
+    )
+
+    (! systemd-nspawn "${common_opts[@]}" --init /not/really/there)
+    systemd-nspawn "${common_opts[@]}" --init /sbin/custom-init |& grep "Hello from custom init, beautiful day, innit?"
+
+    mkdir -p /run/systemd/nspawn/
+    echo -ne "[Exec]\nInit=/sbin/custom-init" >/run/systemd/nspawn/foo-bar.nspawn
+    systemd-nspawn "${common_opts[@]}" --settings=yes |& grep "Hello from custom init, beautiful day, innit?"
+
+    rm -fr "$root"
+}
+
 run_testcases
 
 for api_vfs_writable in yes no network; do
