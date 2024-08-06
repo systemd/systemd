@@ -566,7 +566,7 @@
 
               <row>
                 <entry><option>--boot</option> specified</entry>
-                <entry>An init program is automatically searched for and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
+                <entry>An init program is automatically searched for (unless the <option>--init=</option> is used) and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
               </row>
 
             </tbody>
@@ -576,6 +576,14 @@
         <para>Note that <option>--boot</option> is the default mode of operation if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--init=</option></term>
+
+        <listitem><para>Invoke the specified path as the init program in the container when <option>--boot</option> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
