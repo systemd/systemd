@@ -283,12 +283,13 @@ int main(int argc, char *argv[]) {
                          "UseDNS=yes\n"
                          );
 
-        test_network_one("eth0", "vlan", "vlan99:eth0",
+        test_network_two("eth0", "vlan", "vlan99:eth0", "vlan", "vlan98:eth0",
                          "[Match]\n"
                          "Name=eth0\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "VLAN=vlan99\n"
+                         "VLAN=vlan98\n"
                          "\n[DHCP]\n"
                          );
 
