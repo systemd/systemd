@@ -1108,7 +1108,6 @@ TEST(realtime_strict_order) {
 
         test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic -  1, base.monotonic);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic,      base.monotonic);
-#if 0 // FIXME
         test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic +  1, base.monotonic + 20);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 19, base.monotonic + 20);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ true, boot_id, base.monotonic + 20, base.monotonic + 20);
@@ -1140,7 +1139,6 @@ TEST(realtime_strict_order) {
         test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 50, base.monotonic + 50);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 51, base.monotonic + 50);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 59, base.monotonic + 50);
-#endif
         test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 60, base.monotonic + 60);
         test_sd_journal_seek_monotonic_usec(j, /* next = */ false, boot_id, base.monotonic + 61, base.monotonic + 60);
 }
@@ -1339,9 +1337,6 @@ TEST(seek_monotonic_with_match) {
 
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-
-        // FIXME
-        return;
 
         log_info("no match");
         for (size_t i = 0; i < n_entries; i++) {
