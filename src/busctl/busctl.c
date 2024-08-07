@@ -63,6 +63,7 @@ static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
 static const char *arg_destination = NULL;
+static size_t arg_num_matches = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -1361,6 +1362,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         dump(m, stdout);
                         fflush(stdout);
 
+                        if (arg_num_matches != UINT64_MAX && --arg_num_matches == 0) {
+                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                        log_info("Received requested number of matching messages, exiting.");
+                                return 0;
+                        }
+
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
                                 if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
                                         log_info("Connection terminated, exiting.");
@@ -2361,6 +2368,8 @@ static int help(void) {
                "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
+               "     --num-matches=NUMBER  Exit after receiving a number of matches while\n"
+               "                           monitoring\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2400,6 +2409,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WATCH_BIND,
                 ARG_JSON,
                 ARG_DESTINATION,
+                ARG_NUM_MATCHES,
         };
 
         static const struct option options[] = {
@@ -2432,6 +2442,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
                 { "json",                            required_argument, NULL, ARG_JSON                            },
                 { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
+                { "num-matches",                     required_argument, NULL, ARG_NUM_MATCHES                     },
                 {},
         };
 
@@ -2598,6 +2609,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DESTINATION:
                         arg_destination = optarg;
+                        break;
+
+                case ARG_NUM_MATCHES:
+                        r = safe_atozu(optarg, &arg_num_matches);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --num-matches= parameter '%s': %m", optarg);
+                        if (arg_num_matches == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--num-matches= parameter cannot be 0");
+
                         break;
 
                 case '?':

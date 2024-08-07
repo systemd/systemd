@@ -109,4 +109,4 @@ busctl get-property -j \
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
 
-busctl --quiet --timeout 1 --match "interface=org.freedesktop.systemd1.Manager" monitor >/dev/null
+busctl --quiet --timeout 1 --num-matches 1 --match "interface=org.freedesktop.systemd1.Manager" monitor >/dev/null
