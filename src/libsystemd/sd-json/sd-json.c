@@ -23,6 +23,7 @@
 #include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
+#include "ordered-set.h"
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
@@ -4071,6 +4072,42 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 r = set_dump_sorted(set, (void ***) &sorted, NULL);
                                 if (r < 0)
                                         goto finish;
+
+                                r = sd_json_variant_new_array_strv(&add, sorted);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_STRING_ORDERED_SET: {
+                        OrderedSet *set;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        set = va_arg(ap, OrderedSet*);
+
+                        if (current->n_suppress == 0) {
+                                _cleanup_free_ char **sorted = NULL;
+
+                                sorted = ordered_set_get_strv(set);
+                                if (!sorted) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
 
                                 r = sd_json_variant_new_array_strv(&add, sorted);
                                 if (r < 0)
