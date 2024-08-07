@@ -79,6 +79,9 @@ struct NetDev {
         char *ifname;
         char *kind;
         uint32_t mtu;
+
+        /* [VLAN] */
+        uint16_t vlan_id;
 };
 
 struct Link {
