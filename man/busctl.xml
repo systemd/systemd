@@ -407,6 +407,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--exit-on-first-match=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>monitor</command> command, if enabled will make
+          <command>busctl</command> exit when the first message is received and printed. This is useful in
+          combination with <option>--match=</option>, to wait for the first occurrence of a specific D-Bus
+          message.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--augment-creds=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
