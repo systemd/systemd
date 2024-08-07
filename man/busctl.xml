@@ -407,6 +407,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--num-matches=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>monitor</command> command, if enabled will make
+          <command>busctl</command> exit when the specified number of messages have been received and
+          printed. This is useful in combination with <option>--match=</option>, to wait for the specified
+          occurrences of specific D-Bus messages.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--augment-creds=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
