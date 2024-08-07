@@ -534,6 +534,9 @@
 
           <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file.</para>
 
+          <para>The naming scheme based on devicetree aliases was extended to support aliases for individual
+          interfaces of controllers with multiple ports.</para>
+
           <xi:include href="version-info.xml" xpointer="v257"/>
           </listitem>
         </varlistentry>
