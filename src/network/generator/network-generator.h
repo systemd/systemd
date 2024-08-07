@@ -62,7 +62,7 @@ struct Network {
         /* [Network] */
         DHCPType dhcp_type;
         char **dns;
-        char *vlan;
+        char **vlan;
         char *bridge;
         char *bond;
 
