@@ -1005,7 +1005,6 @@ static void verify_entry(sd_journal *j, const TestEntry *entry) {
         ASSERT_STREQ(s, e);
 }
 
-_unused_
 static void test_sd_journal_seek_monotonic_usec(
                 sd_journal *j,
                 const TestEntry *entries,
@@ -1275,14 +1274,12 @@ TEST(seek_time) {
                 }
 
                 FOREACH_ARRAY(e, entries, n_entries) {
-#if 0 // FIXME
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic - 1, data);
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic,     data);
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic + 1, data);
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic - 1, data);
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic,     data);
                         test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic + 1, data);
-#endif
 
                         test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic - 1, data);
                         test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic,     data);
