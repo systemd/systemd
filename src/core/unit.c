@@ -6470,6 +6470,16 @@ int unit_arm_timer(
         return 0;
 }
 
+bool unit_is_filtered(Unit *u, char **states, char **patterns) {
+        if (!strv_isempty(states) &&
+            !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
+            !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
+            !strv_contains(states, unit_sub_state_to_string(u)))
+                return true;
+
+        return !strv_isempty(patterns) && !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE);
+}
+
 static int unit_get_nice(Unit *u) {
         ExecContext *ec;
 
