@@ -1218,14 +1218,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 if (k != u->id)
                         continue;
 
-                if (!strv_isempty(states) &&
-                    !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
-                    !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
-                    !strv_contains(states, unit_sub_state_to_string(u)))
-                        continue;
-
-                if (!strv_isempty(patterns) &&
-                    !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
+                if (unit_is_filtered(u, states, patterns))
                         continue;
 
                 r = reply_unit_info(reply, u);
