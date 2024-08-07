@@ -267,24 +267,6 @@ static inline int run_test_table(void) {
                 }                                                                                               \
         })
 
-#define ASSERT_TRUE(expr)                                                                                       \
-        ({                                                                                                      \
-                if (!(expr)) {                                                                                  \
-                        log_error("%s:%i: Assertion failed: expected \"%s\" to be true",                        \
-                                  PROJECT_FILE, __LINE__, #expr);                                               \
-                        abort();                                                                                \
-                }                                                                                               \
-        })
-
-#define ASSERT_FALSE(expr)                                                                                      \
-        ({                                                                                                      \
-                if ((expr)) {                                                                                   \
-                        log_error("%s:%i: Assertion failed: expected \"%s\" to be false",                       \
-                                  PROJECT_FILE, __LINE__, #expr);                                               \
-                        abort();                                                                                \
-                }                                                                                               \
-        })
-
 #define ASSERT_NULL(expr)                                                                                       \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -331,6 +313,9 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+
+#define ASSERT_TRUE(expr)  ASSERT_EQ((int) (expr), 1)
+#define ASSERT_FALSE(expr) ASSERT_EQ((int) (expr), 0)
 
 #define ASSERT_GE(expr1, expr2)                                                                                 \
         ({                                                                                                      \

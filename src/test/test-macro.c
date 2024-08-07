@@ -1142,12 +1142,11 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOANO), SIGABRT);
 
         ASSERT_TRUE(true);
-        ASSERT_TRUE(255);
-        ASSERT_TRUE(getpid());
+        ASSERT_TRUE(1);
         ASSERT_SIGNAL(ASSERT_TRUE(1 == 0), SIGABRT);
 
         ASSERT_FALSE(false);
-        ASSERT_FALSE(1 == 0);
+        ASSERT_FALSE(0);
         ASSERT_SIGNAL(ASSERT_FALSE(1 > 0), SIGABRT);
 
         ASSERT_NULL(NULL);
