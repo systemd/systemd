@@ -361,6 +361,38 @@ int main(int argc, char *argv[]) {
                         "MTUBytes=1530\n"
                         );
 
+        test_netdev_one("vlan123", "vlan", "vlan123:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=vlan123\n"
+                        "\n[VLAN]\n"
+                        "Id=123\n"
+                        );
+
+        test_netdev_one("vlan0013", "vlan", "vlan0013:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=vlan0013\n"
+                        "\n[VLAN]\n"
+                        "Id=11\n" /* 0013 (octal) -> 11 */
+                        );
+
+        test_netdev_one("eth0.123", "vlan", "eth0.123:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=eth0.123\n"
+                        "\n[VLAN]\n"
+                        "Id=123\n"
+                        );
+
+        test_netdev_one("eth0.0013", "vlan", "eth0.0013:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=eth0.0013\n"
+                        "\n[VLAN]\n"
+                        "Id=11\n" /* 0013 (octal) -> 11 */
+                        );
+
         test_link_one("hogehoge", "ifname", "hogehoge:00:11:22:33:44:55",
                       "[Match]\n"
                       "MACAddress=00:11:22:33:44:55\n"
