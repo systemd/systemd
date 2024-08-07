@@ -14,6 +14,7 @@ fi
 at_exit() {
     if [[ -n "${ROOT:-}" ]]; then
         ls -lR "$ROOT"
+        grep -r . "$ROOT/etc" || :
         rm -fr "$ROOT"
     fi
 
@@ -83,15 +84,42 @@ grep -q "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "$ROOT/etc/machine-id"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 systemd-firstboot --root="$ROOT" --root-password=foo
 grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
-grep -q "^root:" "$ROOT/etc/shadow"
+grep -q "^root:[^!*]" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 echo "foo" >root.passwd
 systemd-firstboot --root="$ROOT" --root-password-file=root.passwd
 grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
-grep -q "^root:" "$ROOT/etc/shadow"
+grep -q "^root:[^!*]" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow" root.passwd
-# Set the shell together with the password, as firstboot won't touch
-# /etc/passwd if it already exists
+# Make sure the root password is set if /etc/passwd and /etc/shadow exist but
+# don't have a root entry.
+touch "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-password=foo
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:[^!*]" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+# If /etc/passwd and /etc/shadow exist, they will only be updated if the shadow
+# password is !unprovisioned.
+echo "root:x:0:0:root:/root:/bin/sh" >"$ROOT/etc/passwd"
+echo "root:!test:::::::" >"$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-password=foo
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:!test:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+echo "root:x:0:0:root:/root:/bin/sh" >"$ROOT/etc/passwd"
+echo "root:!unprovisioned:::::::" >"$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-password=foo
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:[^!*]" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1"
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
+systemd-firstboot --root="$ROOT" --root-shell=/bin/fooshell
+grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
+grep -q "^root:!\*:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1" --root-shell=/bin/fooshell
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
@@ -176,8 +204,9 @@ mkdir -p "$ROOT/bin"
 touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
 # Temporarily disable pipefail to avoid `echo: write error: Broken pipe
 set +o pipefail
-# We can do only limited testing here, since it's all an interactive stuff,
-# so --prompt and --prompt-root-password are skipped on purpose
+# We can do only limited testing here, since it's all an interactive stuff, so
+# --prompt is skipped on purpose and only limited --prompt-root-password
+# testing can be done.
 echo -ne "\nfoo\nbar\n" | systemd-firstboot --root="$ROOT" --prompt-locale
 grep -q "LANG=foo" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
@@ -193,6 +222,11 @@ echo -ne "\nEurope/Berlin\n" | systemd-firstboot --root="$ROOT" --prompt-timezon
 readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
 echo -ne "\nfoobar\n" | systemd-firstboot --root="$ROOT" --prompt-hostname
 grep -q "foobar" "$ROOT/etc/hostname"
+# With no root password provided, a locked account should be created.
+systemd-firstboot --root="$ROOT" --prompt-root-password </dev/null
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root:!\*:" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 echo -ne "\n/bin/fooshell\n" | systemd-firstboot --root="$ROOT" --prompt-root-shell
 grep -q "^root:.*:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 # Existing files should not get overwritten
@@ -204,15 +238,46 @@ grep -q "^root:.*:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
 # Re-enable pipefail
 set -o pipefail
 
+# --prompt-* options with credentials. Unfortunately, with --root the
+# --systemd.firstboot kernel command line option is ignored, so that can't be
+# --tested.
+rm -fr "$ROOT"
+mkdir -p "$ROOT/bin"
+touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
+systemd-run --wait --pipe --service-type=exec \
+    -p SetCredential=firstboot.locale:foo \
+    -p SetCredential=firstboot.locale-messages:bar \
+    -p SetCredential=firstboot.keymap:foo \
+    -p SetCredential=firstboot.timezone:Europe/Berlin \
+    -p SetCredential=passwd.hashed-password.root:"$ROOT_HASHED_PASSWORD1" \
+    -p SetCredential=passwd.shell.root:/bin/fooshell \
+    systemd-firstboot \
+    --root="$ROOT" \
+    --prompt-locale \
+    --prompt-keymap \
+    --prompt-timezone \
+    --prompt-root-password \
+    --prompt-root-shell \
+    </dev/null
+grep -q "LANG=foo" "$ROOT$LOCALE_PATH"
+grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
+grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
+readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
+grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
+grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
+
 # Assorted tests
 rm -fr "$ROOT"
 mkdir "$ROOT"
 
 systemd-firstboot --root="$ROOT" --setup-machine-id
 grep -E "[a-z0-9]{32}" "$ROOT/etc/machine-id"
+rm -fv "$ROOT/etc/machine-id"
 
 systemd-firstboot --root="$ROOT" --delete-root-password
-diff <(echo) <(awk -F: '/^root/ { print $2; }' "$ROOT/etc/shadow")
+grep -q "^root:x:0:0:" "$ROOT/etc/passwd"
+grep -q "^root::" "$ROOT/etc/shadow"
+rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 
 (! systemd-firstboot --root="$ROOT" --root-shell=/bin/nonexistentshell)
 (! systemd-firstboot --root="$ROOT" --machine-id=invalidmachineid)

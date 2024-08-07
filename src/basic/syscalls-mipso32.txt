@@ -95,6 +95,7 @@ fsopen	4430
 fspick	4433
 fstat	4108
 fstat64	4215
+fstatat
 fstatat64	4293
 fstatfs	4100
 fstatfs64	4256
@@ -191,6 +192,7 @@ listen	4174
 listmount	4458
 listxattr	4230
 llistxattr	4231
+llseek
 lookup_dcookie	4247
 lremovexattr	4234
 lseek	4019
@@ -245,6 +247,7 @@ munlockall	4157
 munmap	4091
 name_to_handle_at	4339
 nanosleep	4166
+newfstat
 newfstatat
 nice	4034
 old_adjtimex
@@ -502,6 +505,7 @@ uname	4122
 unlink	4010
 unlinkat	4294
 unshare	4303
+uretprobe
 userfaultfd	4357
 ustat	4062
 utime	4030

@@ -67,7 +67,7 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame unit-files unit-paths exit-status capability compare-versions calendar timestamp timespan pcrs srk'
+        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions calendar timestamp timespan pcrs srk'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -80,6 +80,7 @@ _systemd_analyze() {
         [PLOT]='plot'
         [ARCHITECTURES]='architectures'
         [FDSTORE]='fdstore'
+        [CAPABILITY]='capability'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -203,7 +204,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[PLOT]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend'
+            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend --scale-svg --detailed'
         fi
 
     elif __contains_word "$verb" ${VERBS[ARCHITECTURES]}; then
@@ -218,6 +219,11 @@ _systemd_analyze() {
             comps='--help --version --system --user --global -H --host -M --machine --no-pager --json=off --json=pretty --json=short --root --image'
         else
             comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CAPABILITY]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager --json=off --json=pretty --json=short -m --mask'
         fi
     fi
 

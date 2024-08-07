@@ -251,7 +251,7 @@ TEST(terminal_is_pty_fd) {
 }
 
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
-        ASSERT_OK(setenv(key, val, true));
+        ASSERT_OK_ERRNO(setenv(key, val, true));
         reset_terminal_feature_caches();
         log_info("get_color_mode($%s=%s): %s", key, val, color_mode_to_string(get_color_mode()));
         ASSERT_EQ(get_color_mode(), expected);
@@ -269,17 +269,17 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",   COLOR_24BIT);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "24bit", COLOR_24BIT);
 
-        ASSERT_OK(setenv("NO_COLOR", "1", true));
+        ASSERT_OK_ERRNO(setenv("NO_COLOR", "1", true));
         test_get_color_mode_with_env("SYSTEMD_COLORS", "42",      COLOR_OFF);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "invalid", COLOR_OFF);
-        ASSERT_OK(unsetenv("NO_COLOR"));
-        ASSERT_OK(unsetenv("SYSTEMD_COLORS"));
+        ASSERT_OK_ERRNO(unsetenv("NO_COLOR"));
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_COLORS"));
 
         test_get_color_mode_with_env("COLORTERM", "truecolor", terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
         test_get_color_mode_with_env("COLORTERM", "24bit",     terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
         test_get_color_mode_with_env("COLORTERM", "invalid",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
         test_get_color_mode_with_env("COLORTERM", "42",        terminal_is_dumb() ? COLOR_OFF : COLOR_256);
-        unsetenv("COLORTERM");
+        ASSERT_OK_ERRNO(unsetenv("COLORTERM"));
         reset_terminal_feature_caches();
 }
 

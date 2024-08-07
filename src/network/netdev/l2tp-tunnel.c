@@ -306,9 +306,9 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
 
                 if (!a) {
                         if (link)
-                                r = link_get_address(link, t->family, &t->local, 0, &a);
+                                r = link_get_address(link, t->family, &t->local, &a);
                         else
-                                r = manager_get_address(netdev->manager, t->family, &t->local, 0, &a);
+                                r = manager_get_address(netdev->manager, t->family, &t->local, &a);
                         if (r < 0)
                                 return r;
 

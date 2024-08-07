@@ -31,6 +31,17 @@ CHANGES WITH 257 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        * systemd-logind now always obeys inhibitor locks, where previously it
+          ignored locks taken by the caller or when the caller was root. A
+          privileged caller can always close the other sessions, remove the
+          inhibitor locks, or use --force or --check-inhibitors=no to ignore the
+          inhibitors. This change thus doesn't affect security, since everything
+          that was possible before at a given privilege level is still possible,
+          but it should make the inhibitor logic easier to use and understand,
+          and also help avoiding accidental reboots and shutdowns. New 'delay-weak'
+          and 'block-weak' inhibitor modes were added, if taken they will make
+          the inhibitor lock work as in the previous versions.
+
         — <place>, <date>
 
 CHANGES WITH 256:
@@ -365,6 +376,13 @@ CHANGES WITH 256:
 
         * A new unit systemd-udev-load-credentials.service has been added
           to pick up udev.conf drop-ins and udev rules from credentials.
+
+        * 'udevadm test' and 'udevadm test-builtin' commands now do not change
+          any settings; sysfs attributes, sysctls, udev database and so on.
+          E.g. 'udevadm test-builtin net_setup_link /sys/class/net/INTERFACE'
+          does not change any interface settings, but only prints which .link
+          file matches the interface. So, even privileged users can safely
+          invoke the commands.
 
         * An allowlist/denylist may be specified to filter which sysfs
           attributes are used when crafting network interface names. Those

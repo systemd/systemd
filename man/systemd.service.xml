@@ -624,6 +624,12 @@
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para>
 
+        <para>Note that the start timeout is also applied to service reloads, regardless if implemented
+        through <varname>ExecReload=</varname> or via the reload logic enabled via <varname>Type=notify-reload</varname>.
+        If the reload does not complete within the configured time, the reload will be considered failed and
+        the service will continue running with the old configuration. This will not affect the running service,
+        but will be logged and will cause e.g. <command>systemctl reload</command> to fail.</para>
+
         <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 

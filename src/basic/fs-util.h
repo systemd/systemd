@@ -131,6 +131,7 @@ int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char 
 typedef enum XOpenFlags {
         XO_LABEL     = 1 << 0,
         XO_SUBVOLUME = 1 << 1,
+        XO_NOCOW     = 1 << 2,
 } XOpenFlags;
 
 int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "btrfs.h"
+#include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1114,8 +1115,27 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 if (errno != EEXIST)
                         return -errno;
 
-                /* Hmm, so now we got EEXIST? So it apparently exists now? If so, let's try to open again
-                 * without the two flags. But let's not spin forever, hence put a limit on things */
+                /* Hmm, so now we got EEXIST? This can indicate two things. First, if the path points to a
+                 * dangling symlink, the first openat() will fail with ENOENT because the symlink is resolved
+                 * and the second openat() will fail with EEXIST because symlinks are not followed when
+                 * O_CREAT|O_EXCL is specified. Let's check for this explicitly and fall back to opening with
+                 * just O_CREAT and assume we're the ones that created the file. */
+
+                struct stat st;
+                if (fstatat(dirfd, pathname, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+
+                if (S_ISLNK(st.st_mode)) {
+                        fd = openat(dirfd, pathname, flags | O_CREAT, mode);
+                        if (fd < 0)
+                                return -errno;
+
+                        *ret_newly_created = true;
+                        return fd;
+                }
+
+                /* If we're not operating on a symlink, someone might have created the file between the first
+                 * and second call to openat(). Let's try again but with a limit so we don't spin forever. */
 
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
                         return -EEXIST;
@@ -1124,7 +1144,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
 
 int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
-        bool made = false;
+        bool made_dir = false, made_file = false;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -1158,12 +1178,10 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 if (r == -EEXIST) {
                         if (FLAGS_SET(open_flags, O_EXCL))
                                 return -EEXIST;
-
-                        made = false;
                 } else if (r < 0)
                         return r;
                 else
-                        made = true;
+                        made_dir = true;
 
                 if (FLAGS_SET(xopen_flags, XO_LABEL)) {
                         r = label_ops_post(dir_fd, path);
@@ -1175,7 +1193,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 xopen_flags &= ~XO_LABEL;
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, open_flags, mode));
+        fd = RET_NERRNO(openat_report_new(dir_fd, path, open_flags, mode, &made_file));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1188,7 +1206,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                            -ENOTDIR))
                         return fd;
 
-                if (made)
+                if (made_dir)
                         (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
 
                 return fd;
@@ -1197,10 +1215,22 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
                 r = label_ops_post(dir_fd, path);
                 if (r < 0)
-                        return r;
+                        goto error;
+        }
+
+        if (FLAGS_SET(xopen_flags, XO_NOCOW)) {
+                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                        goto error;
         }
 
         return TAKE_FD(fd);
+
+error:
+        if (made_dir || made_file)
+                (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
+
+        return r;
 }
 
 int xopenat_lock_full(

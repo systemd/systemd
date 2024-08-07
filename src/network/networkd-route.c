@@ -790,8 +790,6 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
 }
 
 static int route_is_ready_to_configure(const Route *route, Link *link) {
-        int r;
-
         assert(route);
         assert(link);
 
@@ -799,9 +797,13 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 return false;
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                r = manager_has_address(link->manager, route->family, &route->prefsrc);
-                if (r <= 0)
-                        return r;
+                Address *a;
+
+                if (manager_get_address(link->manager, route->family, &route->prefsrc, &a) < 0)
+                        return false;
+
+                if (!address_is_ready(a))
+                        return false;
         }
 
         return route_nexthops_is_ready_to_configure(route, link->manager);
@@ -910,7 +912,7 @@ int link_request_route(
         assert(route);
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (route->family == AF_INET || route_type_is_reject(route) || ordered_set_isempty(route->nexthops))
+        if (route->family == AF_INET || route_is_reject(route) || ordered_set_isempty(route->nexthops))
                 return link_request_route_one(link, route, NULL, message_counter, netlink_handler);
 
         RouteNextHop *nh;

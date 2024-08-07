@@ -12,8 +12,6 @@ int unit_is_likely_recursive_template_dependency(Unit *u, const char *name, cons
 int parse_crash_chvt(const char *value, int *data);
 int parse_confirm_spawn(const char *value, char **console);
 
-int hashmap_put_credential(Hashmap **h, const char *id, const char *path, bool encrypted);
-
 /* Read service data from .desktop file style configuration fragments */
 
 int unit_load_fragment(Unit *u);

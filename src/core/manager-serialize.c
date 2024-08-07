@@ -508,7 +508,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 return r;
                 } else if ((val = startswith(l, "varlink-server-socket-address="))) {
                         if (!m->varlink_server && MANAGER_IS_SYSTEM(m)) {
-                                r = manager_varlink_init(m);
+                                r = manager_setup_varlink_server(m);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
                                         continue;

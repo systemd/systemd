@@ -3707,6 +3707,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             print(output)
             self.assertIn('abcd::/16 via 2001:1234:56:8f63::1:1 proto static src 2001:1234:56:8f63::1', output)
 
+            output = check_output('ip -4 route list dev dummy98')
+            print(output)
+            self.assertIn('10.123.0.0/16 via 192.168.30.1 proto static src 10.10.10.1', output)
+
     def test_ip_link_mac_address(self):
         copy_network_unit('25-address-link-section.network', '12-dummy.netdev')
         start_networkd()
@@ -5072,6 +5076,10 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         if call_quiet('bridge mdb add dev bridge99 port bridge99 grp 224.0.1.3 temp vid 4068') == 0:
             self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
             self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
+
+        # Old kernel may not support L2 bridge MDB entries
+        if call_quiet('bridge mdb add dev bridge99 port bridge99 grp 01:80:c2:00:00:0f permanent vid 4070') == 0:
+            self.assertRegex(output, 'dev bridge99 port bridge99 grp 01:80:c2:00:00:0e permanent *vid 4069')
 
     def test_bridge_keep_master(self):
         check_output('ip link add bridge99 type bridge')
@@ -7139,6 +7147,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotIn('inet6 3ffe:501:ffff', output)
 
+        print('### ip -6 route show dev lo')
+        output = check_output('ip -6 route show dev lo')
+        print(output)
+        self.assertNotRegex(output, '3ffe:501:ffff:[2-9a-f]00::/56')
+
         self.check_dhcp6_prefix('veth99')
 
     @unittest.skipUnless(shutil.which('dhcpd'), reason="dhcpd is not available on CentOS Stream 10")
@@ -7156,6 +7169,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev veth99 scope global')
         print(output)
         self.assertNotIn('inet6 3ffe:501:ffff', output)
+
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertRegex(output, 'blackhole 3ffe:501:ffff:[2-9a-f]00::/56 dev lo proto dhcp')
 
         self.check_dhcp6_prefix('veth99')
 

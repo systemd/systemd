@@ -105,7 +105,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
-    - uses: systemd/mkosi@7e975957a6af65c2e70428b6cda0c163ca7e1adc
+    - uses: systemd/mkosi@63fc1fde5b1aac1abf07ac499068c2b62263dafb
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
@@ -159,8 +159,6 @@ jobs:
 
         [Host]
         QemuMem=4G
-        # We build with debuginfo so there's no point in mounting the sources into the machine.
-        RuntimeBuildSources=no
         EOF
 
     - name: Generate secure boot key

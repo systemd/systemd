@@ -708,6 +708,14 @@ Table=1234</programlisting></para>
           number of dynamically created network interfaces with the same network configuration and
           automatic address range assignment.</para>
 
+          <para>If an IPv4 link-local address (169.254.0.0/16) is specified, IPv4 Address Conflict
+          Detection (<ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>) is enabled for the
+          address. To assign an IPv4 link-local address without IPv4 Address Conflict Detection, please use
+          [Address] section to configure the address and disable <varname>DuplicateAddressDetection=</varname>.
+          <programlisting>[Address]
+Address=169.254.10.1/24
+DuplicateAddressDetection=none</programlisting></para>
+
           <para>If an empty string is specified, then the all previous assignments in both [Network] and
           [Address] sections are cleared.</para>
 
@@ -845,7 +853,7 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IPv6Forwarding=</varname></term>
         <listitem>
-          <para>Configures IPv6 packet forwarding for the interface. Takes a boolean value. This controls the
+          <para>Configures interface-specific host/router behaviour. Takes a boolean value. This controls the
           <filename>net.ipv6.conf.<replaceable>INTERFACE</replaceable>.forwarding</filename> sysctl option of
           the network interface. See
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
@@ -858,6 +866,14 @@ Table=1234</programlisting></para>
           <para>To control the global setting, use the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <para>Note, unlike <varname>IPv4Forwarding=</varname>, enabling per-interface
+          <varname>IPv6Forwarding=</varname> on two or more interfaces <emphasis>DOES NOT</emphasis> make IPv6
+          packets forwarded within the interfaces. This setting just controls the per-interface sysctl value,
+          and the sysctl value is not directly correlated to whether packets are forwarded. To ensure IPv6
+          packets forwarded, the global setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          needs to be enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -1191,6 +1207,18 @@ Table=1234</programlisting></para>
           carrier. Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname> setting
           is not explicitly set, then it is enabled as well.</para>
 
+          <para>With this enabled, to make the interface enter the <literal>configured</literal> state,
+          which is required to make <command>systemd-networkd-wait-online</command> work properly for the
+          interface, all dynamic address configuration mechanisms like <varname>DHCP=</varname> and
+          <varname>IPv6AcceptRA=</varname> (which is enabled by default in most cases) need to be disabled.
+          Also, <varname>DuplicateAddressDetection=</varname> (which is enabled by default for IPv4
+          link-local addresses and all IPv6 addresses) needs to be disabled for all static address
+          configurations. Otherwise, without carrier, the interface will be stuck in the
+          <literal>configuring</literal> state, and <command>systemd-networkd-wait-online</command> for the
+          interface will timeout. Also, it is recommended to set
+          <varname>RequiredForOnline=no-carrier</varname> to make
+          <command>systemd-networkd-wait-online</command> work for the interface.</para>
+
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
@@ -1366,10 +1394,10 @@ Table=1234</programlisting></para>
           Detection. See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
           When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
           <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
-          <literal>ipv4</literal> for IPv4 link-local addresses, <literal>ipv6</literal> for IPv6
-          addresses, and <literal>none</literal> otherwise.</para>
+          <literal>ipv4</literal> for IPv4 link-local addresses (169.254.0.0/16), <literal>ipv6</literal>
+          for IPv6 addresses, and <literal>none</literal> otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v232"/>
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -1682,7 +1710,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           one of predefined names <literal>default</literal>, <literal>main</literal>, and
           <literal>local</literal>, and names defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
+          or a number between 1 and 4294967295. Defaults to <literal>main</literal>.
+          Ignored if <varname>L3MasterDevice=</varname> is true.</para>
 
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
@@ -2053,7 +2082,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <command>ip route show table <replaceable>num</replaceable></command>. If unset and
           <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
           <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
-          In other cases, defaults to <literal>main</literal>. Ignored if <varname>L3MasterDevice=</varname> is true.</para>
+          In other cases, defaults to <literal>main</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
@@ -2734,6 +2763,23 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UnassignedSubnetPolicy=</varname></term>
+        <listitem>
+          <para>Takes <literal>none</literal>, or one of the reject types: <literal>unreachable</literal>,
+          <literal>prohibit</literal>, <literal>blackhole</literal>, or <literal>throw</literal>. If a reject
+          type is specified, the reject route corresponding to the acquired 6RD prefix will be configured.
+          For example, when <literal>unreachable</literal>,
+          <programlisting>unreachable 2001:db8::/56 dev lo proto dhcp metric 1024 pref medium</programlisting>
+          will be configured. See <ulink url="https://datatracker.ietf.org/doc/html/rfc7084">RFC 7084</ulink>.
+          If <literal>none</literal> is specified, such route will not be configured. This may be useful when
+          custom firewall rules that handle packets for unassigned subnets will be configured.
+          Defaults to <literal>unreachable</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6OnlyMode=</varname></term>
         <listitem>
           <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
@@ -2970,6 +3016,23 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           1…128. Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UnassignedSubnetPolicy=</varname></term>
+        <listitem>
+          <para>Takes <literal>none</literal> or one of the reject types: <literal>unreachable</literal>,
+          <literal>prohibit</literal>, <literal>blackhole</literal>, or <literal>throw</literal>. If a reject
+          type is specified, the reject route corresponding to the delegated prefix will be configured.
+          For example, when <literal>unreachable</literal>,
+          <programlisting>unreachable 2001:db8::/56 dev lo proto dhcp metric 1024 pref medium</programlisting>
+          will be configured. See <ulink url="https://datatracker.ietf.org/doc/html/rfc7084">RFC 7084</ulink>.
+          If <literal>none</literal> is specified, such route will not be configured. This may be useful when
+          custom firewall rules that handle packets for unassigned subnets will be configured.
+          Defaults to <literal>unreachable</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -4553,7 +4616,7 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>MulticastGroupAddress=</varname></term>
         <listitem>
-          <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
+          <para>Specifies the IPv4, IPv6, or L2 MAC multicast group address to add. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>

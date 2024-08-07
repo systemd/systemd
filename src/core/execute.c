@@ -151,7 +151,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         /* Note that this is potentially a "destructive" reset of a TTY device. It's about getting rid of the
          * remains of previous uses of the TTY. It's *not* about getting things set up for coming uses. We'll
          * potentially invalidate the TTY here through hangups or VT disallocations, and hence do not keep a
-         * continous fd open. */
+         * continuous fd open. */
 
         const char *path = exec_context_tty_path(context);
 
@@ -466,6 +466,12 @@ int exec_spawn(
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         dual_timestamp start_timestamp;
 
+        /* Restore the original ambient capability set the manager was started with to pass it to
+         * sd-executor. */
+        r = capability_ambient_set_apply(unit->manager->original_ambient_set, /* also_inherit= */ false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to apply the starting ambient set: %m");
+
         /* Record the start timestamp before we fork so that it is guaranteed to be earlier than the
          * handoff timestamp. */
         dual_timestamp_now(&start_timestamp);
@@ -480,6 +486,10 @@ int exec_spawn(
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
+
+        /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
+        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+
         if (r == -EUCLEAN && subcgroup_path)
                 return log_unit_error_errno(unit, r,
                                             "Failed to spawn process into cgroup '%s', because the cgroup "
@@ -629,7 +639,7 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
-        c->import_credentials = set_free_free(c->import_credentials);
+        c->import_credentials = ordered_set_free(c->import_credentials);
 
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);

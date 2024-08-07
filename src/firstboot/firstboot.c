@@ -908,8 +908,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
-
-        assert(password);
+        bool found = false;
 
         r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
         if (r < 0)
@@ -929,9 +928,11 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                 while ((r = fgetpwent_sane(original, &i)) > 0) {
 
                         if (streq(i->pw_name, "root")) {
-                                i->pw_passwd = (char *) password;
+                                if (password)
+                                        i->pw_passwd = (char *) password;
                                 if (shell)
                                         i->pw_shell = (char *) shell;
+                                found = true;
                         }
 
                         r = putpwent_sane(i, passwd);
@@ -942,9 +943,15 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                         return r;
 
         } else {
+                r = fchmod(fileno(passwd), 0644);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (!found) {
                 struct passwd root = {
                         .pw_name = (char *) "root",
-                        .pw_passwd = (char *) password,
+                        .pw_passwd = (char *) (password ?: PASSWORD_SEE_SHADOW),
                         .pw_uid = 0,
                         .pw_gid = 0,
                         .pw_gecos = (char *) "Super User",
@@ -953,10 +960,6 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                 };
 
                 if (errno != ENOENT)
-                        return -errno;
-
-                r = fchmod(fileno(passwd), 0644);
-                if (r < 0)
                         return -errno;
 
                 r = putpwent_sane(&root, passwd);
@@ -979,8 +982,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
-
-        assert(hashed_password);
+        bool found = false;
 
         r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp);
         if (r < 0)
@@ -1000,8 +1002,11 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                 while ((r = fgetspent_sane(original, &i)) > 0) {
 
                         if (streq(i->sp_namp, "root")) {
-                                i->sp_pwdp = (char *) hashed_password;
-                                i->sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+                                if (hashed_password) {
+                                        i->sp_pwdp = (char *) hashed_password;
+                                        i->sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+                                }
+                                found = true;
                         }
 
                         r = putspent_sane(i, shadow);
@@ -1012,9 +1017,15 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                         return r;
 
         } else {
+                r = fchmod(fileno(shadow), 0000);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (!found) {
                 struct spwd root = {
                         .sp_namp = (char*) "root",
-                        .sp_pwdp = (char *) hashed_password,
+                        .sp_pwdp = (char *) (hashed_password ?: PASSWORD_LOCKED_AND_INVALID),
                         .sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY),
                         .sp_min = -1,
                         .sp_max = -1,
@@ -1025,10 +1036,6 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                 };
 
                 if (errno != ENOENT)
-                        return -errno;
-
-                r = fchmod(fileno(shadow), 0000);
-                if (r < 0)
                         return -errno;
 
                 r = putspent_sane(&root, shadow);
@@ -1078,13 +1085,6 @@ static int process_root_account(int rfd) {
 
         if (k == 0) {
                 log_debug("Found /etc/passwd and /etc/shadow, assuming root account has been initialized.");
-                return 0;
-        }
-
-        /* Don't create/modify passwd and shadow if not asked */
-        if (!(arg_root_password || arg_prompt_root_password || arg_copy_root_password || arg_delete_root_password ||
-              arg_root_shell || arg_prompt_root_shell || arg_copy_root_shell)) {
-                log_debug("Initialization of root account was not requested, skipping.");
                 return 0;
         }
 
@@ -1142,10 +1142,22 @@ static int process_root_account(int rfd) {
                 password = PASSWORD_SEE_SHADOW;
                 hashed_password = _hashed_password;
 
-        } else if (arg_delete_root_password)
-                password = hashed_password = PASSWORD_NONE;
-        else
-                password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
+        } else if (arg_delete_root_password) {
+                password = PASSWORD_SEE_SHADOW;
+                hashed_password = PASSWORD_NONE;
+        } else if (!arg_root_password && arg_prompt_root_password) {
+                /* If the user was prompted, but no password was supplied, lock the account. */
+                password = PASSWORD_SEE_SHADOW;
+                hashed_password = PASSWORD_LOCKED_AND_INVALID;
+        } else
+                /* Leave the password as is. */
+                password = hashed_password = NULL;
+
+        /* Don't create/modify passwd and shadow if there's nothing to do. */
+        if (!(password || hashed_password || arg_root_shell)) {
+                log_debug("Initialization of root account was not requested, skipping.");
+                return 0;
+        }
 
         r = write_root_passwd(rfd, pfd, password, arg_root_shell);
         if (r < 0)

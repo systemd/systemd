@@ -2035,7 +2035,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 end_state = SERVICE_FAILED;
                 restart_state = SERVICE_FAILED_BEFORE_AUTO_RESTART;
         }
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
 
         if (!allow_restart)
                 log_unit_debug(UNIT(s), "Service restart not allowed.");
@@ -2074,13 +2074,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else {
+        } else
+                /* If we shan't restart, the restart counter would be flushed out. But rather than doing that
+                 * immediately here, this is delegated to service_start(), i.e. next start, so that the user
+                 * can still introspect the counter. */
                 service_set_state(s, end_state);
-
-                /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
-                 * user can still introspect the counter. Do so on the next start. */
-                s->flush_n_restarts = true;
-        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
@@ -2387,11 +2385,11 @@ static int service_adverse_to_leftover_processes(Service *s) {
          * instances running, lets not stress the rigor of these. Also ExecStartPre= parts of the service
          * aren't as rigoriously written to protect aganst against multiple use. */
 
-        if (unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_start) > 0 &&
+        if (unit_warn_leftover_processes(UNIT(s), /* start = */ true) > 0 &&
             IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
             !s->kill_context.send_sigkill)
-               return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
-                                           "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
+                                            "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
 
         return 0;
 }
@@ -2567,13 +2565,16 @@ fail:
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
-static void service_enter_restart(Service *s) {
+static void service_enter_restart(Service *s, bool shortcut) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        assert(s);
+        /* shortcut: a manual start request is received, restart immediately */
 
-        if (unit_has_job_type(UNIT(s), JOB_STOP)) {
+        assert(s);
+        assert(s->state == SERVICE_AUTO_RESTART);
+
+        if (!shortcut && unit_has_job_type(UNIT(s), JOB_STOP)) {
                 /* Don't restart things if we are going down anyway */
                 log_unit_info(UNIT(s), "Stop job pending for unit, skipping automatic restart.");
                 return;
@@ -2592,13 +2593,13 @@ static void service_enter_restart(Service *s) {
          * fully stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset
          * the counter explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts++;
-        s->flush_n_restarts = false;
 
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                         LOG_UNIT_INVOCATION_ID(UNIT(s)),
                         LOG_UNIT_MESSAGE(UNIT(s),
-                                         "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                                         "Scheduled restart job%s, restart counter is at %u.",
+                                         shortcut ? " immediately on client request" : "", s->n_restarts),
                         "N_RESTARTS=%u", s->n_restarts);
 
         service_set_state(s, SERVICE_AUTO_RESTART_QUEUED);
@@ -2758,10 +2759,8 @@ static void service_run_next_main(Service *s) {
 }
 
 static int service_start(Unit *u) {
-        Service *s = SERVICE(u);
+        Service *s = ASSERT_PTR(SERVICE(u));
         int r;
-
-        assert(s);
 
         /* We cannot fulfill this request right now, try again later
          * please! */
@@ -2774,13 +2773,17 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return 0;
 
-        /* A service that will be restarted must be stopped first to trigger BindsTo and/or OnFailure
-         * dependencies. If a user does not want to wait for the holdoff time to elapse, the service should
-         * be manually restarted, not started. We simply return EAGAIN here, so that any start jobs stay
-         * queued, and assume that the auto restart timer will eventually trigger the restart. */
-        if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
-                return -EAGAIN;
+        if (s->state == SERVICE_AUTO_RESTART) {
+                /* As mentioned in unit_start(), we allow manual starts to act as "hurry up" signals
+                 * for auto restart. We need to re-enqueue the job though, as the job type has changed
+                 * (JOB_RESTART_DEPENDENCIES). */
 
+                service_enter_restart(s, /* shortcut = */ true);
+                return -EAGAIN;
+        }
+
+        /* SERVICE_*_BEFORE_AUTO_RESTART are not to be expected here, as those are intermediate states
+         * that should never be seen outside of service_enter_dead(). */
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_AUTO_RESTART_QUEUED));
 
         r = unit_acquire_invocation_id(u);
@@ -2792,6 +2795,10 @@ static int service_start(Unit *u) {
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
+
+        /* This is not an automatic restart? Flush the restart counter then. */
+        if (s->state != SERVICE_AUTO_RESTART_QUEUED)
+                s->n_restarts = 0;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
@@ -2807,12 +2814,6 @@ static int service_start(Unit *u) {
 
         exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         exec_status_reset(&s->main_exec_status);
-
-        /* This is not an automatic restart? Flush the restart counter then */
-        if (s->flush_n_restarts) {
-                s->n_restarts = 0;
-                s->flush_n_restarts = false;
-        }
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt)
@@ -2999,7 +3000,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
-        (void) serialize_bool(f, "flush-n-restarts", s->flush_n_restarts);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         service_serialize_exec_command(u, f, s->control_command);
@@ -3342,12 +3342,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
 
-        } else if (streq(key, "flush-n-restarts")) {
-                r = parse_boolean(value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse serialized flush restart counter setting '%s': %m", value);
-                else
-                        s->flush_n_restarts = r;
         } else if (streq(key, "forbid-restart")) {
                 r = parse_boolean(value);
                 if (r < 0)
@@ -4290,7 +4284,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
 
-                service_enter_restart(s);
+                service_enter_restart(s, /* shortcut = */ false);
                 break;
 
         case SERVICE_CLEANING:
@@ -4341,46 +4335,55 @@ static void service_force_watchdog(Service *s) {
         service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid) {
+static bool service_notify_message_authorized(Service *s, PidRef *pid) {
         assert(s);
-        assert(pid_is_valid(pid));
+        assert(pidref_is_set(pid));
 
-        NotifyAccess notify_access = service_get_notify_access(s);
+        switch (service_get_notify_access(s)) {
 
-        if (notify_access == NOTIFY_NONE) {
+        case NOTIFY_NONE:
                 /* Warn level only if no notifications are expected */
-                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid->pid);
                 return false;
-        }
 
-        if (notify_access == NOTIFY_MAIN && pid != s->main_pid.pid) {
+        case NOTIFY_ALL:
+                return true;
+
+        case NOTIFY_MAIN:
+                if (pidref_equal(pid, &s->main_pid))
+                        return true;
+
                 if (pidref_is_set(&s->main_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid->pid, s->main_pid.pid);
                 else
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid->pid);
 
                 return false;
-        }
 
-        if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
+        case NOTIFY_EXEC:
+                if (pidref_equal(pid, &s->main_pid) || pidref_equal(pid, &s->control_pid))
+                        return true;
+
                 if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                       pid, s->main_pid.pid, s->control_pid.pid);
+                                       pid->pid, s->main_pid.pid, s->control_pid.pid);
                 else if (pidref_is_set(&s->main_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid->pid, s->main_pid.pid);
                 else if (pidref_is_set(&s->control_pid))
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid.pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid->pid, s->control_pid.pid);
                 else
-                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid->pid);
 
                 return false;
-        }
 
-        return true;
+        default:
+                assert_not_reached();
+        }
 }
 
 static void service_notify_message(
                 Unit *u,
+                PidRef *pidref,
                 const struct ucred *ucred,
                 char * const *tags,
                 FDSet *fds) {
@@ -4388,14 +4391,15 @@ static void service_notify_message(
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
+        assert(pidref_is_set(pidref));
         assert(ucred);
 
-        if (!service_notify_message_authorized(s, ucred->pid))
+        if (!service_notify_message_authorized(s, pidref))
                 return;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", ucred->pid, empty_to_na(cc));
+                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", pidref->pid, empty_to_na(cc));
         }
 
         usec_t monotonic_usec = USEC_INFINITY;
@@ -4859,7 +4863,6 @@ static void service_reset_failed(Unit *u) {
         s->reload_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
-        s->flush_n_restarts = false;
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {

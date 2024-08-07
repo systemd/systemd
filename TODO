@@ -579,7 +579,6 @@ Features:
   - cg_pid_get_xyz()
   - pid_from_same_root_fs()
   - get_ctty_devnr()
-  - pid1: sd_notify() receiver should use SCM_PIDFD to authenticate client
   - actually wait for POLLIN on pidref's pidfd in service logic
   - openpt_allocate_in_namespace()
   - unit_attach_pid_to_cgroup_via_bus()

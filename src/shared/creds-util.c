@@ -54,7 +54,7 @@ bool credential_glob_valid(const char *s) {
          * fnmatch()! We only allow trailing asterisk matches for now (simply because we want some freedom
          * with automatically extending the pattern in a systematic way to cover for unit instances getting
          * per-instance credentials or similar. Moreover, credential globbing expressions are also more
-         * restrictive then credential names: we don't allow *, ?, [, ] in them (except for the asterisk
+         * restrictive than credential names: we don't allow *, ?, [, ] in them (except for the asterisk
          * match at the end of the string), simply to not allow ambiguity. After all, we want the flexibility
          * to one day add full globbing should the need arise.  */
 

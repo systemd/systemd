@@ -80,7 +80,16 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">capability</arg>
-      <arg choice="opt" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+      <group choice="opt">
+        <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain">-m</arg>
+            <arg choice="plain">--mask</arg>
+          </group>
+          <replaceable>MASK</replaceable>
+        </arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -441,7 +450,20 @@ DATAERR 65     BSD
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze capability <optional><replaceable>CAPABILITY</replaceable>...</optional></command></title>
+      <title>
+        <command>systemd-analyze capability
+          <group choice="opt">
+            <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+            <arg choice="plain">
+              <group choice="req">
+                <arg choice="plain">-m</arg>
+                <arg choice="plain">--mask</arg>
+              </group>
+              <replaceable>MASK</replaceable>
+            </arg>
+          </group>
+        </command>
+      </title>
 
       <para>This command prints a list of Linux capabilities along with their numeric IDs. See <citerefentry
       project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -450,6 +472,11 @@ DATAERR 65     BSD
       as <literal>cap_???</literal>. Optionally, if arguments are specified they may refer to specific
       cabilities by name or numeric ID, in which case only the indicated capabilities are shown in the
       table.</para>
+
+      <para>Alternatively, if <option>--mask</option> is passed, a single numeric argument must be specified,
+      which is interpreted as a hexadecimal capability mask. In this case, only the capabilities present in
+      the mask are shown in the table. This mode is intended to aid in decoding capability sets available
+      via various debugging interfaces (e.g. <literal>/proc/PID/status</literal>).</para>
 
       <example>
         <title><command>Show some example capability names</command></title>
@@ -461,6 +488,18 @@ cap_dac_override       1
 cap_audit_control     30
 cap_setfcap           31
 cap_mac_override      32</programlisting>
+      </example>
+
+      <example>
+        <title><command>Decode a capability mask extracted from /proc</command></title>
+
+        <programlisting>$ systemd-analyze capability -m 0000000000003c00
+NAME                 NUMBER
+cap_net_bind_service     10
+cap_net_broadcast        11
+cap_net_admin            12
+cap_net_raw              13
+</programlisting>
       </example>
     </refsect2>
 
@@ -1560,6 +1599,24 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         comments and empty lines.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--scale-svg=<replaceable>FACTOR</replaceable></option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the x-axis of the plot
+        can be stretched by FACTOR (default: 1.0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--detailed</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, activation timestamps
+        details can be seen in SVG plot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

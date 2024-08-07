@@ -11,6 +11,7 @@
 #include "sd-id128.h"
 #include "sd-journal.h"
 #include "sd-json.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -1589,34 +1590,63 @@ int show_journal(
         return 0;
 }
 
-int add_matches_for_unit(sd_journal *j, const char *unit) {
+int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id) {
+        int r;
+
+        assert(j);
+        assert(!sd_id128_is_null(id));
+
+        (void) (
+                /* Look for messages from the service itself. */
+                (r = journal_add_match_pair(j, "_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from authorized daemons about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from system service manager (PID 1) about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from user-session service manager about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "USER_INVOCATION_ID", SD_ID128_TO_STRING(id)))
+        );
+
+        return r;
+}
+
+int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
         int r;
 
         assert(j);
         assert(unit);
 
         (void) (
-            /* Look for messages from the service itself */
-            (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
+                /* Look for messages from the service itself */
+                (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
 
-            /* Look for coredumps of the service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", SIZE_MAX)) ||
-            (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit)) ||
+                /* Look for messages from PID 1 about this service */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
+                (r = journal_add_match_pair(j, "UNIT", unit)) ||
 
-             /* Look for messages from PID 1 about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "UNIT", unit)) ||
-
-            /* Look for messages from authorized daemons about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
+                /* Look for messages from authorized daemons about this service */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
+                (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
         );
 
-        if (r == 0 && endswith(unit, ".slice"))
+        if (r == 0 && all)
+                (void) (
+                        /* Look for coredumps of the service */
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
+                        (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit))
+                );
+
+        if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1626,7 +1656,7 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         return r;
 }
 
-int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
         uid_t uid = getuid();
         int r;
 
@@ -1643,12 +1673,6 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit) {
                 (r = journal_add_match_pair(j, "USER_UNIT", unit)) ||
                 (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
 
-                /* Look for coredumps of the service */
-                (r = sd_journal_add_disjunction(j)) ||
-                (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
-                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
-                (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-
                 /* Look for messages from authorized daemons about this service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_USER_UNIT", unit)) ||
@@ -1656,7 +1680,17 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit) {
                 (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
         );
 
-        if (r == 0 && endswith(unit, ".slice"))
+        if (r == 0 && all)
+                (void) (
+                        /* Look for coredumps of the service */
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
+                        (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
+                );
+
+
+        if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1765,16 +1799,127 @@ int show_journal_by_unit(
         return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
 }
 
-static int discover_next_boot(
+static int journal_get_id128(sd_journal *j, const char *field, sd_id128_t *ret) {
+        const char *data, *str;
+        size_t len, fl;
+        sd_id128_t v;
+        int r;
+
+        assert(j);
+        assert(field);
+
+        /* This returns 1 when non-null ID is found, 0 when null ID is found, -ENOENT when the field not
+         * found, -EINVAL when the field found but not a valid ID, -EBADMSG or -EADDRNOTAVAIL when journal
+         * corruption detected. On a critical issue, other negative errno may be returned. */
+
+        r = sd_journal_get_data(j, field, (const void**) &data, &len);
+        if (r < 0)
+                return r;
+
+        fl = strlen(field);
+        assert(len > fl);
+        assert(data[fl] == '=');
+
+        if (len > fl + 1 + SD_ID128_UUID_STRING_MAX)
+                return -EINVAL;
+
+        str = memdupa_suffix0(data + fl + 1, len - fl - 1);
+
+        r = sd_id128_from_string(str, ret ?: &v);
+        if (r < 0)
+                return r;
+
+        return !sd_id128_is_null(ret ? *ret : v);
+}
+
+static int journal_get_invocation_id(sd_journal *j, sd_id128_t *ret) {
+        int r;
+
+        assert(j);
+
+        FOREACH_STRING(s,
+                       "_SYSTEMD_INVOCATION_ID",       /* By the systemd unit. */
+                       "OBJECT_SYSTEMD_INVOCATION_ID", /* Added by journald. */
+                       "INVOCATION_ID",                /* By the system service manager (PID 1). */
+                       "USER_INVOCATION_ID") {         /* By the user session service manager. */
+
+                r = journal_get_id128(j, s, ret);
+                if (!IN_SET(r, 0, -ENOENT, -EINVAL, -EBADMSG, -EADDRNOTAVAIL))
+                        return r;
+        }
+
+        /* No invocation ID found in the entry. */
+        if (ret)
+                *ret = SD_ID128_NULL;
+        return 0;
+}
+
+static const char* const log_id_type_table[_LOG_ID_TYPE_MAX] = {
+        [LOG_BOOT_ID]                   = "boot ID",
+        [LOG_SYSTEM_UNIT_INVOCATION_ID] = "system unit invocation ID",
+        [LOG_USER_UNIT_INVOCATION_ID]   = "user unit invocation ID",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(log_id_type, LogIdType);
+
+static int set_matches_for_discover_id(
                 sd_journal *j,
-                sd_id128_t previous_boot_id,
+                LogIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id) {
+
+        int r;
+
+        assert(j);
+        assert(type >= 0 && type < _LOG_ID_TYPE_MAX);
+
+        sd_journal_flush_matches(j);
+
+        if (type == LOG_BOOT_ID) {
+                if (sd_id128_is_null(id))
+                        return 0;
+
+                return add_match_boot_id(j, id);
+        }
+
+        if (!sd_id128_is_null(boot_id)) {
+                r = add_match_boot_id(j, boot_id);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_add_conjunction(j);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!sd_id128_is_null(id))
+                return add_matches_for_invocation_id(j, id);
+
+        if (type == LOG_SYSTEM_UNIT_INVOCATION_ID)
+                return add_matches_for_unit_full(j, /* all = */ false, unit);
+
+        if (type == LOG_USER_UNIT_INVOCATION_ID)
+                return add_matches_for_user_unit_full(j, /* all = */ false, unit);
+
+        return -EINVAL;
+}
+
+static int discover_next_id(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                const char *unit,    /* mandatory when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                sd_id128_t previous_id,
                 bool advance_older,
-                BootId *ret) {
+                LogId *ret) {
 
         _cleanup_set_free_ Set *broken_ids = NULL;
         int r;
 
         assert(j);
+        assert(type >= 0 && type < _LOG_ID_TYPE_MAX);
+        assert(type == LOG_BOOT_ID || unit);
         assert(ret);
 
         /* We expect the journal to be on the last position of a boot
@@ -1786,49 +1931,59 @@ static int discover_next_boot(
 
         /* Make sure we aren't restricted by any _BOOT_ID matches, so that
          * we can actually advance to a *different* boot. */
-        sd_journal_flush_matches(j);
+        r = set_matches_for_discover_id(j, type, boot_id, unit, SD_ID128_NULL);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 sd_id128_t *id_dup;
-                BootId boot;
+                LogId id;
 
                 r = sd_journal_step_one(j, !advance_older);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         sd_journal_flush_matches(j);
-                        *ret = (BootId) {};
+                        *ret = (LogId) {};
                         return 0; /* End of journal, yay. */
                 }
 
-                r = sd_journal_get_monotonic_usec(j, NULL, &boot.id);
+                if (type == LOG_BOOT_ID)
+                        r = sd_journal_get_monotonic_usec(j, NULL, &id.id);
+                else
+                        r = journal_get_invocation_id(j, &id.id);
                 if (r < 0)
                         return r;
 
-                /* We iterate through this in a loop, until the boot ID differs from the previous one. Note that
-                 * normally, this will only require a single iteration, as we moved to the last entry of the previous
-                 * boot entry already. However, it might happen that the per-journal-field entry arrays are less
-                 * complete than the main entry array, and hence might reference an entry that's not actually the last
-                 * one of the boot ID as last one. Let's hence use the per-field array is initial seek position to
+                if (sd_id128_is_null(id.id))
+                        continue;
+
+                /* We iterate through this in a loop, until the boot or invocation ID differs from the
+                 * previous one. Note that normally, this will only require a single iteration, as we moved
+                 * to the last entry of the previous boot or invocation entry already. However, it might
+                 * happen that the per-journal-field entry arrays are less complete than the main entry
+                 * array, and hence might reference an entry that's not actually the last one of the boot or
+                 * invocation ID as last one. Let's hence use the per-field array is initial seek position to
                  * speed things up, but let's not trust that it is complete, and hence, manually advance as
                  * necessary. */
 
-                if (!sd_id128_is_null(previous_boot_id) && sd_id128_equal(boot.id, previous_boot_id))
+                if (!sd_id128_is_null(previous_id) && sd_id128_equal(id.id, previous_id))
                         continue;
 
-                if (set_contains(broken_ids, &boot.id))
+                if (set_contains(broken_ids, &id.id))
                         continue;
 
-                /* Yay, we found a new boot ID from the entry object. Let's check there exist corresponding
-                 * entries matching with the _BOOT_ID= data. */
+                /* Yay, we found a new boot or invocation ID from the entry object. Let's check there exist
+                 * corresponding entries matching with the _BOOT_ID=, INVOCATION_ID= or friends data. */
 
-                r = add_match_boot_id(j, boot.id);
+                r = set_matches_for_discover_id(j, type, boot_id, unit, id.id);
                 if (r < 0)
                         return r;
 
-                /* First, seek to the first (or the last when we are going upwards) occurrence of this boot ID.
-                 * You may think this is redundant. Yes, that's redundant unless the journal is corrupted.
-                 * But when the journal is corrupted, especially, badly 'truncated', then the below may fail.
+                /* First, seek to the first (or the last when we are going upwards) occurrence of this boot
+                 * or invocation ID. You may think this is redundant. Yes, that's redundant unless the
+                 * journal is corrupted. But when the journal is corrupted, especially, badly 'truncated',
+                 * then the below may fail.
                  * See https://github.com/systemd/systemd/pull/29334#issuecomment-1736567951. */
                 if (advance_older)
                         r = sd_journal_seek_tail(j);
@@ -1841,17 +1996,19 @@ static int discover_next_boot(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_debug("Whoopsie! We found a boot ID %s but can't read its first entry. "
-                                  "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(boot.id));
+                        log_debug("Whoopsie! We found a %s %s but can't read its first entry. "
+                                  "The journal seems to be corrupted. Ignoring the %s.",
+                                  log_id_type_to_string(type),
+                                  SD_ID128_TO_STRING(id.id),
+                                  log_id_type_to_string(type));
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, advance_older ? &boot.last_usec : &boot.first_usec);
+                r = sd_journal_get_realtime_usec(j, advance_older ? &id.last_usec : &id.first_usec);
                 if (r < 0)
                         return r;
 
-                /* Next, seek to the last occurrence of this boot ID. */
+                /* Next, seek to the last occurrence of this boot or invocation ID. */
                 if (advance_older)
                         r = sd_journal_seek_head(j);
                 else
@@ -1863,23 +2020,25 @@ static int discover_next_boot(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_debug("Whoopsie! We found a boot ID %s but can't read its last entry. "
-                                  "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(boot.id));
+                        log_debug("Whoopsie! We found a %s %s but can't read its last entry. "
+                                  "The journal seems to be corrupted. Ignoring the %s.",
+                                  log_id_type_to_string(type),
+                                  SD_ID128_TO_STRING(id.id),
+                                  log_id_type_to_string(type));
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, advance_older ? &boot.first_usec : &boot.last_usec);
+                r = sd_journal_get_realtime_usec(j, advance_older ? &id.first_usec : &id.last_usec);
                 if (r < 0)
                         return r;
 
                 sd_journal_flush_matches(j);
-                *ret = boot;
+                *ret = id;
                 return 1;
 
         try_again:
-                /* Save the bad boot ID. */
-                id_dup = newdup(sd_id128_t, &boot.id, 1);
+                /* Save the bad boot or invocation ID. */
+                id_dup = newdup(sd_id128_t, &id.id, 1);
                 if (!id_dup)
                         return -ENOMEM;
 
@@ -1888,13 +2047,9 @@ static int discover_next_boot(
                         return r;
 
                 /* Move to the previous position again. */
-                sd_journal_flush_matches(j);
-
-                if (!sd_id128_is_null(previous_boot_id)) {
-                        r = add_match_boot_id(j, previous_boot_id);
-                        if (r < 0)
-                                return r;
-                }
+                r = set_matches_for_discover_id(j, type, boot_id, unit, previous_id);
+                if (r < 0)
+                        return r;
 
                 if (advance_older)
                         r = sd_journal_seek_head(j);
@@ -1908,31 +2063,41 @@ static int discover_next_boot(
                         return r;
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "Whoopsie! Cannot seek to the last entry of boot %s.",
-                                               SD_ID128_TO_STRING(previous_boot_id));
+                                               "Whoopsie! Cannot seek to the last entry of %s %s.",
+                                               log_id_type_to_string(type),
+                                               SD_ID128_TO_STRING(previous_id));
 
                 sd_journal_flush_matches(j);
         }
 }
 
-int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret) {
+int journal_find_log_id(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                const char *unit,    /* mandatory when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID
+                                      * unless an invocation ID is explicitly specified without an offset. */
+                sd_id128_t previous_id,
+                int offset,
+                sd_id128_t *ret) {
+
         bool advance_older;
         int r, offset_start;
 
         assert(j);
+        assert(type >= 0 && type < _LOG_ID_TYPE_MAX);
+        assert(type == LOG_BOOT_ID || (!sd_id128_is_null(previous_id) && offset == 0) || unit);
         assert(ret);
 
-        /* Adjust for the asymmetry that offset 0 is the last (and current) boot, while 1 is considered the
-         * (chronological) first boot in the journal. */
+        /* Adjust for the asymmetry that offset 0 is the last (and current) boot or invocation, while 1 is
+         * considered the (chronological) first boot or invocation in the journal. */
         advance_older = offset <= 0;
 
-        sd_journal_flush_matches(j);
+        r = set_matches_for_discover_id(j, type, boot_id, unit, previous_id);
+        if (r < 0)
+                return r;
 
-        if (!sd_id128_is_null(boot_id)) {
-                r = add_match_boot_id(j, boot_id);
-                if (r < 0)
-                        return r;
-
+        if (!sd_id128_is_null(previous_id)) {
                 if (advance_older)
                         r = sd_journal_seek_head(j); /* seek to oldest */
                 else
@@ -1949,9 +2114,9 @@ int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t 
                         return false;
                 }
                 if (offset == 0) {
-                        /* If boot ID is specified without an offset, then let's short cut the loop below. */
+                        /* If a non-null ID is specified without an offset, then let's short cut the loop below. */
                         sd_journal_flush_matches(j);
-                        *ret = boot_id;
+                        *ret = previous_id;
                         return true;
                 }
 
@@ -1967,14 +2132,14 @@ int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t 
                 offset_start = advance_older ? 0 : 1;
         }
 
-        /* At this point the cursor is positioned at the newest/oldest entry of the reference boot ID if
-         * specified, or whole journal otherwise. The next invocation of _previous()/_next() will hence
-         * position us at the newest/oldest entry we have. */
+        /* At this point the cursor is positioned at the newest/oldest entry of the reference boot or
+         * invocation ID if specified, or whole journal otherwise. The next invocation of _previous()/_next()
+         * will hence position us at the newest/oldest entry we have. */
 
         for (int off = offset_start; ; off += advance_older ? -1 : 1) {
-                BootId boot;
+                LogId id;
 
-                r = discover_next_boot(j, boot_id, advance_older, &boot);
+                r = discover_next_id(j, type, boot_id, unit, previous_id, advance_older, &id);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -1982,30 +2147,36 @@ int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t 
                         return false;
                 }
 
-                boot_id = boot.id;
-                log_debug("Found boot ID %s by offset %i", SD_ID128_TO_STRING(boot_id), off);
+                previous_id = id.id;
+                log_debug("Found %s %s by offset %i.",
+                          log_id_type_to_string(type), SD_ID128_TO_STRING(previous_id), off);
 
                 if (off == offset) {
-                        *ret = boot_id;
+                        *ret = previous_id;
                         return true;
                 }
         }
 }
 
-int journal_get_boots(
+int journal_get_log_ids(
                 sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                const char *unit,    /* mandatory when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
                 bool advance_older,
                 size_t max_ids,
-                BootId **ret_boots,
-                size_t *ret_n_boots) {
+                LogId **ret_ids,
+                size_t *ret_n_ids) {
 
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots = 0;
+        _cleanup_free_ LogId *ids = NULL;
+        size_t n_ids = 0;
         int r;
 
         assert(j);
-        assert(ret_boots);
-        assert(ret_n_boots);
+        assert(type >= 0 && type < _LOG_ID_TYPE_MAX);
+        assert(type == LOG_BOOT_ID || unit);
+        assert(ret_ids);
+        assert(ret_n_ids);
 
         sd_journal_flush_matches(j);
 
@@ -2021,33 +2192,34 @@ int journal_get_boots(
          * At this point the read pointer is positioned before the oldest entry in the whole journal. The
          * next invocation of _next() will hence position us at the oldest entry we have. */
 
-        sd_id128_t previous_boot_id = SD_ID128_NULL;
+        sd_id128_t previous_id = SD_ID128_NULL;
         for (;;) {
-                BootId boot;
+                LogId id;
 
-                if (n_boots >= max_ids)
+                if (n_ids >= max_ids)
                         break;
 
-                r = discover_next_boot(j, previous_boot_id, advance_older, &boot);
+                r = discover_next_id(j, type, boot_id, unit, previous_id, advance_older, &id);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                previous_boot_id = boot.id;
+                previous_id = id.id;
 
-                FOREACH_ARRAY(i, boots, n_boots)
-                        if (sd_id128_equal(i->id, boot.id))
-                                /* The boot id is already stored, something wrong with the journal files.
-                                 * Exiting as otherwise this problem would cause an infinite loop. */
+                FOREACH_ARRAY(i, ids, n_ids)
+                        if (sd_id128_equal(i->id, id.id))
+                                /* The boot or invocation ID is already stored, something wrong with the
+                                 * journal files. Exiting as otherwise this problem would cause an infinite
+                                 * loop. */
                                 goto finish;
 
-                if (!GREEDY_REALLOC_APPEND(boots, n_boots, &boot, 1))
+                if (!GREEDY_REALLOC_APPEND(ids, n_ids, &id, 1))
                         return -ENOMEM;
         }
 
  finish:
-        *ret_boots = TAKE_PTR(boots);
-        *ret_n_boots = n_boots;
-        return n_boots > 0;
+        *ret_ids = TAKE_PTR(ids);
+        *ret_n_ids = n_ids;
+        return n_ids > 0;
 }

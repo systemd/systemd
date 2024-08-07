@@ -91,6 +91,7 @@
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;
+CapabilityMode arg_capability = CAPABILITY_LITERAL;
 char **arg_dot_from_patterns = NULL, **arg_dot_to_patterns = NULL;
 usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
@@ -101,6 +102,8 @@ RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
 bool arg_man = true;
 bool arg_generators = false;
+double arg_svg_timescale = 1.0;
+bool arg_detailed_svg = false;
 char *arg_root = NULL;
 static char *arg_image = NULL;
 char *arg_security_policy = NULL;
@@ -276,6 +279,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             security review of the unit(s)\n"
                "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
                "     --table                 Output plot's raw time data as a table\n"
+               "     --scale-svg=FACTOR      Stretch x-axis of plot by FACTOR (default: 1.0)\n"
+               "     --detailed              Add more details to SVG plot,\n"
+               "                             e.g. show activation timestamps\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
@@ -324,6 +330,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TABLE,
                 ARG_NO_LEGEND,
                 ARG_TLDR,
+                ARG_SCALE_FACTOR_SVG,
+                ARG_DETAILED_SVG,
         };
 
         static const struct option options[] = {
@@ -358,6 +366,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 { "tldr",             no_argument,       NULL, ARG_TLDR             },
+                { "mask",             no_argument,       NULL, 'm'                  },
+                { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
+                { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
                 {}
         };
 
@@ -366,7 +377,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -551,6 +562,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_cat_flags = CAT_TLDR;
                         break;
 
+                case 'm':
+                        arg_capability = CAPABILITY_MASK;
+                        break;
+
+                case ARG_SCALE_FACTOR_SVG:
+                        arg_svg_timescale = strtod(optarg, NULL);
+                        break;
+
+                case ARG_DETAILED_SVG:
+                        arg_detailed_svg = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -586,7 +609,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
@@ -613,6 +636,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_table && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--table and --json= are mutually exclusive.");
+
+        if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
 
         return 1; /* work to do */
 }

@@ -1148,6 +1148,11 @@ static void resolve_service_all_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
+        if (isempty(type)) {
+                r = reply_method_errorf(q, BUS_ERROR_NO_SUCH_SERVICE, "'%s' does not provide valid service", dns_query_string(q));
+                goto finish;
+        }
+
         r = sd_bus_message_append(
                         reply,
                         "ssst",

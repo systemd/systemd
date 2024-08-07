@@ -822,9 +822,6 @@ static int link_handle_bound_by_list(Link *link) {
 
         /* Update up or down state of interfaces which depend on this interface's carrier state. */
 
-        if (hashmap_isempty(link->bound_by_links))
-                return 0;
-
         HASHMAP_FOREACH(l, link->bound_by_links) {
                 r = link_handle_bound_to_list(l);
                 if (r < 0)
@@ -1714,6 +1711,13 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
 
+        /* Process BindCarrier= setting specified by other interfaces. This is independent of the .network
+         * file assigned to this interface, but depends on .network files assigned to other interfaces.
+         * Hence, this can and should be called earlier. */
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         /* If a wireless interface was connected to an access point, and the SSID is changed (that is,
          * both previous_ssid and ssid are non-NULL), then the connected wireless network could be
          * changed. So, always reconfigure the link. Which means e.g. the DHCP client will be
@@ -1747,10 +1751,6 @@ static int link_carrier_gained(Link *link) {
         if (r != 0)
                 return r;
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return 0;
@@ -1769,25 +1769,22 @@ static int link_carrier_gained(Link *link) {
 }
 
 static int link_carrier_lost_impl(Link *link) {
-        int r, ret = 0;
+        int ret = 0;
 
         assert(link);
 
         link->previous_ssid = mfree(link->previous_ssid);
 
+        ret = link_handle_bound_by_list(link);
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                return ret;
 
         if (!link->network)
-                return 0;
+                return ret;
 
-        r = link_stop_engines(link, false);
-        if (r < 0)
-                ret = r;
-
-        r = link_drop_managed_config(link);
-        if (r < 0 && ret >= 0)
-                ret = r;
+        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_drop_managed_config(link));
 
         return ret;
 }
@@ -1808,22 +1805,17 @@ static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *us
 static int link_carrier_lost(Link *link) {
         uint16_t dhcp_mtu;
         usec_t usec;
-        int r;
 
         assert(link);
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return 0;
+                usec = 0;
 
-        if (!link->network)
-                return 0;
+        else if (!link->network)
+                usec = 0;
 
-        if (link->network->ignore_carrier_loss_set)
+        else if (link->network->ignore_carrier_loss_set)
                 /* If IgnoreCarrierLoss= is explicitly specified, then use the specified value. */
                 usec = link->network->ignore_carrier_loss_usec;
 

@@ -20,7 +20,9 @@ typedef enum InhibitWhat {
 
 typedef enum InhibitMode {
         INHIBIT_BLOCK,
+        INHIBIT_BLOCK_WEAK,
         INHIBIT_DELAY,
+        INHIBIT_DELAY_WEAK,
         _INHIBIT_MODE_MAX,
         _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
@@ -65,8 +67,8 @@ int inhibitor_create_fifo(Inhibitor *i);
 
 bool inhibitor_is_orphan(Inhibitor *i);
 
-InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
+InhibitWhat manager_inhibit_what(Manager *m, bool block);
+bool manager_is_inhibited(Manager *m, InhibitWhat w, bool block, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
 static inline bool inhibit_what_is_valid(InhibitWhat w) {
         return w > 0 && w < _INHIBIT_WHAT_MAX;

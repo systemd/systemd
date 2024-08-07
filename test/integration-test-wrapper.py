@@ -62,19 +62,29 @@ def main():
         exit(77)
 
     keep_journal = os.getenv("TEST_SAVE_JOURNAL", "fail")
+    shell = bool(int(os.getenv("TEST_SHELL", "0")))
+
+    if shell and not sys.stderr.isatty():
+        print(f"--interactive must be passed to meson test to use TEST_SHELL=1", file=sys.stderr)
+        exit(1)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
 
     dropin = textwrap.dedent(
         """\
-        [Unit]
-        SuccessAction=exit
-        SuccessActionExitStatus=123
-
         [Service]
         StandardOutput=journal+console
         """
     )
+
+    if not shell:
+        dropin += textwrap.dedent(
+            f"""
+            [Unit]
+            SuccessAction=exit
+            SuccessActionExitStatus=123
+            """
+        )
 
     if os.getenv("TEST_MATCH_SUBTEST"):
         dropin += textwrap.dedent(
@@ -92,6 +102,7 @@ def main():
             """
         )
 
+    journal_file = None
     if not sys.stderr.isatty():
         dropin += textwrap.dedent(
             """
@@ -102,14 +113,13 @@ def main():
 
         journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
-    else:
+    elif not shell:
         dropin += textwrap.dedent(
             """
             [Unit]
             Wants=multi-user.target
             """
         )
-        journal_file = None
 
     cmd = [
         args.mkosi,
@@ -140,7 +150,7 @@ def main():
         ' '.join([
             'systemd.hostname=H',
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/{args.name}.units:/usr/lib/systemd/tests/testdata/units:",
-            f"systemd.unit={args.unit}",
+            *([f"systemd.unit={args.unit}"] if not shell else []),
             'systemd.mask=systemd-networkd-wait-online.service',
             *(
                 [
@@ -154,6 +164,7 @@ def main():
             ),
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
+        *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
         'qemu' if args.vm or os.getuid() != 0 else 'boot',
     ]
 
@@ -162,8 +173,8 @@ def main():
     if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
         journal_file.unlink(missing_ok=True)
 
-    if result.returncode in (args.exit_code, 77):
-        exit(0 if result.returncode == args.exit_code else 77)
+    if shell or result.returncode in (args.exit_code, 77):
+        exit(0 if shell or result.returncode == args.exit_code else 77)
 
     if journal_file:
         ops = []

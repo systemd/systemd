@@ -2224,29 +2224,24 @@ finalize:
 }
 
 static int svc_params_to_json(DnsSvcParam *params, sd_json_variant **ret) {
-        sd_json_variant **elements = NULL;
-        size_t n = 0;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
 
         assert(ret);
 
         LIST_FOREACH(params, i, params) {
-                if (!GREEDY_REALLOC(elements, n + 1)) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
-
-                r = sd_json_variant_new_base64(elements + n, i->value, i->length);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = sd_json_variant_new_base64(&v, i->value, i->length);
                 if (r < 0)
-                        goto finalize;
+                        return r;
 
-                n++;
+                r = sd_json_variant_set_field(&w, FORMAT_DNS_SVC_PARAM_KEY(i->key), v);
+                if (r < 0)
+                        return r;
         }
 
-        r = sd_json_variant_new_array(ret, elements, n);
-finalize:
-        sd_json_variant_unref_many(elements, n);
-        return r;
+        *ret = TAKE_PTR(w);
+        return 0;
 }
 
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
@@ -2436,7 +2431,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
                                 SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->svcb.priority)),
                                 SD_JSON_BUILD_PAIR("target", SD_JSON_BUILD_STRING(rr->svcb.target_name)),
-                                SD_JSON_BUILD_PAIR("params", SD_JSON_BUILD_VARIANT(p)));
+                                SD_JSON_BUILD_PAIR("svcparams", SD_JSON_BUILD_VARIANT(p)));
         }
 
         case DNS_TYPE_CAA:

@@ -91,6 +91,26 @@ static bool SOCKET_STATE_WITH_PROCESS(SocketState state) {
                       SOCKET_CLEANING);
 }
 
+static bool SOCKET_SERVICE_IS_ACTIVE(Service *s, bool allow_finalize) {
+        assert(s);
+
+        /* If unit_active_state() reports inactive/failed then it's all good, otherwise we need to
+         * manually exclude SERVICE_AUTO_RESTART and SERVICE_AUTO_RESTART_QUEUED, in which cases
+         * the start job hasn't been enqueued/run, but are only placeholders in order to allow
+         * canceling auto restart. */
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(UNIT(s))))
+                return false;
+
+        if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED))
+                return false;
+
+        if (allow_finalize && IN_SET(s->state, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL, SERVICE_CLEANING))
+                return false;
+
+        return true;
+}
+
 static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
 
@@ -2041,7 +2061,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         else
                 unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
@@ -2242,7 +2262,7 @@ static void socket_enter_start_pre(Socket *s) {
 
         socket_unwatch_control_pid(s);
 
-        unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_start);
+        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
 
         s->control_command_id = SOCKET_EXEC_START_PRE;
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
@@ -2469,19 +2489,14 @@ static int socket_start(Unit *u) {
 
         /* Cannot run this without the service being around */
         if (UNIT_ISSET(s->service)) {
-                Service *service;
-
-                service = SERVICE(UNIT_DEREF(s->service));
+                Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
 
                 if (UNIT(service)->load_state != UNIT_LOADED)
                         return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
                                                     "Socket service %s not loaded, refusing.", UNIT(service)->id);
 
-                /* If the service is already active we cannot start the
-                 * socket */
-                if (!IN_SET(service->state,
-                            SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
-                            SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED))
+                /* If the service is already active we cannot start the socket */
+                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize = */ false))
                         return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
                                                     "Socket service %s already active, refusing.", UNIT(service)->id);
         }
@@ -3346,7 +3361,8 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
 
         /* Filter out invocations with bogus state */
         assert(UNIT_IS_LOAD_COMPLETE(other->load_state));
-        assert(other->type == UNIT_SERVICE);
+
+        Service *service = ASSERT_PTR(SERVICE(other));
 
         /* Don't propagate state changes from the service if we are already down */
         if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING))
@@ -3366,11 +3382,8 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         if (other->job)
                 return;
 
-        if (IN_SET(SERVICE(other)->state,
-                   SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                   SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED))
-               socket_enter_listening(s);
+        if (!SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize = */ true))
+                socket_enter_listening(s);
 
         if (SERVICE(other)->state == SERVICE_RUNNING)
                 socket_set_state(s, SOCKET_RUNNING);

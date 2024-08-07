@@ -626,10 +626,10 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
                 if (n == 0) /* We hit EOF! Let's parse this */
                         break;
 
-                d->full += n;
-
-                if (d->full >= sizeof(d->buffer))
+                if ((size_t) n >= sizeof(d->buffer) - d->full)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received notify message exceeded maximum size.");
+
+                d->full += n;
         }
 
         /* We reached EOF, now parse the thing */
@@ -677,7 +677,7 @@ static int vmspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 int q;
 
                 /* If we are done or are seeing an error we'll turn off floating mode, which means the event
-                 * loop itself won't keep the event source pinned anymore, and since noone else (hopefully!)
+                 * loop itself won't keep the event source pinned anymore, and since no one else (hopefully!)
                  * keeps a reference anymore the whole thing will be released once we exit from this handler
                  * here. */
 

@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "audit-util.h"
+#include "bitfield.h"
 #include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -310,7 +311,7 @@ static int property_get_inhibited(
         assert(bus);
         assert(reply);
 
-        w = manager_inhibit_what(m, streq(property, "BlockInhibited") ? INHIBIT_BLOCK : INHIBIT_DELAY);
+        w = manager_inhibit_what(m, /* block= */ streq(property, "BlockInhibited"));
 
         return sd_bus_message_append(reply, "s", inhibit_what_to_string(w));
 }
@@ -338,6 +339,35 @@ static int property_get_preparing(
         }
 
         return sd_bus_message_append(reply, "b", b);
+}
+
+static int property_get_preparing_shutdown_with_metadata(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        if (!m->delayed_action || !(m->delayed_action->inhibit_what & INHIBIT_SHUTDOWN))
+                return sd_bus_message_append(reply, "a{sv}", 1, "preparing", "b", false);
+
+        return sd_bus_message_append(
+                        reply,
+                        "a{sv}",
+                        2,
+                        "preparing",
+                        "b",
+                        true,
+                        "type",
+                        "s",
+                        handle_action_to_string(m->delayed_action->handle));
 }
 
 static int property_get_sleep_operations(
@@ -1880,7 +1910,7 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, /* block= */ false, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 if (!timeout)
@@ -1977,7 +2007,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, a->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, NULL);
+                manager_is_inhibited(m, a->inhibit_what, /* block= */ false, NULL, false, false, 0, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -2020,7 +2050,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2039,17 +2069,23 @@ static int verify_shutdown_creds(
         }
 
         if (blocked) {
-                /* We don't check polkit for root here, because you can't be more privileged than root */
-                if (uid == 0 && (flags & SD_LOGIND_ROOT_CHECK_INHIBITORS))
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
-                                                 "Access denied to root due to active block inhibitor");
+                                                 "Access denied due to active block inhibitor");
+
+                /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
+                 * by polkit */
+                PolkitFlags polkit_flags = POLKIT_ALWAYS_QUERY;
+
+                if (interactive)
+                        polkit_flags |= POLKIT_ALLOW_INTERACTIVE;
 
                 r = bus_verify_polkit_async_full(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
                                 /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                polkit_flags,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2605,7 +2641,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                                                         "No upcoming maintenance window scheduled");
                                 return sd_bus_error_setf(error,
                                                 BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                "Failed to determine next maintenace window");
+                                                "Failed to determine next maintenance window");
                         }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
@@ -2748,7 +2784,7 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
 
         if (check_unit_state && a->target) {
                 _cleanup_free_ char *load_state = NULL;
@@ -3586,7 +3622,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                          "Invalid mode specification %s", mode);
 
         /* Delay is only supported for shutdown/sleep */
-        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+        if (IN_SET(mm, INHIBIT_DELAY, INHIBIT_DELAY_WEAK) && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Delay inhibitors only supported for shutdown and sleep");
 
@@ -3598,23 +3634,27 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
                                          "The operation inhibition has been requested for is already running");
 
-        r = bus_verify_polkit_async(
-                        message,
-                        w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                        w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
-                        w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
-                        w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
-                        w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
-                        w == INHIBIT_HANDLE_REBOOT_KEY    ? "org.freedesktop.login1.inhibit-handle-reboot-key" :
-                        w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
-                                                            "org.freedesktop.login1.inhibit-handle-lid-switch",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        BIT_FOREACH(i, w) {
+                const InhibitWhat v = 1U << i;
+
+                r = bus_verify_polkit_async(
+                                message,
+                                v == INHIBIT_SHUTDOWN             ? (IN_SET(mm, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                                v == INHIBIT_SLEEP                ? (IN_SET(mm, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                                v == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
+                                v == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                                v == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                                v == INHIBIT_HANDLE_REBOOT_KEY    ? "org.freedesktop.login1.inhibit-handle-reboot-key" :
+                                v == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
+                                                                "org.freedesktop.login1.inhibit-handle-lid-switch",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        }
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
@@ -3707,6 +3747,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleAction", "s", property_get_handle_action, offsetof(Manager, idle_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
+        SD_BUS_PROPERTY("PreparingForShutdownWithMetadata", "a{sv}", property_get_preparing_shutdown_with_metadata, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, 0),

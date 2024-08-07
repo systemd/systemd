@@ -149,7 +149,9 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 if (pid == 0)
                         return -EREMOTE;
 
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
+                /* We might read kernel thread pids from cgroup.procs for which we cannot create a pidfd so
+                 * catch those and don't try to create a pidfd for them. */
+                if (FLAGS_SET(flags, CGROUP_NO_PIDFD) || pid_is_kernel_thread(pid) > 0) {
                         *ret = PIDREF_MAKE_FROM_PID(pid);
                         return 1;
                 }
@@ -206,19 +208,16 @@ int cg_read_event(
 }
 
 bool cg_ns_supported(void) {
-        static thread_local int enabled = -1;
+        static thread_local int supported = -1;
 
-        if (enabled >= 0)
-                return enabled;
+        if (supported >= 0)
+                return supported;
 
-        if (access("/proc/self/ns/cgroup", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
-                enabled = false;
-        } else
-                enabled = true;
-
-        return enabled;
+        if (access("/proc/self/ns/cgroup", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
+        return (supported = false);
 }
 
 bool cg_freezer_supported(void) {
@@ -227,9 +226,14 @@ bool cg_freezer_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) == 0;
+        if (cg_all_unified() <= 0)
+                return (supported = false);
 
-        return supported;
+        if (access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether cgroup freezer is available, assuming not: %m");
+        return (supported = false);
 }
 
 bool cg_kill_supported(void) {
@@ -239,15 +243,13 @@ bool cg_kill_supported(void) {
                 return supported;
 
         if (cg_all_unified() <= 0)
-                supported = false;
-        else if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check if cgroup.kill is available, assuming not: %m");
-                supported = false;
-        } else
-                supported = true;
+                return (supported = false);
 
-        return supported;
+        if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) >= 0)
+                return (supported = true);
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether cgroup.kill is available, assuming not: %m");
+        return (supported = false);
 }
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret) {
@@ -289,54 +291,31 @@ int cg_read_subgroup(DIR *d, char **ret) {
         return 0;
 }
 
-int cg_rmdir(const char *controller, const char *path) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = cg_get_path(controller, path, NULL, &p);
-        if (r < 0)
-                return r;
-
-        r = rmdir(p);
-        if (r < 0 && errno != ENOENT)
-                return -errno;
-
-        r = cg_hybrid_unified();
-        if (r <= 0)
-                return r;
-
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove compat systemd cgroup %s: %m", path);
-        }
-
-        return 0;
-}
-
 static int cg_kill_items(
                 const char *path,
+                const char *item,
                 int sig,
                 CGroupFlags flags,
                 Set *s,
                 cg_kill_log_func_t log_kill,
-                void *userdata,
-                const char *item) {
+                void *userdata) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
-        bool done = false;
-        int r, ret = 0, ret_log_kill = 0;
+        int r, ret = 0;
 
+        assert(path);
+        assert(item);
         assert(sig >= 0);
 
-         /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence don't send
-          * SIGCONT on SIGKILL. */
+         /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence
+          * don't send SIGCONT on SIGKILL. */
         if (IN_SET(sig, SIGCONT, SIGKILL))
                 flags &= ~CGROUP_SIGCONT;
 
-        /* This goes through the tasks list and kills them all. This
-         * is repeated until no further processes are added to the
-         * tasks list, to properly handle forking processes */
+        /* This goes through the tasks list and kills them all. This is repeated until no further processes
+         * are added to the tasks list, to properly handle forking processes.
+         *
+         * When sending SIGKILL, prefer cg_kill_kernel_sigkill(), which is fully atomic. */
 
         if (!s) {
                 s = allocated_set = set_new(NULL);
@@ -344,8 +323,11 @@ static int cg_kill_items(
                         return -ENOMEM;
         }
 
+        bool done;
         do {
                 _cleanup_fclose_ FILE *f = NULL;
+                int ret_log_kill;
+
                 done = true;
 
                 r = cg_enumerate_items(SYSTEMD_CGROUP_CONTROLLER, path, &f, item);
@@ -366,8 +348,14 @@ static int cg_kill_items(
                         if ((flags & CGROUP_IGNORE_SELF) && pidref_is_self(&pidref))
                                 continue;
 
-                        if (set_get(s, PID_TO_PTR(pidref.pid)) == PID_TO_PTR(pidref.pid))
+                        if (set_contains(s, PID_TO_PTR(pidref.pid)))
                                 continue;
+
+                        /* Ignore kernel threads to mimic the behavior of cgroup.kill. */
+                        if (pidref_is_kernel_thread(&pidref) > 0) {
+                                log_debug("Ignoring kernel thread with pid " PID_FMT " in cgroup '%s'", pidref.pid, path);
+                                continue;
+                        }
 
                         if (log_kill)
                                 ret_log_kill = log_kill(&pidref, sig, userdata);
@@ -413,13 +401,13 @@ int cg_kill(
 
         int r, ret;
 
-        r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.procs");
-        if (r < 0)
-                log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.procs: %m", path);
-        if (r < 0 || sig != SIGKILL)
-                return r;
+        assert(path);
 
-        ret = r;
+        ret = cg_kill_items(path, "cgroup.procs", sig, flags, s, log_kill, userdata);
+        if (ret < 0)
+                return log_debug_errno(ret, "Failed to kill processes in cgroup '%s' item cgroup.procs: %m", path);
+        if (sig != SIGKILL)
+                return ret;
 
         /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
            a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
@@ -434,19 +422,75 @@ int cg_kill(
          * older kernels or without PIDFD_THREAD pidfd_open() fails with EINVAL. Since we might read non
          * thread group leader IDs from cgroup.threads, we set CGROUP_NO_PIDFD to avoid trying open pidfd's
          * for them and instead use the regular pid. */
-        r = cg_kill_items(path, sig, flags|CGROUP_NO_PIDFD, s, log_kill, userdata, "cgroup.threads");
+        r = cg_kill_items(path, "cgroup.threads", sig, flags|CGROUP_NO_PIDFD, s, log_kill, userdata);
         if (r < 0)
                 return log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.threads: %m", path);
 
         return r > 0 || ret > 0;
 }
 
-int cg_kill_kernel_sigkill(const char *path) {
-        /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.  This sends SIGKILL to all
-         * processes in the cgroup and has the advantage of being completely atomic, unlike cg_kill_items(). */
+int cg_kill_recursive(
+                const char *path,
+                int sig,
+                CGroupFlags flags,
+                Set *s,
+                cg_kill_log_func_t log_kill,
+                void *userdata) {
 
+        _cleanup_set_free_ Set *allocated_set = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, ret;
+
+        assert(path);
+        assert(sig >= 0);
+
+        if (!s) {
+                s = allocated_set = set_new(NULL);
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        ret = cg_kill(path, sig, flags, s, log_kill, userdata);
+
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup '%s' subgroups: %m", path));
+
+                return ret;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *fn = NULL, *p = NULL;
+
+                r = cg_read_subgroup(d, &fn);
+                if (r < 0) {
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to read subgroup from cgroup '%s': %m", path));
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                p = path_join(empty_to_root(path), fn);
+                if (!p)
+                        return -ENOMEM;
+
+                r = cg_kill_recursive(p, sig, flags, s, log_kill, userdata);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to recursively kill processes in cgroup '%s': %m", p);
+                if (r != 0 && ret >= 0)
+                        ret = r;
+        }
+
+        return ret;
+}
+
+int cg_kill_kernel_sigkill(const char *path) {
         _cleanup_free_ char *killfile = NULL;
         int r;
+
+        /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.  This sends SIGKILL to all
+         * processes in the cgroup and has the advantage of being completely atomic, unlike cg_kill_items(). */
 
         assert(path);
 
@@ -462,75 +506,6 @@ int cg_kill_kernel_sigkill(const char *path) {
                 return log_debug_errno(r, "Failed to write to cgroup.kill for cgroup '%s': %m", path);
 
         return 0;
-}
-
-int cg_kill_recursive(
-                const char *path,
-                int sig,
-                CGroupFlags flags,
-                Set *s,
-                cg_kill_log_func_t log_kill,
-                void *userdata) {
-
-        int r, ret;
-
-        assert(path);
-        assert(sig >= 0);
-
-        if (sig == SIGKILL && cg_kill_supported() &&
-            !FLAGS_SET(flags, CGROUP_IGNORE_SELF) && !s && !log_kill)
-                /* ignore CGROUP_SIGCONT, since this is a no-op alongside SIGKILL */
-                ret = cg_kill_kernel_sigkill(path);
-        else {
-                _cleanup_set_free_ Set *allocated_set = NULL;
-                _cleanup_closedir_ DIR *d = NULL;
-
-                if (!s) {
-                        s = allocated_set = set_new(NULL);
-                        if (!s)
-                                return -ENOMEM;
-                }
-
-                ret = cg_kill(path, sig, flags, s, log_kill, userdata);
-
-                r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup '%s' subgroups: %m", path));
-
-                        return ret;
-                }
-
-                for (;;) {
-                        _cleanup_free_ char *fn = NULL, *p = NULL;
-
-                        r = cg_read_subgroup(d, &fn);
-                        if (r < 0) {
-                                RET_GATHER(ret, log_debug_errno(r, "Failed to read subgroup from cgroup '%s': %m", path));
-                                break;
-                        }
-                        if (r == 0)
-                                break;
-
-                        p = path_join(empty_to_root(path), fn);
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = cg_kill_recursive(p, sig, flags, s, log_kill, userdata);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to recursively kill processes in cgroup '%s': %m", p);
-                        if (r != 0 && ret >= 0)
-                                ret = r;
-                }
-        }
-
-        if (FLAGS_SET(flags, CGROUP_REMOVE)) {
-                r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, path);
-                if (!IN_SET(r, -ENOENT, -EBUSY))
-                        RET_GATHER(ret, log_debug_errno(r, "Failed to remove cgroup '%s': %m", path));
-        }
-
-        return ret;
 }
 
 static const char *controller_to_dirname(const char *controller) {
@@ -859,91 +834,6 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
                 return r;
 
         *ret_path = TAKE_PTR(path);
-        return 0;
-}
-
-int cg_install_release_agent(const char *controller, const char *agent) {
-        _cleanup_free_ char *fs = NULL, *contents = NULL;
-        const char *sc;
-        int r;
-
-        assert(agent);
-
-        r = cg_unified_controller(controller);
-        if (r < 0)
-                return r;
-        if (r > 0) /* doesn't apply to unified hierarchy */
-                return -EOPNOTSUPP;
-
-        r = cg_get_path(controller, NULL, "release_agent", &fs);
-        if (r < 0)
-                return r;
-
-        r = read_one_line_file(fs, &contents);
-        if (r < 0)
-                return r;
-
-        sc = strstrip(contents);
-        if (isempty(sc)) {
-                r = write_string_file(fs, agent, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (r < 0)
-                        return r;
-        } else if (!path_equal(sc, agent))
-                return -EEXIST;
-
-        fs = mfree(fs);
-        r = cg_get_path(controller, NULL, "notify_on_release", &fs);
-        if (r < 0)
-                return r;
-
-        contents = mfree(contents);
-        r = read_one_line_file(fs, &contents);
-        if (r < 0)
-                return r;
-
-        sc = strstrip(contents);
-        if (streq(sc, "0")) {
-                r = write_string_file(fs, "1", WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (r < 0)
-                        return r;
-
-                return 1;
-        }
-
-        if (!streq(sc, "1"))
-                return -EIO;
-
-        return 0;
-}
-
-int cg_uninstall_release_agent(const char *controller) {
-        _cleanup_free_ char *fs = NULL;
-        int r;
-
-        r = cg_unified_controller(controller);
-        if (r < 0)
-                return r;
-        if (r > 0) /* Doesn't apply to unified hierarchy */
-                return -EOPNOTSUPP;
-
-        r = cg_get_path(controller, NULL, "notify_on_release", &fs);
-        if (r < 0)
-                return r;
-
-        r = write_string_file(fs, "0", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return r;
-
-        fs = mfree(fs);
-
-        r = cg_get_path(controller, NULL, "release_agent", &fs);
-        if (r < 0)
-                return r;
-
-        r = write_string_file(fs, "", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 

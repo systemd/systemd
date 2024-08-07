@@ -18,7 +18,13 @@ typedef enum DotMode {
         DEP_REQUIRE,
 } DotMode;
 
+typedef enum CapabilityMode {
+        CAPABILITY_LITERAL,
+        CAPABILITY_MASK,
+} CapabilityMode;
+
 extern DotMode arg_dot;
+extern CapabilityMode arg_capability;
 extern char **arg_dot_from_patterns, **arg_dot_to_patterns;
 extern usec_t arg_fuzz;
 extern PagerFlags arg_pager_flags;
@@ -29,6 +35,8 @@ extern RuntimeScope arg_runtime_scope;
 extern RecursiveErrors arg_recursive_errors;
 extern bool arg_man;
 extern bool arg_generators;
+extern double arg_svg_timescale;
+extern bool arg_detailed_svg;
 extern char *arg_root;
 extern char *arg_security_policy;
 extern bool arg_offline;

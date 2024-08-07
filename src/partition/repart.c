@@ -23,6 +23,7 @@
 #include "btrfs-util.h"
 #include "build.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -558,7 +559,7 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context *context_new(sd_id128_t seed) {
+static Context* context_new(sd_id128_t seed) {
         Context *context;
 
         context = new(Context, 1);
@@ -585,7 +586,7 @@ static void context_free_free_areas(Context *context) {
         context->n_free_areas = 0;
 }
 
-static Context *context_free(Context *context) {
+static Context* context_free(Context *context) {
         if (!context)
                 return NULL;
 
@@ -3778,7 +3779,7 @@ static const char* partition_target_path(PartitionTarget *t) {
         return t->path;
 }
 
-static PartitionTarget *partition_target_free(PartitionTarget *t) {
+static PartitionTarget* partition_target_free(PartitionTarget *t) {
         if (!t)
                 return NULL;
 
@@ -3792,12 +3793,14 @@ static PartitionTarget *partition_target_free(PartitionTarget *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
 
-static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
+static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t size) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *vt;
+        unsigned attrs = 0;
         int r;
 
+        assert(context);
         assert(t);
 
         r = var_tmp_dir(&vt);
@@ -3811,6 +3814,16 @@ static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
         fd = mkostemp_safe(temp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file: %m");
+
+        r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
+
+        if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
+                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                        return log_error_errno(r, "Failed to disable copy-on-write on %s: %m", temp);
+        }
 
         if (ftruncate(fd, size) < 0)
                 return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
@@ -3882,7 +3895,7 @@ static int partition_target_prepare(
          * reflinking support, we can take advantage of this and just reflink the result into the image.
          */
 
-        r = prepare_temporary_file(t, size);
+        r = prepare_temporary_file(context, t, size);
         if (r < 0)
                 return r;
 
@@ -5831,6 +5844,7 @@ static int split_name_resolve(Context *context) {
 }
 
 static int context_split(Context *context) {
+        unsigned attrs = 0;
         int fd = -EBADF, r;
 
         if (!arg_split)
@@ -5857,12 +5871,22 @@ static int context_split(Context *context) {
                 if (partition_type_defer(&p->type))
                         continue;
 
-                fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
+                if (fd < 0) {
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                        r = read_attr_fd(fd, &attrs);
+                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
+                }
+
+                fdt = xopenat_full(
+                                AT_FDCWD,
+                                p->split_path,
+                                O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL,
+                                attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
+                                0666);
                 if (fdt < 0)
                         return log_error_errno(fdt, "Failed to open split partition file %s: %m", p->split_path);
-
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                 if (lseek(fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
@@ -6661,9 +6685,14 @@ static int context_crypttab(Context *context) {
 
 static int context_minimize(Context *context) {
         const char *vt = NULL;
+        unsigned attrs = 0;
         int r;
 
         assert(context);
+
+        r = read_attr_fd(context->backing_fd, &attrs);
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
@@ -6711,13 +6740,18 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate temporary file path: %m");
 
+                fd = xopenat_full(
+                                AT_FDCWD,
+                                temp,
+                                O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY,
+                                attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
+                                0600);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
                 if (fstype_is_ro(p->format))
                         fs_uuid = p->fs_uuid;
                 else {
-                        fd = open(temp, O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY, 0600);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
-
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
                          * on disk until written to. */
                         if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
@@ -6768,7 +6802,7 @@ static int context_minimize(Context *context) {
                 /* Read-only filesystems are minimal from the first try because they create and size the
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
-                        assert(fd < 0);
+                        fd = safe_close(fd);
 
                         fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                         if (fd < 0)
@@ -6904,17 +6938,18 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate temporary file path: %m");
 
-                r = touch(temp);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary file: %m");
+                fd = xopenat_full(
+                                AT_FDCWD,
+                                temp,
+                                O_RDONLY|O_CLOEXEC|O_CREAT|O_NONBLOCK,
+                                attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
+                                0600);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
                 r = partition_format_verity_hash(context, p, temp, dp->copy_blocks_path);
                 if (r < 0)
                         return r;
-
-                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat temporary file: %m");
@@ -7874,7 +7909,7 @@ static int find_root(Context *context) {
                         if (!s)
                                 return log_oom();
 
-                        fd = open(arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0666);
+                        fd = xopenat_full(AT_FDCWD, arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, XO_NOCOW, 0666);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 

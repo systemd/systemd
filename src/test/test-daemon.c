@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
         if (argc >= 2) {
                 unsigned x;
 
-                assert_se(safe_atou(argv[1], &x) >= 0);
+                ASSERT_OK(safe_atou(argv[1], &x));
                 duration = x * USEC_PER_SEC;
         }
 

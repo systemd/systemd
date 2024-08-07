@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "exec-invoke.h"
 #include "execute-serialize.h"
 #include "execute.h"
@@ -205,6 +206,13 @@ static int run(int argc, char *argv[]) {
         /* Now that we know the intended log target, allow IPC and open the final log target. */
         log_set_prohibit_ipc(false);
         log_open();
+
+        /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+         * not affect the permitted and effective sets which are important for the executor itself to
+         * operate. */
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to clear ambient capabilities, ignoring: %m");
 
         /* This call would collect all passed fds and enable CLOEXEC. We'll unset it in exec_invoke (flag_fds)
          * for fds that shall be passed to the child.

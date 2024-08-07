@@ -478,7 +478,8 @@
           bridge as that would create naming conflict when there are more child devices on that bridge. Now,
           this is relaxed and we will use slot information to generate the name based on it but only if
           the PCI device has multiple functions. This is safe because distinct function number is a part of
-          the device name for multifunction devices.</para>
+          the device name for multifunction devices. Note, this is reverted in <constant>v255</constant>.
+          See below.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
@@ -521,6 +522,9 @@
           <listitem><para>Naming was changed for SR-IOV virtual device representors to enable the
           change introduced in <constant>v254</constant> by default.</para>
 
+          <para>If we detect that a PCI device associated with a slot is a PCI bridge, we no longer set
+          <varname>ID_NET_NAME_SLOT</varname>, reverting a change that was introduced in v251.</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
@@ -528,7 +532,7 @@
         <varlistentry>
           <term><constant>v257</constant></term>
 
-          <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file</para>
+          <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
           </listitem>

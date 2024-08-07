@@ -1767,3 +1767,38 @@ int vsock_get_local_cid(unsigned *ret) {
 
         return 0;
 }
+
+int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups) {
+        _cleanup_free_ uint32_t *groups = NULL;
+        socklen_t len = 0, old_len;
+
+        assert(fd >= 0);
+
+        /* This returns ENOPROTOOPT if the kernel is older than 4.2. */
+
+        if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0)
+                return -errno;
+
+        if (len == 0)
+                goto finalize;
+
+        groups = new0(uint32_t, len);
+        if (!groups)
+                return -ENOMEM;
+
+        old_len = len;
+
+        if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len) < 0)
+                return -errno;
+
+        if (old_len != len)
+                return -EIO;
+
+finalize:
+        if (ret_len)
+                *ret_len = len;
+        if (ret_groups)
+                *ret_groups = TAKE_PTR(groups);
+
+        return 0;
+}

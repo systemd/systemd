@@ -37,6 +37,8 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+ImportCredential=tty.console.agetty.*:agetty.
+ImportCredential=tty.console.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
 

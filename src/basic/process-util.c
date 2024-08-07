@@ -1840,7 +1840,6 @@ int get_oom_score_adjust(int *ret) {
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
-        char *p;
         int r;
 
         /* Converts a pidfd into a pid. Well known errors:
@@ -1852,22 +1851,21 @@ int pidfd_get_pid(int fd, pid_t *ret) {
          *    -ESRCH   → fd valid, but process is already reaped
          */
 
-        if (fd < 0)
-                return -EBADF;
+        assert(fd >= 0);
 
         xsprintf(path, "/proc/self/fdinfo/%i", fd);
 
         r = read_full_virtual_file(path, &fdinfo, NULL);
-        if (r == -ENOENT) /* if fdinfo doesn't exist we assume the process does not exist */
-                return proc_mounted() > 0 ? -EBADF : -ENOSYS;
+        if (r == -ENOENT)
+                return proc_fd_enoent_errno();
         if (r < 0)
                 return r;
 
-        p = find_line_startswith(fdinfo, "Pid:");
+        char *p = find_line_startswith(fdinfo, "Pid:");
         if (!p)
                 return -ENOTTY; /* not a pidfd? */
 
-        p += strspn(p, WHITESPACE);
+        p = skip_leading_chars(p, /* bad = */ NULL);
         p[strcspn(p, WHITESPACE)] = 0;
 
         if (streq(p, "0"))

@@ -82,6 +82,7 @@ int logind_reboot(enum action a) {
                 return 0;
 
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
+        SET_FLAG(flags, SD_LOGIND_SKIP_INHIBITORS, arg_check_inhibitors == 0);
         SET_FLAG(flags,
                  SD_LOGIND_REBOOT_VIA_KEXEC,
                  a == ACTION_KEXEC || (a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_KEXEC") <= 0));
@@ -94,17 +95,17 @@ int logind_reboot(enum action a) {
         SET_FLAG(flags, SD_LOGIND_SOFT_REBOOT, a == ACTION_SOFT_REBOOT);
 
         r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+        if (r < 0 && FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
+                        sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                sd_bus_error_free(&error);
+                flags &= ~SD_LOGIND_SKIP_INHIBITORS;
+                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+        }
         if (r < 0 && FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) &&
                         sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
                 sd_bus_error_free(&error);
-                r = bus_call_method(
-                                bus,
-                                bus_login_mgr,
-                                method_with_flags,
-                                &error,
-                                NULL,
-                                "t",
-                                flags & ~SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP);
+                flags &= ~SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP;
+                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
         }
         if (r >= 0)
                 return 0;
@@ -144,13 +145,8 @@ int logind_check_inhibitors(enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (arg_check_inhibitors < 0) {
-                if (geteuid() == 0)
-                        return 0;
-
-                if (!on_tty())
-                        return 0;
-        }
+        if (arg_check_inhibitors < 0 && !on_tty())
+                return 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
@@ -172,7 +168,10 @@ int logind_check_inhibitors(enum action a) {
                 _cleanup_free_ char *comm = NULL, *user = NULL;
                 _cleanup_strv_free_ char **sv = NULL;
 
-                if (!streq(mode, "block"))
+                if (!STR_IN_SET(mode, "block", "block-weak"))
+                        continue;
+
+                if (streq(mode, "block-weak") && (geteuid() == 0 || geteuid() == uid || !on_tty()))
                         continue;
 
                 sv = strv_split(what, ":");
@@ -233,6 +232,7 @@ int logind_check_inhibitors(enum action a) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                "Please retry operation after closing inhibitors and logging out other users.\n"
+                               "'systemd-inhibit' can be used to list active inhibitors.\n"
                                "Alternatively, ignore inhibitors and users with 'systemctl %s -i'.",
                                action_table[a].verb);
 #else
@@ -431,6 +431,14 @@ int help_boot_loader_entry(void) {
         _cleanup_strv_free_ char **l = NULL;
         sd_bus *bus;
         int r;
+
+        /* This is called without checking runtime scope and bus transport like we do in parse_argv().
+         * Loading boot entries is only supported by system scope. Let's gracefully adjust them. */
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+        if (arg_transport == BUS_TRANSPORT_CAPSULE) {
+                arg_host = NULL;
+                arg_transport = BUS_TRANSPORT_LOCAL;
+        }
 
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)

@@ -7,12 +7,13 @@
  * this x86 specific linux_exec function passes the initrd by setting the
  * corresponding fields in the setup_header struct.
  *
- * see https://docs.kernel.org/x86/boot.html
+ * see https://docs.kernel.org/arch/x86/boot.html
  */
 
 #include "initrd.h"
 #include "linux.h"
 #include "macro-fundamental.h"
+#include "memory-util-fundamental.h"
 #include "util.h"
 
 #define KERNEL_SECTOR_SIZE 512u
@@ -124,7 +125,8 @@ EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
-                const struct iovec *initrd) {
+                const struct iovec *initrd,
+                size_t kernel_size_in_memory) {
 
         assert(parent);
         assert(iovec_is_set(kernel));
@@ -151,14 +153,23 @@ EFI_STATUS linux_exec_efi_handover(
                         FLAGS_SET(image_params->hdr.xloadflags, XLF_CAN_BE_LOADED_ABOVE_4G);
 
         /* There is no way to pass the high bits of code32_start. Newer kernels seems to handle this
-         * just fine, but older kernels will fail even if they otherwise have above 4G boot support. */
+         * just fine, but older kernels will fail even if they otherwise have above 4G boot support.
+         * A PE image's memory footprint can be larger than its file size, due to unallocated virtual
+         * memory sections. While normally all PE headers should be taken into account, this case only
+         * involves x86 Linux bzImage kernel images, for which unallocated areas are only part of the last
+         * header, so parsing SizeOfImage and zeroeing the buffer past the image size is enough. */
         _cleanup_pages_ Pages linux_relocated = {};
         const void *linux_buffer;
-        if (POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len > UINT32_MAX) {
+        if (POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len > UINT32_MAX || kernel_size_in_memory > kernel->iov_len) {
                 linux_relocated = xmalloc_pages(
-                                AllocateMaxAddress, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel->iov_len), UINT32_MAX);
+                                AllocateMaxAddress,
+                                EfiLoaderCode,
+                                EFI_SIZE_TO_PAGES(kernel_size_in_memory > kernel->iov_len ? kernel_size_in_memory : kernel->iov_len),
+                                UINT32_MAX);
                 linux_buffer = memcpy(
                                 PHYSICAL_ADDRESS_TO_POINTER(linux_relocated.addr), kernel->iov_base, kernel->iov_len);
+                if (kernel_size_in_memory > kernel->iov_len)
+                        memzero((uint8_t *) linux_buffer + kernel->iov_len, kernel_size_in_memory - kernel->iov_len);
         } else
                 linux_buffer = kernel->iov_base;
 

@@ -124,7 +124,8 @@ int parse_sleep_config(SleepConfig **ret) {
                 return log_oom();
 
         *sc = (SleepConfig) {
-                .hibernate_delay_usec = USEC_INFINITY,
+                .hibernate_delay_usec  = USEC_INFINITY,
+                .hibernate_on_ac_power = true,
         };
 
         const ConfigTableItem items[] = {
@@ -145,6 +146,7 @@ int parse_sleep_config(SleepConfig **ret) {
                 { "Sleep", "MemorySleepMode",           config_parse_sleep_mode,  0,               &sc->mem_modes               },
 
                 { "Sleep", "HibernateDelaySec",         config_parse_sec,         0,               &sc->hibernate_delay_usec    },
+                { "Sleep", "HibernateOnACPower",        config_parse_bool,        0,               &sc->hibernate_on_ac_power   },
                 { "Sleep", "SuspendEstimationSec",      config_parse_sec,         0,               &sc->suspend_estimation_usec },
                 {}
         };

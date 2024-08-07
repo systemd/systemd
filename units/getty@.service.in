@@ -53,6 +53,8 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+ImportCredential=tty.virtual.%I.agetty.*:agetty.
+ImportCredential=tty.virtual.%I.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
 

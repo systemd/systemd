@@ -236,6 +236,7 @@ BASICTOOLS=(
     su
     sulogin
     sysctl
+    tac
     tail
     tar
     tee
@@ -570,7 +571,7 @@ run_qemu() {
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
-    if ! get_bool "$INTERACTIVE_DEBUG" && ! get_bool "$TEST_SKIP_SHUTDOWN"; then
+    if ! get_bool "$TEST_SHELL" && ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=(
             "panic=1"
             "softlockup_panic=1"
@@ -664,7 +665,7 @@ run_nspawn() {
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
-    if get_bool "$INTERACTIVE_DEBUG"; then
+    if get_bool "$TEST_SHELL"; then
         nspawn_options+=("--console=interactive")
     elif ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=("systemd.wants=end.service")
@@ -1984,7 +1985,7 @@ install_debug_tools() {
     dinfo "Install debug tools"
     image_install -o "${DEBUGTOOLS[@]}"
 
-    if get_bool "$INTERACTIVE_DEBUG"; then
+    if get_bool "$TEST_SHELL"; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
         local getty_override="${initdir:?}/etc/systemd/system/serial-getty@.service.d"
         mkdir -p "$getty_override"

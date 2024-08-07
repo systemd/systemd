@@ -409,6 +409,11 @@ static int raw_import_process(RawImport *i) {
                 goto finish;
         }
 
+        if ((size_t) l > sizeof(i->buffer) - i->buffer_size) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Read input file exceeded maximum size.");
+                goto finish;
+        }
+
         i->buffer_size += l;
 
         if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {

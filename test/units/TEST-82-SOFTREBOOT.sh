@@ -19,6 +19,21 @@ at_exit() {
 
 trap at_exit EXIT
 
+# Because this test tests soft-reboot, we have to get rid of the symlink we put at
+# /run/nextroot to allow rebooting into the previous snapshot if the test fails for
+# the duration of the test. However, let's make sure we put the symlink back in place
+# if the test fails.
+if [[ -L /run/nextroot ]]; then
+    at_error() {
+        mountpoint -q /run/nextroot && umount -R /run/nextroot
+        rm -rf /run/nextroot
+        ln -sf /snapshot /run/nextroot
+    }
+
+    trap at_error ERR
+    rm -f /run/nextroot
+fi
+
 systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
@@ -257,6 +272,10 @@ EOF
     # Now issue the soft reboot. We should be right back soon.
     touch /run/TEST-82-SOFTREBOOT.touch
     systemctl --no-block --check-inhibitors=yes soft-reboot
+
+    # Ensure the property works too
+    type="$(busctl --json=short get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager PreparingForShutdownWithMetadata | jq -r '.data.type.data')"
+    test "$type" = "soft-reboot"
 
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity

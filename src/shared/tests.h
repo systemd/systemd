@@ -227,6 +227,16 @@ static inline int run_test_table(void) {
                 }                                                                                               \
         })
 
+#define ASSERT_FAIL(expr)                                                                                       \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result >= 0) {                                                                             \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
 #define ASSERT_ERROR(expr1, expr2)                                                                              \
         ({                                                                                                      \
                 int _expr1 = (expr1);                                                                           \
@@ -416,6 +426,33 @@ static inline int run_test_table(void) {
                         log_error("%s:%i: Assertion failed: \"%s\" died with signal %s, but %s was expected",   \
                                   PROJECT_FILE, __LINE__, #expr, signal_to_string(_siginfo.si_status),          \
                                   signal_to_string(signal));                                                    \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+
+#define ASSERT_EQ_ID128(expr1, expr2)                                                                           \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                if (!sd_id128_equal(_expr1, _expr2)) {                                                          \
+                        log_error("%s:%i: Assertion failed: \"%s == %s\", but \"%s != %s\"",                    \
+                                  PROJECT_FILE, __LINE__,                                                       \
+                                  #expr1, #expr2,                                                               \
+                                  SD_ID128_TO_STRING(_expr1), SD_ID128_TO_STRING(_expr2));                      \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+#define ASSERT_NE_ID128(expr1, expr2)                                                                           \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                if (sd_id128_equal(_expr1, _expr2)) {                                                           \
+                        log_error("%s:%i: Assertion failed: \"%s != %s\", but \"%s == %s\"",                    \
+                                  PROJECT_FILE, __LINE__,                                                       \
+                                  #expr1, #expr2,                                                               \
+                                  SD_ID128_TO_STRING(_expr1), SD_ID128_TO_STRING(_expr2));                      \
                         abort();                                                                                \
                 }                                                                                               \
         })

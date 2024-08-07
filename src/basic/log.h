@@ -35,9 +35,8 @@ typedef enum LogTarget{
  * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
 
-/* Note to readers: << and >> have lower precedence (are evaluated earlier) than & and | */
-#define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
-#define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
+#define SYNTHETIC_ERRNO(num)                (abs(num) | (1 << 30))
+#define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
 #define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
 
 /* The callback function to be invoked when syntax warnings are seen
@@ -57,7 +56,7 @@ int log_set_target_from_string(const char *e);
 LogTarget log_get_target(void) _pure_;
 void log_settle_target(void);
 
-void log_set_max_level(int level);
+int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
 int log_max_levels_to_string(int level, char **ret);
@@ -491,6 +490,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_unref);
 size_t log_context_num_contexts(void);
 /* Returns the number of fields in all attached log contexts. */
 size_t log_context_num_fields(void);
+
+static inline void _reset_log_level(int *saved_log_level) {
+        assert(saved_log_level);
+
+        log_set_max_level(*saved_log_level);
+}
+
+#define LOG_CONTEXT_SET_LOG_LEVEL(level) \
+        _cleanup_(_reset_log_level) _unused_ int _saved_log_level_ = log_set_max_level(level);
 
 #define LOG_CONTEXT_PUSH(...) \
         LOG_CONTEXT_PUSH_STRV(STRV_MAKE(__VA_ARGS__))

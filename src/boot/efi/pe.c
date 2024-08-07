@@ -278,7 +278,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory) {
         assert(base);
         assert(ret_compat_address);
 
@@ -289,6 +289,11 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
+
+        /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
+         * of the SizeOfImage field in the PE header and return it */
+        if (ret_size_in_memory)
+                *ret_size_in_memory = pe->OptionalHeader.SizeOfImage;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
