@@ -165,6 +165,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                                          "MESSAGE_ID=" SD_MESSAGE_CRASH_SHELL_FORK_FAILED_STR);
                 else if (pid == 0) {
                         (void) setsid();
+                        (void) terminal_vhangup("/dev/console");
                         (void) make_console_stdio();
                         (void) rlimit_nofile_safe();
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
