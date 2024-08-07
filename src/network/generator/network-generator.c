@@ -14,6 +14,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "vlan-util.h"
 
 /*
   # .network
@@ -972,8 +973,28 @@ static int parse_cmdline_rd_peerdns(Context *context, const char *key, const cha
         return network_set_dhcp_use_dns(context, "", r);
 }
 
+static int extract_vlan_id(const char *vlan_name, uint16_t *ret) {
+        assert(!isempty(vlan_name));
+        assert(ret);
+
+        /* From dracut.cmdline(7):
+         * We support the four styles of vlan names:
+         *   VLAN_PLUS_VID (vlan0005),
+         *   VLAN_PLUS_VID_NO_PAD (vlan5),
+         *   DEV_PLUS_VID (eth0.0005), and
+         *   DEV_PLUS_VID_NO_PAD (eth0.5). */
+
+        for (const char *p = vlan_name + strlen(vlan_name) - 1; p > vlan_name; p--)
+                if (!ascii_isdigit(*p))
+                        return parse_vlanid(p+1, ret);
+
+        return -EINVAL;
+}
+
 static int parse_cmdline_vlan(Context *context, const char *key, const char *value) {
-        const char *name, *p;
+        _cleanup_free_ char *name = NULL;
+        const char *p;
+        uint16_t vlan_id;
         NetDev *netdev;
         int r;
 
@@ -987,11 +1008,25 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
         if (!p)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid VLAN value '%s'", value);
 
-        name = strndupa_safe(value, p - value);
+        if (!ifname_valid(p + 1))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid VLAN physical device name '%s.'", p + 1);
+
+        name = strndup(value, p - value);
+        if (!name)
+                return log_oom_debug();
+
+        if (!ifname_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid VLAN device name '%s.'", name);
+
+        r = extract_vlan_id(name, &vlan_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse VLAN ID from VLAN device name '%s': %m", name);
 
         r = netdev_acquire(context, "vlan", name, &netdev);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire VLAN device for '%s': %m", name);
+
+        netdev->vlan_id = vlan_id;
 
         return network_set_vlan(context, p + 1, name);
 }
@@ -1370,6 +1405,13 @@ void netdev_dump(NetDev *netdev, FILE *f) {
 
         if (netdev->mtu > 0)
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", netdev->mtu);
+
+        if (streq(netdev->kind, "vlan")) {
+                fprintf(f,
+                        "\n[VLAN]\n"
+                        "Id=%u\n",
+                        netdev->vlan_id);
+        }
 }
 
 void link_dump(Link *link, FILE *f) {
