@@ -434,6 +434,18 @@ int terminal_vhangup_fd(int fd) {
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
+int terminal_vhangup(const char *tty) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(tty);
+
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        return terminal_vhangup_fd(fd);
+}
+
 int vt_disallocate(const char *tty_path) {
         assert(tty_path);
 
