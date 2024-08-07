@@ -822,7 +822,6 @@ static int names_platform(sd_device *dev, const char *prefix, EventMode mode) {
 static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) {
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
-        sd_device *parent;
         int r;
 
         assert(dev);
@@ -835,14 +834,24 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
         if (!streq(prefix, "en"))
                 return -EOPNOTSUPP;
 
-        /* check if our direct parent has an of_node */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+        /* check if the device itself has an of_node */
+        if (naming_scheme_has(NAMING_DEVICETREE_PORT_ALIASES)) {
+                r = sd_device_new_child(&ofnode_dev, dev, "of_node");
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to get device of_node, ignoring: %m");
+        }
+        if (!ofnode_dev) {
+                sd_device *parent;
 
-        r = sd_device_new_child(&ofnode_dev, parent, "of_node");
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "Failed to get 'of_node' child device: %m");
+                /* check if our direct parent has an of_node as a fallback */
+                r = sd_device_get_parent(dev, &parent);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+
+                r = sd_device_new_child(&ofnode_dev, parent, "of_node");
+                if (r < 0)
+                        return log_device_debug_errno(parent, r, "Failed to get device of_node: %m");
+        }
 
         r = sd_device_get_syspath(ofnode_dev, &ofnode_syspath);
         if (r < 0)
