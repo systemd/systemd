@@ -1373,7 +1373,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, UINT64_MAX);
+                r = sd_bus_wait(bus, arg_timeout > 0 ? arg_timeout : UINT64_MAX);
+                if (r == 0 && arg_timeout > 0) {
+                        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                log_info("Timed out waiting for messages, exiting.");
+                        return 0;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for bus: %m");
         }

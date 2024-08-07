@@ -108,3 +108,5 @@ busctl get-property -j \
 # Invalid argument
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
+
+busctl --quiet --timeout 1 --match "interface=org.freedesktop.systemd1.Manager" monitor &>/dev/null
