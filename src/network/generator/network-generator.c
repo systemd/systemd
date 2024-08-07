@@ -251,6 +251,21 @@ Network* network_get(Context *context, const char *ifname) {
         return hashmap_get(context->networks_by_name, ifname);
 }
 
+static int network_acquire(Context *context, const char *ifname, Network **ret) {
+        Network *network;
+
+        assert(context);
+        assert(ifname);
+
+        network = network_get(context, ifname);
+        if (!network)
+                return network_new(context, ifname, ret);
+
+        if (ret)
+                *ret = network;
+        return 0;
+}
+
 static NetDev* netdev_free(NetDev *netdev) {
         if (!netdev)
                 return NULL;
@@ -306,6 +321,25 @@ NetDev* netdev_get(Context *context, const char *ifname) {
         assert(context);
         assert(ifname);
         return hashmap_get(context->netdevs_by_name, ifname);
+}
+
+static int netdev_acquire(Context *context, const char *kind, const char *name, NetDev **ret) {
+        NetDev *netdev;
+
+        assert(context);
+        assert(kind);
+        assert(name);
+
+        netdev = netdev_get(context, name);
+        if (!netdev)
+                return netdev_new(context, kind, name, ret);
+
+        if (!streq_ptr(netdev->kind, kind))
+                return -EEXIST; /* conflicting netdev already exists. */
+
+        if (ret)
+                *ret = netdev;
+        return 0;
 }
 
 static Link* link_free(Link *link) {
@@ -394,12 +428,9 @@ static int network_set_dhcp_type(Context *context, const char *ifname, const cha
         if (t < 0)
                 return log_debug_errno(t, "Invalid DHCP type '%s'", dhcp_type);
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         network->dhcp_type = t;
         return 0;
@@ -490,12 +521,9 @@ static int network_set_route(Context *context, const char *ifname, int family, u
             !(gateway && in_addr_is_set(family, gateway)))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return route_new(network, family, prefixlen, dest, gateway, NULL);
 }
@@ -517,12 +545,9 @@ static int network_set_dns(Context *context, const char *ifname, int family, con
         if (r < 0)
                 return log_debug_errno(r, "Invalid DNS address '%s' for '%s'", dns, ifname);
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return strv_extend(&network->dns, dns);
 }
@@ -534,12 +559,9 @@ static int network_set_dhcp_use_dns(Context *context, const char *ifname, bool v
         assert(context);
         assert(ifname);
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
 
         network->dhcp_use_dns = value;
 
@@ -555,12 +577,9 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
         if (isempty(ifname))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return strv_extend(&network->vlan, value);
 }
@@ -574,12 +593,9 @@ static int network_set_bridge(Context *context, const char *ifname, const char *
         if (isempty(ifname))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return free_and_strdup(&network->bridge, value);
 }
@@ -593,12 +609,9 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         if (isempty(ifname))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network) {
-                r = network_new(context, ifname, &network);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
-        }
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return free_and_strdup(&network->bond, value);
 }
@@ -1019,12 +1032,9 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
 
         name = strndupa_safe(value, p - value);
 
-        netdev = netdev_get(context, name);
-        if (!netdev) {
-                r = netdev_new(context, "vlan", name, &netdev);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create VLAN device for '%s': %m", name);
-        }
+        r = netdev_acquire(context, "vlan", name, &netdev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire VLAN device for '%s': %m", name);
 
         r = extract_vlan_id(name, &netdev->vlan_id);
         if (r < 0)
@@ -1050,12 +1060,9 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
 
         name = strndupa_safe(value, p - value);
 
-        netdev = netdev_get(context, name);
-        if (!netdev) {
-                r = netdev_new(context, "bridge", name, &netdev);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create bridge device for '%s': %m", name);
-        }
+        r = netdev_acquire(context, "bridge", name, &netdev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire bridge device for '%s': %m", name);
 
         p++;
 
@@ -1091,12 +1098,9 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
 
         name = strndupa_safe(value, p - value);
 
-        netdev = netdev_get(context, name);
-        if (!netdev) {
-                r = netdev_new(context, "bond", name, &netdev);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create bond device for '%s': %m", name);
-        }
+        r = netdev_acquire(context, "bond", name, &netdev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire bond device for '%s': %m", name);
 
         value = p + 1;
         p = strchr(value, ':');
