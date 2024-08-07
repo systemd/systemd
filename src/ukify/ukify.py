@@ -376,7 +376,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[Union[pathlib.Path, str]]
+    executable: Union[pathlib.Path, str]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
@@ -492,7 +492,7 @@ def key_path_groups(opts):
                    pp_groups)
 
 
-def call_systemd_measure(uki, linux, opts):
+def call_systemd_measure(uki, linux, opts) -> Optional[Section]:
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
                              opts=opts)
@@ -554,7 +554,10 @@ def call_systemd_measure(uki, linux, opts):
             pcrsigs += [pcrsig]
 
         combined = combine_signatures(pcrsigs)
-        uki.add_section(Section.create('.pcrsig', combined))
+        pcrsig_section = Section.create('.pcrsig', combined)
+        uki.add_section(pcrsig_section)
+        return pcrsig_section
+    return None
 
 
 def join_initrds(initrds):
@@ -690,7 +693,7 @@ def pe_add_sections(uki: UKI, output: str):
 
     pe.write(output)
 
-def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
+def merge_sbat(input_pe: list[pathlib.Path], input_text: list[str]) -> str:
     sbat = []
 
     for f in input_pe:
@@ -768,12 +771,14 @@ PESIGCHECK = {
     'flags': '-S'
 }
 
-def verify(tool, opts):
+def verify(tool, opts, linux=None):
+    if not linux:
+        linux = opts.linux
     verify_tool = find_tool(tool['name'], opts=opts)
     cmd = [
         verify_tool,
         tool['option'],
-        opts.linux,
+        linux,
     ]
     if 'flags' in tool:
         cmd.append(tool['flags'])
@@ -782,6 +787,42 @@ def verify(tool, opts):
     info = subprocess.check_output(cmd, text=True)
 
     return tool['output'] in info
+
+def fetch_pcrpkey(opts):
+    pcrpkey = opts.pcrpkey
+    if pcrpkey is not None:
+        return pcrkey
+
+    if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
+        pcrpkey = pathlib.Path(opts.pcr_public_keys[0])
+
+        # If we are getting a certificate when using an engine, we need to convert it to public key format
+        if opts.signing_engine is not None and pcrpkey.exists():
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.x509 import load_pem_x509_certificate
+
+            try:
+                cert = load_pem_x509_certificate(pcrpkey.read_bytes())
+            except ValueError:
+                raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
+
+            return cert.public_key().public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+
+    if opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
+        from cryptography.hazmat.primitives import serialization
+
+        privkey = serialization.load_pem_private_key(pathlib.Path(opts.pcr_private_keys[0]).read_bytes(), password=None)
+        return privkey.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+    return None
+
+
 
 def make_uki(opts):
     # kernel payload signing
@@ -821,31 +862,7 @@ def make_uki(opts):
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
 
-    pcrpkey = opts.pcrpkey
-    if pcrpkey is None:
-        if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
-            pcrpkey = opts.pcr_public_keys[0]
-            # If we are getting a certificate when using an engine, we need to convert it to public key format
-            if opts.signing_engine is not None and pathlib.Path(pcrpkey).exists():
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.x509 import load_pem_x509_certificate
-
-                try:
-                    cert = load_pem_x509_certificate(pathlib.Path(pcrpkey).read_bytes())
-                except ValueError:
-                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
-                else:
-                    pcrpkey = cert.public_key().public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                    )
-        elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            from cryptography.hazmat.primitives import serialization
-            privkey = serialization.load_pem_private_key(pathlib.Path(opts.pcr_private_keys[0]).read_bytes(), password=None)
-            pcrpkey = privkey.public_key().public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
+    pcrpkey = fetch_pcrpkey(opts)
 
     sections = [
         # name,      content,         measure?
@@ -918,6 +935,117 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
+def sign_uki(opts):
+    """
+    Unpack UKI, replace cmdline, measure and sign PCR, then repack and sign it.
+    We have to repack as PCR signature should be before the linux section.
+    """
+    if not opts.sb_key and not opts.sb_cert_name:
+        raise ValueError("Signing arguments required to sign UKI")
+
+    pe = pefile.PE(opts.uki, fast_load=True)
+
+    uki = UKI(opts.uki)
+    linux_section = None
+    sign_kernel = opts.sign_kernel
+
+    measured_sections = [
+        '.osrel',
+        '.cmdline',
+        '.dtb',
+        '.uname',
+        '.splash',
+        '.pcrpkey',
+        '.initrd',
+        '.ucode',
+        '.linux'
+    ]
+    additional_sections = []
+    for section in pe.sections:
+        name = section.Name.rstrip(b"\x00").decode()
+
+        if name not in measured_sections:
+            continue
+
+        if name == ".cmdline" and opts.cmdline:
+            cmdline = opts.cmdline
+            if opts.append_cmdline:
+                cmdline = section.get_data().rstrip(b"\x00").decode() + " " + cmdline
+            uki_section = Section.create(name, cmdline, measure=True)
+            additional_sections += [uki_section]
+        else:
+            uki_section = Section.create(name, section.get_data(), measure=True)
+
+        if name == ".linux":
+            linux_section = uki_section
+        else:
+            uki.add_section(uki_section)
+
+    if linux_section is None:
+        raise ValueError("No linux section found! Is this a valid UKI?")
+
+    if opts.signtool == 'sbsign':
+        sign_tool = find_sbsign(opts=opts)
+        sign = sbsign_sign
+        verify_tool = SBVERIFY
+    else:
+        sign_tool = find_pesign(opts=opts)
+        sign = pesign_sign
+        verify_tool = PESIGCHECK
+
+    if sign_kernel is None:
+        # figure out if we should sign the kernel
+        sign_kernel = verify(verify_tool, opts, linux=linux_section.content)
+
+    if sign_kernel:
+        linux_signed = tempfile.NamedTemporaryFile(prefix='ukify-linux-signed.')
+        linux_signed_path = pathlib.Path(linux_signed.name)
+        sign(sign_tool, linux_section.content, linux_signed_path, opts=opts)
+        linux_section = Section.create(linux_section.name, linux_signed_path, measure=True)
+
+    if pcrpkey := fetch_pcrpkey(opts):
+        additional_sections += [Section.create(".pcrpkey", pcrpkey)]
+
+    pcr_section = call_systemd_measure(uki, linux=linux_section.content, opts=opts)
+
+    # Pop off linux section, so we can put the PCR signature before that
+    pe_linux = pe.sections.pop()
+    if pe_linux.Name != b".linux\x00\x00":
+        raise ValueError("Last section is not a linux section. Is this a valid UKI?")
+
+    pe.__data__ = pe.__data__[:pe_linux.PointerToRawData]
+    pe.__structures__.pop()
+    pe.FILE_HEADER.NumberOfSections -= 1
+    pe.OPTIONAL_HEADER.SizeOfInitializedData -= pe_linux.Misc_VirtualSize
+    pe.OPTIONAL_HEADER.SizeOfImage = round_up(
+        pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+        pe.OPTIONAL_HEADER.SectionAlignment,
+    )
+
+    popped = tempfile.NamedTemporaryFile(prefix="ukify-popped-uki.")
+    pe.write(popped.name)
+
+    # Start with input UKI without linux section
+    new_uki = UKI(executable=popped.name)
+    for replaced_section in additional_sections:
+        new_uki.add_section(replaced_section)
+
+    if pcr_section:
+        new_uki.add_section(pcr_section)
+
+    new_uki.add_section(linux_section)
+
+    unsigned = tempfile.NamedTemporaryFile(prefix='ukify-uki.')
+    unsigned_output = unsigned.name
+    pe_add_sections(new_uki, unsigned_output)
+    sign(sign_tool, unsigned_output, opts.output, opts=opts)
+
+    # We end up with no executable bits, let's reapply them
+    os.umask(umask := os.umask(0))
+    os.chmod(opts.output, 0o777 & ~umask)
+
+    print(f"Wrote signed to {opts.output}")
+
 
 @contextlib.contextmanager
 def temporary_umask(mask: int):
@@ -934,7 +1062,7 @@ def generate_key_cert_pair(
         common_name: str,
         valid_days: int,
         keylength: int = 2048,
-) -> tuple[bytes]:
+) -> tuple[bytes, bytes]:
 
     from cryptography import x509
     from cryptography.hazmat.primitives import serialization, hashes
@@ -983,7 +1111,7 @@ def generate_key_cert_pair(
     return key_pem, cert_pem
 
 
-def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
+def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes, bytes]:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -1242,7 +1370,7 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey', 'inspect')
+VERBS = ('build', 'sign', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -1300,6 +1428,13 @@ CONFIG_ITEMS = [
         help = 'initrd file [part of .initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
+    ),
+
+    ConfigItem(
+        '--uki',
+        type=pathlib.Path,
+        help='UKI input file',
+        config_key='UKI/UKI',
     ),
 
     ConfigItem(
@@ -1470,6 +1605,13 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        '--append-cmdline',
+        action=argparse.BooleanOptionalAction,
+        help='Append to cmdline in UKI instead of replacing it',
+        config_key='UKI/AppendCmdline',
+    ),
+
+    ConfigItem(
         '--tools',
         type = pathlib.Path,
         action = 'append',
@@ -1599,6 +1741,7 @@ def create_parser():
         description='Build and sign Unified Kernel Images',
         usage='\n  ' + textwrap.dedent('''\
           ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
+            ukify {b}sign{e} --uki=UKI [--cmdline=CMDLINE] [options…]
             ukify {b}genkey{e} [options…]
             ukify {b}inspect{e} FILE… [options…]
         ''').format(b=Style.bold, e=Style.reset),
@@ -1736,6 +1879,9 @@ def main():
     if opts.verb == 'build':
         check_inputs(opts)
         make_uki(opts)
+    elif opts.verb == 'sign':
+        check_inputs(opts)
+        sign_uki(opts)
     elif opts.verb == 'genkey':
         check_cert_and_keys_nonexistent(opts)
         generate_keys(opts)
