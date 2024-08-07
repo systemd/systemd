@@ -217,6 +217,37 @@ static inline int run_test_table(void) {
                 }                                                                                               \
          })
 
+/* Mostly for funtions that return a boolean on success and a negative errno on failure. */
+#define ASSERT_OK_POSITIVE(expr)                                                                                \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result < 0) {                                                                              \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+                if (_result <= 0) {                                                                             \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to be positive.",                   \
+                                  PROJECT_FILE, __LINE__, #expr);                                               \
+                        abort();                                                                                \
+                }                                                                                               \
+         })
+
+#define ASSERT_OK_ZERO(expr)                                                                                    \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result < 0) {                                                                              \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+                if (_result != 0) {                                                                             \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to be zero.",                       \
+                                  PROJECT_FILE, __LINE__, #expr);                                               \
+                        abort();                                                                                \
+                }                                                                                               \
+         })
+
 #define ASSERT_OK_ERRNO(expr)                                                                                   \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
