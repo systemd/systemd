@@ -155,9 +155,6 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
         (void) sigaction(SIGCHLD, &sa, NULL);
 
         if (arg_crash_shell) {
-                log_notice("Executing crash shell in 10s...");
-                (void) sleep(10);
-
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
                         log_struct_errno(LOG_EMERG, errno,
