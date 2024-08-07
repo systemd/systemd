@@ -766,6 +766,55 @@ static int next_for_match(
         return 1;
 }
 
+static int move_by_boot_for_data(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                sd_id128_t boot_id,
+                uint64_t data_offset,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        int r;
+
+        assert(j);
+        assert(f);
+        assert(IN_SET(direction, DIRECTION_DOWN, DIRECTION_UP));
+
+        for (;;) {
+                /* First, move to the last (or first when DIRECTION_UP) entry for the boot. */
+                uint64_t p = 0;
+                r = journal_file_move_to_entry_by_monotonic(f, boot_id,
+                                                            direction == DIRECTION_DOWN ? USEC_INFINITY : 0,
+                                                            direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN,
+                                                            NULL, &p);
+                if (r <= 0)
+                        return r;
+
+                /* Then, move to the first entry of the next boot (or the last entry of the previous boot with DIRECTION_UP). */
+                Object *entry;
+                r = journal_file_next_entry(f, p, direction, &entry, NULL);
+                if (r <= 0) /* r == 0 means that no next (or previous) boot found. That is, we are at HEAD or TAIL now. */
+                        return r;
+
+                assert(entry->object.type == OBJECT_ENTRY);
+                boot_id = entry->entry.boot_id;
+
+                /* Note, this object cannot be reused, as journal_file_move_to_entry_by_monotonic() may invalidate the object. */
+                Object *data;
+                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &data);
+                if (r < 0)
+                        return r;
+
+                /* Then, move to the matching entry. */
+                r = journal_file_move_to_entry_by_monotonic_for_data(f, data, boot_id,
+                                                                     direction == DIRECTION_DOWN ? 0 : USEC_INFINITY, direction,
+                                                                     ret, ret_offset);
+                if (r != 0) /* Here r == 0 is OK, as that means the boot contains no entry matching with the data. */
+                        return r;
+        }
+}
+
 static int find_location_for_match(
                 sd_journal *j,
                 Match *m,
@@ -793,8 +842,6 @@ static int find_location_for_match(
                 if (r <= 0)
                         return r;
 
-                /* FIXME: missing: find by monotonic */
-
                 if (j->current_location.type == LOCATION_HEAD)
                         return direction == DIRECTION_DOWN ? journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, ret, offset) : 0;
                 if (j->current_location.type == LOCATION_TAIL)
@@ -810,9 +857,15 @@ static int find_location_for_match(
                         r = journal_file_move_to_object(f, OBJECT_DATA, dp, &d);
                         if (r < 0)
                                 return r;
+
+                        /* If not found, fall back to realtime if set, or go to the first entry of the next boot
+                         * (or the last entry of the previous boot when DIRECTION_UP). */
                 }
                 if (j->current_location.realtime_set)
                         return journal_file_move_to_entry_by_realtime_for_data(f, d, j->current_location.realtime, direction, ret, offset);
+
+                if (j->current_location.monotonic_set)
+                        return move_by_boot_for_data(j, f, direction, j->current_location.boot_id, dp, ret, offset);
 
                 return journal_file_move_to_entry_for_data(f, d, direction, ret, offset);
 
@@ -900,9 +953,27 @@ static int find_location_with_matches(
                         r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
                         if (r != 0)
                                 return r;
+
+                        /* If not found, fall back to realtime if set, or go to the first entry of the next boot
+                         * (or the last entry of the previous boot when DIRECTION_UP). */
                 }
                 if (j->current_location.realtime_set)
                         return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, offset);
+
+                if (j->current_location.monotonic_set) {
+                        uint64_t p = 0;
+
+                        /* If not found in the above, first move to the last (or first when DIRECTION_UP) entry for the boot. */
+                        r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id,
+                                                                    direction == DIRECTION_DOWN ? USEC_INFINITY : 0,
+                                                                    direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN,
+                                                                    NULL, &p);
+                        if (r <= 0)
+                                return r;
+
+                        /* Then, move to the next or previous boot. */
+                        return journal_file_next_entry(f, p, direction, ret, offset);
+                }
 
                 return journal_file_next_entry(f, 0, direction, ret, offset);
         } else
@@ -967,9 +1038,18 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         journal_file_save_location(f, c, cp);
                 }
         } else {
-                f->last_direction = direction;
-
                 r = find_location_with_matches(j, f, direction, &c, &cp);
+                /* LOCATION_SEEK specified to j->current_location.type here means that this is called first
+                 * after sd_journal_seek_monotonic_usec() or friends was called. In that case, this file may
+                 * not contain any matching entries with the user-specified location, but another file may
+                 * contain them. If so, the second call of this function will use the seqnum, and we may find
+                 * an entry in _this_ file with the seqnum. To prevent the second call of this function exits
+                 * earlier by the first 'if' block of this function, do not save the direction if the current
+                 * location is LOCATION_SEEK. */
+                if (r > 0 || j->current_location.type != LOCATION_SEEK)
+                        f->last_direction = direction;
+                else
+                        assert(f->last_direction == _DIRECTION_INVALID);
                 if (r <= 0)
                         return r;
 
