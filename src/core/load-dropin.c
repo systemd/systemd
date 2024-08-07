@@ -102,7 +102,7 @@ int unit_load_dropin(Unit *u) {
                 return r;
 
         /* Load .conf dropins */
-        r = unit_find_dropin_paths(u, &l);
+        r = unit_find_dropin_paths(u, /* use_unit_path_cache = */ true, &l);
         if (r <= 0)
                 return 0;
 
