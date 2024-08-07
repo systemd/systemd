@@ -181,7 +181,7 @@ static Network *network_free(Network *network) {
         free(network->ifname);
         free(network->hostname);
         strv_free(network->dns);
-        free(network->vlan);
+        strv_free(network->vlan);
         free(network->bridge);
         free(network->bond);
 
@@ -541,7 +541,7 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
                         return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
         }
 
-        return free_and_strdup(&network->vlan, value);
+        return strv_extend(&network->vlan, value);
 }
 
 static int network_set_bridge(Context *context, const char *ifname, const char *value) {
@@ -1329,8 +1329,8 @@ void network_dump(Network *network, FILE *f) {
                 STRV_FOREACH(dns, network->dns)
                         fprintf(f, "DNS=%s\n", *dns);
 
-        if (network->vlan)
-                fprintf(f, "VLAN=%s\n", network->vlan);
+        STRV_FOREACH(v, network->vlan)
+                fprintf(f, "VLAN=%s\n", *v);
 
         if (network->bridge)
                 fprintf(f, "Bridge=%s\n", network->bridge);
