@@ -843,9 +843,8 @@
 
         <listitem><para>Takes a boolean argument or enables the option if specified
         without an argument. If enabled, the system manager (PID 1) spawns a shell
-        when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
-        to disabled, for security reasons, as the shell is not protected by password
-        authentication.</para>
+        when it crashes. Otherwise, no shell is spawned. Defaults to disabled, for
+        security reasons, as the shell is not protected by password authentication.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
