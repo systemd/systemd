@@ -120,10 +120,7 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        u->start_ratelimit = (const RateLimit) {
-                m->defaults.start_limit_interval,
-                m->defaults.start_limit_burst,
-        };
+        u->start_ratelimit = m->defaults.start_limit;
 
         u->auto_start_stop_ratelimit = (const RateLimit) {
                 .interval = 10 * USEC_PER_SEC,
@@ -5693,12 +5690,12 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (u->exported_log_ratelimit_interval)
                 return 0;
 
-        if (c->log_ratelimit_interval_usec == 0)
+        if (c->log_ratelimit.interval == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit_interval_usec) < 0)
+        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit.interval) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
@@ -5720,12 +5717,12 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         if (u->exported_log_ratelimit_burst)
                 return 0;
 
-        if (c->log_ratelimit_burst == 0)
+        if (c->log_ratelimit.burst == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_ratelimit_burst) < 0)
+        if (asprintf(&buf, "%u", c->log_ratelimit.burst) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
@@ -6471,6 +6468,16 @@ int unit_arm_timer(
         (void) sd_event_source_set_description(*source, d);
 
         return 0;
+}
+
+bool unit_is_filtered(Unit *u, char **states, char **patterns) {
+        if (!strv_isempty(states) &&
+            !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
+            !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
+            !strv_contains(states, unit_sub_state_to_string(u)))
+                return true;
+
+        return !strv_isempty(patterns) && !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE);
 }
 
 static int unit_get_nice(Unit *u) {
