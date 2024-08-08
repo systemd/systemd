@@ -5063,7 +5063,7 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
-static bool partition_needs_populate(Partition *p) {
+static bool partition_needs_populate(const Partition *p) {
         assert(p);
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
