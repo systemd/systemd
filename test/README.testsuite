@@ -287,7 +287,12 @@ is available at:
 
 https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/
 
-paths listed at this URL can be appended to the URL to download them.
+paths listed at this URL can be appended to the URL to download them. Unfortunately
+there are too many results and the web server cannot list them all at once. Fortunately
+there is a workaround: copy the last line on the page, and append it to the URL, with
+a '?marker=' prefix, and the web server will show the next page of results. For example:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/?marker=noble/amd64/s/systemd-upstream/20240616_211635_5993a@/result.tar
 
 The 5 characters at the end of the last directory are not random, but the first
 5 characters of a SHA1 hash generated based on the set of parameters given to
