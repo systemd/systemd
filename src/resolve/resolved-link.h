@@ -92,8 +92,8 @@ LinkAddress* link_find_address(Link *l, int family, const union in_addr_union *i
 void link_add_rrs(Link *l, bool force_remove);
 
 void link_flush_settings(Link *l);
-void link_set_dnssec_mode(Link *l, DnssecMode mode);
-void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode);
+bool link_set_dnssec_mode(Link *l, DnssecMode mode);
+bool link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode);
 void link_allocate_scopes(Link *l);
 
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
