@@ -672,7 +672,7 @@ static int next_for_match(
                 uint64_t after_offset,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
 
         int r;
         uint64_t np = 0;
@@ -696,7 +696,7 @@ static int next_for_match(
                 if (r <= 0)
                         return r;
 
-                return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, offset);
+                return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, ret_offset);
 
         } else if (m->type == MATCH_OR_TERM) {
 
@@ -757,8 +757,8 @@ static int next_for_match(
                         return r;
         }
 
-        if (offset)
-                *offset = np;
+        if (ret_offset)
+                *ret_offset = np;
 
         return 1;
 }
@@ -769,7 +769,7 @@ static int find_location_for_match(
                 JournalFile *f,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
 
         int r;
 
@@ -793,13 +793,13 @@ static int find_location_for_match(
                 /* FIXME: missing: find by monotonic */
 
                 if (j->current_location.type == LOCATION_HEAD)
-                        return direction == DIRECTION_DOWN ? journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, ret, offset) : 0;
+                        return direction == DIRECTION_DOWN ? journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, ret, ret_offset) : 0;
                 if (j->current_location.type == LOCATION_TAIL)
-                        return direction == DIRECTION_UP ? journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, ret, offset) : 0;
+                        return direction == DIRECTION_UP ? journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, ret, ret_offset) : 0;
                 if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                        return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, offset);
+                        return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, ret_offset);
                 if (j->current_location.monotonic_set) {
-                        r = journal_file_move_to_entry_by_monotonic_for_data(f, d, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
+                        r = journal_file_move_to_entry_by_monotonic_for_data(f, d, j->current_location.boot_id, j->current_location.monotonic, direction, ret, ret_offset);
                         if (r != 0)
                                 return r;
 
@@ -809,9 +809,9 @@ static int find_location_for_match(
                                 return r;
                 }
                 if (j->current_location.realtime_set)
-                        return journal_file_move_to_entry_by_realtime_for_data(f, d, j->current_location.realtime, direction, ret, offset);
+                        return journal_file_move_to_entry_by_realtime_for_data(f, d, j->current_location.realtime, direction, ret, ret_offset);
 
-                return journal_file_move_to_entry_for_data(f, d, direction, ret, offset);
+                return journal_file_move_to_entry_for_data(f, d, direction, ret, ret_offset);
 
         } else if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
@@ -839,8 +839,8 @@ static int find_location_for_match(
                                 return r;
                 }
 
-                if (offset)
-                        *offset = np;
+                if (ret_offset)
+                        *ret_offset = np;
 
                 return 1;
 
@@ -866,7 +866,7 @@ static int find_location_for_match(
                                 np = cp;
                 }
 
-                return next_for_match(j, m, f, np, direction, ret, offset);
+                return next_for_match(j, m, f, np, direction, ret, ret_offset);
         }
 }
 
@@ -875,35 +875,33 @@ static int find_location_with_matches(
                 JournalFile *f,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
 
         int r;
 
         assert(j);
         assert(f);
-        assert(ret);
-        assert(offset);
 
         if (j->level0)
-                return find_location_for_match(j, j->level0, f, direction, ret, offset);
+                return find_location_for_match(j, j->level0, f, direction, ret, ret_offset);
 
         /* No matches is simple */
 
         if (j->current_location.type == LOCATION_HEAD)
-                return direction == DIRECTION_DOWN ? journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, offset) : 0;
+                return direction == DIRECTION_DOWN ? journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, ret_offset) : 0;
         if (j->current_location.type == LOCATION_TAIL)
-                return direction == DIRECTION_UP ? journal_file_next_entry(f, 0, DIRECTION_UP, ret, offset) : 0;
+                return direction == DIRECTION_UP ? journal_file_next_entry(f, 0, DIRECTION_UP, ret, ret_offset) : 0;
         if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
+                return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, ret_offset);
         if (j->current_location.monotonic_set) {
-                r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
+                r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, ret_offset);
                 if (r != 0)
                         return r;
         }
         if (j->current_location.realtime_set)
-                return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, offset);
+                return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, ret_offset);
 
-        return journal_file_next_entry(f, 0, direction, ret, offset);
+        return journal_file_next_entry(f, 0, direction, ret, ret_offset);
 }
 
 static int next_with_matches(
@@ -911,24 +909,22 @@ static int next_with_matches(
                 JournalFile *f,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
 
         assert(j);
         assert(f);
-        assert(ret);
-        assert(offset);
 
         /* No matches is easy. We simple advance the file
          * pointer by one. */
         if (!j->level0)
-                return journal_file_next_entry(f, f->current_offset, direction, ret, offset);
+                return journal_file_next_entry(f, f->current_offset, direction, ret, ret_offset);
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */
         return next_for_match(j, j->level0, f,
                               direction == DIRECTION_DOWN ? f->current_offset + 1
                                                           : f->current_offset - 1,
-                              direction, ret, offset);
+                              direction, ret, ret_offset);
 }
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction) {
