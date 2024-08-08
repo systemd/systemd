@@ -4,12 +4,14 @@
 
 #include "core-varlink.h"
 #include "json-util.h"
+#include "manager-json.h"
 #include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.Manager.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -493,6 +495,20 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(parameters);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build manager JSON data: %m");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("manager", v));
+}
+
 static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -520,6 +536,16 @@ int manager_setup_varlink_server(Manager *m) {
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = sd_varlink_server_add_interface_many(s, &vl_interface_io_systemd_Manager);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.Manager.Describe", vl_method_describe);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink methods: %m");
 
         r = sd_varlink_server_add_interface_many(
                         s,
@@ -565,7 +591,10 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
-                FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
+                FOREACH_STRING(address,
+                               "/run/systemd/userdb/io.systemd.DynamicUser",
+                               VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
+                               "/run/systemd/io.systemd.Manager") {
                         if (!fresh) {
                                 /* We might have got sockets through deserialization. Do not bind to them twice. */
 
