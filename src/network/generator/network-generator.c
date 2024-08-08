@@ -96,7 +96,7 @@ static const char * const networkd_link_local_type_table[_DHCP_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_link_local_type, DHCPType);
 
-static Address *address_free(Address *address) {
+static Address* address_free(Address *address) {
         if (!address)
                 return NULL;
 
@@ -106,8 +106,14 @@ static Address *address_free(Address *address) {
         return mfree(address);
 }
 
-static int address_new(Network *network, int family, unsigned char prefixlen,
-                       union in_addr_union *addr, union in_addr_union *peer, Address **ret) {
+static int address_new(
+                Network *network,
+                int family,
+                unsigned char prefixlen,
+                union in_addr_union *addr,
+                union in_addr_union *peer,
+                Address **ret) {
+
         Address *address;
 
         assert(network);
@@ -134,7 +140,7 @@ static int address_new(Network *network, int family, unsigned char prefixlen,
         return 0;
 }
 
-static Route *route_free(Route *route) {
+static Route* route_free(Route *route) {
         if (!route)
                 return NULL;
 
@@ -144,8 +150,14 @@ static Route *route_free(Route *route) {
         return mfree(route);
 }
 
-static int route_new(Network *network, int family, unsigned char prefixlen,
-                     union in_addr_union *dest, union in_addr_union *gateway, Route **ret) {
+static int route_new(
+                Network *network,
+                int family,
+                unsigned char prefixlen,
+                union in_addr_union *dest,
+                union in_addr_union *gateway,
+                Route **ret) {
+
         Route *route;
 
         assert(network);
@@ -172,7 +184,7 @@ static int route_new(Network *network, int family, unsigned char prefixlen,
         return 0;
 }
 
-static Network *network_free(Network *network) {
+static Network* network_free(Network *network) {
         Address *address;
         Route *route;
 
@@ -203,6 +215,7 @@ static int network_new(Context *context, const char *name, Network **ret) {
         int r;
 
         assert(context);
+        assert(name);
 
         if (!isempty(name) && !ifname_valid(name))
                 return -EINVAL;
@@ -232,11 +245,13 @@ static int network_new(Context *context, const char *name, Network **ret) {
         return 0;
 }
 
-Network *network_get(Context *context, const char *ifname) {
+Network* network_get(Context *context, const char *ifname) {
+        assert(context);
+        assert(ifname);
         return hashmap_get(context->networks_by_name, ifname);
 }
 
-static NetDev *netdev_free(NetDev *netdev) {
+static NetDev* netdev_free(NetDev *netdev) {
         if (!netdev)
                 return NULL;
 
@@ -254,6 +269,7 @@ static int netdev_new(Context *context, const char *_kind, const char *_ifname, 
 
         assert(context);
         assert(_kind);
+        assert(_ifname);
 
         if (!ifname_valid(_ifname))
                 return -EINVAL;
@@ -286,11 +302,13 @@ static int netdev_new(Context *context, const char *_kind, const char *_ifname, 
         return 0;
 }
 
-NetDev *netdev_get(Context *context, const char *ifname) {
+NetDev* netdev_get(Context *context, const char *ifname) {
+        assert(context);
+        assert(ifname);
         return hashmap_get(context->netdevs_by_name, ifname);
 }
 
-static Link *link_free(Link *link) {
+static Link* link_free(Link *link) {
         if (!link)
                 return NULL;
 
@@ -357,7 +375,7 @@ static int link_new(
         return 0;
 }
 
-Link *link_get(Context *context, const char *filename) {
+Link* link_get(Context *context, const char *filename) {
         assert(context);
         assert(filename);
         return hashmap_get(context->links_by_filename, filename);
