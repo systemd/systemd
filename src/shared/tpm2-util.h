@@ -485,13 +485,21 @@ enum {
 int tpm2_pcr_index_from_string(const char *s) _pure_;
 const char* tpm2_pcr_index_to_string(int pcr) _const_;
 
-/* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
+
+/* The first and last NV index handle that is assigned to the systemd project as per TCG's "Registry of
  * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */
-#define TPM2_NV_INDEX_UNASSIGNED_FIRST UINT32_C(0x01800000)
-#define TPM2_NV_INDEX_UNASSIGNED_LAST  UINT32_C(0x01BFFFFF)
+#define TPM2_NV_INDEX_SYSTEMD_FIRST UINT32_C(0x01800400)
+#define TPM2_NV_INDEX_SYSTEMD_LAST  UINT32_C(0x018005FF)
 
 #if HAVE_TPM2
 /* Verify that the above is indeed a subset of the general NV Index range */
-assert_cc(TPM2_NV_INDEX_UNASSIGNED_FIRST >= TPM2_NV_INDEX_FIRST);
-assert_cc(TPM2_NV_INDEX_UNASSIGNED_LAST <= TPM2_NV_INDEX_LAST);
+assert_cc(TPM2_NV_INDEX_SYSTEMD_FIRST >= TPM2_NV_INDEX_FIRST);
+assert_cc(TPM2_NV_INDEX_SYSTEMD_LAST  <= TPM2_NV_INDEX_LAST);
 #endif
+
+/* A subrange we use to store pcrlock policies in */
+#define TPM2_NV_INDEX_PCRLOCK_FIRST UINT32_C(0x01800400)
+#define TPM2_NV_INDEX_PCRLOCK_LAST  UINT32_C(0x0180041F)
+
+assert_cc(TPM2_NV_INDEX_PCRLOCK_FIRST >= TPM2_NV_INDEX_SYSTEMD_FIRST);
+assert_cc(TPM2_NV_INDEX_PCRLOCK_LAST  <= TPM2_NV_INDEX_SYSTEMD_LAST);
