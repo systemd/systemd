@@ -154,6 +154,7 @@ enum {
         _JSON_BUILD_PAIR_IN_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_HW_ADDR_NON_NULL,
+        _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL,
 
         _SD_JSON_BUILD_REALLYMAX,
 };
@@ -183,6 +184,7 @@ enum {
 #define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, v, f) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (const union in_addr_union*) { v }, (int) { f }
 #define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL, (const char*) { name }, (const struct ether_addr*) { v }
 #define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_HW_ADDR_NON_NULL, (const char*) { name }, (const struct hw_addr_data*) { v }
+#define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
 
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
