@@ -16,6 +16,7 @@
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
+#include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-io.systemd.NamespaceResource.h"
@@ -193,6 +194,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Machine);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Manager);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
