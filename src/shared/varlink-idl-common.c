@@ -19,3 +19,17 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(pidfdId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Boot ID of the system the inode number belongs to"),
                 SD_VARLINK_DEFINE_FIELD(bootId, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                RateLimit,
+                SD_VARLINK_FIELD_COMMENT("The ratelimit interval"),
+                SD_VARLINK_DEFINE_FIELD(intervalUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The ratelimit burst"),
+                SD_VARLINK_DEFINE_FIELD(burst, SD_VARLINK_INT, 0));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ResourceLimit,
+                SD_VARLINK_FIELD_COMMENT("The soft resource limit"),
+                SD_VARLINK_DEFINE_FIELD(soft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The hard resource limit"),
+                SD_VARLINK_DEFINE_FIELD(hard, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
