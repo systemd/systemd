@@ -4152,6 +4152,40 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_RATELIMIT: {
+                        RateLimit *rl;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        rl = va_arg(ap, RateLimit*);
+
+                        if (current->n_suppress == 0) {
+                                if (ratelimit_configured(rl)) {
+                                        r = sd_json_buildo(
+                                                        &add,
+                                                        SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
+                                                        SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                        if (r < 0)
+                                                goto finish;
+                                } else
+                                        add = JSON_VARIANT_MAGIC_NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _SD_JSON_BUILD_CALLBACK: {
                         sd_json_build_callback_t cb;
                         void *userdata;
