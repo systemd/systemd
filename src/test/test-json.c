@@ -12,6 +12,7 @@
 #include "json-internal.h"
 #include "json-util.h"
 #include "math-util.h"
+#include "ordered-set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -412,6 +413,19 @@ TEST(build) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ssv2 = NULL;
         assert_se(sd_json_build(&ssv2, SD_JSON_BUILD_LITERAL("{\"zzz\":[\"kawumm\",\"pief\",\"xxxx\"]}")) >= 0);
+
+        assert_se(sd_json_variant_equal(ssv, ssv2));
+
+        _cleanup_ordered_set_free_ OrderedSet *oss = NULL;
+        assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("pief"))) >= 0);
+        assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("xxxx"))) >= 0);
+        assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("kawumm"))) >= 0);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ossv = NULL;
+        assert_se(sd_json_build(&ssv, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("zzz", JSON_BUILD_STRING_ORDERED_SET(oss)))) >= 0);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ossv2 = NULL;
+        assert_se(sd_json_build(&ssv2, SD_JSON_BUILD_LITERAL("{\"zzz\":[\"pief\",\"xxxx\",\"kawumm\"]}")) >= 0);
 
         assert_se(sd_json_variant_equal(ssv, ssv2));
 }
