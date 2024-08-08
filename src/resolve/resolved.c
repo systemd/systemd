@@ -93,6 +93,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 
+        /* send queries on shutdown to other servers */
+        manager_symlink_stub_to_uplink_resolv_conf();
+
         return 0;
 }
 
