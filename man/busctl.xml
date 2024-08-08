@@ -392,17 +392,30 @@
         <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command,
-          specifies the maximum time to wait for method call
-          completion. If no time unit is specified, assumes
-          seconds. The usual other units are understood, too (ms, us,
-          s, min, h, d, w, month, y). Note that this timeout does not
-          apply if <option>--expect-reply=no</option> is used, as the
-          tool does not wait for any reply message then. When not
-          specified or when set to 0, the default of
-          <literal>25s</literal> is assumed.</para>
+          <para>When used with the <command>call</command> command, specifies the maximum time to wait for
+          method call completion. When used with the <command>monitor</command> command, since version v257,
+          specifies the maximum time to wait for messages before automatically exiting. If no time unit is
+          specified, assumes seconds. The usual other units are understood, too (ms, us, s, min, h, d, w,
+          month, y). Note that this timeout does not apply if <option>--expect-reply=no</option> is used,
+          when combined with the <command>call</command> command, as the tool does not wait for any reply
+          message then. When not specified or when set to 0, the default of <literal>25s</literal> is
+          assumed for the <command>call</command> command, and it is disabled for the
+          <command>monitor</command> command.</para>
 
         <xi:include href="version-info.xml" xpointer="v218"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--exit-on-first-match=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>monitor</command> command, if enabled will make
+          <command>busctl</command> exit when the first message is received and printed. This is useful in
+          combination with <option>--match=</option>, to wait for the first occurrence of a specific D-Bus
+          message.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
