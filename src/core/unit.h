@@ -17,15 +17,12 @@ typedef enum UnitMountDependencyType {
         _UNIT_MOUNT_DEPENDENCY_TYPE_INVALID = -EINVAL,
 } UnitMountDependencyType;
 
-#include "bpf-program.h"
 #include "cgroup.h"
 #include "condition.h"
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
 #include "pidref.h"
-#include "set.h"
-#include "show-status.h"
 #include "unit-file.h"
 
 typedef struct UnitRef UnitRef;
