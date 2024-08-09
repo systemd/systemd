@@ -438,13 +438,14 @@ static int network_set_dhcp_type(Context *context, const char *ifname, const cha
 
 static int network_set_hostname(Context *context, const char *ifname, const char *hostname) {
         Network *network;
+        int r;
 
         assert(context);
         assert(ifname);
 
-        network = network_get(context, ifname);
-        if (!network)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "No network found for '%s'", ifname);
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return free_and_strdup(&network->hostname, hostname);
 }
@@ -459,9 +460,9 @@ static int network_set_mtu(Context *context, const char *ifname, const char *mtu
         if (isempty(mtu))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "No network found for '%s'", ifname);
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         r = parse_mtu(AF_UNSPEC, mtu, &network->mtu);
         if (r < 0)
@@ -478,20 +479,27 @@ static int network_set_mac_address(Context *context, const char *ifname, const c
         assert(ifname);
         assert(mac);
 
-        network = network_get(context, ifname);
-        if (!network)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "No network found for '%s'", ifname);
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         r = parse_ether_addr(mac, &network->mac);
         if (r < 0)
                 return log_debug_errno(r, "Invalid MAC address '%s' for '%s'", mac, ifname);
 
-        return r;
+        return 0;
 }
 
-static int network_set_address(Context *context, const char *ifname, int family, unsigned char prefixlen,
-                               union in_addr_union *addr, union in_addr_union *peer) {
+static int network_set_address(
+                Context *context,
+                const char *ifname,
+                int family,
+                unsigned char prefixlen,
+                union in_addr_union *addr,
+                union in_addr_union *peer) {
+
         Network *network;
+        int r;
 
         assert(context);
         assert(ifname);
@@ -501,15 +509,21 @@ static int network_set_address(Context *context, const char *ifname, int family,
         if (!in_addr_is_set(family, addr))
                 return 0;
 
-        network = network_get(context, ifname);
-        if (!network)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "No network found for '%s'", ifname);
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
         return address_new(network, family, prefixlen, addr, peer, NULL);
 }
 
-static int network_set_route(Context *context, const char *ifname, int family, unsigned char prefixlen,
-                             union in_addr_union *dest, union in_addr_union *gateway) {
+static int network_set_route(
+                Context *context,
+                const char *ifname,
+                int family,
+                unsigned char prefixlen,
+                union in_addr_union *dest,
+                union in_addr_union *gateway) {
+
         Network *network;
         int r;
 
