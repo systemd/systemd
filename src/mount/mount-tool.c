@@ -800,7 +800,7 @@ static int start_transient_automount(
         return 0;
 }
 
-static int find_mount_points(const char *what, char ***list) {
+static int find_mount_points(const char *what, char ***list, struct libmnt_cache *tag_cache) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -813,7 +813,7 @@ static int find_mount_points(const char *what, char ***list) {
         /* Returns all mount points obtained from /proc/self/mountinfo in *list,
          * and the number of mount points as return value. */
 
-        r = libmount_parse(NULL, NULL, &table, &iter);
+        r = libmount_parse_cached(NULL, NULL, &table, &iter, tag_cache);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -987,7 +987,7 @@ static int stop_mounts(
         return 0;
 }
 
-static int umount_by_device(sd_bus *bus, sd_device *dev) {
+static int umount_by_device(sd_bus *bus, sd_device *dev, struct libmnt_cache *tag_cache) {
         _cleanup_strv_free_ char **list = NULL;
         const char *v;
         int r, ret = 0;
@@ -1002,7 +1002,7 @@ static int umount_by_device(sd_bus *bus, sd_device *dev) {
         if (r < 0)
                 return r;
 
-        r = find_mount_points(v, &list);
+        r = find_mount_points(v, &list, tag_cache);
         if (r < 0)
                 return r;
 
@@ -1015,7 +1015,7 @@ static int umount_by_device(sd_bus *bus, sd_device *dev) {
         return ret;
 }
 
-static int umount_by_device_node(sd_bus *bus, const char *node) {
+static int umount_by_device_node(sd_bus *bus, const char *node, struct libmnt_cache *tag_cache) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *v;
         int r;
@@ -1035,10 +1035,10 @@ static int umount_by_device_node(sd_bus *bus, const char *node) {
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s does not contain a known file system.", node);
 
-        return umount_by_device(bus, dev);
+        return umount_by_device(bus, dev, tag_cache);
 }
 
-static int umount_loop(sd_bus *bus, const char *backing_file) {
+static int umount_loop(sd_bus *bus, const char *backing_file, struct libmnt_cache *tag_cache) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
@@ -1048,7 +1048,7 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
         if (r < 0)
                 return log_error_errno(r, r == -ENXIO ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
 
-        return umount_by_device(bus, dev);
+        return umount_by_device(bus, dev, tag_cache);
 }
 
 static int action_umount(
@@ -1057,6 +1057,7 @@ static int action_umount(
                 char **argv) {
 
         int r, r2 = 0;
+        _cleanup_(mnt_unref_cachep) struct libmnt_cache *tag_cache = NULL;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
                 for (int i = optind; i < argc; i++) {
@@ -1072,6 +1073,10 @@ static int action_umount(
                 }
                 return r2;
         }
+
+        tag_cache = mnt_new_cache();
+        if (!tag_cache)
+                log_warning_errno(errno, "Failed to allocate libmnt_cache object: %m");
 
         for (int i = optind; i < argc; i++) {
                 _cleanup_free_ char *u = NULL, *p = NULL;
@@ -1091,9 +1096,9 @@ static int action_umount(
                         return log_error_errno(errno, "Can't stat %s (from %s): %m", p, argv[i]);
 
                 if (S_ISBLK(st.st_mode))
-                        r = umount_by_device_node(bus, p);
+                        r = umount_by_device_node(bus, p, tag_cache);
                 else if (S_ISREG(st.st_mode))
-                        r = umount_loop(bus, p);
+                        r = umount_loop(bus, p, tag_cache);
                 else if (S_ISDIR(st.st_mode))
                         r = stop_mounts(bus, p);
                 else {
@@ -1218,7 +1223,9 @@ static int acquire_mount_where_for_loop_dev(sd_device *dev) {
         if (r < 0)
                 return r;
 
-        r = find_mount_points(node, &list);
+        /* If this function is ever called more than once, then it would make sense to change NULL into a
+         * pointer to a valid struct libmnt_cache for better performance. */
+        r = find_mount_points(node, &list, NULL);
         if (r < 0)
                 return r;
         if (r == 0)

@@ -921,6 +921,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .dump_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_MINUTE, .burst = 10 },
 
                 .executor_fd = -EBADF,
+
+                .tag_cache = NULL,
         };
 
         unit_defaults_init(&m->defaults, runtime_scope);
