@@ -7,6 +7,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
@@ -44,6 +45,7 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "vpick.h"
+#include "xattr-util.h"
 
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was
  * dropped there by the portable service logic and b) for which image it was dropped there. */
@@ -168,6 +170,124 @@ static int send_one_fd_iov_with_data_fd(
         return send_one_fd_iov(socket_fd, data_fd, iov, iovlen, 0);
 }
 
+static int send_files(
+                const char *where,
+                char **directories,
+                char **matches,
+                bool sending_units,
+                int socket_fd,
+                Hashmap *files) {
+
+        int r;
+
+        STRV_FOREACH(i, directories) {
+                _cleanup_free_ char *resolved = NULL;
+                _cleanup_closedir_ DIR *d = NULL;
+
+                r = chase_and_opendir(*i, where, 0, &resolved, &d);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to open path '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
+                        _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
+                        _cleanup_free_ char *resolved_filename = NULL;
+                        _cleanup_freecon_ char *con = NULL;
+                        _cleanup_close_ int fd = -EBADF;
+                        char *relative_filename;
+                        struct stat st;
+
+                        if (sending_units) {
+                                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
+                                        continue;
+
+                                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
+                                        continue;
+
+                                if (!unit_match(de->d_name, matches))
+                                        continue;
+                        } else {
+                                if (de->d_type != DT_REG)
+                                        continue;
+
+                                bool found = false;
+                                STRV_FOREACH(j, matches)
+                                        if (prefix_match(de->d_name, *j)) {
+                                                found = true;
+                                                break;
+                                        }
+                                if (!found)
+                                        continue;
+                        }
+
+                        if (hashmap_get(files, de->d_name))
+                                continue;
+
+                        fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
+                        if (fd < 0) {
+                                log_debug_errno(errno, "Failed to open '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        /* Reject empty files, just in case */
+                        if (fstat(fd, &st) < 0) {
+                                log_debug_errno(errno, "Failed to stat '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        if (st.st_size <= 0) {
+                                log_debug("'%s' is empty, ignoring.", de->d_name);
+                                continue;
+                        }
+
+                        resolved_filename = path_join(resolved, de->d_name);
+                        if (!resolved_filename)
+                                return -ENOMEM;
+
+                        relative_filename = sending_units ? de->d_name : startswith(resolved_filename, where) ?: resolved_filename;
+                        assert(!isempty(relative_filename));
+
+                        if (socket_fd >= 0) {
+#if HAVE_SELINUX
+                                /* The files will be copied on the host's filesystem, so if they had a SELinux label
+                                * we have to preserve it. Copy it out so that it can be applied later. */
+
+                                r = fgetfilecon_raw(fd, &con);
+                                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
+                                        log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+#endif
+
+                                struct iovec iov[] = {
+                                        IOVEC_MAKE_STRING(relative_filename),
+                                        IOVEC_MAKE((char *)"\0", sizeof(char)),
+                                        IOVEC_MAKE_STRING(strempty(con)),
+                                };
+
+                                r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), fd);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to send file metadata to parent: %m");
+                        }
+
+                        if (files) {
+                                m = portable_metadata_new(relative_filename, where, con, fd);
+                                if (!m)
+                                        return -ENOMEM;
+                                TAKE_FD(fd);
+
+                                m->source = TAKE_PTR(resolved_filename);
+
+                                r = hashmap_put(files, m->name, m);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to add file to hashmap: %m");
+                                TAKE_PTR(m);
+                        }
+                }
+        }
+
+        return 0;
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
                                               PortableMetadata, portable_metadata_unref);
 
@@ -179,24 +299,27 @@ static int extract_now(
                 bool relax_extension_release_check,
                 int socket_fd,
                 PortableMetadata **ret_os_release,
-                Hashmap **ret_unit_files) {
+                Hashmap **ret_unit_files,
+                Hashmap **ret_auxiliary_files) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL, *auxiliary_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
+        _cleanup_strv_free_ char **auxiliary_directories = NULL;
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
         int r;
 
-        /* Extracts the metadata from a directory tree 'where'. Extracts two kinds of information: the /etc/os-release
-         * data, and all unit files matching the specified expression. Note that this function is called in two very
-         * different but also similar contexts. When the tool gets invoked on a directory tree, we'll process it
-         * directly, and in-process, and thus can return the requested data directly, via 'ret_os_release' and
-         * 'ret_unit_files'. However, if the tool is invoked on a raw disk image — which needs to be mounted first — we
-         * are invoked in a child process with private mounts and then need to send the collected data to our
-         * parent. To handle both cases in one call this function also gets a 'socket_fd' parameter, which when >= 0 is
-         * used to send the data to the parent. */
+        /* Extracts the metadata from a directory tree 'where'. Extracts the /etc/os-release data, and all
+         * unit files, D-Bus config files and polkit files matching the specified expression. Note that this
+         * function is called in two very different but also similar contexts. When the tool gets invoked on
+         * a directory tree, we'll process it directly, and in-process, and thus can return the requested
+         * data directly, via 'ret_os_release', 'ret_unit_files', etc. However, if the tool is invoked on a
+         * raw disk image — which needs to be mounted first — we are invoked in a child process with private
+         * mounts and then need to send the collected data to our parent. To handle both cases in one call
+         * this function also gets a 'socket_fd' parameter, which when >= 0 is used to send the data to the
+         * parent. */
 
         assert(where);
 
@@ -255,93 +378,45 @@ static int extract_now(
         if (!unit_files)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, paths.search_path) {
-                _cleanup_free_ char *resolved = NULL;
-                _cleanup_closedir_ DIR *d = NULL;
+        r = send_files(where,
+                       paths.search_path,
+                       matches,
+                       /* sending_units= */ true,
+                       socket_fd,
+                       unit_files);
+        if (r < 0)
+                return r;
 
-                r = chase_and_opendir(*i, where, 0, &resolved, &d);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to open unit path '%s', ignoring: %m", *i);
-                        continue;
-                }
+        /* Finally, extract D-Bus and polkit configuration files required by the units. */
+        auxiliary_files = hashmap_new(&portable_metadata_hash_ops);
+        if (!auxiliary_files)
+                return -ENOMEM;
 
-                FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
-                        _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
-                        _cleanup_freecon_ char *con = NULL;
-                        _cleanup_close_ int fd = -EBADF;
-                        struct stat st;
+        FOREACH_ELEMENT(d, portable_auxiliary_directories) {
+                char *joined = path_join(where, d->image_path);
+                if (!joined)
+                        return log_oom();
 
-                        if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
-                                continue;
-
-                        if (!unit_match(de->d_name, matches))
-                                continue;
-
-                        /* Filter out duplicates */
-                        if (hashmap_get(unit_files, de->d_name))
-                                continue;
-
-                        if (!IN_SET(de->d_type, DT_LNK, DT_REG))
-                                continue;
-
-                        fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
-                        if (fd < 0) {
-                                log_debug_errno(errno, "Failed to open unit file '%s', ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        /* Reject empty files, just in case */
-                        if (fstat(fd, &st) < 0) {
-                                log_debug_errno(errno, "Failed to stat unit file '%s', ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        if (st.st_size <= 0) {
-                                log_debug("Unit file '%s' is empty, ignoring.", de->d_name);
-                                continue;
-                        }
-
-#if HAVE_SELINUX
-                        /* The units will be copied on the host's filesystem, so if they had a SELinux label
-                         * we have to preserve it. Copy it out so that it can be applied later. */
-
-                        r = fgetfilecon_raw(fd, &con);
-                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
-                                log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
-#endif
-
-                        if (socket_fd >= 0) {
-                                struct iovec iov[] = {
-                                        IOVEC_MAKE_STRING(de->d_name),
-                                        IOVEC_MAKE((char *)"\0", sizeof(char)),
-                                        IOVEC_MAKE_STRING(strempty(con)),
-                                };
-
-                                r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), fd);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
-                        }
-
-                        m = portable_metadata_new(de->d_name, where, con, fd);
-                        if (!m)
-                                return -ENOMEM;
-                        fd = -EBADF;
-
-                        m->source = path_join(resolved, de->d_name);
-                        if (!m->source)
-                                return -ENOMEM;
-
-                        r = hashmap_put(unit_files, m->name, m);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to add unit to hashmap: %m");
-                        m = NULL;
-                }
+                r = strv_consume(&auxiliary_directories, TAKE_PTR(joined));
+                if (r < 0)
+                        return log_oom();
         }
+
+        r = send_files(where,
+                       auxiliary_directories,
+                       !strv_isempty(matches) ? matches : STRV_MAKE(image_name),
+                       /* sending_units= */ false,
+                       socket_fd,
+                       auxiliary_files);
+        if (r < 0)
+                return r;
 
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
+        if (ret_auxiliary_files)
+                *ret_auxiliary_files = TAKE_PTR(auxiliary_files);
 
         return 0;
 }
@@ -354,9 +429,10 @@ static int portable_extract_by_path(
                 const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
+                Hashmap **ret_auxiliary_files,
                 sd_bus_error *error) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL, *auxiliary_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
@@ -380,7 +456,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                r = extract_now(path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files);
+                r = extract_now(path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files, &auxiliary_files);
                 if (r < 0)
                         return r;
 
@@ -457,7 +533,7 @@ static int portable_extract_by_path(
                                 goto child_finish;
                         }
 
-                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
+                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL, NULL);
 
                 child_finish:
                         _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -467,6 +543,10 @@ static int portable_extract_by_path(
 
                 unit_files = hashmap_new(&portable_metadata_hash_ops);
                 if (!unit_files)
+                        return -ENOMEM;
+
+                auxiliary_files = hashmap_new(&portable_metadata_hash_ops);
+                if (!auxiliary_files)
                         return -ENOMEM;
 
                 for (;;) {
@@ -510,17 +590,23 @@ static int portable_extract_by_path(
                          * it refers to a path only valid in the short-living namespaced child process we forked
                          * here. */
 
-                        if (PORTABLE_METADATA_IS_UNIT(add)) {
+                        if (PORTABLE_METADATA_IS_OS_RELEASE(add) || PORTABLE_METADATA_IS_EXTENSION_RELEASE(add)) {
+
+                                assert(!os_release);
+                                os_release = TAKE_PTR(add);
+                        } else if (PORTABLE_METADATA_IS_AUXILIARY_FILE(add)) {
+                                r = hashmap_put(auxiliary_files, add->name, add);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to add item to file list: %m");
+
+                                add = NULL;
+                        } else if (PORTABLE_METADATA_IS_UNIT(add)) {
                                 r = hashmap_put(unit_files, add->name, add);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to add item to unit file list: %m");
 
                                 add = NULL;
 
-                        } else if (PORTABLE_METADATA_IS_OS_RELEASE(add) || PORTABLE_METADATA_IS_EXTENSION_RELEASE(add)) {
-
-                                assert(!os_release);
-                                os_release = TAKE_PTR(add);
                         } else
                                 assert_not_reached();
                 }
@@ -544,6 +630,9 @@ static int portable_extract_by_path(
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
 
+        if (ret_auxiliary_files)
+                *ret_auxiliary_files = TAKE_PTR(auxiliary_files);
+
         return 0;
 }
 
@@ -559,6 +648,7 @@ static int extract_image_and_extensions(
                 OrderedHashmap **ret_extension_releases,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
+                Hashmap **ret_auxiliary_files,
                 char ***ret_valid_prefixes,
                 sd_bus_error *error) {
 
@@ -566,7 +656,7 @@ static int extract_image_and_extensions(
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL, *auxiliary_files = NULL;
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         Image *ext;
@@ -651,6 +741,7 @@ static int extract_image_and_extensions(
                         image_policy,
                         &os_release,
                         &unit_files,
+                        &auxiliary_files,
                         error);
         if (r < 0)
                 return r;
@@ -681,7 +772,7 @@ static int extract_image_and_extensions(
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
-                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
+                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL, *extra_auxiliary_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
                 const char *e;
 
@@ -693,11 +784,16 @@ static int extract_image_and_extensions(
                                 image_policy,
                                 &extension_release_meta,
                                 &extra_unit_files,
+                                &extra_auxiliary_files,
                                 error);
                 if (r < 0)
                         return r;
 
                 r = hashmap_move(unit_files, extra_unit_files);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_move(auxiliary_files, extra_auxiliary_files);
                 if (r < 0)
                         return r;
 
@@ -752,6 +848,8 @@ static int extract_image_and_extensions(
                 *ret_os_release = TAKE_PTR(os_release);
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
+        if (ret_auxiliary_files)
+                *ret_auxiliary_files = TAKE_PTR(auxiliary_files);
         if (ret_valid_prefixes)
                 *ret_valid_prefixes = TAKE_PTR(valid_prefixes);
 
@@ -791,6 +889,7 @@ int portable_extract(
                         &extension_releases,
                         &os_release,
                         &unit_files,
+                        /* ret_auxiliary_files= */ NULL,
                         ret_valid_prefixes ? &valid_prefixes : NULL,
                         error);
         if (r < 0)
@@ -991,6 +1090,122 @@ void portable_changes_free(PortableChange *changes, size_t n_changes) {
         }
 
         free(changes);
+}
+
+static int mark_for_reload(sd_bus *bus, const char *service){
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        int r;
+
+        if (isempty(service))
+                return 0;
+
+        r = bus_message_new_method_call(bus, &message, bus_systemd_mgr, "SetUnitProperties");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create SetUnitProperties message: %m");
+
+        UnitType t = unit_name_to_type(service);
+        if (t < 0)
+                return log_debug_errno(t, "Invalid unit type: %s", service);
+
+        r = sd_bus_message_append(message, "sb", service, /* runtime= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to append unit name to SetUnitProperties message: %m");
+
+        r = sd_bus_message_open_container(message, SD_BUS_TYPE_ARRAY, "(sv)");
+        if (r < 0)
+                return r;
+
+        r = bus_append_unit_property_assignment(message, t, "Markers=needs-reload");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to append Markers property to SetUnitProperties message: %m");
+
+        r = sd_bus_message_close_container(message);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(bus, message, 0, &error, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set Marker properties on %s: %s",
+                                        service, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int install_auxiliary_file(
+                sd_bus *bus,
+                const PortableMetadata *m,
+                PortableChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_free_ char *path = NULL, *filename = NULL;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *where = NULL, *service = NULL;
+        int r;
+
+        assert(m);
+        assert(PORTABLE_METADATA_IS_AUXILIARY_FILE(m));
+
+        FOREACH_ELEMENT(d, portable_auxiliary_directories) {
+                if (path_startswith(m->name, d->image_path)) {
+                        where = d->install_path;
+                        service = d->reloading_service;
+                        break;
+                }
+        }
+
+        if (!where)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Auxiliary file '%s' not in any known directory.", m->name);
+
+        (void) mkdir_parents(where, 0755);
+        if (mkdir(where, 0755) < 0) {
+                if (errno != EEXIST)
+                        return log_debug_errno(errno, "Failed to create directory %s: %m", where);
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
+
+        r = path_extract_filename(m->name, &filename);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract filename from '%s': %m", m->name);
+
+        path = path_join(where, filename);
+        if (!path)
+                return -ENOMEM;
+
+        /* Always create a copy, as the service using the configuration might be sandboxed and lack access
+         * outside of its configuration directories, so a symlink might not be readable. */
+
+        (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
+
+        fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
+        mac_selinux_create_file_clear(); /* Clear immediately in case of errors */
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to create file '%s': %m", path);
+
+        r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to copy file '%s': %m", path);
+
+        if (fchmod(fd, 0644) < 0)
+                return log_debug_errno(errno, "Failed to change file access mode for '%s': %m", path);
+
+        /* Setting the xattr means we can later find this again when detaching and delete it. */
+        r = xsetxattr(fd, /* path= */ NULL, "user.portable", m->image_path, strlen(m->image_path), /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set user.portable xattr on '%s': %m", path);
+
+        r = link_tmpfile(fd, tmp, path, LINK_TMPFILE_SYNC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to install file '%s': %m", path);
+
+        tmp = mfree(tmp);
+
+        (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, path, m->name);
+
+        (void) mark_for_reload(bus, service);
+
+        return 0;
 }
 
 static const char *root_setting_from_image(ImageType type) {
@@ -1600,7 +1815,7 @@ int portable_attach(
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL, *auxiliary_files = NULL;
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -1619,6 +1834,7 @@ int portable_attach(
                         &extension_releases,
                         &os_release,
                         &unit_files,
+                        &auxiliary_files,
                         &valid_prefixes,
                         error);
         if (r < 0)
@@ -1688,6 +1904,20 @@ int portable_attach(
                                      item, os_release, profile, flags, changes, n_changes);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
+        }
+
+        HASHMAP_FOREACH(item, auxiliary_files) {
+                r = install_auxiliary_file(bus, item, changes, n_changes);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to install auxiliary file '%s': %m", item->name);
+        }
+
+        if (!hashmap_isempty(auxiliary_files)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
+
+                r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &err, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to call EnqueueMarkedJobs, ignoring: %s", bus_error_message(&err, r));
         }
 
         /* We don't care too much for the image symlink/copy, it's just a convenience thing, it's not necessary for
@@ -1849,6 +2079,7 @@ int portable_detach(
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
+        bool needs_reload = false;
         int ret = 0;
         int r;
 
@@ -1993,9 +2224,58 @@ int portable_detach(
                         portable_changes_add(changes, n_changes, PORTABLE_UNLINK, target, NULL);
         }
 
+        FOREACH_ELEMENT(e, portable_auxiliary_directories) {
+                _cleanup_closedir_ DIR *aux_dir = NULL;
+
+                aux_dir = opendir(e->install_path);
+                if (!aux_dir) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_debug_errno(errno, "Failed to open '%s' directory: %m", e->install_path);
+                }
+
+                FOREACH_DIRENT(de, aux_dir, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", e->install_path)) {
+                        _cleanup_free_ char *xattr = NULL;
+
+                        if (de->d_type != DT_REG)
+                                continue;
+
+                        r = getxattr_at_malloc(dirfd(aux_dir), de->d_name, "user.portable", /* flags= */ 0, &xattr);
+                        if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                                continue;
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read xattr from '%s': %m", de->d_name);
+
+                        SET_FOREACH(item, markers) {
+                                if (!streq(xattr, item))
+                                        continue;
+
+                                if (unlinkat(dirfd(aux_dir), de->d_name, 0) < 0) {
+                                        log_debug_errno(errno, "Can't remove auxiliary file %s/%s: %m", e->install_path, de->d_name);
+
+                                        if (errno != ENOENT && ret >= 0)
+                                                ret = -errno;
+                                } else {
+                                        portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, e->install_path, de->d_name, NULL);
+
+                                        (void) mark_for_reload(bus, e->reloading_service);
+                                        needs_reload = true;
+                                }
+                        }
+                }
+        }
+
         /* Try to remove the unit file directory, if we can */
         if (rmdir(where) >= 0)
                 portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
+
+        if (needs_reload) {
+                _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
+                r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &err, NULL, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to call EnqueueMarkedJobs, ignoring: %s", bus_error_message(&err, r));
+        }
 
         log_portable_verb(
                         "detached",

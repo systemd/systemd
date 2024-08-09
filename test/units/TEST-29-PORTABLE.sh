@@ -131,6 +131,9 @@ status="$(portablectl is-attached --extension app0 minimal_0)"
 grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "org.freedesktop.app0" /etc/dbus-1/system.d/app0.conf
+grep -q -F "org.freedesktop.app0" /etc/dbus-1/system-services/app0.service
+grep -q -F "org.freedesktop.app0" /etc/polkit-1/actions/app0.policy
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 
@@ -143,6 +146,10 @@ grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.atta
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
 
 portablectl detach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
+
+test ! -f /etc/dbus-1/system.d/app0.conf
+test ! -f /etc/dbus-1/system-services/app0.service
+test ! -f /etc/polkit-1/actions/app0.policy
 
 # Ensure versioned images are accepted without needing to use --force to override the extension-release
 # matching
@@ -280,11 +287,61 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 portablectl detach --runtime --extension /tmp/app1.raw /usr/share/minimal_0.raw app
 
 # portablectl also works with directory paths rather than images
-
-mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
+mkdir -p /tmp/rootdir \
+    /tmp/app0 \
+    /tmp/app1 \
+    /tmp/overlay \
+    /tmp/os-release-fix \
+    /tmp/os-release-fix/etc \
+    /tmp/os-release-fix/usr/share/dbus-1/system.d/ \
+    /tmp/os-release-fix/usr/share/dbus-1/system-services/ \
+    /tmp/os-release-fix/usr/share/polkit-1/actions/
 mount /tmp/app0.raw /tmp/app0
 mount /tmp/app1.raw /tmp/app1
 mount /usr/share/minimal_0.raw /tmp/rootdir
+
+cat <<EOF >/tmp/os-release-fix/usr/share/dbus-1/system.d/app1.conf
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+        <policy user="root">
+                <allow own="org.freedesktop.app1"/>
+                <allow send_destination="org.freedesktop.app1"/>
+                <allow receive_sender="org.freedesktop.app1"/>
+        </policy>
+        <policy context="default">
+                <allow send_destination="org.freedesktop.app1"/>
+                <allow receive_sender="org.freedesktop.app1"/>
+        </policy>
+</busconfig>
+EOF
+cat <<EOF >/tmp/os-release-fix/usr/share/dbus-1/system-services/app1.service
+[D-BUS Service]
+Name=org.freedesktop.app1
+Exec=/bin/false
+User=root
+SystemdService=dbus-org.freedesktop.app1.service
+EOF
+cat <<EOF >/tmp/os-release-fix/usr/share/polkit-1/actions/app1.policy
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="org.freedesktop.app1">
+                <description gettext-domain="systemd">app1</description>
+                <message gettext-domain="systemd">Authentication is required for app1</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+</policyconfig>
+EOF
 
 # Fix up os-release to drop the valid PORTABLE_SERVICES field (because we are
 # bypassing the sysext logic in portabled here it will otherwise not see the
@@ -300,7 +357,15 @@ portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/overlay app1
 
 systemctl is-active app1.service
 
+grep -q -F "org.freedesktop.app1" /etc/dbus-1/system.d/app1.conf
+grep -q -F "org.freedesktop.app1" /etc/dbus-1/system-services/app1.service
+grep -q -F "org.freedesktop.app1" /etc/polkit-1/actions/app1.policy
+
 portablectl detach --now --runtime overlay app1
+
+test ! -f /etc/dbus-1/system.d/app1.conf
+test ! -f /etc/dbus-1/system-services/app1.service
+test ! -f /etc/polkit-1/actions/app1.policy
 
 umount /tmp/overlay
 

@@ -127,6 +127,12 @@ This command does the following:
    Finally, `nonetwork` is like `default` but without network access.
    Users may define their own profiles too (or modify the existing ones).
 
+5. Any configuration files contained in `/usr/share/polkit-1/actions/`,
+   `/usr/share/dbus-1/system-services/` and `/usr/share/dbus-1/system.d/` that match the
+   indicated prefix are extracted and copied to the respective directories in `/etc/`,
+   and their respective services are reloaded. This allows the portable services to
+   optionally provide a D-Bus interface, optionally authenticating clients via polkit.
+
 And that's already it.
 
 Note that the images need to stay around (and in the same location) as long as the
