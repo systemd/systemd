@@ -242,9 +242,6 @@ EOF
     systemd-run --service-type=exec --unit=TEST-82-SOFTREBOOT-survive.service \
         --property TemporaryFileSystem="/run /tmp /var" \
         --property RootImage=/tmp/minimal_0.raw \
-        --property BindReadOnlyPaths=/dev/log \
-        --property BindReadOnlyPaths=/run/systemd/journal/socket \
-        --property BindReadOnlyPaths=/run/systemd/journal/stdout \
         --property SurviveFinalKillSignal=yes \
         --property IgnoreOnIsolate=yes \
         --property DefaultDependencies=no \
