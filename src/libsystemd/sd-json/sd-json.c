@@ -4330,9 +4330,11 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_INTEGER_NON_ZERO: {
+                case _JSON_BUILD_PAIR_INTEGER_NON_ZERO:
+                case _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE: {
                         const char *n;
                         int64_t i;
+                        bool include;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4342,7 +4344,14 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char*);
                         i = va_arg(ap, int64_t);
 
-                        if (i != 0 && current->n_suppress == 0) {
+                        if (command == _JSON_BUILD_PAIR_INTEGER_NON_ZERO)
+                                include = i != 0;
+                        else if (command == _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE)
+                                include = i >= 0;
+                        else
+                                assert_not_reached();
+
+                        if (include && current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
