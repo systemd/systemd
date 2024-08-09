@@ -164,7 +164,7 @@ enum {
         STATE_OFFLINE = 0,
         STATE_ONLINE = 1,
         STATE_ARCHIVED = 2,
-        _STATE_MAX
+        _STATE_MAX,
 };
 
 /* Header flags */

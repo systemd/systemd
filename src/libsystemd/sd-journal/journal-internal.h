@@ -25,7 +25,7 @@ typedef struct Directory Directory;
 typedef enum MatchType {
         MATCH_DISCRETE,
         MATCH_OR_TERM,
-        MATCH_AND_TERM
+        MATCH_AND_TERM,
 } MatchType;
 
 struct Match {
