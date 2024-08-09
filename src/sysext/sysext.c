@@ -1839,8 +1839,10 @@ static int image_discover_and_read_metadata(
 
         HASHMAP_FOREACH(img, images) {
                 r = image_read_metadata(img, image_class_info[image_class].default_image_policy);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read metadata for image %s, ignoring: %m", img->name);
+                        image_unref(hashmap_remove_value(images, img->name, img));
+                }
         }
 
         *ret_images = TAKE_PTR(images);
