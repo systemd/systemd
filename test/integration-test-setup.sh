@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -e
+set -eux
+set -o pipefail
 
 case "$1" in
     setup)

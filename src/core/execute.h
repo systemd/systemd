@@ -302,8 +302,7 @@ struct ExecContext {
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
 
-        usec_t log_ratelimit_interval_usec;
-        unsigned log_ratelimit_burst;
+        RateLimit log_ratelimit;
 
         int log_level_max;
 

@@ -162,8 +162,7 @@ typedef struct UnitDefaults {
         usec_t restart_usec, timeout_start_usec, timeout_stop_usec, timeout_abort_usec, device_timeout_usec;
         bool timeout_abort_set;
 
-        usec_t start_limit_interval;
-        unsigned start_limit_burst;
+        RateLimit start_limit;
 
         bool cpu_accounting;
         bool memory_accounting;

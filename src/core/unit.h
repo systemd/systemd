@@ -1043,6 +1043,8 @@ Condition *unit_find_failed_condition(Unit *u);
 
 int unit_arm_timer(Unit *u, sd_event_source **source, bool relative, usec_t usec, sd_event_time_handler_t handler);
 
+bool unit_is_filtered(Unit *u, char *const *states, char *const *patterns);
+
 int unit_compare_priority(Unit *a, Unit *b);
 
 UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;

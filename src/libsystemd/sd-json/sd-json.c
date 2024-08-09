@@ -23,6 +23,7 @@
 #include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
+#include "ordered-set.h"
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
@@ -4081,6 +4082,42 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_STRING_ORDERED_SET: {
+                        OrderedSet *set;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        set = va_arg(ap, OrderedSet*);
+
+                        if (current->n_suppress == 0) {
+                                _cleanup_free_ char **sorted = NULL;
+
+                                sorted = ordered_set_get_strv(set);
+                                if (!sorted) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                r = sd_json_variant_new_array_strv(&add, sorted);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_DUAL_TIMESTAMP: {
                         dual_timestamp *ts;
 
@@ -4098,7 +4135,41 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                                         SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
                                                         SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
                                         if (r < 0)
-                                                return r;
+                                                goto finish;
+                                } else
+                                        add = JSON_VARIANT_MAGIC_NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_RATELIMIT: {
+                        RateLimit *rl;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        rl = va_arg(ap, RateLimit*);
+
+                        if (current->n_suppress == 0) {
+                                if (ratelimit_configured(rl)) {
+                                        r = sd_json_buildo(
+                                                        &add,
+                                                        SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
+                                                        SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                        if (r < 0)
+                                                goto finish;
                                 } else
                                         add = JSON_VARIANT_MAGIC_NULL;
                         }
@@ -4522,6 +4593,71 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 r = sd_json_variant_new_array_bytes(&add_more, a->bytes, a->length);
                                 if (r < 0)
                                         goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL: {
+                        dual_timestamp *ts;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        ts = va_arg(ap, dual_timestamp*);
+
+                        if (ts && dual_timestamp_is_set(ts) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_buildo(
+                                                &add_more,
+                                                SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
+                                                SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_CALLBACK_NON_NULL: {
+                        sd_json_build_callback_t cb;
+                        void *userdata;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        cb = va_arg(ap, sd_json_build_callback_t);
+                        userdata = va_arg(ap, void*);
+
+                        if (current->n_suppress == 0) {
+                                if (cb) {
+                                        r = cb(&add_more, n, userdata);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                if (add_more) {
+                                        r = sd_json_variant_new_string(&add, n);
+                                        if (r < 0)
+                                                goto finish;
+                                }
                         }
 
                         n_subtract = 2; /* we generated two item */
