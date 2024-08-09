@@ -4631,6 +4631,40 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
                 }
+
+                case _JSON_BUILD_PAIR_CALLBACK_NON_NULL: {
+                        sd_json_build_callback_t cb;
+                        void *userdata;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        cb = va_arg(ap, sd_json_build_callback_t);
+                        userdata = va_arg(ap, void*);
+
+                        if (current->n_suppress == 0) {
+                                if (cb) {
+                                        r = cb(&add_more, n, userdata);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                if (add_more) {
+                                        r = sd_json_variant_new_string(&add, n);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
                 }
 
                 /* If variants were generated, add them to our current variant, but only if we are not supposed to suppress additions */
