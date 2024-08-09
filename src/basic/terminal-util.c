@@ -980,8 +980,11 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
                 return 0;
 
         tty = skip_dev_prefix(tty);
+        if (path_startswith(tty, "pts/"))
+                return -EMEDIUMTYPE;
         if (!in_charset(tty, ALPHANUMERICAL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s contains non-alphanumeric characters", tty);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "TTY name '%s' contains non-alphanumeric characters, not searching kernel cmdline for size.", tty);
 
         rowskey = strjoin("systemd.tty.rows.", tty);
         if (!rowskey)
