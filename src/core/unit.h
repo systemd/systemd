@@ -987,6 +987,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
 void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);
+int unit_overwrite_log_level_max(Unit *u, const ExecContext *c);
 
 int unit_prepare_exec(Unit *u);
 
