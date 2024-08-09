@@ -281,6 +281,8 @@ static int test_callback(sd_json_variant **ret, const char *name, void *userdata
                 assert_se(PTR_TO_INT(userdata) == 4711);
         else if (streq_ptr(name, "mypid2"))
                 assert_se(PTR_TO_INT(userdata) == 4712);
+        else if (streq_ptr(name, "mypid3"))
+                return 0;
         else
                 assert_not_reached();
 
@@ -400,6 +402,16 @@ TEST(build) {
         assert_se(asprintf(&f1, "{\"mypid1\":" PID_FMT ",\"mypid2\":" PID_FMT "}", getpid(), getpid()) >= 0);
 
         assert_se(sd_json_variant_format(y, /* flags= */ 0, &f2));
+        ASSERT_STREQ(f1, f2);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *z = NULL;
+        ASSERT_OK(sd_json_build(&z, SD_JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CALLBACK_NON_NULL("mypid3", test_callback, INT_TO_PTR(4713)))));
+        ASSERT_TRUE(sd_json_variant_is_blank_object(z));
+        z = sd_json_variant_unref(z);
+        f2 = mfree(f2);
+        ASSERT_OK(sd_json_build(&z, SD_JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CALLBACK_NON_NULL("mypid1", test_callback, INT_TO_PTR(4711)),
+                                                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("mypid2", test_callback, INT_TO_PTR(4712)))));
+        ASSERT_OK(sd_json_variant_format(z, /* flags= */ 0, &f2));
         ASSERT_STREQ(f1, f2);
 
         _cleanup_set_free_ Set *ss = NULL;
