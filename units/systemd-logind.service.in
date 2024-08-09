@@ -27,6 +27,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CA
 DeviceAllow=block-* r
 DeviceAllow=char-/dev/console rw
 DeviceAllow=char-drm rw
+DeviceAllow=char-hidraw rw
 DeviceAllow=char-input rw
 DeviceAllow=char-tty rw
 DeviceAllow=char-vcs rw
