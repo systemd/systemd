@@ -983,7 +983,11 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
                         return log_debug_errno(r, "Failed to create VLAN device for '%s': %m", name);
         }
 
-        return network_set_vlan(context, p + 1, name);
+        p++;
+        if (isempty(p))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing VLAN physical device for '%s'", name);
+
+        return network_set_vlan(context, p, name);
 }
 
 static int parse_cmdline_bridge(Context *context, const char *key, const char *value) {
