@@ -658,6 +658,8 @@ static int manager_varlink_init_user(Manager *m) {
 
         /* We might have got sockets through deserialization. Do not bind to them twice. */
         if (fresh || !varlink_server_contains_socket(m->varlink_server, address)) {
+                mkdir_parents_label(address, 0755);
+
                 r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
