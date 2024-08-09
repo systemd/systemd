@@ -138,8 +138,10 @@ enum {
         _JSON_BUILD_IOVEC_HEX,
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
+        _JSON_BUILD_STRING_ORDERED_SET,
         _JSON_BUILD_STRING_UNDERSCORIFY,
         _JSON_BUILD_DUAL_TIMESTAMP,
+        _JSON_BUILD_RATELIMIT,
 
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_FINITE_USEC,
@@ -152,6 +154,7 @@ enum {
         _JSON_BUILD_PAIR_IN_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_HW_ADDR_NON_NULL,
+        _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL,
 
         _SD_JSON_BUILD_REALLYMAX,
 };
@@ -166,8 +169,10 @@ enum {
 #define JSON_BUILD_ETHER_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
+#define JSON_BUILD_STRING_ORDERED_SET(s) _JSON_BUILD_STRING_ORDERED_SET, (OrderedSet *) { s }
 #define JSON_BUILD_STRING_UNDERSCORIFY(s) _JSON_BUILD_STRING_UNDERSCORIFY, (const char *) { s }
 #define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
+#define JSON_BUILD_RATELIMIT(rl) _JSON_BUILD_RATELIMIT, (RateLimit*) { rl }
 
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }
@@ -179,6 +184,7 @@ enum {
 #define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, v, f) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (const union in_addr_union*) { v }, (int) { f }
 #define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL, (const char*) { name }, (const struct ether_addr*) { v }
 #define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_HW_ADDR_NON_NULL, (const char*) { name }, (const struct hw_addr_data*) { v }
+#define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
 
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
@@ -188,3 +194,6 @@ enum {
 #define JSON_BUILD_PAIR_ETHER_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_ETHER_ADDR(v))
 #define JSON_BUILD_PAIR_HW_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_HW_ADDR(v))
 #define JSON_BUILD_PAIR_STRING_SET(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_SET(s))
+#define JSON_BUILD_PAIR_STRING_ORDERED_SET(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_ORDERED_SET(s))
+#define JSON_BUILD_PAIR_RATELIMIT(name, rl) SD_JSON_BUILD_PAIR(name, JSON_BUILD_RATELIMIT(rl))
+#define JSON_BUILD_PAIR_DUAL_TIMESTAMP(name, t) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DUAL_TIMESTAMP(t))
