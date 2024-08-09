@@ -1218,14 +1218,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 if (k != u->id)
                         continue;
 
-                if (!strv_isempty(states) &&
-                    !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
-                    !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
-                    !strv_contains(states, unit_sub_state_to_string(u)))
-                        continue;
-
-                if (!strv_isempty(patterns) &&
-                    !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
+                if (unit_is_filtered(u, states, patterns))
                         continue;
 
                 r = reply_unit_info(reply, u);
@@ -3112,11 +3105,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTimeoutAbortUSec", "t", property_get_default_timeout_abort_usec, 0, 0),
         SD_BUS_PROPERTY("DefaultDeviceTimeoutUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.device_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestartUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         /* The following two items are obsolete alias */
-        SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultCPUAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.cpu_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.blockio_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.io_accounting), SD_BUS_VTABLE_PROPERTY_CONST),

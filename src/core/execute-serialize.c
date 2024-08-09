@@ -2174,14 +2174,14 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        if (c->log_ratelimit_interval_usec > 0) {
-                r = serialize_usec(f, "exec-context-log-ratelimit-interval-usec", c->log_ratelimit_interval_usec);
+        if (c->log_ratelimit.interval > 0) {
+                r = serialize_usec(f, "exec-context-log-ratelimit-interval-usec", c->log_ratelimit.interval);
                 if (r < 0)
                         return r;
         }
 
-        if (c->log_ratelimit_burst > 0) {
-                r = serialize_item_format(f, "exec-context-log-ratelimit-burst", "%u", c->log_ratelimit_burst);
+        if (c->log_ratelimit.burst > 0) {
+                r = serialize_item_format(f, "exec-context-log-ratelimit-burst", "%u", c->log_ratelimit.burst);
                 if (r < 0)
                         return r;
         }
@@ -3112,11 +3112,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-ratelimit-interval-usec="))) {
-                        r = deserialize_usec(val, &c->log_ratelimit_interval_usec);
+                        r = deserialize_usec(val, &c->log_ratelimit.interval);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-ratelimit-burst="))) {
-                        r = safe_atou(val, &c->log_ratelimit_burst);
+                        r = safe_atou(val, &c->log_ratelimit.burst);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-filter-allowed-patterns="))) {
