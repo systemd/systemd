@@ -3713,9 +3713,7 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL);
-        if (r < 0)
-                return r;
+        assert_se(lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL) >= 0);
 
         (void) manager_run_environment_generators(m);
         (void) manager_run_generators(m);
