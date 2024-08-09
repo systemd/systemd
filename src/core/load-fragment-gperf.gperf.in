@@ -54,8 +54,8 @@
 {{type}}.SyslogLevel,                      config_parse_log_level,                      0,                                  offsetof({{type}}, exec_context.syslog_priority)
 {{type}}.SyslogLevelPrefix,                config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.syslog_level_prefix)
 {{type}}.LogLevelMax,                      config_parse_log_level,                      0,                                  offsetof({{type}}, exec_context.log_level_max)
-{{type}}.LogRateLimitIntervalSec,          config_parse_sec,                            0,                                  offsetof({{type}}, exec_context.log_ratelimit_interval_usec)
-{{type}}.LogRateLimitBurst,                config_parse_unsigned,                       0,                                  offsetof({{type}}, exec_context.log_ratelimit_burst)
+{{type}}.LogRateLimitIntervalSec,          config_parse_sec,                            0,                                  offsetof({{type}}, exec_context.log_ratelimit.interval)
+{{type}}.LogRateLimitBurst,                config_parse_unsigned,                       0,                                  offsetof({{type}}, exec_context.log_ratelimit.burst)
 {{type}}.LogExtraFields,                   config_parse_log_extra_fields,               0,                                  offsetof({{type}}, exec_context)
 {{type}}.LogFilterPatterns,                config_parse_log_filter_patterns,            0,                                  offsetof({{type}}, exec_context)
 {{type}}.Capabilities,                     config_parse_warn_compat,                    DISABLED_LEGACY,                    offsetof({{type}}, exec_context)
@@ -514,8 +514,8 @@ Socket.FileDescriptorName,               config_parse_fdname,                   
 Socket.Service,                          config_parse_socket_service,                 0,                                  0
 Socket.TriggerLimitIntervalSec,          config_parse_sec,                            0,                                  offsetof(Socket, trigger_limit.interval)
 Socket.TriggerLimitBurst,                config_parse_unsigned,                       0,                                  offsetof(Socket, trigger_limit.burst)
-Socket.PollLimitIntervalSec,             config_parse_sec,                            0,                                  offsetof(Socket, poll_limit_interval)
-Socket.PollLimitBurst,                   config_parse_unsigned,                       0,                                  offsetof(Socket, poll_limit_burst)
+Socket.PollLimitIntervalSec,             config_parse_sec,                            0,                                  offsetof(Socket, poll_limit.interval)
+Socket.PollLimitBurst,                   config_parse_unsigned,                       0,                                  offsetof(Socket, poll_limit.burst)
 {% if ENABLE_SMACK %}
 Socket.SmackLabel,                       config_parse_unit_string_printf,             0,                                  offsetof(Socket, smack)
 Socket.SmackLabelIPIn,                   config_parse_unit_string_printf,             0,                                  offsetof(Socket, smack_ip_in)
