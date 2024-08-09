@@ -89,7 +89,7 @@ _busctl() {
                       --allow-interactive-authorization=no --augment-creds=no
                       --watch-bind=yes -j -l --full --xml-interface'
         [ARG]='--address -H --host -M --machine --match --timeout --size --json
-                      --destination'
+                      --destination --num-matches'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
