@@ -105,6 +105,21 @@ int main(int argc, char *argv[]) {
                          "\n[DHCP]\n"
                          );
 
+        test_network_one("eth0", "ip", "10.99.37.44::10.99.10.1:255.255.0.0::eth0:off",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=no\n"
+                         "LinkLocalAddressing=no\n"
+                         "IPv6AcceptRA=no\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=10.99.37.44/16\n"
+                         "\n[Route]\n"
+                         "Gateway=10.99.10.1\n"
+                         );
+
         test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0:hogehoge:eth0:on",
                          "[Match]\n"
                          "Name=eth0\n"
