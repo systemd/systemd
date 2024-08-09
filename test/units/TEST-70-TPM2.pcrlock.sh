@@ -94,6 +94,16 @@ mkdir -p /var/lib/pcrlock.d/123-empty.pcrlock.d
 "$SD_PCRLOCK" predict --pcr="$PCRS"
 rm -rf /var/lib/pcrlock.d/123-empty.pcrlock.d
 
+# Check that we don't allow a policy with empty PCR list.
+set +e
+"$SD_PCRLOCK" make-policy --pcr="7"
+ret=$?
+set -e
+test $ret -eq 1
+"$SD_PCRLOCK" make-policy --pcr="7" --force
+# Avoid any side-effect of previous command line
+"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+
 # Measure something into PCR 16 (the "debug" PCR), which should make the activation fail
 "$SD_PCREXTEND" --pcr=16 test70
 
