@@ -532,7 +532,9 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -549,7 +551,9 @@ static int network_set_bridge(Context *context, const char *ifname, const char *
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -566,7 +570,9 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -1011,8 +1017,6 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         }
 
         p++;
-        if (isempty(p))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing slave interfaces for bridge '%s'", name);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -1059,9 +1063,6 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
                 slaves = value;
         else
                 slaves = strndupa_safe(value, p - value);
-
-        if (isempty(slaves))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing slave interfaces for bond '%s'", name);
 
         for (const char *q = slaves; ; ) {
                 _cleanup_free_ char *word = NULL;

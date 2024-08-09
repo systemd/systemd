@@ -329,6 +329,31 @@ int main(int argc, char *argv[]) {
                          "\n[DHCP]\n"
                          );
 
+        test_netdev_one("bridge99", "bridge", "bridge99:",
+                        "[NetDev]\n"
+                        "Kind=bridge\n"
+                        "Name=bridge99\n"
+                        );
+
+        test_netdev_one("bridge99", "bridge", "bridge99:,,,",
+                        "[NetDev]\n"
+                        "Kind=bridge\n"
+                        "Name=bridge99\n"
+                        );
+
+        test_netdev_one("bond99", "bond", "bond99:",
+                        "[NetDev]\n"
+                        "Kind=bond\n"
+                        "Name=bond99\n"
+                        );
+
+        test_netdev_one("bond99", "bond", "bond99::hogehoge:1530",
+                        "[NetDev]\n"
+                        "Kind=bond\n"
+                        "Name=bond99\n"
+                        "MTUBytes=1530\n"
+                        );
+
         test_netdev_one("bond99", "bond", "bond99:eth0,eth1::1530",
                         "[NetDev]\n"
                         "Kind=bond\n"
