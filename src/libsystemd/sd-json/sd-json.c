@@ -4322,6 +4322,34 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_INTEGER_NON_ZERO: {
+                        const char *n;
+                        int64_t i;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        i = va_arg(ap, int64_t);
+
+                        if (i != 0 && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_integer(&add_more, i);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
                 case _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO: {
                         const char *n;
                         uint64_t u;
