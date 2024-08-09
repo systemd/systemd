@@ -23,6 +23,7 @@ sources = files(
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
         'sd-dhcp6-lease.c',
+        'sd-dns-resolver.c',
         'sd-ipv4acd.c',
         'sd-ipv4ll.c',
         'sd-lldp-rx.c',

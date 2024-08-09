@@ -9,6 +9,7 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "network-common.h"
+#include "sort-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -438,6 +439,95 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
         return strv_length(lease->domains);
 }
 
+static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        int r;
+
+        assert(lease);
+
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+
+        size_t offset = 0;
+
+        /* priority */
+        if (optlen - offset < sizeof(uint16_t))
+                return -EBADMSG;
+        res.priority = unaligned_read_be16(optval + offset);
+        offset += sizeof(uint16_t);
+
+        /* adn */
+        if (optlen - offset < sizeof(uint16_t))
+                return -EBADMSG;
+        size_t ilen = unaligned_read_be16(optval + offset);
+        offset += sizeof(uint16_t);
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+
+        r = dhcp6_option_parse_domainname(optval + offset, ilen, &res.auth_name);
+        if (r < 0)
+                return r;
+        offset += ilen;
+
+        /* RFC9463 § 3.1.6: adn only mode */
+        if (offset == optlen)
+                return 0;
+
+        /* addrs */
+        if (optlen - offset < sizeof(uint16_t))
+                return -EBADMSG;
+        ilen = unaligned_read_be16(optval + offset);
+        offset += sizeof(uint16_t);
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+
+        _cleanup_free_ struct in6_addr *addrs = NULL;
+        size_t n_addrs = 0;
+
+        r = dhcp6_option_parse_addresses(optval + offset, ilen, &addrs, &n_addrs);
+        if (r < 0)
+                return r;
+        if (n_addrs == 0)
+                return -EBADMSG;
+        offset += ilen;
+
+        res.addrs = new(union in_addr_union, n_addrs);
+        for (size_t i = 0; i < n_addrs; i++) {
+                union in_addr_union addr = (union in_addr_union) {.in6 = addrs[i]};
+                /* RFC9463 § 6.2 client MUST discard multicast and host loopback addresses */
+                if (in_addr_is_multicast(AF_INET6, &addr) ||
+                    in_addr_is_localhost(AF_INET6, &addr))
+                        return -EBADMSG;
+                res.addrs[i] = addr;
+        }
+        res.n_addrs = n_addrs;
+        res.family = AF_INET6;
+
+        /* svc params */
+        r = dnr_parse_svc_params(optval + offset, optlen-offset, &res);
+        if (r < 0)
+                return r;
+
+        /* Append this resolver */
+        if (!GREEDY_REALLOC(lease->dnr, lease->n_dnr+1))
+                return -ENOMEM;
+
+        lease->dnr[lease->n_dnr++] = TAKE_STRUCT(res);
+
+        typesafe_qsort(lease->dnr, lease->n_dnr, dns_resolver_prio_compare);
+
+        return 1;
+}
+
+int sd_dhcp6_lease_get_dnr(sd_dhcp6_lease *lease, sd_dns_resolver **ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->dnr)
+                return -ENODATA;
+
+        *ret = lease->dnr;
+        return lease->n_dnr;
+}
+
 int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         int r;
 
@@ -851,6 +941,15 @@ static int dhcp6_lease_parse_message(
                         irt = unaligned_be32_sec_to_usec(optval, /* max_as_infinity = */ false);
                         break;
 
+                case SD_DHCP6_OPTION_V6_DNR:
+                        r = dhcp6_lease_add_dnr(lease, optval, optlen);
+                        if (r < 0)
+                                return log_dhcp6_client_errno(client, r, "Failed to parse DNR option, ignoring: %m");
+                        if (r == 0)
+                                log_dhcp6_client(client, "Received ADN-only DNRv6 option, ignoring.");
+
+                        break;
+
                 case SD_DHCP6_OPTION_VENDOR_OPTS:
                         r = dhcp6_lease_add_vendor_option(lease, optval, optlen);
                         if (r < 0)
@@ -904,6 +1003,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         dhcp6_ia_free(lease->ia_na);
         dhcp6_ia_free(lease->ia_pd);
         free(lease->dns);
+        dns_resolver_done_many(lease->dnr, lease->n_dnr);
         free(lease->fqdn);
         free(lease->captive_portal);
         strv_free(lease->domains);

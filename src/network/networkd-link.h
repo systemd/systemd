@@ -167,6 +167,7 @@ typedef struct Link {
         Set *ndisc_captive_portals;
         Set *ndisc_pref64;
         Set *ndisc_redirects;
+        Set *ndisc_dnr;
         uint32_t ndisc_mtu;
         unsigned ndisc_messages;
         bool ndisc_configured:1;
