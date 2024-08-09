@@ -41,7 +41,7 @@ used for new, additional measurements.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
-### PCS 5, `EV_EVENT_TAG`, "loader.conf"
+### PCR 5, `EV_EVENT_TAG`, "loader.conf"
 
 The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
 measured as a tagged event.
@@ -66,7 +66,7 @@ below for details on PE section measurements done by `systemd-stub`.)
 UTF-16.
 
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
-trailing NUL bytes).
+trailing U+0000 codepoints).
 
 ## PCR Measurements Made by `systemd-stub` (UEFI)
 
@@ -108,7 +108,7 @@ Might happen up to three times, for kernel command lines from:
 UTF-16.
 
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
-trailing NUL bytes).
+trailing U+0000 codepoints).
 
 ### PCR 12, `EV_EVENT_TAG`, "Devicetrees"
 
