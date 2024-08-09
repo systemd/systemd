@@ -1457,10 +1457,19 @@ int safe_fork_full(
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
+        _cleanup_free_ char *prefixed_name = NULL;
         int prio, r;
 
         assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
         assert(!FLAGS_SET(flags, FORK_DETACH|FORK_WAIT));
+
+        if (name && FLAGS_SET(flags, FORK_ARGV00_AT)) {
+                /* Optionally, ensure argv[0][0] is '@', in order to implement https://systemd.io/ROOT_STORAGE_DAEMONS */
+                prefixed_name = strjoin("@", name);
+                if (!prefixed_name)
+                        return -ENOMEM;
+                name = prefixed_name;
+        }
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
