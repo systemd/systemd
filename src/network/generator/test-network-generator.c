@@ -10,12 +10,12 @@ static void test_network_one(const char *ifname, const char *key, const char *va
         _cleanup_free_ char *output = NULL;
         Network *network;
 
-        printf("# %s=%s\n", key, value);
-        assert_se(parse_cmdline_item(key, value, &context) >= 0);
-        assert_se(network = network_get(&context, ifname));
-        assert_se(network_format(network, &output) >= 0);
-        puts(output);
-        assert_se(streq(output, expected));
+        log_debug("/* %s(%s=%s) */", __func__, key, value);
+
+        ASSERT_OK(parse_cmdline_item(key, value, &context));
+        ASSERT_NOT_NULL(network = network_get(&context, ifname));
+        ASSERT_OK(network_format(network, &output));
+        ASSERT_STREQ(output, expected);
 }
 
 static void test_network_two(const char *ifname,
@@ -26,15 +26,14 @@ static void test_network_two(const char *ifname,
         _cleanup_free_ char *output = NULL;
         Network *network;
 
-        printf("# %s=%s\n", key1, value1);
-        printf("# %s=%s\n", key2, value2);
-        assert_se(parse_cmdline_item(key1, value1, &context) >= 0);
-        assert_se(parse_cmdline_item(key2, value2, &context) >= 0);
-        assert_se(context_merge_networks(&context) >= 0);
-        assert_se(network = network_get(&context, ifname));
-        assert_se(network_format(network, &output) >= 0);
-        puts(output);
-        assert_se(streq(output, expected));
+        log_debug("/* %s(%s=%s, %s=%s) */", __func__, key1, value1, key2, value2);
+
+        ASSERT_OK(parse_cmdline_item(key1, value1, &context));
+        ASSERT_OK(parse_cmdline_item(key2, value2, &context));
+        ASSERT_OK(context_merge_networks(&context));
+        ASSERT_NOT_NULL(network = network_get(&context, ifname));
+        ASSERT_OK(network_format(network, &output));
+        ASSERT_STREQ(output, expected);
 }
 
 static void test_netdev_one(const char *ifname, const char *key, const char *value, const char *expected) {
@@ -42,12 +41,12 @@ static void test_netdev_one(const char *ifname, const char *key, const char *val
         _cleanup_free_ char *output = NULL;
         NetDev *netdev;
 
-        printf("# %s=%s\n", key, value);
-        assert_se(parse_cmdline_item(key, value, &context) >= 0);
-        assert_se(netdev = netdev_get(&context, ifname));
-        assert_se(netdev_format(netdev, &output) >= 0);
-        puts(output);
-        assert_se(streq(output, expected));
+        log_debug("/* %s(%s=%s) */", __func__, key, value);
+
+        ASSERT_OK(parse_cmdline_item(key, value, &context));
+        ASSERT_NOT_NULL(netdev = netdev_get(&context, ifname));
+        ASSERT_OK(netdev_format(netdev, &output));
+        ASSERT_STREQ(output, expected);
 }
 
 static void test_link_one(const char *filename, const char *key, const char *value, const char *expected) {
@@ -55,12 +54,12 @@ static void test_link_one(const char *filename, const char *key, const char *val
         _cleanup_free_ char *output = NULL;
         Link *link;
 
-        printf("# %s=%s\n", key, value);
-        assert_se(parse_cmdline_item(key, value, &context) >= 0);
-        assert_se(link = link_get(&context, filename));
-        assert_se(link_format(link, &output) >= 0);
-        puts(output);
-        assert_se(streq(output, expected));
+        log_debug("/* %s(%s=%s) */", __func__, key, value);
+
+        ASSERT_OK(parse_cmdline_item(key, value, &context));
+        ASSERT_NOT_NULL(link = link_get(&context, filename));
+        ASSERT_OK(link_format(link, &output));
+        ASSERT_STREQ(output, expected);
 }
 
 int main(int argc, char *argv[]) {
