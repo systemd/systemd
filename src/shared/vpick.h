@@ -6,16 +6,16 @@
 #include "architecture.h"
 
 typedef enum PickFlags {
-        PICK_ARCHITECTURE = 1 << 0,   /* Look for an architecture suffix */
-        PICK_TRIES        = 1 << 1,   /* Look for tries left/tries done counters */
-        PICK_RESOLVE      = 1 << 2,   /* Return the fully resolved (chased) path, rather than the path to the entry */
+        PICK_ABI     = 1 << 0,   /* Look for an abi suffix */
+        PICK_TRIES   = 1 << 1,   /* Look for tries left/tries done counters */
+        PICK_RESOLVE = 1 << 2,   /* Return the fully resolved (chased) path, rather than the path to the entry */
 } PickFlags;
 
 typedef struct PickFilter {
         uint32_t type_mask;           /* A mask of 1U << DT_REG, 1U << DT_DIR, … */
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
-        Architecture architecture;
+        Abi abi;
         char * const *suffix;         /* Can be overridden by search pattern */
 } PickFilter;
 
@@ -24,7 +24,7 @@ typedef struct PickResult {
         int fd; /* O_PATH */
         struct stat st;
         char *version;
-        Architecture architecture;
+        Abi abi;
         unsigned tries_left;
         unsigned tries_done;
 } PickResult;
@@ -33,7 +33,7 @@ typedef struct PickResult {
         (const PickResult) {                            \
                 .fd = -EBADF,                           \
                 .st.st_mode = MODE_INVALID,             \
-                .architecture = _ARCHITECTURE_INVALID,  \
+                .abi = _ABI_INVALID,                    \
                 .tries_left = UINT_MAX,                 \
                 .tries_done = UINT_MAX,                 \
         }

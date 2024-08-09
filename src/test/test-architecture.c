@@ -10,6 +10,7 @@
 int main(int argc, char *argv[]) {
         Virtualization v;
         Architecture a;
+        Abi abi;
         const char *p;
 
         test_setup_logging(LOG_INFO);
@@ -20,6 +21,13 @@ int main(int argc, char *argv[]) {
         ASSERT_NULL(architecture_to_string(-1));
         ASSERT_EQ(architecture_from_string(architecture_to_string(0)), 0);
         ASSERT_EQ(architecture_from_string(architecture_to_string(1)), 1);
+
+        ASSERT_LT(abi_from_string(""), 0);
+        ASSERT_LT(abi_from_string(NULL), 0);
+        ASSERT_LT(abi_from_string("hoge"), 0);
+        ASSERT_NULL(abi_to_string(-1));
+        ASSERT_EQ(abi_from_string(abi_to_string(0)), 0);
+        ASSERT_EQ(abi_from_string(abi_to_string(1)), 1);
 
         v = detect_virtualization();
         if (ERRNO_IS_NEG_PRIVILEGE(v))
@@ -54,6 +62,36 @@ int main(int argc, char *argv[]) {
                 const char *n = ASSERT_PTR(architecture_to_string(i));
 
                 /* Let's validate that all architecture names we define are good for inclusion in .v/
+                 * filename patterns which use "." and "_" as field separators in the filenames. */
+                assert(filename_part_is_valid(n));
+                assert(!strchr(n, '_'));
+                assert(!strchr(n, '.'));
+
+                log_info("Good for inclusion in .v/ filenames: %s", n);
+        }
+
+        abi = preferred_abi();
+        ASSERT_OK(abi);
+
+        p = abi_to_string(abi);
+        assert_se(p);
+        log_info("uname abi=%s", p);
+        ASSERT_EQ(abi_from_string(p), abi);
+
+        abi = native_abi();
+        ASSERT_OK(abi);
+
+        p = abi_to_string(abi);
+        assert_se(p);
+        log_info("native architecture=%s", p);
+        ASSERT_EQ(abi_from_string(p), abi);
+
+        log_info("primary library abi=" LIB_ARCH_TUPLE);
+
+        for (Abi i = 0; i < _ABI_MAX; i++) {
+                const char *n = ASSERT_PTR(abi_to_string(i));
+
+                /* Let's validate that all ABI names we define are good for inclusion in .v/
                  * filename patterns which use "." and "_" as field separators in the filenames. */
                 assert(filename_part_is_valid(n));
                 assert(!strchr(n, '_'));

@@ -97,6 +97,7 @@ struct NamespaceParameters {
         const char *root_image;
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
+        Abi root_abi;
 
         char **read_write_paths;
         char **read_only_paths;

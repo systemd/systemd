@@ -473,6 +473,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
 static int append_extensions(
                 MountList *ml,
                 const char *root,
+                Abi root_abi,
                 const char *private_namespace_dir,
                 char **hierarchies,
                 const MountImage *mount_images,
@@ -511,12 +512,15 @@ static int append_extensions(
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
+                /* Ensure we pick extensions with the same ABI as the root */
+                PickFilter filter = pick_filter_image_raw;
+                filter.abi = root_abi;
 
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               m->source,
-                              &pick_filter_image_raw,
-                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &filter,
+                              PICK_ABI|PICK_TRIES,
                               &result);
                 if (r < 0)
                         return r;
@@ -566,6 +570,9 @@ static int append_extensions(
                 _cleanup_free_ char *mount_point = NULL;
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
+                /* Ensure we pick extensions with the same ABI as the root */
+                PickFilter filter = pick_filter_image_dir;
+                filter.abi = root_abi;
 
                 /* Pick up the counter where the ExtensionImages left it. */
                 if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, n_mount_images++) < 0)
@@ -583,8 +590,8 @@ static int append_extensions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               e,
-                              &pick_filter_image_dir,
-                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &filter,
+                              PICK_ABI|PICK_TRIES,
                               &result);
                 if (r < 0)
                         return r;
@@ -2396,7 +2403,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        r = append_extensions(&ml, root, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
+        r = append_extensions(&ml, root, p->root_abi, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
         if (r < 0)
                 return r;
 
