@@ -653,7 +653,7 @@
             Note that <filename>systemd-udevd.service</filename> contains
             <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
             If you want to stop <filename>systemd-udevd.service</filename>, please use the following:
-            <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd.service</programlisting>
+            <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd-varlink.socket systemd-udevd.service</programlisting>
             </para>
           </listitem>
         </varlistentry>
