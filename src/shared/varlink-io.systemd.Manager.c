@@ -215,12 +215,37 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the manager"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Runtime, ManagerRuntime, 0));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ActivationDetails,
+                SD_VARLINK_DEFINE_FIELD(key, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_ERROR(NoSuchJob);
+
+static SD_VARLINK_DEFINE_METHOD(
+                ListJobs,
+                SD_VARLINK_FIELD_COMMENT("Only show the job with this ID"),
+                SD_VARLINK_DEFINE_INPUT(id, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The job ID"),
+                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The unit associated with the job"),
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job type"),
+                SD_VARLINK_DEFINE_OUTPUT(jobType, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job state"),
+                SD_VARLINK_DEFINE_OUTPUT(state, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job activation details"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(activationDetails, ActivationDetails, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
                 "io.systemd.Manager",
                 &vl_method_Describe,
+                &vl_method_ListJobs,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
                 &vl_type_Timestamp,
                 &vl_type_ResourceLimit,
-                &vl_type_RateLimit);
+                &vl_type_RateLimit,
+                &vl_type_ActivationDetails,
+                &vl_error_NoSuchJob);
