@@ -571,6 +571,40 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("manager", v));
 }
 
+static int vl_method_describe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        Job *j;
+        int r;
+
+        assert(parameters);
+
+        if (sd_json_variant_elements(parameters) > 0)
+                return sd_varlink_error_invalid_parameter(link, parameters);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (previous) {
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("job", previous));
+                        if (r < 0)
+                                return r;
+
+                        previous = sd_json_variant_unref(previous);
+                }
+
+                r = job_build_json(j, &previous);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build job JSON data: %m");
+        }
+
+        if (!previous)
+                return sd_varlink_error(link, "io.systemd.Manager.NoSuchJob", NULL);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("job", previous));
+}
+
 static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -606,7 +640,8 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Manager.Describe", vl_method_describe);
+                        "io.systemd.Manager.Describe",     vl_method_describe,
+                        "io.systemd.Manager.DescribeJobs", vl_method_describe_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
