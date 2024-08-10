@@ -576,6 +576,69 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, v);
 }
 
+static int vl_method_list_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+
+        struct p {
+                uint32_t id;
+        } p = {
+                .id = 0,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, offsetof(struct p, id), 0 },
+                {},
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        Job *j;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.id > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                j = hashmap_get(m->jobs, UINT_TO_PTR(p.id));
+                if (!j)
+                        return sd_varlink_error(link, "io.systemd.Manager.NoSuchJob", NULL);
+
+                r = job_build_json(j, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build job JSON data: %m");
+
+                return sd_varlink_reply(link, v);
+
+        }
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (previous) {
+                        r = sd_varlink_notify(link, previous);
+                        if (r < 0)
+                                return r;
+
+                        previous = sd_json_variant_unref(previous);
+                }
+
+                r = job_build_json(j, &previous);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build job JSON data: %m");
+        }
+
+        if (!previous)
+                return sd_varlink_error(link, "io.systemd.Manager.NoSuchJob", NULL);
+
+        return sd_varlink_reply(link, previous);
+}
+
 static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -611,7 +674,8 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Manager.Describe", vl_method_describe);
+                        "io.systemd.Manager.Describe", vl_method_describe,
+                        "io.systemd.Manager.ListJobs", vl_method_list_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
