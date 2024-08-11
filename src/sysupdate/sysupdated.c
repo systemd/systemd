@@ -388,21 +388,14 @@ static int target_get_argument(Target *t, char **ret) {
         assert(ret);
 
         if (t->class != TARGET_HOST) {
-                switch(t->class) {
-                case TARGET_COMPONENT:
+                if (t->class == TARGET_COMPONENT)
                         target_arg = strjoin("--component=", t->name);
-                        break;
-                case IMAGE_DIRECTORY:
-                case IMAGE_SUBVOLUME:
+                else if (IN_SET(t->image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
                         target_arg = strjoin("--root=", t->path);
-                        break;
-                case IMAGE_RAW:
-                case IMAGE_BLOCK:
+                else if (IN_SET(t->image_type, IMAGE_RAW, IMAGE_BLOCK))
                         target_arg = strjoin("--image=", t->path);
-                        break;
-                default:
+                else
                         assert_not_reached();
-                }
                 if (!target_arg)
                         return -ENOMEM;
         }
