@@ -91,6 +91,7 @@ bool arg_all = false;
 bool arg_stats = false;
 bool arg_full = false;
 bool arg_runtime = false;
+bool arg_stdin = false;
 unsigned arg_lines = 10;
 char *arg_drop_in = NULL;
 sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
@@ -3025,6 +3026,7 @@ static int help(void) {
                "                         after editing network config\n"
                "     --drop-in=NAME      Edit specified drop-in instead of main config file\n"
                "     --runtime           Edit runtime config files\n"
+               "     --stdin             Read new contents of edited file from stdin\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3043,6 +3045,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_RELOAD,
                 ARG_DROP_IN,
                 ARG_RUNTIME,
+                ARG_STDIN,
         };
 
         static const struct option options[] = {
@@ -3058,6 +3061,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "drop-in",   required_argument, NULL, ARG_DROP_IN   },
                 { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
+                { "stdin",     no_argument,       NULL, ARG_STDIN     },
                 {}
         };
 
@@ -3090,6 +3094,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RUNTIME:
                         arg_runtime = true;
+                        break;
+
+                case ARG_STDIN:
+                        arg_stdin = true;
                         break;
 
                 case ARG_DROP_IN:
