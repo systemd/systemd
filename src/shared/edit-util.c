@@ -357,7 +357,7 @@ static int strip_edit_temp_file(EditFile *e) {
                 return 1; /* Contents have real changes */
 
         r = write_string_file(e->temp, new_contents,
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+                              WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip temporary file '%s': %m", e->temp);
 
