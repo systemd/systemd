@@ -393,6 +393,8 @@
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="json" />
+
       <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
