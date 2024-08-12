@@ -448,6 +448,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for more information.</para>
 
+        <para>If <option>--stdin</option> is specified, the new content will be read from standard input.
+        In this mode, the old content of the file is discarded.</para>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
@@ -605,6 +608,23 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           operate on the file under <filename>/run/</filename> instead of <filename>/etc/</filename>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, the contents of the file will be read from standard
+          input and the editor will not be launched. In this mode, the old contents of the file are
+          automatically replaced. This is useful to "edit" configuration from scripts, especially so that
+          drop-in directories are created and populated in one go.</para>
+
+          <para>Multiple drop-ins may be "edited" in this mode with <option>--drop-in=</option>, and
+          the same contents will be written to all of them. Otherwise exactly one main configuration file
+          is expected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 

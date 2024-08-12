@@ -323,7 +323,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         int r;
 
         if (!on_tty() && !arg_stdin)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units interactively if not on a tty.");
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");

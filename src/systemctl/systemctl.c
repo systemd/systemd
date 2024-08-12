@@ -347,7 +347,7 @@ static int systemctl_help(void) {
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
-               "     --stdin             Read contents of edited file from stdin\n"
+               "     --stdin             Read new contents of edited file from stdin\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
