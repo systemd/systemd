@@ -11,7 +11,7 @@ at_exit() {
     systemctl stop systemd-networkd
 
     if [[ -v NETWORK_NAME && -v NETDEV_NAME && -v LINK_NAME ]]; then
-        rm -fvr {/usr/lib,/etc,/run}/systemd/network/"$NETWORK_NAME" "/usr/lib/systemd/network/$NETDEV_NAME" \
+        rm -fvr {/usr/lib,/etc,/run}/systemd/network/"$NETWORK_NAME" "/run/lib/systemd/network/$NETDEV_NAME" \
             {/usr/lib,/etc}/systemd/network/"$LINK_NAME" "/etc/systemd/network/${NETWORK_NAME}.d" \
             "new" "+4"
     fi
@@ -75,13 +75,14 @@ cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test.conf"
 networkctl cat "$NETWORK_NAME" | grep '^# ' |
     cmp - <(printf '%s\n' "# /etc/systemd/network/$NETWORK_NAME" "# /etc/systemd/network/${NETWORK_NAME}.d/test.conf")
 
-cat >"/usr/lib/systemd/network/$NETDEV_NAME" <<EOF
+networkctl edit --stdin --runtime "$NETDEV_NAME" <<EOF
 [NetDev]
 Name=test2
 Kind=dummy
 EOF
 
-networkctl cat "$NETDEV_NAME"
+networkctl cat "$NETDEV_NAME" | grep -v '^# ' |
+    cmp - <(printf '%s\n' "[NetDev]" "Name=test2" "Kind=dummy")
 
 cat >"/usr/lib/systemd/network/$LINK_NAME" <<EOF
 [Match]

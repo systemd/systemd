@@ -396,23 +396,30 @@ static int reload_daemons(ReloadFlags flags) {
 }
 
 int verb_edit(int argc, char *argv[], void *userdata) {
+        char **args = ASSERT_PTR(strv_skip(argv, 1));
         _cleanup_(edit_file_context_done) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !!arg_drop_in,
+                .stdin = arg_stdin,
         };
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         ReloadFlags reload = 0;
         int r;
 
-        if (!on_tty())
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files if not on a tty.");
+        if (!on_tty() && !arg_stdin)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files interactively if not on a tty.");
+
+        /* Duplicating main configs makes no sense. This also mimics the behavior of systemctl. */
+        if (arg_stdin && !arg_drop_in && strv_length(args) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When 'edit --stdin' without '--drop-in=', exactly one config file for editing must be specified.");
 
         r = mac_selinux_init();
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
+        STRV_FOREACH(name, args) {
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
                 const char *link_config;
