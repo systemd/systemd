@@ -205,6 +205,8 @@ SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
 systemd-run --wait --pty true
 systemd-run --wait --machine=.host --pty true
+systemd-run --json=short /bin/true | jq . >/dev/null
+systemd-run --json=pretty /bin/true | jq . >/dev/null
 (! SHELL=/bin/false systemd-run --quiet --shell)
 
 (! systemd-run)
