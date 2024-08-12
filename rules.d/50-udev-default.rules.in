@@ -30,6 +30,9 @@ SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 
 SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 
+SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
+
 ACTION!="add", GOTO="default_end"
 
 SUBSYSTEM=="tty", KERNEL=="ptmx", GROUP="tty", MODE="0666"
@@ -115,8 +118,5 @@ KERNEL=="vhost-vsock", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_no
 KERNEL=="vhost-net", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=vhost-net"
 
 KERNEL=="udmabuf", GROUP="kvm"
-
-SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
-SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
 
 LABEL="default_end"
