@@ -77,7 +77,7 @@ build() {
         --with upstream \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
-        --define "_sourcedir pkg/$PKG_SUBDIR" \
+        --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
         --define "_rpmdir $OUTPUTDIR" \
         ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
         --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
