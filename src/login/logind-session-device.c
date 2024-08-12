@@ -95,9 +95,8 @@ static void sd_eviocrevoke(int fd) {
 
         assert(fd >= 0);
 
-        if (ioctl(fd, EVIOCREVOKE, NULL) < 0) {
-
-                if (errno == EINVAL && !warned) {
+        if (!warned && ioctl(fd, EVIOCREVOKE, NULL) < 0) {
+                if (errno == EINVAL) {
                         log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
                         warned = true;
                 }
