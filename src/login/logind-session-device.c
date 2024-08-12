@@ -97,8 +97,10 @@ static void sd_eviocrevoke(int fd) {
 
         if (!warned && ioctl(fd, EVIOCREVOKE, NULL) < 0) {
                 if (errno == EINVAL) {
-                        log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
+                        log_warning_errno(errno, "Kernel does not support hidraw-revocation, continuing without revoking device access: %m");
                         warned = true;
+                } else if (errno != ENODEV) {
+                        log_warning_errno(errno, "Failed to revoke evdev device, continuing without revoking device access: %m");
                 }
         }
 }
