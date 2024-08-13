@@ -5,4 +5,6 @@
 
 #include "manager.h"
 
+int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata);
+int environment_build_json(sd_json_variant **ret, const char *name, void *userdata);
 int manager_build_json(Manager *manager, sd_json_variant **ret);

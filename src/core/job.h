@@ -178,6 +178,7 @@ void job_uninstall(Job *j);
 void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
+int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata);
 int job_build_json(Job *job, sd_json_variant **ret);
 int job_coldplug(Job *j);
 

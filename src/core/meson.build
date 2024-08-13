@@ -63,6 +63,7 @@ libcore_sources = files(
         'transaction.c',
         'unit-dependency-atom.c',
         'unit-printf.c',
+        'unit-json.c',
         'unit-serialize.c',
         'unit.c',
 )

@@ -1333,7 +1333,7 @@ int job_deserialize(Job *j, FILE *f) {
         return 0;
 }
 
-static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_strv_free_ char **pairs = NULL;
         ActivationDetails *activation_details = userdata;

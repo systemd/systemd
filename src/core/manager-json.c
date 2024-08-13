@@ -14,7 +14,7 @@
 #include "virt.h"
 #include "watchdog.h"
 
-static int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         struct rlimit *rl = userdata, buf = {};
 
         assert(name);
@@ -113,7 +113,7 @@ static int manager_environment_build_json(sd_json_variant **ret, const char *nam
         if (r < 0)
                 return r;
 
-        if (strv_length(l) == 0)
+        if (strv_isempty(l))
                 return 0;
 
         return sd_json_variant_new_array_strv(ret, l);
