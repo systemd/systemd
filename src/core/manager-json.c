@@ -14,7 +14,7 @@
 #include "virt.h"
 #include "watchdog.h"
 
-static int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         struct rlimit *rl = userdata, buf = {};
 
         assert(name);
@@ -119,17 +119,10 @@ static int log_level_build_json(sd_json_variant **ret, const char *name, void *u
         return sd_json_variant_new_string(ret, t);
 }
 
-static int manager_environment_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+int environment_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        Manager *m = ASSERT_PTR(userdata);
+        const char *const *l = userdata;
         int r;
-
-        assert(ret);
-
-        r = manager_get_effective_environment(m, &l);
-        if (r < 0)
-                return r;
 
         STRV_FOREACH(s, l) {
                 _cleanup_free_ char *key = NULL;
@@ -148,6 +141,20 @@ static int manager_environment_build_json(sd_json_variant **ret, const char *nam
 
         *ret = TAKE_PTR(v);
         return 0;
+}
+
+static int manager_environment_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        r = manager_get_effective_environment(m, &l);
+        if (r < 0)
+                return r;
+
+        return environment_build_json(ret, name, l);
 }
 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {

@@ -8,6 +8,7 @@
 #include "manager-json.h"
 #include "mkdir-label.h"
 #include "strv.h"
+#include "unit-json.h"
 #include "user-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
@@ -25,6 +26,11 @@ typedef struct LookupParameters {
         };
         const char *service;
 } LookupParameters;
+
+typedef struct DescribeUnitsParameters {
+        char **states;
+        char **patterns;
+} DescribeUnitsParameters;
 
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
@@ -573,6 +579,59 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("manager", v));
 }
 
+static int vl_method_describe_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "states", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(DescribeUnitsParameters, states), SD_JSON_STRICT },
+                { "patterns", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_const_string, offsetof(DescribeUnitsParameters, patterns),  SD_JSON_STRICT },
+                {},
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        DescribeUnitsParameters p = {};
+        const char *k;
+        Unit *u;
+        int r;
+
+        assert(parameters);
+
+        if (sd_json_variant_elements(parameters) > 0)
+                return sd_varlink_error_invalid_parameter(link, parameters);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
+                if (k != u->id)
+                        continue;
+
+                if (unit_is_filtered(u, p.states, p.patterns))
+                        continue;
+
+                if (previous) {
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("unit", previous));
+                        if (r < 0)
+                                return r;
+
+                        previous = sd_json_variant_unref(previous);
+                }
+
+                r = unit_build_json(u, &previous);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build unit JSON data: %m");
+        }
+
+        if (!previous)
+                return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("unit", previous));
+}
+
 static int vl_method_describe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
@@ -642,8 +701,9 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Manager.Describe",     vl_method_describe,
-                        "io.systemd.Manager.DescribeJobs", vl_method_describe_jobs);
+                        "io.systemd.Manager.Describe",      vl_method_describe,
+                        "io.systemd.Manager.DescribeUnits", vl_method_describe_units,
+                        "io.systemd.Manager.DescribeJobs",  vl_method_describe_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
