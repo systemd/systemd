@@ -1320,6 +1320,140 @@ TEST(seek_time) {
         }
 }
 
+TEST(seqnum_id) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ TestEntry *entries = NULL;
+        size_t n_entries = 0;
+        JournalFile *f;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-seqnum-id-XXXXXX", &t);
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_OK(journal_file_open(
+                                  -EBADF,
+                                  "test.journal",
+                                  O_RDWR|O_CREAT,
+                                  JOURNAL_STRICT_ORDER,
+                                  0644,
+                                  /* compress_threshold_bytes = */ UINT64_MAX,
+                                  /* metrics = */ NULL,
+                                  m,
+                                  /* template = */ NULL,
+                                  &f));
+
+#define SEQNUM_1 SD_ID128_MAKE(11,11,11,11,11,11,11,11,11,11,11,11,11,11,11,11)
+#define SEQNUM_2 SD_ID128_MAKE(22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22)
+
+        uint64_t seqnum = 1;
+        sd_id128_t seqnum_id = SEQNUM_1;
+
+        sd_id128_t boot_id;
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+
+        dual_timestamp base, ts;
+        dual_timestamp_now(&base);
+
+        unsigned n = 0;
+
+        ts = base;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        /* reboot with a new seqnum to emulate issue #30092,
+         * resetting timestamp to emulate systems without RTC battery. */
+        seqnum_id = SEQNUM_2;
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+        ts = base;
+        append_test_entry_full(&f, m, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100, /* expect_rotate = */ true);
+
+        ts.realtime += 1000; /* Emulate that the system time is corrected by a NTP service. */
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        ts.realtime += 10;
+        ts.monotonic += 10;
+        append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
+
+        journal_file_offline_close(f);
+
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        log_debug("Testing sequential read (down)");
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_numbers_down(j, n);
+
+        log_debug("Testing sequential read (up)");
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_numbers_up(j, n);
+
+        unsigned data;
+        FOREACH_ARGUMENT(data, 0, 100, 200, 300) {
+
+                sd_journal_flush_matches(j);
+
+                if (data == 0)
+                        log_info("no match");
+                else {
+                        log_info("match: DATA=%u", data);
+                        _cleanup_free_ char *match_str = NULL;
+                        ASSERT_OK(asprintf(&match_str, "DATA=%u", data));
+                        ASSERT_OK(sd_journal_add_match(j, match_str, SIZE_MAX));
+                }
+
+                FOREACH_ARRAY(e, entries, n_entries) {
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic,     data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic,     data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic + 1, data);
+
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic,     data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic,     data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic + 1, data);
+                }
+        }
+}
+
 static int intro(void) {
         /* journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
