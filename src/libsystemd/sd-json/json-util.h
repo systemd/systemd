@@ -160,6 +160,10 @@ enum {
         _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL,
         _JSON_BUILD_PAIR_RATELIMIT_NON_NULL,
         _JSON_BUILD_PAIR_CALLBACK_NON_NULL,
+        _JSON_BUILD_PAIR_BASE64_NON_EMPTY,
+        _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY,
+        _JSON_BUILD_PAIR_HEX_NON_EMPTY,
+        _JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY,
 
         _SD_JSON_BUILD_REALLYMAX,
 };
@@ -195,6 +199,10 @@ enum {
 #define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
 #define JSON_BUILD_PAIR_RATELIMIT_NON_NULL(name, rl) _JSON_BUILD_PAIR_RATELIMIT_NON_NULL, (const char*) { name }, (const RateLimit*) { rl }
 #define JSON_BUILD_PAIR_CALLBACK_NON_NULL(name, c, u) _JSON_BUILD_PAIR_CALLBACK_NON_NULL, (const char*) { name }, (sd_json_build_callback_t) { c }, (void*) { u }
+#define JSON_BUILD_PAIR_BASE64_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BASE64_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_HEX_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
 
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
