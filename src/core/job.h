@@ -3,12 +3,12 @@
 
 #include <stdbool.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "list.h"
 #include "unit-dependency-atom.h"
-#include "unit-name.h"
-#include "unit.h"
 
 typedef struct ActivationDetails ActivationDetails;
 typedef struct Job Job;
@@ -17,6 +17,8 @@ typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
+typedef struct Manager Manager;
+typedef struct Unit Unit;
 
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
@@ -176,6 +178,7 @@ void job_uninstall(Job *j);
 void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
+int job_build_json(Job *job, sd_json_variant **ret);
 int job_coldplug(Job *j);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
