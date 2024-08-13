@@ -530,20 +530,22 @@ static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
                 return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
         if (r > 0) {
                 /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
-                 * routine only detects 231, so we'll have a false negative here for 230. */
+                 * routine only detects 231, so we'll have a false negative here for 230. If there is no
+                 * systemd installation in the container, we use the unified cgroup hierarchy. */
                 r = systemd_installation_has_version(directory, "230");
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to determine systemd version in container: %m");
-                if (r > 0)
+                if (r > 0 || r == -ENOENT)
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
         } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
-                /* Mixed cgroup hierarchy support was added in 233 */
+                /* Mixed cgroup hierarchy support was added in 233. If there is no systemd installation in
+                 * the container, we use the unified cgroup hierarchy. */
                 r = systemd_installation_has_version(directory, "233");
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to determine systemd version in container: %m");
-                if (r > 0)
+                if (r > 0 || r == -ENOENT)
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
                 else
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
