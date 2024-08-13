@@ -23,6 +23,8 @@ struct BareUDP {
 
         BareUDPProtocol iftype;
         uint16_t dest_port;
+
+        bool multi_proto;
 };
 
 DEFINE_NETDEV_CAST(BAREUDP, BareUDP);
