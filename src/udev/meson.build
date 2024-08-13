@@ -196,6 +196,12 @@ executables += [
                 'name' : 'v4l_id',
                 'sources' : files('v4l_id/v4l_id.c'),
         },
+        udev_plugin_template + {
+                'name': 'cryptsetup_id',
+                'conditions': ['HAVE_LIBCRYPTSETUP'],
+                'sources': files('cryptsetup_id/cryptsetup_id.c'),
+                'dependencies': [libcryptsetup],
+        },
         test_template + {
                 'sources' : files(
                         'fido_id/test-fido-id-desc.c',

@@ -41,6 +41,9 @@ rules = [
 
         [files('70-power-switch.rules'),
          enable_logind],
+
+        [files('60-cryptsetup-id.rules'),
+         conf.get('HAVE_LIBCRYPTSETUP') == 1],
 ]
 
 all_rules = []
