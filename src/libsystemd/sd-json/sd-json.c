@@ -4769,6 +4769,42 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
                 }
+
+                case _JSON_BUILD_PAIR_BASE64_NON_EMPTY:
+                case _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY:
+                case _JSON_BUILD_PAIR_HEX_NON_EMPTY:
+                case _JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY: {
+                        const void *p;
+                        size_t sz;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        p = va_arg(ap, const void *);
+                        sz = va_arg(ap, size_t);
+
+                        if (sz > 0 && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = command == _SD_JSON_BUILD_BASE64    ? sd_json_variant_new_base64(&add_more, p, sz) :
+                                    command == _SD_JSON_BUILD_BASE32HEX ? sd_json_variant_new_base32hex(&add_more, p, sz) :
+                                    command == _SD_JSON_BUILD_HEX       ? sd_json_variant_new_hex(&add_more, p, sz) :
+                                                                          sd_json_variant_new_octescape(&add_more, p, sz);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
                 }
 
                 /* If variants were generated, add them to our current variant, but only if we are not supposed to suppress additions */
