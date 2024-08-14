@@ -415,6 +415,20 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+static int lookup_machine_by_name(sd_varlink *link, Manager *m, const char* mn) {
+        if (!mn)
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        Machine *machine = hashmap_get(m->machines, mn);
+        if (!machine)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+        return list_machine_one(link, machine, /* more= */ false);
+}
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         const char *mn = NULL;
@@ -432,16 +446,8 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
-
-                Machine *machine = hashmap_get(m->machines, mn);
-                if (!machine)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
-
-                return list_machine_one(link, machine, /* more= */ false);
-        }
+        if (mn)
+                return lookup_machine_by_name(link, m, mn);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
@@ -461,6 +467,26 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return list_machine_one(link, previous, /* more= */ false);
 
         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+}
+
+static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        const char *mn = NULL;
+
+        const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, PTR_TO_SIZE(&mn), SD_JSON_MANDATORY },
+                {}
+        };
+
+        int r;
+
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, 0);
+        if (r != 0)
+                return r;
+
+        return lookup_machine_by_name(link, m, mn);
 }
 
 static int manager_varlink_init_userdb(Manager *m) {
@@ -526,7 +552,8 @@ static int manager_varlink_init_machine(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Machine.Register", vl_method_register,
-                        "io.systemd.Machine.List",     vl_method_list);
+                        "io.systemd.Machine.List",     vl_method_list,
+                        "io.systemd.Machine.Get",      vl_method_get);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
