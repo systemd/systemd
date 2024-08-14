@@ -404,6 +404,11 @@ All tools:
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
 
+* `SYSTEMD_TMPFILES_BYPASS` — If set to "1", execution of systemd-tmpfiles is
+  skipped it is invoked. This can be useful if systemd-tmpfiles is invoked
+  unconditionally as a child process by another tool, such as package managers
+  running it in a postinstall script.
+
 `systemd-sysusers`
 
 * `$SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
@@ -413,6 +418,11 @@ All tools:
   support creating bit-by-bit reproducible system images by choosing a
   reproducible value for the field of the date of last password change in
   `/etc/shadow`. See: https://reproducible-builds.org/specs/source-date-epoch/
+
+* `SYSTEMD_SYSUSERS_BYPASS` — If set to "1", execution of systemd-sysusers is
+  skipped it is invoked. This can be useful if systemd-sysusers is invoked
+  unconditionally as a child process by another tool, such as package managers
+  running it in a postinstall script.
 
 `systemd-sysv-generator`:
 

@@ -4539,6 +4539,12 @@ static int run(int argc, char *argv[]) {
         } phase;
         int r, k;
 
+        r = getenv_bool("SYSTEMD_TMPFILES_BYPASS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_TMPFILES_BYPASS, assuming no.");
+        if (r > 0)
+                return 0;
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
