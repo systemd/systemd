@@ -35,6 +35,9 @@ All tools:
   as `start` into no-ops.  If that's what's explicitly desired, you might
   consider setting `$SYSTEMD_OFFLINE=1`.
 
+* `$SYSTEMD_IN_CHROOT=0|1` — A more general form of `$SYSTEMD_IGNORE_CHROOT` that
+  overrides chroot detection if set.
+
 * `$SYSTEMD_FIRST_BOOT=0|1` — if set, assume "first boot" condition to be false
   or true, instead of checking the flag file created by PID 1.
 
