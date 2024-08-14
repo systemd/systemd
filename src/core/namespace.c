@@ -37,6 +37,8 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
@@ -3153,6 +3155,117 @@ bool ns_type_supported(NamespaceType type) {
 
         ns_proc = strjoina("/proc/self/ns/", t);
         return access(ns_proc, F_OK) == 0;
+}
+
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p) {
+
+        const char *overlay_prefix = "/run/systemd/mount-rootfs";
+        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_free_ char *extension_dir = NULL;
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        pid_t pid;
+        int r;
+
+        assert(pidref_is_set(target));
+        assert(hierarchy_env);
+        assert(p);
+
+        log_debug("Refreshing extensions in-namespace for hierarchy '%s'", hierarchy_env);
+
+        extension_dir = strjoin(p->private_namespace_dir, "/unit-extensions");
+        if (!extension_dir)
+                return -ENOMEM;
+
+        r = parse_env_extension_hierarchies(&hierarchies, hierarchy_env);
+        if (r < 0)
+                return r;
+
+        r = append_extensions(
+                        &ml,
+                        overlay_prefix,
+                        p->private_namespace_dir,
+                        hierarchies,
+                        p->extension_images,
+                        p->n_extension_images,
+                        p->extension_directories);
+        if (r < 0)
+                return r;
+        if (ml.n_mounts == 0)
+                return 0;
+
+        r = safe_fork("(sd-ns-refresh-exts)",
+                        FORK_DEATHSIG_SIGTERM | FORK_LOG | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                (void) mkdir_p_label(overlay_prefix, 0555);
+
+                /* This is effectively two rounds, since all the extensions come
+                * before overlays (setup_namespace() similarly relies on this
+                * property).
+                *
+                * (1) First, set up all the extension mounts in the child, which
+                * are not visible from the process. (2) Then, set up overlays
+                * for the sysext/confext hierarchies again using the new
+                * extension mounts as layers, and move them into the namespace. */
+                FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
+                        if (m->mode == MOUNT_EXTENSION_DIRECTORY || m->mode == MOUNT_EXTENSION_IMAGE) {
+                                r = apply_one_mount(p->root_directory, m, p);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to apply extension mount: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        } else if (m->mode == MOUNT_OVERLAY) {
+                                _cleanup_free_ char *path_relative = NULL, *path_in_namespace = NULL;
+
+                                r = mount_overlay(m);
+                                if (r < 0)
+                                        _exit(EXIT_FAILURE);
+                                if (r == 0) /* Tried to mount overlay, but skipped. */
+                                        continue;
+
+                                /* bind_mount_in_namespace takes a src on the outside
+                                * and a dest evaluated within the namespace. First,
+                                * figure out where we want the overlay on top of within
+                                * the namespace.
+                                */
+                                r = path_make_relative(overlay_prefix, mount_entry_path(m), &path_relative);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to make path relative: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                                r = asprintf(&path_in_namespace, "%s/%s", empty_to_root(p->root_directory), path_relative);
+                                if (r < 0) {
+                                        log_oom();
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = bind_mount_in_namespace(
+                                                target,
+                                                p->propagate_dir,
+                                                p->incoming_dir,
+                                                /* src= */ mount_entry_path(m),
+                                                /* dest= */ path_in_namespace,
+                                                false,
+                                                true);
+                                if (r < 0) {
+                                        log_error_errno(
+                                                        r,
+                                                        "Failed to move overlay within %s->%s: %m",
+                                                        mount_entry_path(m),
+                                                        path_in_namespace);
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+                }
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
