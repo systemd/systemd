@@ -37,6 +37,8 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
@@ -3294,6 +3296,334 @@ bool ns_type_supported(NamespaceType type) {
 
         ns_proc = strjoina("/proc/self/ns/", t);
         return access(ns_proc, F_OK) == 0;
+}
+
+static int get_unpeeled_mount_fd(const char *mount_path, int *ret_fd) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        pid_t pid;
+        int r;
+
+        assert(mount_path);
+        assert(ret_fd);
+
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pipe_fds);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        r = safe_fork("(sd-unpeel)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                pipe_fds[0] = safe_close(pipe_fds[0]);
+
+                /* Clone mount namespace here to unpeel without affecting live process */
+                r = detach_mount_namespace();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to detach mount namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Opportunistically unmount any overlay at this path */
+                r = umount2(mount_path, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0 && !IN_SET(errno, EINVAL, ENOENT)) {
+                        log_debug_errno(errno, "Failed to unmount %s: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Now that /mount_path is exposed, get an FD for it and pass back */
+                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE);
+                if (dir_fd < 0) {
+                        log_debug_errno(errno, "Failed to clone mount %s: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_one_fd(pipe_fds[1], dir_fd, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send mount fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        r = receive_one_fd(pipe_fds[0], 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to receive mount fd: %m");
+
+        *ret_fd = r;
+        return 0;
+}
+
+/* In target namespace, unmounts an existing overlayfs at mount_path (if one exists), grabs FD from the
+ * underlying directory, and sets up a new overlayfs mount. Coordinates with parent process over pair_fd:
+ * 1. Creates and sends new overlay fs fd to parent
+ * 2. Fake-unmounts overlay at mount_path to obtain underlying directory fd to build new overlay
+ * 3. Waits for parent to configure layers
+ * 4. Performs final mount at mount_path
+ *
+ * This is used by refresh_extensions_in_namespace() to peel back any existing overlays and reapply them.
+ */
+static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
+        _cleanup_close_ int dir_unpeeled_fd = -EBADF, overlay_fs_fd = -EBADF, mount_fd = -EBADF;
+        int r;
+
+        assert(pair_fd >= 0);
+        assert(mount_path);
+
+        /* Create new OverlayFS and send to parent */
+        overlay_fs_fd = fsopen("overlay", FSOPEN_CLOEXEC);
+        if (overlay_fs_fd < 0)
+                return log_debug_errno(errno, "Failed to create overlay fs for %s: %m", mount_path);
+
+        r = send_one_fd(pair_fd, overlay_fs_fd, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send overlay fs fd to parent: %m");
+
+        /* Unpeel in cloned mount namespace to get underlying directory fd */
+        r = get_unpeeled_mount_fd(mount_path, &dir_unpeeled_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to unpeel mount %s: %m", mount_path);
+
+        /* Send the fd to the parent */
+        r = send_one_fd(pair_fd, dir_unpeeled_fd, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send %s fd to parent: %m", mount_path);
+
+        /* Wait for parent to signal overlay configuration completion */
+        log_debug("Waiting for configured overlay fs for %s", mount_path);
+        r = receive_one_fd(pair_fd, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to receive configured overlay: %m");
+
+        /* Create the mount */
+        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, 0);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to create overlay mount: %m");
+
+        /* Move mount to final location */
+        r = mount_exchange_graceful(mount_fd, mount_path, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to move overlay to %s: %m", mount_path);
+
+        return 0;
+}
+
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p) {
+
+        const char *overlay_prefix = "/run/systemd/mount-rootfs";
+        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_free_ char *extension_dir = NULL;
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        int r;
+
+        assert(pidref_is_set(target));
+        assert(hierarchy_env);
+        assert(p);
+
+        if (!mount_new_api_supported()) {
+                log_once(LOG_WARNING, "Skipping extension refresh in namespace, as the kernel does not support the new mount API");
+                return 0;
+        }
+
+        log_debug("Refreshing extensions in-namespace for hierarchy '%s'", hierarchy_env);
+
+        extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
+        if (!extension_dir)
+                return -ENOMEM;
+
+        r = parse_env_extension_hierarchies(&hierarchies, hierarchy_env);
+        if (r < 0)
+                return r;
+
+        r = append_extensions(
+                        &ml,
+                        overlay_prefix,
+                        p->private_namespace_dir,
+                        hierarchies,
+                        p->extension_images,
+                        p->n_extension_images,
+                        p->extension_directories);
+        if (r < 0)
+                return r;
+
+        sort_and_drop_unused_mounts(&ml, overlay_prefix);
+        if (ml.n_mounts == 0)
+                return 0;
+
+        /**
+         * There are three main steps:
+         * 1. In child, set up the extension images and directories in a slave mountns, so that we have
+         *    access to their FDs
+         * 2. Fork into a grandchild, which will enter the target namespace and attempt to "unpeel" the
+         *    overlays to obtain FDs the underlying directories, over which we will reapply the overlays
+         * 3. In the child again, receive the FDs and reapply the overlays
+         */
+        r = safe_fork("(sd-ns-refresh-exts)",
+                        FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child (host namespace) */
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_(sigkill_nowaitp) pid_t grandchild_pid = 0;
+
+                 (void) mkdir_p_label(overlay_prefix, 0555);
+
+                /* Open all extension roots on the host */
+                FOREACH_ARRAY(m, ml.mounts, ml.n_mounts)
+                        if (IN_SET(m->mode, MOUNT_EXTENSION_DIRECTORY, MOUNT_EXTENSION_IMAGE)) {
+                                r = apply_one_mount("/", m, p);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to apply extension mount: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
+                /* Create a grandchild process to handle the unmounting and reopening of the hierarchy directory */
+                r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to create socket pair: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = safe_fork("(sd-ns-refresh-exts-grandchild)",
+                        FORK_DEATHSIG_SIGKILL,
+                        &grandchild_pid);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+                if (r == 0) {
+                        /* Grandchild (target service namespace) */
+                        pair[0] = safe_close(pair[0]);
+
+                        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to open namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = namespace_enter(pidns_fd, mntns_fd, -EBADF, -EBADF, root_fd);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to enter namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        /* Prevent propagation while unmounting */
+                        r = mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
+
+                        /* Handle each overlay mount path */
+                        FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
+                                if (m->mode != MOUNT_OVERLAY)
+                                        continue;
+
+                                const char *mount_path = mount_entry_unprefixed_path(m);
+                                if (startswith(mount_path, overlay_prefix))
+                                        mount_path += strlen(overlay_prefix);
+
+                                r = unpeel_mount_and_setup_overlay(pair[1], mount_path);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to setup overlay mount for %s: %m", mount_path);
+                                        /* In case parent is waiting, send the return code as FD. */
+                                        (void) send_one_fd(pair[1], r, 0);
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+                        _exit(EXIT_SUCCESS);
+                }
+
+                FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
+                        if (m->mode != MOUNT_OVERLAY)
+                                continue;
+
+                        _cleanup_close_ int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
+                        _cleanup_free_ char *layers = NULL, *options = NULL, *hierarchy_path_moved_mount = NULL;
+                        _cleanup_strv_free_ char **new_layers = NULL;
+                        const char *mount_path = mount_entry_unprefixed_path(m);
+
+                        if (startswith(mount_path, overlay_prefix))
+                                mount_path = mount_path + strlen(overlay_prefix);
+
+                        /* Receive the fds from grandchild */
+                        overlay_fs_fd = receive_one_fd(pair[0], 0);
+                        if (overlay_fs_fd < 0) {
+                                log_debug_errno(overlay_fs_fd, "Failed to receive overlay fs fd from grandchild: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        hierarchy_path_fd = receive_one_fd(pair[0], 0);
+                        if (hierarchy_path_fd < 0) {
+                                        log_debug_errno(hierarchy_path_fd, "Failed to receive fd from grandchild for %s: %m", mount_path);
+                                        _exit(EXIT_FAILURE);
+                        }
+
+                        /* move_mount so that it is visible on our end. */
+                        hierarchy_path_moved_mount = path_join(overlay_prefix, mount_path);
+                        if (!hierarchy_path_moved_mount)
+                                _exit(EXIT_FAILURE);
+                        (void) mkdir_p_label(hierarchy_path_moved_mount, 0555);
+                        r = move_mount(hierarchy_path_fd, "", AT_FDCWD, hierarchy_path_moved_mount, MOVE_MOUNT_F_EMPTY_PATH);
+
+                        /* Turn all overlay layer directories into FD-based references */
+                        STRV_FOREACH(ol, m->overlay_layers) {
+                                int chased_fd;
+
+                                chased_fd = open_tree(-EBADF, *ol, 0);
+                                if (chased_fd < 0) {
+                                        log_debug_errno(errno, "Failed to open_tree overlay layer: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = strv_push(&new_layers, FORMAT_PROC_FD_PATH(chased_fd)); // todo path join
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to append overlay layer: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+                        m->overlay_layers = strv_free(m->overlay_layers);
+                        m->overlay_layers = TAKE_PTR(new_layers);
+
+                        layers = strv_join(m->overlay_layers, ":");
+                        if (!layers)
+                                _exit(EXIT_FAILURE);
+
+                        /* Append the underlying hierarchy path as the last lowerdir */
+                        options = strjoin(layers, ":", FORMAT_PROC_FD_PATH(hierarchy_path_fd));
+                        if (!options)
+                                _exit(EXIT_FAILURE);
+
+                        r = fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, 0);
+                        if (r < 0) {
+                                log_debug_errno(SYNTHETIC_ERRNO(errno), "Failed to set lowerdir: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        /* Create the superblock */
+                        r = fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to create overlay superblock: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        /* Signal completion to grandchild */
+                        r = send_one_fd(pair[0], overlay_fs_fd, 0);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to signal overlay configuration complete for %s: %m", mount_path);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
