@@ -305,6 +305,45 @@ bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType typ
         return true;
 }
 
+static int extension_name_has_vpick(char *path) {
+        _cleanup_free_ char *dir = NULL;
+        int r;
+
+        assert(path);
+
+        r = path_extract_filename(path, &dir);
+        if (r == -EADDRNOTAVAIL)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return endswith(dir, ".v") ? 1 : 0;
+}
+
+int exec_context_has_vpick_extensions(const ExecContext *context) {
+        int r;
+
+        assert(context);
+
+        FOREACH_ARRAY(mi, context->extension_images, context->n_extension_images) {
+                r = extension_name_has_vpick(mi->source);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        STRV_FOREACH(ed, context->extension_directories) {
+                r = extension_name_has_vpick(*ed);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        return 0;
+}
+
 int exec_params_get_cgroup_path(
                 const ExecParameters *params,
                 const CGroupContext *c,
