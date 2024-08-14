@@ -1845,7 +1845,7 @@ static int start_transient_service(sd_bus *bus) {
         }
 
         if (!arg_quiet) {
-                sd_id128_t invocation_id = SD_ID128_NULL;
+                sd_id128_t invocation_id;
 
                 r = acquire_invocation_id(bus, service, &invocation_id);
                 if (r < 0)
@@ -2014,7 +2014,7 @@ static int start_transient_scope(sd_bus *bus) {
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
-        sd_id128_t invocation_id = SD_ID128_NULL;
+        sd_id128_t invocation_id;
         bool allow_pidfd = true;
         int r;
 
