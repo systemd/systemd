@@ -220,7 +220,7 @@ static int message_attribute_has_type(sd_netlink_message *m, size_t *ret_size, u
         if (!policy)
                 return -EOPNOTSUPP;
 
-        if (policy_get_type(policy) != type)
+        if (policy_get_type(policy) != NETLINK_TYPE_VARIABLE && policy_get_type(policy) != type)
                 return -EINVAL;
 
         if (ret_size)
