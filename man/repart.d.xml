@@ -548,8 +548,8 @@
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
         <literal>btrfs</literal>.</para>
 
-        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
-        when running with <option>--offline=no</option>.</para>
+        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        since btrfs-progs 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
