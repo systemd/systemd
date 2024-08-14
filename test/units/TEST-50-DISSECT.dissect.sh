@@ -557,6 +557,84 @@ rm -rf "$VDIR"
 systemd-dissect --umount "$IMAGE_DIR/app0"
 systemd-dissect --umount "$IMAGE_DIR/app1"
 
+# Check reloading refreshes vpick extensions
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+cat >/run/systemd/system/testservice-50g.service <<EOF
+[Service]
+Type=notify-reload
+ExtensionDirectories=${VDIR}
+ExecStart=bash -c ' \\
+    trap "{ \\
+        systemd-notify --reloading; \\
+        ls /etc | grep marker; \\
+        systemd-notify --ready; \\
+    }" SIGHUP; \\
+    systemd-notify --ready; \\
+    while true; do sleep 1; done; \\
+'
+EOF
+mkdir -p "$VDIR/${VBASE}_1/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_1/etc/extension-release.d/extension-release.${VBASE}_1"
+touch "$VDIR/${VBASE}_1/etc/${VBASE}_1.marker"
+systemctl start testservice-50g.service
+systemctl is-active testservice-50g.service
+# First reload; at reload time, the marker file in /etc should be picked up.
+systemctl try-reload-or-restart testservice-50g.service
+journalctl -b -u testservice-50g | grep -q -F "${VBASE}_1.marker"
+# Make a version 2 and reload again; this time we should see the v2 marker
+mkdir -p "$VDIR/${VBASE}_2/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_2/etc/extension-release.d/extension-release.${VBASE}_2"
+touch "$VDIR/${VBASE}_2/etc/${VBASE}_2.marker"
+systemctl try-reload-or-restart testservice-50g.service
+journalctl -b -u testservice-50g | grep -q -F "${VBASE}_2.marker"
+# Do it for a couple more times (to make sure we're tearing down old overlays)
+for _ in {1..5}; do systemctl reload testservice-50g.service; done
+systemctl stop testservice-50g.service
+
+# Repeat the same vpick notify-reload test with ExtensionImages= (keeping the
+# same VBASE and reusing VDIR files for convenience, but using .raw extensions
+# this time)
+VDIR2="/tmp/${VBASE}.raw.v"
+mkdir "$VDIR2"
+cp /run/systemd/system/testservice-50g.service /run/systemd/system/testservice-50h.service
+sed -i "s%ExtensionDirectories=.*%ExtensionImages=$VDIR2%g" \
+    /run/systemd/system/testservice-50h.service
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
+systemctl start testservice-50h.service
+systemctl is-active testservice-50h.service
+# First reload should pick up the v1 marker
+systemctl try-reload-or-restart testservice-50h.service
+journalctl -b -u testservice-50h | grep -q -F "${VBASE}_1.marker"
+# Second reload should pick up the v2 marker
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
+systemctl try-reload-or-restart testservice-50h.service
+journalctl -b -u testservice-50h | grep -q -F "${VBASE}_2.marker"
+systemctl stop testservice-50h.service
+
+# Sanity check that vpick reloading works with RootDirectory= too. Since
+# systemd-notify isn't included in the minimal image, just see that it doesn't
+# fail for now.
+unsquashfs -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
+cat >/run/systemd/system/testservice-50i.service <<EOF
+[Service]
+RootDirectory=/tmp/img
+ExtensionImages="$VDIR2"
+ExecStart=bash -c 'while true; do sleep 1; done;'
+ExecReload=/bin/sleep 0
+EOF
+# Move VBASE_2 out of the way for now
+mv "$VDIR2/${VBASE}_2.raw" /tmp/50i_2.raw
+systemctl start testservice-50i.service
+systemctl is-active testservice-50i.service
+mv /tmp/50i_2.raw "$VDIR2/${VBASE}_2.raw"
+systemctl reload testservice-50i.service
+systemctl stop testservice-50i.service
+
+rm -rf "$VDIR" "$VDIR2" /tmp/img
+
+
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
