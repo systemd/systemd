@@ -1668,6 +1668,9 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
+                if (strv_contains(*sv, d))
+                        continue;
+
                 r = strv_consume(sv, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
