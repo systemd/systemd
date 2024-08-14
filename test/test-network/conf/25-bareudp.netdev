@@ -5,4 +5,5 @@ Name=bareudp99
 
 [BareUDP]
 DestinationPort=1000
+MinSourcePort=1001
 EtherType=ipv4
