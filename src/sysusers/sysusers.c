@@ -2217,6 +2217,12 @@ static int run(int argc, char *argv[]) {
         Item *i;
         int r;
 
+        r = getenv_bool("SYSTEMD_SYSUSERS_BYPASS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUSERS_BYPASS, assuming no.");
+        if (r > 0)
+                return 0;
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
