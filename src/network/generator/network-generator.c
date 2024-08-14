@@ -873,7 +873,7 @@ static int parse_cmdline_ip(Context *context, const char *key, const char *value
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -902,7 +902,7 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
         /* rd.route=<net>/<netmask>:<gateway>[:<interface>] */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         if (value[0] == '[') {
                 p = strchr(value, ']');
@@ -945,7 +945,7 @@ static int parse_cmdline_nameserver(Context *context, const char *key, const cha
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         return network_set_dns(context, "", AF_UNSPEC, value);
 }
@@ -993,7 +993,7 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1024,7 +1024,7 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1065,7 +1065,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1124,7 +1124,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
         /* ifname=<interface>:<MAC> */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1155,7 +1155,7 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         /* net.ifname_policy=policy1[,policy2,...][,<MAC>] */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         for (const char *q = value; ; ) {
                 _cleanup_free_ char *word = NULL;
