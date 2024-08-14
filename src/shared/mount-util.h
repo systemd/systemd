@@ -119,6 +119,7 @@ typedef enum MountInNamespaceFlags {
         MOUNT_IN_NAMESPACE_READ_ONLY              = 1 << 0,
         MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY = 1 << 1,
         MOUNT_IN_NAMESPACE_IS_IMAGE               = 1 << 2,
+        MOUNT_IN_NAMESPACE_UMOUNT                 = 1 << 3,
 } MountInNamespaceFlags;
 
 int bind_mount_in_namespace(
