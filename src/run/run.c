@@ -1716,7 +1716,7 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
                 return r;
 
         if (!sd_id128_is_null(invocation_id)) {
-                r = sd_json_variant_set_field_string(&v, "invocation_id", SD_ID128_TO_STRING(invocation_id));
+                r = sd_json_variant_set_field_id128(&v, "invocation_id", invocation_id);
                 if (r < 0)
                         return r;
         }
