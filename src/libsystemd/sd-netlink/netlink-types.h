@@ -24,6 +24,7 @@ typedef enum NLAType {
         NETLINK_TYPE_SOCKADDR,
         NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
         NETLINK_TYPE_NESTED_UNION_BY_STRING,
+        NETLINK_TYPE_NESTED_UNION_BY_U8,
         NETLINK_TYPE_NESTED_UNION_BY_FAMILY,
         _NETLINK_TYPE_MAX,
         _NETLINK_TYPE_INVALID = -EINVAL,
@@ -60,4 +61,5 @@ const NLAPolicySet *policy_set_get_policy_set(const NLAPolicySet *type_system, u
 const NLAPolicySetUnion *policy_set_get_policy_set_union(const NLAPolicySet *type_system, uint16_t attr_type);
 uint16_t policy_set_union_get_match_attribute(const NLAPolicySetUnion *policy_set_union);
 const NLAPolicySet *policy_set_union_get_policy_set_by_string(const NLAPolicySetUnion *type_system_union, const char *string);
+const NLAPolicySet *policy_set_union_get_policy_set_by_u8(const NLAPolicySetUnion *policy_set_union, uint8_t val);
 const NLAPolicySet *policy_set_union_get_policy_set_by_family(const NLAPolicySetUnion *type_system_union, int family);
