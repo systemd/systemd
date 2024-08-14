@@ -434,6 +434,18 @@ int terminal_vhangup_fd(int fd) {
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
+int terminal_vhangup(const char *tty) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(tty);
+
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        return terminal_vhangup_fd(fd);
+}
+
 int vt_disallocate(const char *tty_path) {
         assert(tty_path);
 
@@ -968,8 +980,11 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
                 return 0;
 
         tty = skip_dev_prefix(tty);
+        if (path_startswith(tty, "pts/"))
+                return -EMEDIUMTYPE;
         if (!in_charset(tty, ALPHANUMERICAL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s contains non-alphanumeric characters", tty);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "TTY name '%s' contains non-alphanumeric characters, not searching kernel cmdline for size.", tty);
 
         rowskey = strjoin("systemd.tty.rows.", tty);
         if (!rowskey)

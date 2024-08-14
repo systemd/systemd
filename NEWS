@@ -42,6 +42,11 @@ CHANGES WITH 257 in spe:
           and 'block-weak' inhibitor modes were added, if taken they will make
           the inhibitor lock work as in the previous versions.
 
+        * systemd-nspawn will now mount the unified cgroup hierarchy into a
+          container if no systemd installation is found in a container's root
+          filesystem. `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0` can be used to override
+          this behavior.
+
         — <place>, <date>
 
 CHANGES WITH 256:
