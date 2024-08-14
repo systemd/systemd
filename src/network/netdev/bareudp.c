@@ -34,6 +34,12 @@ static int netdev_bare_udp_fill_message_create(NetDev *netdev, Link *link, sd_ne
         if (r < 0)
                 return r;
 
+        if (u->min_port > 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_BAREUDP_SRCPORT_MIN, u->min_port);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
