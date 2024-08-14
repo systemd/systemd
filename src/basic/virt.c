@@ -899,6 +899,12 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
+        r = getenv_bool("SYSTEMD_IN_CHROOT");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_IN_CHROOT, ignoring: %m");
+        if (r >= 0)
+                return r > 0;
+
         r = inode_same("/proc/1/root", "/", 0);
         if (r == -ENOENT) {
                 r = proc_mounted();
