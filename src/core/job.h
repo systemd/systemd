@@ -3,12 +3,11 @@
 
 #include <stdbool.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 
 #include "list.h"
 #include "unit-dependency-atom.h"
-#include "unit-name.h"
-#include "unit.h"
 
 typedef struct ActivationDetails ActivationDetails;
 typedef struct Job Job;
@@ -17,6 +16,8 @@ typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
+typedef struct Manager Manager;
+typedef struct Unit Unit;
 
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
