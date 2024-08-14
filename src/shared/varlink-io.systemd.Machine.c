@@ -28,30 +28,39 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Timestamp in µs in the CLOCK_MONOTONIC clock"),
                 SD_VARLINK_DEFINE_FIELD(monotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+#define SD_VARLINK_MACHINE_OUTPUT_FIELDS \
+                SD_VARLINK_FIELD_COMMENT("Name of the machine"),                                                    \
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),                                               \
+                SD_VARLINK_FIELD_COMMENT("128bit ID identifying this machine, formatted in hexadecimal"),           \
+                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                               \
+                SD_VARLINK_FIELD_COMMENT("Name of the software that registered this machine"),                      \
+                SD_VARLINK_DEFINE_OUTPUT(service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                          \
+                SD_VARLINK_FIELD_COMMENT("The class of this machine"),                                              \
+                SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),                                              \
+                SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),                                     \
+                SD_VARLINK_DEFINE_OUTPUT(leader, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                              \
+                SD_VARLINK_FIELD_COMMENT("Root directory of this machine, if known, relative to host file system"), \
+                SD_VARLINK_DEFINE_OUTPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                    \
+                SD_VARLINK_FIELD_COMMENT("The service manager unit this machine resides in"),                       \
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                             \
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the machine was activated"),                               \
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(timestamp, Timestamp, SD_VARLINK_NULLABLE),                        \
+                SD_VARLINK_FIELD_COMMENT("AF_VSOCK CID of the machine if known and applicable"),                    \
+                SD_VARLINK_DEFINE_OUTPUT(vSockCid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                            \
+                SD_VARLINK_FIELD_COMMENT("SSH address to connect to"),                                              \
+                SD_VARLINK_DEFINE_OUTPUT(sshAddress, SD_VARLINK_STRING, SD_VARLINK_NULLABLE)
+
 static SD_VARLINK_DEFINE_METHOD(
                 List,
                 SD_VARLINK_FIELD_COMMENT("If non-null the name of a running machine to report details on. If null/unspecified enumerates all running machines."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the machine"),
-                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("128bit ID identifying this machine, formatted in hexadecimal"),
-                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the software that registered this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The class of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(leader, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Root directory of this machine, if known, relative to host file system"),
-                SD_VARLINK_DEFINE_OUTPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The service manager unit this machine resides in"),
-                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Timestamp when the machine was activated"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(timestamp, Timestamp, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("AF_VSOCK CID of the machine if known and applicable"),
-                SD_VARLINK_DEFINE_OUTPUT(vSockCid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("SSH address to connect to"),
-                SD_VARLINK_DEFINE_OUTPUT(sshAddress, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_MACHINE_OUTPUT_FIELDS);
+
+static SD_VARLINK_DEFINE_METHOD(
+                Get,
+                SD_VARLINK_FIELD_COMMENT("The name of a running machine to report details on."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_MACHINE_OUTPUT_FIELDS);
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
@@ -64,6 +73,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Register,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Get running machine"),
+                &vl_method_Get,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists);
