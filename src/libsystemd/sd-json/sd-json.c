@@ -4106,7 +4106,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                                         SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
                                                         SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
                                         if (r < 0)
-                                                return r;
+                                                goto finish;
                                 } else
                                         add = JSON_VARIANT_MAGIC_NULL;
                         }
