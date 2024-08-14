@@ -956,10 +956,7 @@ static int parse_cmdline_rd_peerdns(Context *context, const char *key, const cha
         assert(context);
         assert(key);
 
-        if (proc_cmdline_value_missing(key, value))
-                return network_set_dhcp_use_dns(context, "", true);
-
-        r = parse_boolean(value);
+        r = value ? parse_boolean(value) : true;
         if (r < 0)
                 return log_debug_errno(r, "Invalid boolean value '%s'", value);
 
