@@ -37,6 +37,7 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
@@ -3147,6 +3148,104 @@ bool ns_type_supported(NamespaceType type) {
 
         ns_proc = strjoina("/proc/self/ns/", t);
         return access(ns_proc, F_OK) == 0;
+}
+
+int refresh_extensions_in_namespace(PidRef *target, const char *hierarchy_env, NamespaceParameters *p) {
+        const char *overlay_prefix = "/run/systemd/mount-rootfs";
+        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_free_ char *extension_dir = NULL;
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        int r;
+
+        assert(target);
+        assert(hierarchy_env);
+        assert(p);
+
+        log_debug("Refreshing extensions in-namespace for hierarchy '%s'", hierarchy_env);
+
+        extension_dir = strjoin(p->private_namespace_dir, "/unit-extensions");
+        if (!extension_dir)
+                return -ENOMEM;
+
+        r = parse_env_extension_hierarchies(&hierarchies, hierarchy_env);
+        if (r < 0)
+                return r;
+
+        r = append_extensions(
+                        &ml,
+                        overlay_prefix,
+                        p->private_namespace_dir,
+                        hierarchies,
+                        p->extension_images,
+                        p->n_extension_images,
+                        p->extension_directories);
+        if (r < 0)
+                return r;
+        if (ml.n_mounts == 0)
+                return 0;
+
+        (void) mkdir_p(overlay_prefix, 0755);
+
+        /* This is effectively two rounds, since all the extensions come before
+         * overlays (setup_namespace() similarly relies on this property).
+         *
+         * (1) First, set up all the extension mounts in the system, which are
+         * not visible from the process. (2) Then, set up overlays for the
+         * sysext/confext hierarchies again using the new extension mounts as
+         * layers, and move them into the namespace. */
+        FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
+                _cleanup_free_ char *path_relative = NULL, *path_in_namespace = NULL;
+
+                if (m->mode == MOUNT_EXTENSION_DIRECTORY || m->mode == MOUNT_EXTENSION_IMAGE) {
+                        r = apply_one_mount(p->root_directory, m, p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to apply extension mount: %m");
+                } else if (m->mode == MOUNT_OVERLAY) {
+                        r = mount_overlay(m);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to setup new overlay: %m");
+                        else if (r == 0) /* Tried to mount overlay, but skipped. */
+                                continue;
+
+                        /* bind_mount_in_namespace takes a src on the outside
+                         * and a dest evaluated within the namespace. First,
+                         * figure out where we want the overlay on top of within
+                         * the namespace.
+                         */
+                        r = path_make_relative(overlay_prefix, mount_entry_path(m), &path_relative);
+                        if (r < 0)
+                                return r;
+                        asprintf(&path_in_namespace, "%s/%s", empty_to_root(p->root_directory), path_relative);
+
+                        r = bind_mount_in_namespace(
+                                        target,
+                                        p->propagate_dir,
+                                        p->incoming_dir,
+                                        /* src= */ mount_entry_path(m),
+                                        /* dest= */ path_in_namespace,
+                                        false,
+                                        true);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "Failed to move overlay within %s->%s: %m",
+                                                mount_entry_path(m),
+                                                path_in_namespace);
+
+                        /* Undo the host-side overlay mount after namespace bind mount. */
+                        r = umount_recursive(mount_entry_path(m), /* flags = */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to unmount overlay: %m");
+                }
+        }
+
+        /* Now that the overlays have been set up, the extension mount points no
+        longer have to be visible. Undo them. */
+        r = umount_recursive(extension_dir, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to unmount below extension dir '%s': %m", extension_dir);
+
+        return 0;
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
