@@ -398,7 +398,7 @@ static int help(void) {
                "                            Add a virtual Ethernet connection to the container\n"
                "                            and attach it to an existing bridge on the host\n"
                "     --network-zone=NAME    Similar, but attach the new interface to an\n"
-               "                            an automatically managed bridge interface\n"
+               "                            automatically managed bridge interface\n"
                "     --network-namespace-path=PATH\n"
                "                            Set network namespace to the one represented by\n"
                "                            the specified kernel namespace file node\n"
