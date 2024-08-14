@@ -237,6 +237,8 @@ or Debian's default kernel path and initrd are used by default.)
 A script will try to find your qemu binary. If you want to specify a different
 one with `$QEMU_BIN`.
 
+`TEST_SKIP`: takes a space separated list of tests to skip.
+
 ### Debugging the qemu image
 
 If you want to log in the testsuite virtual machine, use `TEST_SHELL=1`
