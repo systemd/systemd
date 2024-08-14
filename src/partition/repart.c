@@ -1668,6 +1668,9 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
+                if (strv_contains(*sv, d))
+                        continue;
+
                 r = strv_consume(sv, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
@@ -2083,14 +2086,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
-
-        if (!strv_isempty(p->subvolumes) && arg_offline > 0)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "Subvolumes= cannot be used with --offline=yes.");
-
-        if (p->default_subvolume && arg_offline > 0)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "DefaultSubvolume= cannot be used with --offline=yes.");
 
         if (p->default_subvolume && !path_strv_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3837,7 +3832,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
 static bool loop_device_error_is_fatal(const Partition *p, int r) {
         assert(p);
-        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes) || p->default_subvolume;
+        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r));
 }
 
 static int partition_target_prepare(
@@ -5063,7 +5058,7 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
-static bool partition_needs_populate(Partition *p) {
+static bool partition_needs_populate(const Partition *p) {
         assert(p);
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
@@ -5153,6 +5148,40 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         return 0;
 }
 
+static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
+        int r;
+        char **sv = NULL;
+
+        assert(p);
+        assert(ret);
+
+        r = mkfs_options_from_env("REPART", p->format, &sv);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to determine mkfs command line options for '%s': %m",
+                                       p->format);
+
+        if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
+                STRV_FOREACH(subvol, p->subvolumes) {
+                        if (p->default_subvolume && streq(*subvol, p->default_subvolume))
+                                continue;
+
+                        r = strv_extend_many(&sv, "--subvol", *subvol);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (p->default_subvolume) {
+                        r = strv_extend_many(&sv, "--default-subvol", p->default_subvolume);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        *ret = TAKE_PTR(sv);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int r;
 
@@ -5221,11 +5250,9 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = finalize_extra_mkfs_options(p, root, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
+                        return r;
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
@@ -6782,11 +6809,9 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = finalize_extra_mkfs_options(p, root, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
+                        return r;
 
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
@@ -6864,7 +6889,7 @@ static int context_minimize(Context *context) {
 
                 if (arg_offline <= 0) {
                         r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
-                        if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
+                        if (r < 0 && loop_device_error_is_fatal(p, r))
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
 
