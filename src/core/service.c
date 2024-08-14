@@ -2984,14 +2984,15 @@ static int service_reload(Unit *u) {
 
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
-        /* If we have extensions, try to reload them before we reload the
-         * service. For now, only reload confexts (instead of program code in
-         * sysexts). This is particularly helpful for allowing the service to
-         * use new vpick'd versions. */
+        /* If we have confexts extensions, try to reload vpick'd confext
+         * extensions, which is particularly beneficial for notify-reload
+         * services that could potentially pick up a new version of its
+         * configuration.
+         */
         if (service_needs_reload_extensions(u)) {
                 r = service_reload_extensions(u);
                 if (r < 0)
-                        log_unit_error_errno(u, r, "Failed to reload extensions, ignoring: %m");
+                        log_unit_error_errno(u, r, "Failed to reload confexts, ignoring: %m");
         }
 
         service_enter_reload(s);
