@@ -559,6 +559,8 @@ char** exec_context_get_syscall_log(const ExecContext *c);
 char** exec_context_get_address_families(const ExecContext *c);
 char** exec_context_get_restrict_filesystems(const ExecContext *c);
 
+int exec_context_has_vpicked_extensions(const ExecContext *context);
+
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts);
