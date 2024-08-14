@@ -161,6 +161,8 @@ int sd_json_variant_set_fieldb(sd_json_variant **v, const char *field, ...);
 #define sd_json_variant_set_fieldbo(v, field, ...)                      \
         sd_json_variant_set_fieldb((v), (field), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int sd_json_variant_set_field_string(sd_json_variant **v, const char *field, const char *value);
+int sd_json_variant_set_field_id128(sd_json_variant **v, const char *field, sd_id128_t value);
+int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *field, sd_id128_t value);
 int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t value);
 int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t value);
 int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *field, int b);
