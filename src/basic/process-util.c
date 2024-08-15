@@ -2100,6 +2100,17 @@ int posix_spawn_wrapper(
         _cleanup_close_ int pidfd = -EBADF;
 
         r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (r == E2BIG) {
+                /* Some kernels (e.g., 5.4) support clone3 but they do not support CLONE_INTO_CGROUP.
+                 * Retry pidfd_spawn() after removing the flag.
+                 */
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
+                        return -r;
+                /*  retry */
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        }
         if (r == 0) {
                 r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
                 if (r < 0)
@@ -2117,11 +2128,14 @@ int posix_spawn_wrapper(
                 return -r;
 
         /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
-         * flags to remove the cgroup one, which is what redirects to clone3() */
-        flags &= ~POSIX_SPAWN_SETCGROUP;
-        r = posix_spawnattr_setflags(&attr, flags);
-        if (r != 0)
-                return -r;
+         * flags to remove the cgroup one, which is what redirects to clone3().
+         * Clear POSIX_SPAWN_SETCGROUP if it was not already done. */
+        if (flags & POSIX_SPAWN_SETCGROUP) {
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
+                        return -r;
+        }
 #endif
 
         pid_t pid;
