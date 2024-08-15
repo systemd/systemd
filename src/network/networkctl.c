@@ -2987,11 +2987,14 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
                 TAKE_FD(fd);
         }
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         return varlink_callbo_and_log(
                         vl,
                         "io.systemd.Network.SetPersistentStorage",
                         /* reply= */ NULL,
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Ready", ready));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Ready", ready),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
 }
 
 static int help(void) {
