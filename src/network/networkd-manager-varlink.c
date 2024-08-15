@@ -172,6 +172,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
 static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Ready", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
