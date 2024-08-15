@@ -2107,7 +2107,7 @@ int posix_spawn_wrapper(
 
                 return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
         }
-        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+        if (ERRNO_IS_NOT_SUPPORTED(r) || r == E2BIG) {
                 /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
                 if (cgroup && cg_is_threaded(cgroup) > 0)
                         return -EUCLEAN;
