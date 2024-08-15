@@ -3,7 +3,7 @@
 set -ex
 
 # Silence warning from running_in_chroot_or_offline()
-export SYSTEMD_IGNORE_CHROOT=1
+export SYSTEMD_IN_CHROOT=0
 
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
