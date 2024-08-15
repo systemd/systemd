@@ -7,6 +7,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -393,18 +394,15 @@ TEST(config_parse) {
 }
 
 TEST(config_parse_standard_file_with_dropins_full) {
-        _cleanup_(rmdir_and_freep) char *root = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         _cleanup_close_ int rfd = -EBADF;
         int r;
 
-        assert_se(mkdtemp_malloc(NULL, &root) >= 0);
+        ASSERT_OK(rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", 0, &root));
         assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
-
-        rfd = open(root, O_CLOEXEC|O_DIRECTORY);
-        assert_se(rfd >= 0);
 
         assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf",         /* this one is ignored */
                                        "A=!!!", WRITE_STRING_FILE_CREATE) == 0);
