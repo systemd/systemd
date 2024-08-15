@@ -62,6 +62,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
+static bool arg_ask_password = true;
 
 typedef enum RawType {
         RAW_NONE,
@@ -2169,6 +2170,8 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2274,6 +2277,8 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_message_new_method_call(bus, &req, locator, "SetLinkDomains");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2369,6 +2374,8 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
@@ -2420,6 +2427,8 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
         if (global_llmnr_support < llmnr_support)
                 log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
                             argv[2], arg_ifname, global_llmnr_support_str);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2473,6 +2482,8 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                 log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
                             argv[2], arg_ifname, global_mdns_support_str);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
@@ -2512,6 +2523,8 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2553,6 +2566,8 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
@@ -2573,6 +2588,8 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
 static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNSSECNegativeTrustAnchors");
         if (r < 0)
@@ -2606,6 +2623,8 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
          * with an empty list, which will clear the list of domains for an interface. */
@@ -2652,6 +2671,8 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 
         if (arg_ifindex <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface argument required.");
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, NULL, "i", arg_ifindex);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -4110,6 +4131,8 @@ static int run(int argc, char **argv) {
         setlocale(LC_ALL, "");
         log_setup();
 
+        arg_ask_password = isatty(STDIN_FILENO);
+
         if (invoked_as(argv, "resolvconf")) {
                 compat = true;
                 r = resolvconf_parse_argv(argc, argv);
@@ -4124,6 +4147,8 @@ static int run(int argc, char **argv) {
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "sd_bus_open_system: %m");
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (compat)
                 return compat_main(argc, argv, bus);
