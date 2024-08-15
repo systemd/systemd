@@ -434,11 +434,11 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_strv(f, "exec-cgroup-context-ip-ingress-filter-path=", c->ip_filters_ingress);
+        r = serialize_strv(f, "exec-cgroup-context-ip-ingress-filter-path", c->ip_filters_ingress);
         if (r < 0)
                 return r;
 
-        r = serialize_strv(f, "exec-cgroup-context-ip-egress-filter-path=", c->ip_filters_egress);
+        r = serialize_strv(f, "exec-cgroup-context-ip-egress-filter-path", c->ip_filters_egress);
         if (r < 0)
                 return r;
 
@@ -1759,15 +1759,23 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_item(f, "exec-context-working-directory", c->working_directory);
+        r = serialize_item_escaped(f, "exec-context-working-directory", c->working_directory);
         if (r < 0)
                 return r;
 
-        r = serialize_item(f, "exec-context-root-directory", c->root_directory);
+        r = serialize_bool_elide(f, "exec-context-working-directory-missing-ok", c->working_directory_missing_ok);
         if (r < 0)
                 return r;
 
-        r = serialize_item(f, "exec-context-root-image", c->root_image);
+        r = serialize_bool_elide(f, "exec-context-working-directory-home", c->working_directory_home);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_escaped(f, "exec-context-root-directory", c->root_directory);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_escaped(f, "exec-context-root-image", c->root_image);
         if (r < 0)
                 return r;
 
@@ -1981,14 +1989,6 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 if (r < 0)
                         return r;
         }
-
-        r = serialize_bool_elide(f, "exec-context-working-directory-missing-ok", c->working_directory_missing_ok);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-context-working-directory-home", c->working_directory_home);
-        if (r < 0)
-                return r;
 
         if (c->oom_score_adjust_set) {
                 r = serialize_item_format(f, "exec-context-oom-score-adjust", "%i", c->oom_score_adjust);
@@ -2627,17 +2627,29 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-working-directory="))) {
-                        r = free_and_strdup(&c->working_directory, val);
-                        if (r < 0)
-                                return r;
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->working_directory, p);
                 } else if ((val = startswith(l, "exec-context-root-directory="))) {
-                        r = free_and_strdup(&c->root_directory, val);
-                        if (r < 0)
-                                return r;
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->root_directory, p);
                 } else if ((val = startswith(l, "exec-context-root-image="))) {
-                        r = free_and_strdup(&c->root_image, val);
-                        if (r < 0)
-                                return r;
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->root_image, p);
                 } else if ((val = startswith(l, "exec-context-root-image-options="))) {
                         for (;;) {
                                 _cleanup_free_ char *word = NULL, *mount_options = NULL, *partition = NULL;

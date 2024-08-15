@@ -98,6 +98,7 @@ EFI_STATUS linux_exec(
                 const void *initrd_buffer,
                 size_t initrd_length) {
 
+        size_t kernel_size_in_memory = 0;
         uint32_t compat_address;
         EFI_STATUS err;
 
@@ -105,7 +106,7 @@ EFI_STATUS linux_exec(
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        err = pe_kernel_info(linux_buffer, &compat_address);
+        err = pe_kernel_info(linux_buffer, &compat_address, &kernel_size_in_memory);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -116,7 +117,8 @@ EFI_STATUS linux_exec(
                                 linux_buffer,
                                 linux_length,
                                 initrd_buffer,
-                                initrd_length);
+                                initrd_length,
+                                kernel_size_in_memory);
 #endif
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Bad kernel image: %m");

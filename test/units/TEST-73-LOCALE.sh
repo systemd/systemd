@@ -666,14 +666,9 @@ cat >/etc/dbus-1/system.d/systemd-localed-read-only.conf <<EOF
         "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
         <policy user="root">
-                <allow send_member="SetLocale"/>
-                <allow send_member="SetVConsoleKeyboard"/>
-                <allow send_member="SetX11Keyboard"/>
-        </policy>
-        <policy context="default">
-                <allow send_member="SetLocale"/>
-                <allow send_member="SetVConsoleKeyboard"/>
-                <allow send_member="SetX11Keyboard"/>
+                <allow send_destination="org.freedesktop.locale1" send_interface="org.freedesktop.locale1" send_member="SetLocale"/>
+                <allow send_destination="org.freedesktop.locale1" send_interface="org.freedesktop.locale1" send_member="SetVConsoleKeyboard"/>
+                <allow send_destination="org.freedesktop.locale1" send_interface="org.freedesktop.locale1" send_member="SetX11Keyboard"/>
         </policy>
 </busconfig>
 EOF

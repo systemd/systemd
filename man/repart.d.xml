@@ -708,7 +708,7 @@
         <citerefentry
         project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        <para>If both bit 60 and 59 are set for a partition (i.e. the partition is marked both read-only and
         marked for file system growing) the latter is typically without effect: the read-only flag takes
         precedence in most tools reading these flags, and since growing the file system involves writing to
         the partition it is consequently ignored.</para>

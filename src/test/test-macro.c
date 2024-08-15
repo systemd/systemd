@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 
 #include "errno-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "macro.h"
 #include "tests.h"
@@ -1122,6 +1123,11 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_OK_ERRNO(-1), SIGABRT);
         ASSERT_SIGNAL(ASSERT_OK_ERRNO(-ENOANO), SIGABRT);
 
+        ASSERT_FAIL(-ENOENT);
+        ASSERT_FAIL(-EPERM);
+        ASSERT_SIGNAL(ASSERT_FAIL(0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_FAIL(255), SIGABRT);
+
         ASSERT_ERROR(-ENOENT, ENOENT);
         ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOENT);
         ASSERT_SIGNAL(ASSERT_ERROR(0, ENOENT), SIGABRT);
@@ -1181,6 +1187,15 @@ TEST(ASSERT) {
         ASSERT_LT(-1, 1);
         ASSERT_SIGNAL(ASSERT_LT(0, 0), SIGABRT);
         ASSERT_SIGNAL(ASSERT_LT(1, -1), SIGABRT);
+
+        ASSERT_EQ_ID128(SD_ID128_NULL, SD_ID128_NULL);
+        ASSERT_NE_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                        SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e));
+        ASSERT_SIGNAL(
+                ASSERT_EQ_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                                SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e)),
+                SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

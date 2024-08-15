@@ -633,7 +633,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
-                if (s->transactions) {
+                if (error != ECONNRESET && s->transactions) {
                         DnsTransaction *t;
 
                         t = s->transactions;
@@ -1264,7 +1264,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 }
 
                                 /* These codes probably indicate a transient error. Let's try again. */
-                                if (IN_SET(t->answer_ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
+                                if (t->answer_ede_rcode == DNS_EDE_RCODE_NOT_READY) {
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
                                                   FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),

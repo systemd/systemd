@@ -474,10 +474,12 @@
         <term><varname>ManagerEnvironment=</varname></term>
 
         <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
-        environment variables just for the manager process itself. In contrast to user managers, these variables
-        are not inherited by processes spawned by the system manager, use <varname>DefaultEnvironment=</varname>
+        environment variables for the manager process itself. These variables are inherited by processes
+        spawned by user managers, but not the system manager - use <varname>DefaultEnvironment=</varname>
         for that. Note that these variables are merged into the existing environment block. In particular, in
-        case of the system manager, this includes variables set by the kernel based on the kernel command line.</para>
+        case of the system manager, this includes variables set by the kernel based on the kernel command line.
+        As with <varname>DefaultEnvironment=</varname>, this environment block is internal, and changes are not
+        reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
 
         <para>Setting environment variables for the manager process may be useful to modify its behaviour.
         See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a

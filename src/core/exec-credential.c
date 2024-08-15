@@ -353,6 +353,17 @@ static int load_credential_glob(
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
 
+                        r = path_extract_filename(*p, &fn);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
+
+                        if (faccessat(write_dfd, fn, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                                log_debug("Skipping credential with duplicated ID %s at %s", fn, *p);
+                                continue;
+                        }
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to test if credential %s exists: %m", fn);
+
                         /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
                         r = read_full_file_full(
                                         AT_FDCWD,
@@ -365,10 +376,6 @@ static int load_credential_glob(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = path_extract_filename(*p, &fn);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
-
                         r = maybe_decrypt_and_write_credential(
                                         write_dfd,
                                         fn,
@@ -378,8 +385,6 @@ static int load_credential_glob(
                                         ownership_ok,
                                         data, size,
                                         left);
-                        if (r == -EEXIST)
-                                continue;
                         if (r < 0)
                                 return r;
                 }
@@ -717,8 +722,10 @@ static int acquire_credentials(
                  * EEXIST if the credential already exists. That's because the TPM2-based decryption is kinda
                  * slow and involved, hence it's nice to be able to skip that if the credential already
                  * exists anyway. */
-                if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                        log_debug("Skipping credential with duplicated ID %s", sc->id);
                         continue;
+                }
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 

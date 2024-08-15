@@ -3831,7 +3831,7 @@ bool unit_need_daemon_reload(Unit *u) {
         if (u->load_state == UNIT_LOADED) {
                 _cleanup_strv_free_ char **dropins = NULL;
 
-                (void) unit_find_dropin_paths(u, &dropins);
+                (void) unit_find_dropin_paths(u, /* use_unit_path_cache = */ false, &dropins);
 
                 if (!strv_equal(u->dropin_paths, dropins))
                         return true;
