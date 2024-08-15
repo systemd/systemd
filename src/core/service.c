@@ -31,11 +31,13 @@
 #include "log.h"
 #include "manager.h"
 #include "missing_audit.h"
+#include "namespace.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
@@ -2758,6 +2760,63 @@ static void service_run_next_main(Service *s) {
         (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), &s->main_command->exec_status.start_timestamp);
 }
 
+static bool service_needs_reload_extensions(Unit *u) {
+        Service *s = ASSERT_PTR(SERVICE(u));
+
+        /* For now, opportunistically reload as long as we have an extension,
+         * and do not try to actually figure out if we have a vpick'd extension
+         * or not. */
+        return s->exec_context.n_extension_images > 0 ||
+                        !strv_isempty(s->exec_context.extension_directories);
+}
+
+static int service_reload_extensions(Unit *u) {
+        /* TODO: do this asynchronously */
+        _cleanup_free_ char *root_dir = NULL, *propagate_dir = NULL, *private_namespace_dir = NULL,
+                *incoming_dir = NULL;
+
+        Service *s = ASSERT_PTR(SERVICE(u));
+        /* ExtensionImages/ExtensionDirectories only meaningful for system
+         * services. Let's sanity assert so, since we make assumptions about
+         * /run/systemd paths. */
+        assert(u->manager->runtime_scope == RUNTIME_SCOPE_SYSTEM);
+
+        private_namespace_dir = strdup("/run/systemd");
+        if (!private_namespace_dir)
+                return -ENOMEM;
+
+        asprintf(&root_dir, "%s", s->exec_context.root_directory ?: "/run/systemd/mount-rootfs");
+        if (!root_dir)
+                return -ENOMEM;
+
+        propagate_dir = path_join("/run/systemd/propagate/", u->id);
+        if (!propagate_dir)
+                return -ENOMEM;
+
+        incoming_dir = strdup("/run/systemd/incoming");
+        if (!incoming_dir)
+                return -ENOMEM;
+
+        NamespaceParameters p = {
+                        .private_namespace_dir = private_namespace_dir,
+                        .root_directory = root_dir,
+                        .propagate_dir = propagate_dir,
+                        .incoming_dir = incoming_dir,
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .extension_images = s->exec_context.extension_images,
+                        .n_extension_images = s->exec_context.n_extension_images,
+                        .extension_directories = s->exec_context.extension_directories,
+                        .extension_image_policy = s->exec_context.extension_image_policy
+        };
+        /* Only reload confext, and not sysext, because it doesn't make sense
+        for program code to be swapped at reload. */
+        return refresh_extensions_in_namespace(
+                unit_main_pid(u),
+                "SYSTEMD_CONFEXT_HIERARCHIES",
+                &p
+        );
+}
+
 static int service_start(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
@@ -2882,8 +2941,19 @@ static int service_stop(Unit *u) {
 
 static int service_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
+        int r;
 
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
+
+        /* If we have extensions, try to reload them before we reload the
+         * service. For now, only reload confexts (instead of program code in
+         * sysexts). This is particularly helpful for allowing the service to
+         * use new vpick'd versions. */
+        if (service_needs_reload_extensions(u)) {
+                r = service_reload_extensions(u);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "Failed to reload extensions, ignoring: %m");
+        }
 
         service_enter_reload(s);
         return 1;
