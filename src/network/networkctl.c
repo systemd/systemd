@@ -95,6 +95,7 @@ bool arg_stdin = false;
 unsigned arg_lines = 10;
 char *arg_drop_in = NULL;
 sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
@@ -173,6 +174,8 @@ int acquire_bus(sd_bus **ret) {
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (networkd_is_running()) {
                 r = varlink_connect_networkd(/* ret_varlink = */ NULL);
@@ -2841,6 +2844,8 @@ static int link_renew(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = 0;
 
         for (int i = 1; i < argc; i++) {
@@ -2881,6 +2886,8 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         for (int i = 1; i < argc; i++) {
                 int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
@@ -2903,6 +2910,8 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload network settings: %s", bus_error_message(&error, r));
@@ -2921,6 +2930,8 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         indexes = set_new(NULL);
         if (!indexes)
