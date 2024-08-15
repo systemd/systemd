@@ -8,6 +8,8 @@
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "process-util.h"
+#include "cgroup-util.h"
 #include "socket-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
@@ -489,6 +491,50 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
         return lookup_machine_by_name(link, m, mn);
 }
 
+static int vl_method_get_by_pid(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        int r;
+        pid_t pid = 0;
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+        assert(parameters);
+
+        const sd_json_dispatch_field dispatch_table[] = {
+                { "pid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, PTR_TO_SIZE(&pid), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, 0);
+        if (r != 0)
+                return r;
+
+        if (pid == 0) {
+                int pidfd = sd_varlink_get_peer_pidfd(link);
+                if (pidfd < 0)
+                        return pidfd;
+
+                r = pidfd_get_pid(pidfd, &pid);
+                if (r < 0)
+                        return varlink_log_errno(link, r, "Failed to acquire pid of peer: %m");
+        }
+
+        if (pid <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "pid");
+
+        Machine *machine = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
+        if (!machine) {
+                _cleanup_free_ char *unit = NULL;
+                r = cg_pid_get_unit(pid, &unit);
+                if (r >= 0)
+                        machine = hashmap_get(m->machine_units, unit);
+        }
+
+        if (!machine)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+        return list_machine_one(link, machine, /* more= */ false);
+}
+
 static int manager_varlink_init_userdb(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
@@ -553,7 +599,8 @@ static int manager_varlink_init_machine(Manager *m) {
                         s,
                         "io.systemd.Machine.Register", vl_method_register,
                         "io.systemd.Machine.List",     vl_method_list,
-                        "io.systemd.Machine.Get",      vl_method_get);
+                        "io.systemd.Machine.Get",      vl_method_get,
+                        "io.systemd.Machine.GetByPID", vl_method_get_by_pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

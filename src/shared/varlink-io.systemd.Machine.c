@@ -62,6 +62,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_MACHINE_OUTPUT_FIELDS);
 
+static SD_VARLINK_DEFINE_METHOD(
+                GetByPID,
+                SD_VARLINK_FIELD_COMMENT("The PID of a running machine to report details on."),
+                SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, 0),
+                SD_VARLINK_MACHINE_OUTPUT_FIELDS);
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
 
@@ -75,6 +81,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Get running machine"),
                 &vl_method_Get,
+                SD_VARLINK_SYMBOL_COMMENT("Get running machine by PID"),
+                &vl_method_GetByPID,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists);
