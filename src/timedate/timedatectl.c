@@ -1041,6 +1041,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
         return timedatectl_main(bus, argc, argv);
 }
 
