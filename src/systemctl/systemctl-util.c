@@ -86,7 +86,7 @@ void polkit_agent_open_maybe(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
