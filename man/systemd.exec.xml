@@ -543,7 +543,9 @@
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         To disable the safety check that the extension-release file name matches the image file name, the
-        <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
+        <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.
+        When a service carrying confext directories is reloaded, the confext
+        itself will also be reloaded to pick up any changes. This does not apply to sysext extensions.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
@@ -587,7 +589,9 @@
         file while each confext directory must carry a <filename>/etc/extension-release.d/extension-release.IMAGE</filename>
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
-        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        When a service carrying confext directories is reloaded, the confext
+        itself will also be reloaded to pick up any changes. This does not apply to sysext extensions.</para>
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
