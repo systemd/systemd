@@ -1940,7 +1940,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-wireguard.netdev', '25-wireguard.network',
                           '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
-                          '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
+                          '25-wireguard-public-key.txt', '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
                           '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
         start_networkd()
         self.wait_online('wg99:routable', 'wg98:routable', 'wg97:carrier')
