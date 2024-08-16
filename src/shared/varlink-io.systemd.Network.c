@@ -42,7 +42,8 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetPersistentStorage,
-                SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
