@@ -19,6 +19,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 SubscribeQueryResults,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 /* First reply */
                 SD_VARLINK_DEFINE_OUTPUT(ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 /* Subsequent replies */
@@ -49,6 +50,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpCache,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ScopeCache, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -72,6 +74,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpServerState,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ServerState, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -98,11 +101,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpStatistics,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(transactions, TransactionStatistics, 0),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(cache, CacheStatistics, 0),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dnssec, DnssecStatistics, 0));
 
-static SD_VARLINK_DEFINE_METHOD(ResetStatistics);
+static SD_VARLINK_DEFINE_METHOD(
+                ResetStatistics,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,

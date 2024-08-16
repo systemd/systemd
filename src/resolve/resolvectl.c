@@ -1112,11 +1112,18 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpStatistics", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpStatistics",
+                        &reply,
+                        /* parameters= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -1270,11 +1277,17 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.ResetStatistics", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.ResetStatistics",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -2866,6 +2879,8 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, c;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
@@ -2890,7 +2905,10 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback to varlink connection: %m");
 
-        r = sd_varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
+        r = sd_varlink_observebo(
+                        vl,
+                        "io.systemd.Resolve.Monitor.SubscribeQueryResults",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
 
@@ -3024,11 +3042,17 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpCache", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpCache",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -3198,11 +3222,17 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpServerState", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpServerState",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
