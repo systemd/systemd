@@ -1562,10 +1562,6 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", service, "fail");
         if (r < 0)
@@ -1734,6 +1730,8 @@ static int start_transient_service(sd_bus *bus) {
 
         assert(bus);
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
@@ -1761,13 +1759,15 @@ static int start_transient_service(sd_bus *bus) {
                                 return log_error_errno(slave, "Failed to open pty slave: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                        (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
                         r = bus_call_method(system_bus,
                                             bus_machine_mgr,
@@ -1822,8 +1822,6 @@ static int start_transient_service(sd_bus *bus) {
         if (r < 0)
                 return r;
         slave = safe_close(slave);
-
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
@@ -2037,17 +2035,13 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2219,10 +2213,6 @@ static int make_transient_trigger_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and Mode */
         r = sd_bus_message_append(m, "ss", trigger, "fail");
         if (r < 0)
@@ -2352,7 +2342,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
@@ -2452,6 +2442,8 @@ static int run(int argc, char* argv[]) {
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_scope)
                 return start_transient_scope(bus);

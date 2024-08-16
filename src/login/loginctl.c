@@ -1197,7 +1197,7 @@ static int activate(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
                 r = sd_bus_call_method(
@@ -1240,7 +1240,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
@@ -1268,7 +1268,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = streq(argv[0], "enable-linger");
 
@@ -1314,7 +1314,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
@@ -1344,7 +1344,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
@@ -1382,7 +1382,7 @@ static int attach(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 2; i < argc; i++) {
 
@@ -1406,7 +1406,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
         if (r < 0)
@@ -1422,7 +1422,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(
                         bus,
@@ -1443,7 +1443,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
 
