@@ -7,7 +7,9 @@
 #include "af-list.h"
 #include "missing_network.h"
 #include "networkd-link.h"
+#include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "socket-util.h"
@@ -130,7 +132,7 @@ int link_get_ip_forwarding(Link *link, int family) {
         return link->manager->ip_forwarding[family == AF_INET6];
 }
 
-static int link_set_ip_forwarding(Link *link, int family) {
+static int link_set_ip_forwarding_impl(Link *link, int family) {
         int r, t;
 
         assert(link);
@@ -149,6 +151,65 @@ static int link_set_ip_forwarding(Link *link, int family) {
                                               enable_disable(t), af_to_ipv4_ipv6(family));
 
         return 0;
+}
+
+static int link_reapply_ip_forwarding(Link *link, int family) {
+        int r, ret = 0;
+
+        assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        (void) link_set_ip_forwarding_impl(link, family);
+
+        r = link_lldp_tx_update_capabilities(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not update LLDP capabilities, ignoring: %m"));
+
+        if (family == AF_INET6 && !link_ndisc_enabled(link)) {
+                r = ndisc_stop(link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery, ignoring: %m"));
+
+                ndisc_flush(link);
+        }
+
+        return ret;
+}
+
+static int link_set_ip_forwarding(Link *link, int family) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (!link_is_configured_for_family(link, family))
+                return 0;
+
+        /* When IPMasquerade= is enabled and the global setting is unset, enable _global_ IP forwarding, and
+         * re-apply per-link setting for all links. */
+        if (FLAGS_SET(link->network->ip_masquerade, family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6) &&
+            link->manager->ip_forwarding[family == AF_INET6] < 0) {
+
+                link->manager->ip_forwarding[family == AF_INET6] = true;
+                manager_set_ip_forwarding(link->manager, family);
+
+                Link *other;
+                HASHMAP_FOREACH(other, link->manager->links_by_index) {
+                        r = link_reapply_ip_forwarding(other, family);
+                        if (r < 0)
+                                link_enter_failed(other);
+                }
+
+                return 0;
+        }
+
+        /* Otherwise, apply per-link setting for _this_ link. */
+        return link_set_ip_forwarding_impl(link, family);
 }
 
 static int link_set_ipv4_rp_filter(Link *link) {
