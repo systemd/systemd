@@ -943,6 +943,17 @@ matrix_run_one() {
     return 0
 }
 
+testcase_api_vfs() {
+    local api_vfs_writable
+
+    for api_vfs_writable in yes no network; do
+        matrix_run_one no  no  $api_vfs_writable
+        matrix_run_one yes no  $api_vfs_writable
+        matrix_run_one no  yes $api_vfs_writable
+        matrix_run_one yes yes $api_vfs_writable
+    done
+}
+
 testcase_check_os_release() {
     # https://github.com/systemd/systemd/issues/29185
     local base common_opts root
@@ -1004,10 +1015,3 @@ EOF
 }
 
 run_testcases
-
-for api_vfs_writable in yes no network; do
-    matrix_run_one no  no  $api_vfs_writable
-    matrix_run_one yes no  $api_vfs_writable
-    matrix_run_one no  yes $api_vfs_writable
-    matrix_run_one yes yes $api_vfs_writable
-done
