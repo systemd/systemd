@@ -213,7 +213,6 @@ static int show_properties(int argc, char **argv, void *userdata) {
 
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool relative = false, interactive = arg_ask_password;
         sd_bus *bus = userdata;
         usec_t t;
         int r;
@@ -230,7 +229,7 @@ static int set_time(int argc, char **argv, void *userdata) {
                         "SetTime",
                         &error,
                         NULL,
-                        "xbb", (int64_t) t, relative, interactive);
+                        "xbb", (int64_t) t, false, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
@@ -297,7 +296,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         r = bus_message_new_method_call(bus, &m, bus_timedate, "SetNTP");
         if (r < 0)
                 return bus_log_create_error(r);
-                
+
         r = sd_bus_message_append(m, "bb", b, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
