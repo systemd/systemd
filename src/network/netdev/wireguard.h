@@ -28,6 +28,7 @@ typedef struct WireguardPeer {
 
         uint8_t public_key[WG_KEY_LEN];
         uint8_t preshared_key[WG_KEY_LEN];
+        char *public_key_file;
         char *preshared_key_file;
         uint32_t flags;
         uint16_t persistent_keepalive_interval;
@@ -74,9 +75,9 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_allowed_ips);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_endpoint);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_listen_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key_file);
-CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_preshared_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_keepalive);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_peer_route_table);
