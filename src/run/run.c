@@ -1730,6 +1730,8 @@ static int start_transient_service(sd_bus *bus) {
 
         assert(bus);
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
@@ -1757,13 +1759,15 @@ static int start_transient_service(sd_bus *bus) {
                                 return log_error_errno(slave, "Failed to open pty slave: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                        (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
                         r = bus_call_method(system_bus,
                                             bus_machine_mgr,
@@ -1818,8 +1822,6 @@ static int start_transient_service(sd_bus *bus) {
         if (r < 0)
                 return r;
         slave = safe_close(slave);
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
