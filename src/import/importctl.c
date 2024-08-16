@@ -179,7 +179,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -867,7 +867,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
                 uint32_t id;

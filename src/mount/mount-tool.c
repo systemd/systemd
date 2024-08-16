@@ -665,7 +665,7 @@ static int start_transient_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -774,7 +774,7 @@ static int start_transient_automount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -932,7 +932,7 @@ static int stop_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {

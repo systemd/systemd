@@ -218,7 +218,7 @@ static int set_time(int argc, char **argv, void *userdata) {
         usec_t t;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = parse_timestamp(argv[1], &t);
         if (r < 0)
@@ -242,7 +242,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_timedate, "SetTimezone", &error, NULL, "sb", argv[1], arg_ask_password);
         if (r < 0)
@@ -256,7 +256,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r, b;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(argv[1]);
         if (b < 0)
@@ -288,7 +288,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int b, r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(argv[1]);
         if (b < 0)
@@ -821,7 +821,7 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
         if (ifindex < 0)
                 return ifindex;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &req, bus_network_mgr, "SetLinkNTP");
         if (r < 0)
@@ -851,7 +851,7 @@ static int verb_revert(int argc, char **argv, void *userdata) {
         if (ifindex < 0)
                 return ifindex;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_network_mgr, "RevertLinkNTP", &error, NULL, "i", ifindex);
         if (r < 0)

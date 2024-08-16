@@ -524,7 +524,7 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!error)
                 error = &e;
