@@ -131,6 +131,12 @@
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
 
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv4 (that is, <literal>ipv4</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
@@ -144,6 +150,12 @@
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
+
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv6 (that is, <literal>ipv6</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>

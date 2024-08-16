@@ -86,6 +86,36 @@ int link_lldp_tx_configure(Link *link) {
         return 0;
 }
 
+int link_lldp_tx_update_capabilities(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->lldp_tx)
+                return 0; /* disabled, or not configured yet. */
+
+        r = sd_lldp_tx_set_capabilities(link->lldp_tx,
+                                        SD_LLDP_SYSTEM_CAPABILITIES_STATION |
+                                        SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE |
+                                        SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
+                                        (link_get_ip_forwarding(link, AF_INET) > 0 || link_get_ip_forwarding(link, AF_INET6) > 0) ?
+                                        SD_LLDP_SYSTEM_CAPABILITIES_ROUTER : SD_LLDP_SYSTEM_CAPABILITIES_STATION);
+        if (r < 0)
+                return r;
+
+        if (sd_lldp_tx_is_running(link->lldp_tx)) {
+                r = sd_lldp_tx_stop(link->lldp_tx);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_tx_start(link->lldp_tx);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static const char * const lldp_multicast_mode_table[_SD_LLDP_MULTICAST_MODE_MAX] = {
         [SD_LLDP_MULTICAST_MODE_NEAREST_BRIDGE]  = "nearest-bridge",
         [SD_LLDP_MULTICAST_MODE_NON_TPMR_BRIDGE] = "non-tpmr-bridge",
