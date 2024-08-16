@@ -217,7 +217,7 @@ static inline int run_test_table(void) {
                 }                                                                                               \
          })
 
-/* For funtions that return a boolean on success and a negative errno on failure. */
+/* For functions that return a boolean on success and a negative errno on failure. */
 #define ASSERT_OK_POSITIVE(expr)                                                                                \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
