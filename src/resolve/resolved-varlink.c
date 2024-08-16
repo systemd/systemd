@@ -1241,7 +1241,7 @@ static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const ch
         };
 
         int r;
-        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(ASSERT_PTR(link))));
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
@@ -1258,12 +1258,8 @@ static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const ch
 }
 
 static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
-
-        assert(link);
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
         /* if the client didn't set the more flag, it is using us incorrectly */
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
@@ -1291,7 +1287,7 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
 
 static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
         assert(link);
@@ -1299,8 +1295,6 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-cache");
         if (r <= 0)
                 return r;
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
         LIST_FOREACH(scopes, s, m->dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
@@ -1339,17 +1333,13 @@ static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant
 
 static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
-        Manager *m;
-        int r;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         Link *l;
-
-        assert(link);
+        int r;
 
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-server-state");
         if (r <= 0)
                 return r;
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
         LIST_FOREACH(servers, server, m->dns_servers) {
                 r = dns_server_dump_state_to_json_list(server, &list);
@@ -1381,7 +1371,7 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
 
 static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
         assert(link);
@@ -1389,8 +1379,6 @@ static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *paramete
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-statistics");
         if (r <= 0)
                 return r;
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
         r = dns_manager_dump_statistics_json(m, &j);
         if (r < 0)
@@ -1400,16 +1388,12 @@ static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
-
-        assert(link);
 
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.reset-statistics");
         if (r <= 0)
                 return r;
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
         dns_manager_reset_statistics(m);
 
@@ -1425,7 +1409,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (m->varlink_monitor_server)
                 return 0;
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID);
+        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
