@@ -1823,7 +1823,7 @@ static int start_transient_service(sd_bus *bus) {
                 return r;
         slave = safe_close(slave);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
@@ -2037,7 +2037,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2352,7 +2352,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
