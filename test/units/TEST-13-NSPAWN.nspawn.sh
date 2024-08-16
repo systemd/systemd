@@ -1014,4 +1014,46 @@ EOF
     rm -fr "$root"
 }
 
+testcase_ip_masquerade() {
+    local root
+
+    if ! command -v networkctl >/dev/null; then
+        echo "This test requires systemd-networkd, skipping..."
+        return 0
+    fi
+
+    systemctl unmask systemd-networkd.service
+    systemctl edit --runtime --stdin systemd-networkd.service --drop-in=debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
+    systemctl start systemd-networkd.service
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ip_masquerade.XXX)"
+    create_dummy_container "$root"
+
+    systemd-run --unit=nspawn-hoge.service \
+                systemd-nspawn \
+                --register=no \
+                --directory="$root" \
+                --ephemeral \
+                --machine=hoge \
+                --network-veth \
+                bash -x -c "ip link set host0 up; sleep 30s"
+
+    /usr/lib/systemd/systemd-networkd-wait-online -i ve-hoge --timeout 30s
+
+    # Check IPMasquerade= for ve-* and friends enabled IP forwarding.
+    [[ "$(cat /proc/sys/net/ipv4/conf/all/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv4/conf/default/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv6/conf/all/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv6/conf/default/forwarding)" == "1" ]]
+
+    systemctl stop nspawn-hoge.service || :
+    systemctl stop systemd-networkd.service
+    systemctl mask systemd-networkd.service
+
+    rm -fr "$root"
+}
+
 run_testcases
