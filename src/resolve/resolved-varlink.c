@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
@@ -1233,6 +1234,29 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         return 1;
 }
 
+static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        int r;
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(ASSERT_PTR(link))));
+
+        assert(action);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
+        return varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                action,
+                                /* details= */ NULL,
+                                &m->polkit_registry);
+}
+
 static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m;
         int r;
@@ -1245,8 +1269,9 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-query-results");
+        if (r <= 0)
+                return r;
 
         /* Send a ready message to the connecting client, to indicate that we are now listinening, and all
          * queries issued after the point the client sees this will also be reported to the client. */
@@ -1271,8 +1296,9 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-cache");
+        if (r <= 0)
+                return r;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1319,8 +1345,9 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-server-state");
+        if (r <= 0)
+                return r;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1359,8 +1386,9 @@ static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *paramete
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-statistics");
+        if (r <= 0)
+                return r;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1373,11 +1401,13 @@ static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *paramete
 
 static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m;
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.reset-statistics");
+        if (r <= 0)
+                return r;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1395,7 +1425,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (m->varlink_monitor_server)
                 return 0;
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ROOT_ONLY);
+        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -1419,7 +1449,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0600);
+        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
