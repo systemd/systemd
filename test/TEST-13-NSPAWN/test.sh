@@ -17,6 +17,8 @@ test_append_files() {
 
     # For virtual wlan interface.
     instmods mac80211_hwsim
+    # for IPMasquerade=
+    instmods "=net/netfilter"
     generate_module_dependencies
 
     # Create a dummy container "template" with a minimal toolset, which we can
