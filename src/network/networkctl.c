@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "build.h"
+#include "logs-show.h"
 #include "main-func.h"
 #include "networkctl.h"
 #include "networkctl-address-label.h"
@@ -16,7 +17,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "sigbus.h"
 #include "verbs.h"
 
 PagerFlags arg_pager_flags = 0;
@@ -246,11 +246,11 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        sigbus_install();
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        journal_browse_prepare();
 
         return networkctl_main(argc, argv);
 }
