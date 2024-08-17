@@ -4264,6 +4264,7 @@ int manager_start_scope(
                 const char *slice,
                 const char *description,
                 const char * const *requires,
+                const char * const *wants,
                 const char * const *extra_after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
@@ -4305,6 +4306,16 @@ int manager_start_scope(
 
         STRV_FOREACH(i, requires) {
                 r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(i, wants) {
+                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
                 if (r < 0)
                         return r;
 
@@ -4375,6 +4386,7 @@ int manager_start_scope(
                                         slice,
                                         description,
                                         requires,
+                                        wants,
                                         extra_after,
                                         requires_mounts_for,
                                         more_properties,
