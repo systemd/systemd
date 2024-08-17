@@ -234,11 +234,17 @@ int config_parse_address_label_prefix(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = address_label_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return log_oom();
+
+        if (isempty(rvalue)) {
+                n->prefix_set = false;
+                TAKE_PTR(n);
+                return 0;
+        }
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &prefixlen);
         if (r < 0) {
@@ -257,7 +263,6 @@ int config_parse_address_label_prefix(
         n->prefix = a.in6;
         n->prefixlen = prefixlen;
         n->prefix_set = true;
-
         TAKE_PTR(n);
         return 0;
 }
@@ -283,11 +288,17 @@ int config_parse_address_label(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         r = address_label_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return log_oom();
+
+        if (isempty(rvalue)) {
+                n->label = UINT32_MAX;
+                TAKE_PTR(n);
+                return 0;
+        }
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
@@ -295,13 +306,12 @@ int config_parse_address_label(
                 return 0;
         }
 
-        if (k == UINT_MAX) {
+        if (k == UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 
         n->label = k;
         TAKE_PTR(n);
-
         return 0;
 }
