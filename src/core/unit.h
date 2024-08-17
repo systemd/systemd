@@ -880,7 +880,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name);
 
 bool unit_job_is_applicable(Unit *u, JobType j);
 
-int set_unit_path(const char *p);
+int setenv_unit_path(const char *p);
 
 char* unit_dbus_path(Unit *u);
 char* unit_dbus_path_invocation_id(Unit *u);

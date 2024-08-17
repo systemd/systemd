@@ -3317,9 +3317,11 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         return unit_add_two_dependencies(u, d, e, other, add_reference, mask);
 }
 
-int set_unit_path(const char *p) {
+int setenv_unit_path(const char *p) {
+        assert(p);
+
         /* This is mostly for debug purposes */
-        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
+        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, /* overwrite = */ true));
 }
 
 char* unit_dbus_path(Unit *u) {
