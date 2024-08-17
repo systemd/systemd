@@ -1901,17 +1901,15 @@ static int rlimit_to_nice(rlim_t limit) {
 }
 
 int setpriority_closest(int priority) {
-        int current, limit, saved_errno;
         struct rlimit highest;
+        int r, current, limit;
 
         /* Try to set requested nice level */
-        if (setpriority(PRIO_PROCESS, 0, priority) >= 0)
+        r = RET_NERRNO(setpriority(PRIO_PROCESS, 0, priority));
+        if (r >= 0)
                 return 1;
-
-        /* Permission failed */
-        saved_errno = -errno;
-        if (!ERRNO_IS_PRIVILEGE(saved_errno))
-                return saved_errno;
+        if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
 
         errno = 0;
         current = getpriority(PRIO_PROCESS, 0);
@@ -1925,24 +1923,21 @@ int setpriority_closest(int priority) {
         * then the whole setpriority() system call is blocked to us, hence let's propagate the error
         * right-away */
         if (priority > current)
-                return saved_errno;
+                return r;
 
         if (getrlimit(RLIMIT_NICE, &highest) < 0)
                 return -errno;
 
         limit = rlimit_to_nice(highest.rlim_cur);
 
-        /* We are already less nice than limit allows us */
-        if (current < limit) {
-                log_debug("Cannot raise nice level, permissions and the resource limit do not allow it.");
-                return 0;
-        }
+        /* Push to the allowed limit if we're higher than that. Note that we could also be less nice than
+         * limit allows us, but still higher than what's requested. In that case our current value is
+         * the best choice. */
+        if (current > limit)
+                if (setpriority(PRIO_PROCESS, 0, limit) < 0)
+                        return -errno;
 
-        /* Push to the allowed limit */
-        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
-                return -errno;
-
-        log_debug("Cannot set requested nice level (%i), used next best (%i).", priority, limit);
+        log_debug("Cannot set requested nice level (%i), using next best (%i).", priority, MIN(current, limit));
         return 0;
 }
 
