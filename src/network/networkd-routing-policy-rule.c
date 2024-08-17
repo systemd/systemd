@@ -157,145 +157,126 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
 static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
+        /* See rule_exists() in net/core/fib_rules.c of the kernel. */
         siphash24_compress_typesafe(rule->family, state);
+        siphash24_compress_typesafe(rule->type, state);
+        siphash24_compress_typesafe(rule->table, state);
+        siphash24_compress_typesafe(rule->priority, state);
+        siphash24_compress_string(rule->iif, state);
+        siphash24_compress_string(rule->oif, state);
+        siphash24_compress_typesafe(rule->fwmark, state);
+        siphash24_compress_typesafe(rule->suppress_ifgroup, state);
+        siphash24_compress_typesafe(rule->suppress_prefixlen, state);
+        siphash24_compress_typesafe(rule->fwmask, state);
+        /* FRA_TUN_ID */
+        /* fr_net (network namespace) */
+        siphash24_compress_typesafe(rule->l3mdev, state);
+        siphash24_compress_typesafe(rule->uid_range, state);
+        siphash24_compress_typesafe(rule->ipproto, state);
+        siphash24_compress_typesafe(rule->protocol, state);
+        siphash24_compress_typesafe(rule->sport, state);
+        siphash24_compress_typesafe(rule->dport, state);
 
-        switch (rule->family) {
-        case AF_INET:
-        case AF_INET6:
-                in_addr_hash_func(&rule->from, rule->family, state);
-                siphash24_compress_typesafe(rule->from_prefixlen, state);
-
-                siphash24_compress_boolean(rule->l3mdev, state);
-
-                in_addr_hash_func(&rule->to, rule->family, state);
-                siphash24_compress_typesafe(rule->to_prefixlen, state);
-
-                siphash24_compress_boolean(rule->invert_rule, state);
-
-                siphash24_compress_typesafe(rule->tos, state);
-                siphash24_compress_typesafe(rule->type, state);
-                siphash24_compress_typesafe(rule->fwmark, state);
-                siphash24_compress_typesafe(rule->fwmask, state);
-                siphash24_compress_typesafe(rule->priority, state);
-                siphash24_compress_typesafe(rule->table, state);
-                siphash24_compress_typesafe(rule->suppress_prefixlen, state);
-                siphash24_compress_typesafe(rule->suppress_ifgroup, state);
-
-                siphash24_compress_typesafe(rule->ipproto, state);
-                siphash24_compress_typesafe(rule->protocol, state);
-                siphash24_compress_typesafe(rule->sport, state);
-                siphash24_compress_typesafe(rule->dport, state);
-                siphash24_compress_typesafe(rule->uid_range, state);
-
-                siphash24_compress_string(rule->iif, state);
-                siphash24_compress_string(rule->oif, state);
-
-                break;
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                break;
-        }
+        /* See fib4_rule_compare() in net/ipv4/fib_rules.c, and fib6_rule_compare() in net/ipv6/fib6_rules.c. */
+        siphash24_compress_typesafe(rule->from_prefixlen, state);
+        siphash24_compress_typesafe(rule->to_prefixlen, state);
+        siphash24_compress_typesafe(rule->tos, state);
+        /* FRA_FLOW (IPv4 only) */
+        in_addr_hash_func(&rule->from, rule->family, state);
+        in_addr_hash_func(&rule->to, rule->family, state);
 }
 
 static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
+        assert(a);
+        assert(b);
+
         r = CMP(a->family, b->family);
         if (r != 0)
                 return r;
 
-        switch (a->family) {
-        case AF_INET:
-        case AF_INET6:
-                r = CMP(a->from_prefixlen, b->from_prefixlen);
-                if (r != 0)
-                        return r;
+        r = CMP(a->type, b->type);
+        if (r != 0)
+                return r;
 
-                r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
+        r = CMP(a->table, b->table);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->l3mdev, b->l3mdev);
-                if (r != 0)
-                        return r;
+        r = CMP(a->priority, b->priority);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->to_prefixlen, b->to_prefixlen);
-                if (r != 0)
-                        return r;
+        r = strcmp_ptr(a->iif, b->iif);
+        if (r != 0)
+                return r;
 
-                r = memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
+        r = strcmp_ptr(a->oif, b->oif);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->invert_rule, b->invert_rule);
-                if (r != 0)
-                        return r;
+        r = CMP(a->fwmark, b->fwmark);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->tos, b->tos);
-                if (r != 0)
-                        return r;
+        r = CMP(a->suppress_ifgroup, b->suppress_ifgroup);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->type, b->type);
-                if (r != 0)
-                        return r;
+        r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->fwmark, b->fwmark);
-                if (r != 0)
-                        return r;
+        r = CMP(a->fwmask, b->fwmask);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->fwmask, b->fwmask);
-                if (r != 0)
-                        return r;
+        r = CMP(a->l3mdev, b->l3mdev);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->priority, b->priority);
-                if (r != 0)
-                        return r;
+        r = memcmp(&a->uid_range, &b->uid_range, sizeof(a->uid_range));
+        if (r != 0)
+                return r;
 
-                r = CMP(a->table, b->table);
-                if (r != 0)
-                        return r;
+        r = CMP(a->ipproto, b->ipproto);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
-                if (r != 0)
-                        return r;
+        r = CMP(a->protocol, b->protocol);
+        if (r != 0)
+                return r;
 
-                r = CMP(a->suppress_ifgroup, b->suppress_ifgroup);
-                if (r != 0)
-                        return r;
+        r = memcmp(&a->sport, &b->sport, sizeof(a->sport));
+        if (r != 0)
+                return r;
 
-                r = CMP(a->ipproto, b->ipproto);
-                if (r != 0)
-                        return r;
+        r = memcmp(&a->dport, &b->dport, sizeof(a->dport));
+        if (r != 0)
+                return r;
 
-                r = CMP(a->protocol, b->protocol);
-                if (r != 0)
-                        return r;
+        r = CMP(a->from_prefixlen, b->from_prefixlen);
+        if (r != 0)
+                return r;
 
-                r = memcmp(&a->sport, &b->sport, sizeof(a->sport));
-                if (r != 0)
-                        return r;
+        r = CMP(a->to_prefixlen, b->to_prefixlen);
+        if (r != 0)
+                return r;
 
-                r = memcmp(&a->dport, &b->dport, sizeof(a->dport));
-                if (r != 0)
-                        return r;
+        r = CMP(a->tos, b->tos);
+        if (r != 0)
+                return r;
 
-                r = memcmp(&a->uid_range, &b->uid_range, sizeof(a->uid_range));
-                if (r != 0)
-                        return r;
+        r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
+        if (r != 0)
+                return r;
 
-                r = strcmp_ptr(a->iif, b->iif);
-                if (r != 0)
-                        return r;
+        r = memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
+        if (r != 0)
+                return r;
 
-                r = strcmp_ptr(a->oif, b->oif);
-                if (r != 0)
-                        return r;
-
-                return 0;
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
-        }
+        return 0;
 }
 
 static bool routing_policy_rule_equal(const RoutingPolicyRule *rule1, const RoutingPolicyRule *rule2) {
