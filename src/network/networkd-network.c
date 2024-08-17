@@ -794,7 +794,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         ordered_hashmap_free(network->neighbors_by_section);
-        hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
+        hashmap_free(network->address_labels_by_section);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);

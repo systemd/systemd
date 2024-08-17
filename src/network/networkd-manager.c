@@ -32,6 +32,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-address-label.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server-bus.h"
@@ -664,6 +665,8 @@ Manager* manager_free(Manager *m) {
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
         m->nexthop_ids = set_free(m->nexthop_ids);
 
+        m->address_labels_by_section = hashmap_free(m->address_labels_by_section);
+
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
 
@@ -691,6 +694,10 @@ int manager_start(Manager *m) {
         assert(m);
 
         manager_set_sysctl(m);
+
+        r = manager_request_static_address_labels(m);
+        if (r < 0)
+                return r;
 
         r = manager_start_speed_meter(m);
         if (r < 0)

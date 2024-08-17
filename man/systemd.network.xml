@@ -1628,8 +1628,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>Label=</varname></term>
         <listitem>
-          <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
-          reserved. This setting is mandatory.</para>
+          <para>The label for the prefix. Takes an unsigned integer in the range 0…4294967294 (0xfffffffe).
+          4294967295 (0xffffffff) is reserved. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
@@ -1638,8 +1638,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>Prefix=</varname></term>
         <listitem>
-          <para>IPv6 prefix is an address with a prefix length, separated by a slash
-          <literal>/</literal> character. This setting is mandatory. </para>
+          <para>Takes an IPv6 address with a prefix length, separated by a slash
+          <literal>/</literal> character. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
