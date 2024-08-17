@@ -32,7 +32,6 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -1134,7 +1133,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        sigbus_install();
+        journal_browse_prepare();
+
         assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
 
         r = setup_gnutls_logger(NULL);
