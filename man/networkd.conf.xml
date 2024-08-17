@@ -214,6 +214,37 @@
   </refsect1>
 
   <refsect1>
+    <title>[IPv6AddressLabel] Section Options</title>
+
+    <para>An [IPv6AddressLabel] section accepts the following keys. Specify multiple [IPv6AddressLabel]
+    sections to configure multiple address labels. IPv6 address labels are used for address selection.
+    See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>. Precedence is managed by
+    userspace, and only the label itself is stored in the kernel.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Label=</varname></term>
+        <listitem>
+          <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
+          reserved. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+        <listitem>
+          <para>IPv6 prefix is an address with a prefix length, separated by a slash
+          <literal>/</literal> character. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCPv4] Section Options</title>
 
     <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP protocol. DHCPv4
