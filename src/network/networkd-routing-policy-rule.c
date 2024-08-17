@@ -521,11 +521,9 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return r;
         }
 
-        if (rule->invert_rule) {
-                r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_rtnl_message_routing_policy_rule_set_flags(m, rule->flags);
+        if (r < 0)
+                return r;
 
         if (rule->l3mdev) {
                 r = sd_netlink_message_append_u8(m, FRA_L3MDEV, 1);
@@ -926,13 +924,11 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 }
         }
 
-        unsigned flags;
-        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
+        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &tmp->flags);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
                 return 0;
         }
-        tmp->invert_rule = flags & FIB_RULE_INVERT;
 
         r = sd_netlink_message_read_u32(message, FRA_FWMARK, &tmp->fwmark);
         if (r < 0 && r != -ENODATA) {
@@ -1484,7 +1480,7 @@ int config_parse_routing_policy_rule_invert(
                 return 0;
         }
 
-        n->invert_rule = r;
+        SET_FLAG(n->flags, FIB_RULE_INVERT, r);
 
         TAKE_PTR(n);
         return 0;

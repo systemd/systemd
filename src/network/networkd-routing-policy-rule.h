@@ -27,7 +27,7 @@ typedef struct RoutingPolicyRule {
         uint8_t from_prefixlen;
         uint8_t tos;
         uint8_t type; /* a.k.a action */
-        bool invert_rule; /* used for flags */
+        uint32_t flags;
 
         /* attributes */
         union in_addr_union to; /* FRA_DST */
