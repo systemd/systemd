@@ -315,10 +315,12 @@ static int run_editor(const EditFileContext *context) {
 static int strip_edit_temp_file(EditFile *e) {
         _cleanup_free_ char *old_contents = NULL, *tmp = NULL, *new_contents = NULL;
         const char *stripped;
+        bool with_marker;
         int r;
 
         assert(e);
         assert(e->context);
+        assert(!e->context->marker_start == !e->context->marker_end);
         assert(e->temp);
 
         r = read_full_file(e->temp, &old_contents, NULL);
@@ -329,11 +331,11 @@ static int strip_edit_temp_file(EditFile *e) {
         if (!tmp)
                 return log_oom();
 
-        if (e->context->marker_start && !e->context->stdin) {
+        with_marker = e->context->marker_start && !e->context->stdin;
+
+        if (with_marker) {
                 /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
-
-                assert(e->context->marker_end);
 
                 contents_start = strstrafter(tmp, e->context->marker_start) ?: tmp;
 
@@ -345,8 +347,28 @@ static int strip_edit_temp_file(EditFile *e) {
         } else
                 stripped = strstrip(tmp);
 
-        if (isempty(stripped))
+        if (isempty(stripped)) {
+                /* People keep coming back to #24208 due to edits outside of markers. Let's detect this
+                 * and point them in the right direction. */
+                if (with_marker)
+                        for (const char *p = old_contents;;) {
+                                p = skip_leading_chars(p, WHITESPACE);
+                                if (*p == '\0')
+                                        break;
+                                if (*p != '#') {
+                                        log_warning("Found modifications outside of the staging area, which would be discarded.");
+                                        break;
+                                }
+
+                                /* Skip the whole line if commented out */
+                                p = strchr(p, '\n');
+                                if (!p)
+                                        break;
+                                p++;
+                        }
+
                 return 0; /* File is empty (has no real changes) */
+        }
 
         /* Trim prefix and suffix, but ensure suffixed by single newline */
         new_contents = strjoin(stripped, "\n");
