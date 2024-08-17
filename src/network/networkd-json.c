@@ -316,7 +316,7 @@ static int routing_policy_rule_append_json(RoutingPolicyRule *rule, sd_json_vari
                         SD_JSON_BUILD_PAIR_UNSIGNED("FirewallMask", rule->fwmask),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Table", rule->table),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("TableString", table),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Invert", rule->invert_rule),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Invert", FLAGS_SET(rule->flags, FIB_RULE_INVERT)),
                         SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_prefixlen >= 0,
                                                      "SuppressPrefixLength", SD_JSON_BUILD_UNSIGNED(rule->suppress_prefixlen)),
                         SD_JSON_BUILD_PAIR_CONDITION(rule->suppress_ifgroup >= 0,
