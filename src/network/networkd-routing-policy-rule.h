@@ -40,7 +40,7 @@ typedef struct RoutingPolicyRule {
         /* FRA_FLOW */
         /* FRA_TUN_ID */
         int32_t suppress_ifgroup; /* FRA_SUPPRESS_IFGROUP */
-        int suppress_prefixlen; /* FRA_SUPPRESS_PREFIXLEN */
+        int32_t suppress_prefixlen; /* FRA_SUPPRESS_PREFIXLEN */
         uint32_t table; /* FRA_TABLE, also used in struct fib_rule_hdr */
         uint32_t fwmask; /* FRA_FWMASK */
         char *oif; /* FRA_OIFNAME */
