@@ -5,6 +5,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "analyze-verify-util.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "log.h"
@@ -55,7 +56,7 @@ int verify_prepare_filename(const char *filename, char **ret) {
                 return -EINVAL;
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                r = unit_name_replace_instance(name, "i", &with_instance);
+                r = unit_name_replace_instance(name, arg_instance, &with_instance);
                 if (r < 0)
                         return r;
         }

@@ -1155,6 +1155,19 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
       </varlistentry>
 
       <varlistentry>
+        <term><option>--instance=NAME</option></term>
+
+        <listitem>
+          <para>Specifies instance name for template units. This will be used when one ore more template
+          units without instance name (e.g. <filename>foo@.service</filename>) specified for
+          <command>systemd-analyze condition</command>, <command>security</command>, and
+          <command>verify</command>. If unspecified, <literal>test_instance</literal> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--recursive-errors=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Control verification of units and their dependencies and whether
