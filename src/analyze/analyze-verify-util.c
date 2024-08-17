@@ -155,7 +155,7 @@ int verify_set_unit_path(char **filenames) {
             !strextend_with_separator(&joined, ":", strempty(old)))
                 return -ENOMEM;
 
-        assert_se(set_unit_path(joined) >= 0);
+        assert_se(setenv_unit_path(joined) >= 0);
         return 0;
 }
 
