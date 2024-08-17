@@ -8,6 +8,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "exec-credential.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
@@ -425,22 +426,6 @@ static bool mount_is_extrinsic(Unit *u) {
         return false;
 }
 
-static bool mount_point_is_credentials(Manager *manager, const char *path) {
-        const char *e;
-
-        assert(manager);
-        assert(path);
-
-        /* Returns true if this is a credentials mount. We don't want to generate mount units for them,
-         * since their lifetime is strictly bound to services. */
-
-        e = path_startswith(path, manager->prefix[EXEC_DIRECTORY_RUNTIME]);
-        if (!e)
-                return false;
-
-        return !isempty(path_startswith(e, "credentials"));
-}
-
 static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
         const char *after, *before, *e;
         int r;
@@ -581,7 +566,7 @@ static int mount_verify(Mount *m) {
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
                                             "Cannot create mount unit for API file system '%s'. Refusing.", m->where);
 
-        if (mount_point_is_credentials(UNIT(m)->manager, m->where))
+        if (mount_point_is_credentials(UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME], m->where))
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
                                             "Cannot create mount unit for credential mount '%s'. Refusing.", m->where);
 
@@ -1830,8 +1815,9 @@ static int mount_setup_unit(
         assert(fstype);
 
         /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
-         * Also check the comment for mount_point_is_credentials(). */
-        if (mount_point_is_api(where) || mount_point_ignore(where) || mount_point_is_credentials(m, where))
+         * The lifetime of credential mounts is strictly bound to the owning services. */
+        if (mount_point_is_api(where) || mount_point_ignore(where) ||
+            mount_point_is_credentials(m->prefix[EXEC_DIRECTORY_RUNTIME], where))
                 return 0;
 
         if (streq(fstype, "autofs"))
