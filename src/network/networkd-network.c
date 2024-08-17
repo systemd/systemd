@@ -798,7 +798,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);
-        hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
+        hashmap_free(network->rules_by_section);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
