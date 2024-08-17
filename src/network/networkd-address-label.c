@@ -28,6 +28,14 @@ AddressLabel *address_label_free(AddressLabel *label) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(AddressLabel, address_label_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        address_label_section_hash_ops,
+        ConfigSection,
+        config_section_hash_func,
+        config_section_compare_func,
+        AddressLabel,
+        address_label_free);
+
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_label_freep) AddressLabel *label = NULL;
@@ -58,7 +66,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
                 .label = UINT32_MAX,
         };
 
-        r = hashmap_ensure_put(&network->address_labels_by_section, &config_section_hash_ops, label->section, label);
+        r = hashmap_ensure_put(&network->address_labels_by_section, &address_label_section_hash_ops, label->section, label);
         if (r < 0)
                 return r;
 
