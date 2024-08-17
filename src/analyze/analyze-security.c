@@ -2869,7 +2869,7 @@ static int analyze_security(sd_bus *bus,
                                                        *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
-                                r = unit_name_replace_instance(mangled, "test-instance", &instance);
+                                r = unit_name_replace_instance(mangled, arg_instance, &instance);
                                 if (r < 0)
                                         return log_oom();
 
