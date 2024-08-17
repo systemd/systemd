@@ -20,6 +20,8 @@ typedef struct RoutingPolicyRule {
         NetworkConfigSource source;
         NetworkConfigState state;
 
+        unsigned n_ref;
+
         /* struct fib_rule_hdr */
         AddressFamily address_family; /* Specified by Family= */
         int family; /* Automatically determined by From= or To= */
@@ -54,7 +56,8 @@ typedef struct RoutingPolicyRule {
 
 const char* fr_act_type_full_to_string(int t) _const_;
 
-RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
+RoutingPolicyRule* routing_policy_rule_ref(RoutingPolicyRule *rule);
+RoutingPolicyRule* routing_policy_rule_unref(RoutingPolicyRule *rule);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 
