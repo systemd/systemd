@@ -313,6 +313,7 @@ struct ExecContext {
 
         int private_mounts;
         int mount_apivfs;
+        int bind_journal_sockets;
         int memory_ksm;
         PrivateTmp private_tmp;
         bool private_network;
@@ -517,6 +518,7 @@ bool exec_context_maintains_privileges(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
+bool exec_context_get_effective_bind_journal_sockets(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
