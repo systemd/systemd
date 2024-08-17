@@ -102,6 +102,27 @@ static int address_label_configure_handler(
         return 1;
 }
 
+static int address_label_fill_message(AddressLabel *label, sd_netlink_message *m) {
+        int r;
+
+        assert(label);
+        assert(m);
+
+        r = sd_rtnl_message_addrlabel_set_prefixlen(m, label->prefixlen);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u32(m, IFAL_LABEL, label->label);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in6_addr(m, IFA_ADDRESS, &label->prefix);
+        if (r < 0)
+                return r;
+
+        return r;
+}
+
 static int address_label_configure(AddressLabel *label, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -118,15 +139,7 @@ static int address_label_configure(AddressLabel *label, Link *link, Request *req
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_addrlabel_set_prefixlen(m, label->prefixlen);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_u32(m, IFAL_LABEL, label->label);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_in6_addr(m, IFA_ADDRESS, &label->prefix);
+        r = address_label_fill_message(label, m);
         if (r < 0)
                 return r;
 
