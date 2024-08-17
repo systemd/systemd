@@ -397,8 +397,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        assert_se(get_testdata_dir("test-path", &test_path) >= 0);
-        assert_se(set_unit_path(test_path) >= 0);
+        ASSERT_OK(get_testdata_dir("test-path", &test_path));
+        ASSERT_OK(setenv_unit_path(test_path));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         for (const test_function_t *test = tests; *test; test++) {
