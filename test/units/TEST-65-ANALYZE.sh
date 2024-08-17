@@ -961,6 +961,10 @@ systemd-analyze architectures uname
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
 
+systemd-analyze condition --unit=systemd-growfs@.service --instance=tmp
+systemd-analyze verify systemd-growfs@.service --instance=tmp
+systemd-analyze security systemd-growfs@.service --instance=tmp
+
 systemd-analyze log-level info
 
 touch /testok
