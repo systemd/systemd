@@ -1218,7 +1218,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 if (k != u->id)
                         continue;
 
-                if (unit_is_filtered(u, states, patterns))
+                if (!unit_filter(u, states, patterns))
                         continue;
 
                 r = reply_unit_info(reply, u);
