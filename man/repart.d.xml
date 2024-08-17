@@ -76,16 +76,7 @@
         <term><varname>Type=</varname></term>
 
         <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
-        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.
-        Architecture specific partition types can use one of these architecture identifiers:
-        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
-        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
-        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
-        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
-        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
-        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
-        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).
-        </para>
+        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.</para>
 
         <para>The supported identifiers are:</para>
 
@@ -106,12 +97,12 @@
             <tbody>
               <row>
                 <entry><constant>esp</constant></entry>
-                <entry>EFI System Partition</entry>
+                <entry>EFI System Partition. You can only define one of these.</entry>
               </row>
 
               <row>
                 <entry><constant>xbootldr</constant></entry>
-                <entry>Extended Boot Loader Partition</entry>
+                <entry>Extended Boot Loader Partition. You can only define one of these.</entry>
               </row>
 
               <row>
@@ -237,7 +228,14 @@
           </tgroup>
         </table>
 
-        <para>This setting defaults to <constant>linux-generic</constant>.</para>
+        <para>Architecture specific partition types can use one of these architecture identifiers:
+        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
+        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
+        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
+        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
+        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
+        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
+        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions

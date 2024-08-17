@@ -2492,6 +2492,33 @@ static int context_read_definitions(Context *context) {
 
         }
 
+        /* Make sure we won't end up with more than one ESP or XBOOTLDR partition (which could break the
+         * bootloader) */
+
+        Partition *esp = NULL, *xbootldr = NULL;
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition **dest = NULL;
+                const char *desc = NULL;
+                switch (p->type.designator) {
+                case PARTITION_DESIGNATOR_ESP:
+                        dest = &esp;
+                        desc = "EFI System";
+                        break;
+                case PARTITION_DESIGNATOR_XBOOTLDR:
+                        dest = &xbootldr;
+                        desc = "Extended Boot Loader";
+                        break;
+                default:
+                        continue;
+                }
+
+                if (*dest)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Defining multiple %s Partitions is unsupported.",
+                                               desc);
+                *dest = p;
+        }
+
         return 0;
 }
 
