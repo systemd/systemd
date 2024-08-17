@@ -102,6 +102,7 @@ RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
 bool arg_man = true;
 bool arg_generators = false;
+const char *arg_instance = "test_instance";
 double arg_svg_timescale = 1.0;
 bool arg_detailed_svg = false;
 char *arg_root = NULL;
@@ -272,6 +273,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --man[=BOOL]            Do [not] check for existence of man pages\n"
                "     --generators[=BOOL]     Do [not] run unit generators\n"
                "                             (requires privileges)\n"
+               "     --instance=NAME         Specifies instance name for template units\n"
                "     --iterations=N          Show the specified number of iterations\n"
                "     --base-time=TIMESTAMP   Calculate calendar times relative to\n"
                "                             specified time\n"
@@ -319,6 +321,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_MAN,
                 ARG_GENERATORS,
+                ARG_INSTANCE,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
                 ARG_RECURSIVE_ERRORS,
@@ -356,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
                 { "man",              optional_argument, NULL, ARG_MAN              },
                 { "generators",       optional_argument, NULL, ARG_GENERATORS       },
+                { "instance",         required_argument, NULL, ARG_INSTANCE         },
                 { "host",             required_argument, NULL, 'H'                  },
                 { "machine",          required_argument, NULL, 'M'                  },
                 { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
@@ -482,6 +486,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--generators", optarg, &arg_generators);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_INSTANCE:
+                        arg_instance = optarg;
                         break;
 
                 case ARG_OFFLINE:
