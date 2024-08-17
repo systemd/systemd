@@ -726,7 +726,9 @@ $ systemd-analyze compare-versions 1 ge 2; echo $?
       augment the compiled in set of unit load paths; see
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
       units files present in the directories containing the command line arguments will be used in preference
-      to the other paths.</para>
+      to the other paths. If a template unit without an instance name is specified (e.g.
+      <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+      name, which can be controlled by <option>--instance=</option> option.</para>
 
       <para>The following errors are currently detected:</para>
       <itemizedlist>
@@ -1155,6 +1157,20 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
       </varlistentry>
 
       <varlistentry>
+        <term><option>--instance=NAME</option></term>
+
+        <listitem>
+          <para>Specifies fallback instance name for template units. This will be used when one or more
+          template units without an instance name (e.g. <filename>foo@.service</filename>) specified for
+          <command>systemd-analyze condition</command> with <option>--unit=</option>,
+          <command>systemd-analyze security</command>, and <command>systemd-analyze verify</command>.
+          If unspecified, <literal>test_instance</literal> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--recursive-errors=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Control verification of units and their dependencies and whether
@@ -1555,7 +1571,9 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         compiled in set of unit load paths; see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
         units files present in the directory containing the specified unit will be used in preference to the
-        other paths.</para>
+        other paths. If a template unit without an instance name is specified (e.g.
+        <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+        name, which can be controlled by <option>--instance=</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
