@@ -183,7 +183,7 @@ TEST(chase) {
 
         /* Paths underneath the "root" with different UIDs while using CHASE_SAFE */
 
-        if (geteuid() == 0) {
+        if (geteuid() == 0 && !userns_has_single_user()) {
                 p = strjoina(temp, "/user");
                 ASSERT_OK(mkdir(p, 0755));
                 ASSERT_OK(chown(p, UID_NOBODY, GID_NOBODY));
@@ -313,7 +313,7 @@ TEST(chase) {
         r = chase(p, NULL, 0, &result, NULL);
         assert_se(r == -ENOENT);
 
-        if (geteuid() == 0) {
+        if (geteuid() == 0 && !userns_has_single_user()) {
                 p = strjoina(temp, "/priv1");
                 ASSERT_OK(mkdir(p, 0755));
 
