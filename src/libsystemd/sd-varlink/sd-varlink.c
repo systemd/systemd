@@ -1514,7 +1514,7 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->state != VARLINK_PENDING_METHOD)
+        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
