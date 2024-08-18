@@ -1003,6 +1003,13 @@ TEST(condition_test_group) {
         condition_free(condition);
         free(gid);
 
+        /* In an unprivileged user namespace with the current user mapped to root, all the auxiliary groups
+         * of the user will be mapped to the nobody group, which means the user in the user namespace is in
+         * both the root and the nobody group, meaning the next test can't work, so let's skip it in that
+         * case. */
+        if (in_group(NOBODY_GROUP_NAME) && in_group("root"))
+                return (void) log_tests_skipped("user is in both root and nobody group");
+
         groupname = (char*)(getegid() == 0 ? NOBODY_GROUP_NAME : "root");
         condition = condition_new(CONDITION_GROUP, groupname, false, false);
         assert_se(condition);
