@@ -318,10 +318,13 @@ int main(int argc, char *argv[]) {
 
         show_capabilities();
 
-        test_drop_privileges();
+        if (!userns_has_single_user())
+                test_drop_privileges();
+
         test_update_inherited_set();
 
-        fork_test(test_have_effective_cap);
+        if (!userns_has_single_user())
+                fork_test(test_have_effective_cap);
 
         if (run_ambient)
                 fork_test(test_apply_ambient_caps);

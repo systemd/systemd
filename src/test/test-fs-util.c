@@ -368,7 +368,7 @@ TEST(chmod_and_chown) {
         struct stat st;
         const char *p;
 
-        if (geteuid() != 0)
+        if (geteuid() != 0 || userns_has_single_user())
                 return;
 
         BLOCK_WITH_UMASK(0000);
