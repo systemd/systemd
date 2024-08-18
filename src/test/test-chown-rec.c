@@ -153,8 +153,8 @@ TEST(chown_recursive) {
 }
 
 static int intro(void) {
-        if (geteuid() != 0)
-                return log_tests_skipped("not running as root");
+        if (geteuid() != 0 || userns_has_single_user())
+                return log_tests_skipped("not running as root or in userns with single user");
 
         return EXIT_SUCCESS;
 }
