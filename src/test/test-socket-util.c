@@ -170,7 +170,7 @@ TEST(getpeercred_getpeergroups) {
                 struct ucred ucred;
                 int pair[2] = EBADF_PAIR;
 
-                if (geteuid() == 0) {
+                if (geteuid() == 0 && !userns_has_single_user()) {
                         test_uid = 1;
                         test_gid = 2;
                         test_gids = (gid_t*) gids;
