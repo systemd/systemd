@@ -127,6 +127,7 @@ static void test_message_handler(void) {
                 .s_addr = htobe32(INADDR_LOOPBACK + 42),
         };
         static uint8_t static_lease_client_id[7] = {0x01, 'A', 'B', 'C', 'D', 'E', 'G' };
+        int r;
 
         log_debug("/* %s */", __func__);
 
@@ -137,7 +138,10 @@ static void test_message_handler(void) {
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
 
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_OFFER);
+        r = dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL);
+        if (r == -ENETDOWN)
+                return (void) log_tests_skipped("Network is not available");
+        assert_se(r == DHCP_OFFER);
 
         test.end = 0;
         /* TODO, shouldn't this fail? */
