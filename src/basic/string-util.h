@@ -156,7 +156,7 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m);
 
 bool chars_intersect(const char *a, const char *b) _pure_;
 
-static inline bool _pure_ in_charset(const char *s, const char* charset) {
+static inline bool _pure_ in_charset(const char *s, const char *charset) {
         assert(s);
         assert(charset);
         return s[strspn(s, charset)] == '\0';
@@ -248,7 +248,7 @@ REENABLE_WARNING;
 /* Like startswith_no_case(), but operates on arbitrary memory blocks.
  * It works only for ASCII strings.
  */
-static inline void *memory_startswith_no_case(const void *p, size_t sz, const char *token) {
+static inline void* memory_startswith_no_case(const void *p, size_t sz, const char *token) {
         assert(token);
 
         size_t n = strlen(token);
