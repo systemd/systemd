@@ -62,6 +62,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
+static bool arg_ask_password = true;
 
 typedef enum RawType {
         RAW_NONE,
@@ -101,6 +102,22 @@ typedef struct InterfaceInfo {
         int index;
         const char *name;
 } InterfaceInfo;
+
+static int acquire_bus(sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "sd_bus_open_system: %m");
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
 
 static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b) {
         int r;
@@ -759,35 +776,34 @@ invalid:
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
-        int q, r = 0;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int ret = 0, r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (arg_type != 0)
-                STRV_FOREACH(p, argv + 1) {
-                        q = resolve_record(bus, *p, arg_class, arg_type, true);
-                        if (q < 0)
-                                r = q;
-                }
+                STRV_FOREACH(p, strv_skip(argv, 1))
+                        RET_GATHER(ret, resolve_record(bus, *p, arg_class, arg_type, true));
 
         else
-                STRV_FOREACH(p, argv + 1) {
+                STRV_FOREACH(p, strv_skip(argv, 1)) {
                         if (startswith(*p, "dns:"))
-                                q = resolve_rfc4501(bus, *p);
+                                RET_GATHER(ret, resolve_rfc4501(bus, *p));
                         else {
                                 int family, ifindex;
                                 union in_addr_union a;
 
-                                q = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
-                                if (q >= 0)
-                                        q = resolve_address(bus, family, &a, ifindex);
+                                r = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
+                                if (r >= 0)
+                                        RET_GATHER(ret, resolve_address(bus, family, &a, ifindex));
                                 else
-                                        q = resolve_host(bus, *p);
+                                        RET_GATHER(ret, resolve_host(bus, *p));
                         }
-                        if (q < 0)
-                                r = q;
                 }
 
-        return r;
+        return ret;
 }
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
@@ -970,7 +986,12 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 }
 
 static int verb_service(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
@@ -1031,19 +1052,20 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 }
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
-        int q, r = 0;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r, ret = 0;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
-        STRV_FOREACH(p, argv + 1) {
-                q = resolve_openpgp(bus, *p);
-                if (q < 0)
-                        r = q;
-        }
+        STRV_FOREACH(p, strv_skip(argv, 1))
+                RET_GATHER(ret, resolve_openpgp(bus, *p));
 
-        return r;
+        return ret;
 }
 
 static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
@@ -1083,26 +1105,30 @@ static bool service_family_is_valid(const char *s) {
 }
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
-        char **args = argv + 1;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *family = "tcp";
-        int q, r = 0;
+        char **args;
+        int r, ret = 0;
+
+        assert(argc >= 2);
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
-                args++;
-        }
+                args = strv_skip(argv, 2);
+        } else
+                args = strv_skip(argv, 1);
 
-        STRV_FOREACH(p, args) {
-                q = resolve_tlsa(bus, family, *p);
-                if (q < 0)
-                        r = q;
-        }
+        STRV_FOREACH(p, args)
+                RET_GATHER(ret, resolve_tlsa(bus, family, *p));
 
-        return r;
+        return ret;
 }
 
 static int show_statistics(int argc, char **argv, void *userdata) {
@@ -1111,11 +1137,17 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpStatistics", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpStatistics",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -1269,11 +1301,17 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.ResetStatistics", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.ResetStatistics",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -1284,9 +1322,13 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
 }
 
 static int flush_caches(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "FlushCaches", &error, NULL, NULL);
         if (r < 0)
@@ -1296,9 +1338,13 @@ static int flush_caches(int argc, char **argv, void *userdata) {
 }
 
 static int reset_server_features(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
         if (r < 0)
@@ -2070,7 +2116,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
-        int r;
+        int ret = 0, r;
 
         assert(bus);
 
@@ -2128,46 +2174,45 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
         typesafe_qsort(infos, n_infos, interface_info_compare);
 
-        r = 0;
-        for (size_t i = 0; i < n_infos; i++) {
-                int q = status_ifindex(bus, infos[i].index, infos[i].name, mode, &empty_line);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        FOREACH_ARRAY(info, infos, n_infos)
+                RET_GATHER(ret, status_ifindex(bus, info->index, info->name, mode, &empty_line));
 
-        return r;
+        return ret;
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int r = 0;
+        bool empty_line = false;
+        int r, ret = 0;
 
-        if (argc > 1) {
-                bool empty_line = false;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
-                STRV_FOREACH(ifname, argv + 1) {
-                        int ifindex, q;
+        if (argc <= 1)
+                return status_all(bus, STATUS_ALL);
 
-                        ifindex = rtnl_resolve_interface(&rtnl, *ifname);
-                        if (ifindex < 0) {
-                                log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
-                                continue;
-                        }
+        STRV_FOREACH(ifname, strv_skip(argv, 1)) {
+                int ifindex;
 
-                        q = status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line);
-                        if (q < 0)
-                                r = q;
+                ifindex = rtnl_resolve_interface(&rtnl, *ifname);
+                if (ifindex < 0) {
+                        log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
+                        continue;
                 }
-        } else
-                r = status_all(bus, STATUS_ALL);
 
-        return r;
+                RET_GATHER(ret, status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line));
+        }
+
+        return ret;
 }
 
 static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
         if (r < 0)
@@ -2237,9 +2282,13 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
 }
 
 static int verb_dns(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2253,11 +2302,12 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
-        r = call_dns(bus, argv + 2, bus_resolve_mgr, &error, true);
+        char **args = strv_skip(argv, 2);
+        r = call_dns(bus, args, bus_resolve_mgr, &error, true);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_dns(bus, argv + 2, bus_network_mgr, &error, true);
+                r = call_dns(bus, args, bus_network_mgr, &error, true);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2273,6 +2323,8 @@ static int verb_dns(int argc, char **argv, void *userdata) {
 static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &req, locator, "SetLinkDomains");
         if (r < 0)
@@ -2315,9 +2367,13 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
 }
 
 static int verb_domain(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2331,11 +2387,12 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
 
-        r = call_domain(bus, argv + 2, bus_resolve_mgr, &error);
+        char **args = strv_skip(argv, 2);
+        r = call_domain(bus, args, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_domain(bus, argv + 2, bus_network_mgr, &error);
+                r = call_domain(bus, args, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2349,9 +2406,13 @@ static int verb_domain(int argc, char **argv, void *userdata) {
 }
 
 static int verb_default_route(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r, b;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2368,6 +2429,8 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
         b = parse_boolean(argv[2]);
         if (b < 0)
                 return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2387,11 +2450,15 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
 }
 
 static int verb_llmnr(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_llmnr_support_str = NULL;
         ResolveSupport global_llmnr_support, llmnr_support;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2421,6 +2488,8 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
                 log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
                             argv[2], arg_ifname, global_llmnr_support_str);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
@@ -2439,11 +2508,15 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 }
 
 static int verb_mdns(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_mdns_support_str = NULL;
         ResolveSupport global_mdns_support, mdns_support;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2473,6 +2546,8 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                 log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
                             argv[2], arg_ifname, global_mdns_support_str);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
@@ -2497,9 +2572,13 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 }
 
 static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2512,6 +2591,8 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2537,9 +2618,13 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 }
 
 static int verb_dnssec(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2552,6 +2637,8 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2574,6 +2661,8 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNSSECNegativeTrustAnchors");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2590,10 +2679,15 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 }
 
 static int verb_nta(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
+        char **args;
         bool clear;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2607,12 +2701,15 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
          * with an empty list, which will clear the list of domains for an interface. */
-        clear = strv_equal(argv + 2, STRV_MAKE(""));
+        args = strv_skip(argv, 2);
+        clear = strv_equal(args, STRV_MAKE(""));
 
         if (!clear)
-                STRV_FOREACH(p, argv + 2) {
+                STRV_FOREACH(p, args) {
                         r = dns_name_is_valid(*p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
@@ -2622,11 +2719,11 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                                                        *p);
                 }
 
-        r = call_nta(bus, clear ? NULL : argv + 2, bus_resolve_mgr, &error);
+        r = call_nta(bus, clear ? NULL : args, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_nta(bus, clear ? NULL : argv + 2, bus_network_mgr, &error);
+                r = call_nta(bus, clear ? NULL : args, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2640,9 +2737,13 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 }
 
 static int verb_revert_link(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2652,6 +2753,8 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 
         if (arg_ifindex <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface argument required.");
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, NULL, "i", arg_ifindex);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2671,7 +2774,12 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 }
 
 static int verb_log_level(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         assert(IN_SET(argc, 1, 2));
 
@@ -2845,6 +2953,8 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, c;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
@@ -2869,7 +2979,10 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback to varlink connection: %m");
 
-        r = sd_varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
+        r = sd_varlink_observebo(
+                        vl,
+                        "io.systemd.Resolve.Monitor.SubscribeQueryResults",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
 
@@ -3003,11 +3116,17 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpCache", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpCache",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -3177,11 +3296,17 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpServerState", /* parameters= */ NULL, &reply);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.DumpServerState",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
                 return r;
 
@@ -3331,6 +3456,7 @@ static int native_help(void) {
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
+               "     --no-ask-password         Do not prompt for password\n"
                "  -4                           Resolve IPv4 addresses\n"
                "  -6                           Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE     Look on interface\n"
@@ -3703,6 +3829,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_NO_PAGER,
+                ARG_NO_ASK_PASSWORD,
                 ARG_JSON,
                 ARG_STALE_DATA,
                 ARG_RELAX_SINGLE_LABEL,
@@ -3728,6 +3855,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
+                { "no-ask-password",       no_argument,       NULL, ARG_NO_ASK_PASSWORD       },
                 { "json",                  required_argument, NULL, ARG_JSON                  },
                 { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
                 { "relax-single-label",    required_argument, NULL, ARG_RELAX_SINGLE_LABEL    },
@@ -3928,6 +4056,10 @@ static int native_parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
                 case ARG_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
@@ -3959,7 +4091,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-static int native_main(int argc, char *argv[], sd_bus *bus) {
+static int native_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help             },
@@ -3988,10 +4120,10 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 {}
         };
 
-        return dispatch_verb(argc, argv, verbs, bus);
+        return dispatch_verb(argc, argv, verbs, /* userdata = */ NULL);
 }
 
-static int translate(const char *verb, const char *single_arg, size_t num_args, char **args, sd_bus *bus) {
+static int translate(const char *verb, const char *single_arg, size_t num_args, char **args) {
         char **fake, **p;
         size_t num;
 
@@ -4004,86 +4136,86 @@ static int translate(const char *verb, const char *single_arg, size_t num_args, 
         *p++ = (char *) verb;
         if (single_arg)
                 *p++ = (char *) single_arg;
-        for (size_t i = 0; i < num_args; i++)
-                *p++ = args[i];
+        FOREACH_ARRAY(arg, args, num_args)
+                *p++ = *arg;
 
         optind = 0;
-        return native_main((int) num, fake, bus);
+        return native_main((int) num, fake);
 }
 
-static int compat_main(int argc, char *argv[], sd_bus *bus) {
+static int compat_main(int argc, char *argv[]) {
         int r = 0;
 
         switch (arg_mode) {
         case MODE_RESOLVE_HOST:
         case MODE_RESOLVE_RECORD:
-                return translate("query", NULL, argc - optind, argv + optind, bus);
+                return translate("query", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_SERVICE:
-                return translate("service", NULL, argc - optind, argv + optind, bus);
+                return translate("service", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_OPENPGP:
-                return translate("openpgp", NULL, argc - optind, argv + optind, bus);
+                return translate("openpgp", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_TLSA:
-                return translate("tlsa", arg_service_family, argc - optind, argv + optind, bus);
+                return translate("tlsa", arg_service_family, argc - optind, argv + optind);
 
         case MODE_STATISTICS:
-                return translate("statistics", NULL, 0, NULL, bus);
+                return translate("statistics", NULL, 0, NULL);
 
         case MODE_RESET_STATISTICS:
-                return translate("reset-statistics", NULL, 0, NULL, bus);
+                return translate("reset-statistics", NULL, 0, NULL);
 
         case MODE_FLUSH_CACHES:
-                return translate("flush-caches", NULL, 0, NULL, bus);
+                return translate("flush-caches", NULL, 0, NULL);
 
         case MODE_RESET_SERVER_FEATURES:
-                return translate("reset-server-features", NULL, 0, NULL, bus);
+                return translate("reset-server-features", NULL, 0, NULL);
 
         case MODE_STATUS:
-                return translate("status", NULL, argc - optind, argv + optind, bus);
+                return translate("status", NULL, argc - optind, argv + optind);
 
         case MODE_SET_LINK:
                 assert(arg_ifname);
 
                 if (arg_set_dns) {
-                        r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns, bus);
+                        r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_domain) {
-                        r = translate("domain", arg_ifname, strv_length(arg_set_domain), arg_set_domain, bus);
+                        r = translate("domain", arg_ifname, strv_length(arg_set_domain), arg_set_domain);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_nta) {
-                        r = translate("nta", arg_ifname, strv_length(arg_set_nta), arg_set_nta, bus);
+                        r = translate("nta", arg_ifname, strv_length(arg_set_nta), arg_set_nta);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_llmnr) {
-                        r = translate("llmnr", arg_ifname, 1, (char **) &arg_set_llmnr, bus);
+                        r = translate("llmnr", arg_ifname, 1, (char **) &arg_set_llmnr);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_mdns) {
-                        r = translate("mdns", arg_ifname, 1, (char **) &arg_set_mdns, bus);
+                        r = translate("mdns", arg_ifname, 1, (char **) &arg_set_mdns);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_dns_over_tls) {
-                        r = translate("dnsovertls", arg_ifname, 1, (char **) &arg_set_dns_over_tls, bus);
+                        r = translate("dnsovertls", arg_ifname, 1, (char **) &arg_set_dns_over_tls);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_dnssec) {
-                        r = translate("dnssec", arg_ifname, 1, (char **) &arg_set_dnssec, bus);
+                        r = translate("dnssec", arg_ifname, 1, (char **) &arg_set_dnssec);
                         if (r < 0)
                                 return r;
                 }
@@ -4093,7 +4225,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
         case MODE_REVERT_LINK:
                 assert(arg_ifname);
 
-                return translate("revert", arg_ifname, 0, NULL, bus);
+                return translate("revert", arg_ifname, 0, NULL);
 
         case _MODE_INVALID:
                 assert_not_reached();
@@ -4103,7 +4235,6 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         bool compat = false;
         int r;
 
@@ -4121,14 +4252,10 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "sd_bus_open_system: %m");
-
         if (compat)
-                return compat_main(argc, argv, bus);
+                return compat_main(argc, argv);
 
-        return native_main(argc, argv, bus);
+        return native_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);

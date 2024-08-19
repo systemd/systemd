@@ -213,12 +213,11 @@ static int show_properties(int argc, char **argv, void *userdata) {
 
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool relative = false, interactive = arg_ask_password;
         sd_bus *bus = userdata;
         usec_t t;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = parse_timestamp(argv[1], &t);
         if (r < 0)
@@ -230,7 +229,7 @@ static int set_time(int argc, char **argv, void *userdata) {
                         "SetTime",
                         &error,
                         NULL,
-                        "xbb", (int64_t) t, relative, interactive);
+                        "xbb", (int64_t) t, false, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
@@ -242,7 +241,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_timedate, "SetTimezone", &error, NULL, "sb", argv[1], arg_ask_password);
         if (r < 0)
@@ -256,7 +255,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r, b;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(argv[1]);
         if (b < 0)
@@ -288,7 +287,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int b, r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = parse_boolean(argv[1]);
         if (b < 0)
@@ -297,7 +296,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         r = bus_message_new_method_call(bus, &m, bus_timedate, "SetNTP");
         if (r < 0)
                 return bus_log_create_error(r);
-                
+
         r = sd_bus_message_append(m, "bb", b, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -821,7 +820,7 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
         if (ifindex < 0)
                 return ifindex;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &req, bus_network_mgr, "SetLinkNTP");
         if (r < 0)
@@ -851,7 +850,7 @@ static int verb_revert(int argc, char **argv, void *userdata) {
         if (ifindex < 0)
                 return ifindex;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_network_mgr, "RevertLinkNTP", &error, NULL, "i", ifindex);
         if (r < 0)
@@ -1040,6 +1039,8 @@ static int run(int argc, char *argv[]) {
         r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         return timedatectl_main(bus, argc, argv);
 }
