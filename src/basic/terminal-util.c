@@ -1501,11 +1501,12 @@ int vt_restore(int fd) {
 
         assert(fd >= 0);
 
-        if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+        if (ioctl(fd, KDSETMODE, KD_TEXT) < 0) {
+                if (errno == ENOTTY || errno == EBADF)
+                        return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
-        if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT to text mode, ignoring: %m"));
+        }
 
         r = vt_reset_keyboard(fd);
         if (r < 0)
@@ -1528,11 +1529,12 @@ int vt_release(int fd, bool restore) {
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
 
-        if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
+        if (ioctl(fd, VT_RELDISP, 1) < 0) {
+                if (errno == ENOTTY || errno == EBADF)
+                        return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
-        if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;
+        }
 
         if (restore)
                 return vt_restore(fd);
