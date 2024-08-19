@@ -350,6 +350,20 @@ static bool routing_policy_rule_equal(const RoutingPolicyRule *a, const RoutingP
         return routing_policy_rule_compare_func_full(a, b, /* all = */ false) == 0;
 }
 
+static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, const RoutingPolicyRule *requesting, int family) {
+        assert(existing);
+        assert(requesting);
+
+        if (!routing_policy_rule_equal(existing, requesting, family, existing->priority))
+                return false;
+
+        /* These flags cannot be updated. */
+        if ((existing->flags ^ requesting->flags) & (FIB_RULE_PERMANENT|FIB_RULE_INVERT))
+                return false;
+
+        return true;
+}
+
 static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
@@ -742,6 +756,23 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Re
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
+static void manager_unmark_routing_policy_rule(Manager *m, const RoutingPolicyRule *rule, int family) {
+        RoutingPolicyRule *existing;
+
+        assert(m);
+        assert(rule);
+        assert(rule->family == AF_UNSPEC || rule->family == family);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (routing_policy_rule_get(m, rule, family, &existing) < 0)
+                return;
+
+        if (!routing_policy_rule_can_update(existing, rule, rule->family))
+                return;
+
+        routing_policy_rule_unmark(existing);
+}
+
 static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
         RoutingPolicyRule *rule;
         Link *link;
@@ -774,17 +805,12 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
                         continue;
 
                 HASHMAP_FOREACH(rule, link->network->rules_by_section) {
-                        RoutingPolicyRule *existing;
-
-                        if (IN_SET(rule->family, AF_INET, AF_INET6)) {
-                                if (routing_policy_rule_get(m, rule, rule->family, &existing) >= 0)
-                                        routing_policy_rule_unmark(existing);
-                        } else {
-                                if (routing_policy_rule_get(m, rule, AF_INET, &existing) >= 0)
-                                        routing_policy_rule_unmark(existing);
-
-                                if (routing_policy_rule_get(m, rule, AF_INET6, &existing) >= 0)
-                                        routing_policy_rule_unmark(existing);
+                        if (IN_SET(rule->family, AF_INET, AF_INET6))
+                                manager_unmark_routing_policy_rule(m, rule, rule->family);
+                        else {
+                                assert(rule->address_family == ADDRESS_FAMILY_YES);
+                                manager_unmark_routing_policy_rule(m, rule, AF_INET);
+                                manager_unmark_routing_policy_rule(m, rule, AF_INET6);
                         }
                 }
         }
