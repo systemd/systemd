@@ -782,7 +782,7 @@ static int static_routing_policy_rule_configure_handler(
         }
 
         if (link->static_routing_policy_rule_messages == 0) {
-                log_link_debug(link, "Routing policy rule configured");
+                log_link_debug(link, "Routing policy rule configured.");
                 link->static_routing_policy_rules_configured = true;
                 link_check_ready(link);
         }
@@ -874,7 +874,7 @@ int link_request_static_routing_policy_rules(Link *link) {
                 link->static_routing_policy_rules_configured = true;
                 link_check_ready(link);
         } else {
-                log_link_debug(link, "Requesting routing policy rules");
+                log_link_debug(link, "Requesting routing policy rules.");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
