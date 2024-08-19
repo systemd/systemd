@@ -2098,6 +2098,15 @@ int posix_spawn_wrapper(
 
 #if HAVE_PIDFD_SPAWN
         _cleanup_close_ int pidfd = -EBADF;
+        static bool setcgroup_supported = true;
+
+        /* If we have observed that SPAWN_CGROUP is not supported, remove the flag */
+        if (!setcgroup_supported && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
+                        return -r;
+        }
 
         r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         if (r == E2BIG && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
@@ -2108,6 +2117,10 @@ int posix_spawn_wrapper(
                 if (r != 0)
                         return -r;
                 r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                /* if pidfd_spawn was succesfull after removing SPAWN_CGROUP,
+                 * mark setcgroup_supported as false so that we do not retry every time */
+                if (r == 0)
+                        setcgroup_supported = false;
         }
         if (r == 0) {
                 r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
