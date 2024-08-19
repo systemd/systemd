@@ -1616,16 +1616,17 @@ static int apply_one_mount(
         case MOUNT_EXTENSION_DIRECTORY: {
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
                                 *host_os_release_level = NULL, *extension_name = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_strv_free_ char **extension_release_class = NULL,
+                                **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = path_extract_filename(mount_entry_source(m), &extension_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
-                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release_class);
                 if (r == -ENOENT) {
-                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release_class);
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
