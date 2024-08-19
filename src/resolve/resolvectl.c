@@ -103,6 +103,22 @@ typedef struct InterfaceInfo {
         const char *name;
 } InterfaceInfo;
 
+static int acquire_bus(sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "sd_bus_open_system: %m");
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
 static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b) {
         int r;
 
@@ -760,8 +776,12 @@ invalid:
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int ret = 0, r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (arg_type != 0)
                 STRV_FOREACH(p, strv_skip(argv, 1))
@@ -966,7 +986,12 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 }
 
 static int verb_service(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
@@ -1027,8 +1052,12 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 }
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
-        int ret = 0;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r, ret = 0;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
@@ -1076,12 +1105,16 @@ static bool service_family_is_valid(const char *s) {
 }
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *family = "tcp";
         char **args;
-        int ret = 0;
+        int r, ret = 0;
 
         assert(argc >= 2);
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
@@ -1277,9 +1310,13 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
 }
 
 static int flush_caches(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "FlushCaches", &error, NULL, NULL);
         if (r < 0)
@@ -1289,9 +1326,13 @@ static int flush_caches(int argc, char **argv, void *userdata) {
 }
 
 static int reset_server_features(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
         if (r < 0)
@@ -2128,10 +2169,14 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
-        int ret = 0;
+        int r, ret = 0;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc <= 1)
                 return status_all(bus, STATUS_ALL);
@@ -2225,9 +2270,13 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
 }
 
 static int verb_dns(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2306,9 +2355,13 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
 }
 
 static int verb_domain(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2341,9 +2394,13 @@ static int verb_domain(int argc, char **argv, void *userdata) {
 }
 
 static int verb_default_route(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r, b;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2381,11 +2438,15 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
 }
 
 static int verb_llmnr(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_llmnr_support_str = NULL;
         ResolveSupport global_llmnr_support, llmnr_support;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2435,11 +2496,15 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 }
 
 static int verb_mdns(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_mdns_support_str = NULL;
         ResolveSupport global_mdns_support, mdns_support;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2495,9 +2560,13 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 }
 
 static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2537,9 +2606,13 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 }
 
 static int verb_dnssec(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2594,11 +2667,15 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 }
 
 static int verb_nta(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         char **args;
         bool clear;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2648,9 +2725,13 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 }
 
 static int verb_revert_link(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2681,7 +2762,12 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 }
 
 static int verb_log_level(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         assert(IN_SET(argc, 1, 2));
 
@@ -3976,7 +4062,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-static int native_main(int argc, char *argv[], sd_bus *bus) {
+static int native_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help             },
@@ -4005,10 +4091,10 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 {}
         };
 
-        return dispatch_verb(argc, argv, verbs, bus);
+        return dispatch_verb(argc, argv, verbs, /* userdata = */ NULL);
 }
 
-static int translate(const char *verb, const char *single_arg, size_t num_args, char **args, sd_bus *bus) {
+static int translate(const char *verb, const char *single_arg, size_t num_args, char **args) {
         char **fake, **p;
         size_t num;
 
@@ -4025,82 +4111,82 @@ static int translate(const char *verb, const char *single_arg, size_t num_args, 
                 *p++ = *arg;
 
         optind = 0;
-        return native_main((int) num, fake, bus);
+        return native_main((int) num, fake);
 }
 
-static int compat_main(int argc, char *argv[], sd_bus *bus) {
+static int compat_main(int argc, char *argv[]) {
         int r = 0;
 
         switch (arg_mode) {
         case MODE_RESOLVE_HOST:
         case MODE_RESOLVE_RECORD:
-                return translate("query", NULL, argc - optind, argv + optind, bus);
+                return translate("query", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_SERVICE:
-                return translate("service", NULL, argc - optind, argv + optind, bus);
+                return translate("service", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_OPENPGP:
-                return translate("openpgp", NULL, argc - optind, argv + optind, bus);
+                return translate("openpgp", NULL, argc - optind, argv + optind);
 
         case MODE_RESOLVE_TLSA:
-                return translate("tlsa", arg_service_family, argc - optind, argv + optind, bus);
+                return translate("tlsa", arg_service_family, argc - optind, argv + optind);
 
         case MODE_STATISTICS:
-                return translate("statistics", NULL, 0, NULL, bus);
+                return translate("statistics", NULL, 0, NULL);
 
         case MODE_RESET_STATISTICS:
-                return translate("reset-statistics", NULL, 0, NULL, bus);
+                return translate("reset-statistics", NULL, 0, NULL);
 
         case MODE_FLUSH_CACHES:
-                return translate("flush-caches", NULL, 0, NULL, bus);
+                return translate("flush-caches", NULL, 0, NULL);
 
         case MODE_RESET_SERVER_FEATURES:
-                return translate("reset-server-features", NULL, 0, NULL, bus);
+                return translate("reset-server-features", NULL, 0, NULL);
 
         case MODE_STATUS:
-                return translate("status", NULL, argc - optind, argv + optind, bus);
+                return translate("status", NULL, argc - optind, argv + optind);
 
         case MODE_SET_LINK:
                 assert(arg_ifname);
 
                 if (arg_set_dns) {
-                        r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns, bus);
+                        r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_domain) {
-                        r = translate("domain", arg_ifname, strv_length(arg_set_domain), arg_set_domain, bus);
+                        r = translate("domain", arg_ifname, strv_length(arg_set_domain), arg_set_domain);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_nta) {
-                        r = translate("nta", arg_ifname, strv_length(arg_set_nta), arg_set_nta, bus);
+                        r = translate("nta", arg_ifname, strv_length(arg_set_nta), arg_set_nta);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_llmnr) {
-                        r = translate("llmnr", arg_ifname, 1, (char **) &arg_set_llmnr, bus);
+                        r = translate("llmnr", arg_ifname, 1, (char **) &arg_set_llmnr);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_mdns) {
-                        r = translate("mdns", arg_ifname, 1, (char **) &arg_set_mdns, bus);
+                        r = translate("mdns", arg_ifname, 1, (char **) &arg_set_mdns);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_dns_over_tls) {
-                        r = translate("dnsovertls", arg_ifname, 1, (char **) &arg_set_dns_over_tls, bus);
+                        r = translate("dnsovertls", arg_ifname, 1, (char **) &arg_set_dns_over_tls);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_dnssec) {
-                        r = translate("dnssec", arg_ifname, 1, (char **) &arg_set_dnssec, bus);
+                        r = translate("dnssec", arg_ifname, 1, (char **) &arg_set_dnssec);
                         if (r < 0)
                                 return r;
                 }
@@ -4110,7 +4196,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
         case MODE_REVERT_LINK:
                 assert(arg_ifname);
 
-                return translate("revert", arg_ifname, 0, NULL, bus);
+                return translate("revert", arg_ifname, 0, NULL);
 
         case _MODE_INVALID:
                 assert_not_reached();
@@ -4120,7 +4206,6 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         bool compat = false;
         int r;
 
@@ -4138,16 +4223,10 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "sd_bus_open_system: %m");
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
         if (compat)
-                return compat_main(argc, argv, bus);
+                return compat_main(argc, argv);
 
-        return native_main(argc, argv, bus);
+        return native_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);
