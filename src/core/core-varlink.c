@@ -3,13 +3,18 @@
 #include "sd-varlink.h"
 
 #include "core-varlink.h"
+#include "format-util.h"
 #include "json-util.h"
+#include "manager-json.h"
 #include "mkdir-label.h"
 #include "strv.h"
+#include "unit-json.h"
 #include "user-util.h"
 #include "varlink-internal.h"
+#include "varlink-serialize.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.Manager.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -21,6 +26,11 @@ typedef struct LookupParameters {
         };
         const char *service;
 } LookupParameters;
+
+typedef struct DescribeUnitsParameters {
+        char **states;
+        char **patterns;
+} DescribeUnitsParameters;
 
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
@@ -555,6 +565,107 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(parameters);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build manager JSON data: %m");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("manager", v));
+}
+
+static int vl_method_describe_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "states", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(DescribeUnitsParameters, states), SD_JSON_STRICT },
+                { "patterns", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_const_string, offsetof(DescribeUnitsParameters, patterns),  SD_JSON_STRICT },
+                {},
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        DescribeUnitsParameters p = {};
+        const char *k;
+        Unit *u;
+        int r;
+
+        assert(parameters);
+
+        if (sd_json_variant_elements(parameters) > 0)
+                return sd_varlink_error_invalid_parameter(link, parameters);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
+                if (k != u->id)
+                        continue;
+
+                if (unit_is_filtered(u, p.states, p.patterns))
+                        continue;
+
+                if (previous) {
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("unit", previous));
+                        if (r < 0)
+                                return r;
+
+                        previous = sd_json_variant_unref(previous);
+                }
+
+                r = unit_build_json(u, &previous);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build unit JSON data: %m");
+        }
+
+        if (!previous)
+                return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("unit", previous));
+}
+
+static int vl_method_describe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        Job *j;
+        int r;
+
+        assert(parameters);
+
+        if (sd_json_variant_elements(parameters) > 0)
+                return sd_varlink_error_invalid_parameter(link, parameters);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (previous) {
+                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("job", previous));
+                        if (r < 0)
+                                return r;
+
+                        previous = sd_json_variant_unref(previous);
+                }
+
+                r = job_build_json(j, &previous);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build job JSON data: %m");
+        }
+
+        if (!previous)
+                return sd_varlink_error(link, "io.systemd.Manager.NoSuchJob", NULL);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("job", previous));
+}
+
 static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -574,34 +685,49 @@ int manager_setup_varlink_server(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return -EINVAL;
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
+        if (MANAGER_IS_SYSTEM(m))
+                flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
 
-        r = sd_varlink_server_add_interface_many(
-                        s,
-                        &vl_interface_io_systemd_UserDatabase,
-                        &vl_interface_io_systemd_ManagedOOM);
+        r = sd_varlink_server_add_interface_many(s, &vl_interface_io_systemd_Manager);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                        "io.systemd.Manager.Describe",      vl_method_describe,
+                        "io.systemd.Manager.DescribeUnits", vl_method_describe_units,
+                        "io.systemd.Manager.DescribeJobs",  vl_method_describe_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+        if (MANAGER_IS_SYSTEM(m)) {
+                r = sd_varlink_server_add_interface_many(
+                                s,
+                                &vl_interface_io_systemd_UserDatabase,
+                                &vl_interface_io_systemd_ManagedOOM);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
+
+                r = sd_varlink_server_bind_method_many(
+                                s,
+                                "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
+                                "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
+                                "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                                "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+                r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+        }
 
         r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
@@ -627,20 +753,13 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
-                FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
-                        if (!fresh) {
-                                /* We might have got sockets through deserialization. Do not bind to them twice. */
-
-                                bool found = false;
-                                LIST_FOREACH(sockets, ss, m->varlink_server->sockets)
-                                        if (path_equal(ss->address, address)) {
-                                                found = true;
-                                                break;
-                                        }
-
-                                if (found)
-                                        continue;
-                        }
+                FOREACH_STRING(address,
+                               "/run/systemd/userdb/io.systemd.DynamicUser",
+                               VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
+                               "/run/systemd/io.systemd.Manager") {
+                        /* We might have got sockets through deserialization. Do not bind to them twice. */
+                        if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
+                                continue;
 
                         r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
                         if (r < 0)
@@ -652,6 +771,9 @@ static int manager_varlink_init_system(Manager *m) {
 }
 
 static int manager_varlink_init_user(Manager *m) {
+        char address[STRLEN("/run/user//systemd/io.systemd.Manager") + DECIMAL_STR_MAX(uid_t)];
+        int r;
+
         assert(m);
 
         if (!MANAGER_IS_USER(m))
@@ -659,6 +781,20 @@ static int manager_varlink_init_user(Manager *m) {
 
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
+
+        r = manager_setup_varlink_server(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up varlink server: %m");
+        bool fresh = r > 0;
+
+        xsprintf(address, "/run/user/" UID_FMT "/systemd/io.systemd.Manager", geteuid());
+
+        /* We might have got sockets through deserialization. Do not bind to them twice. */
+        if (fresh || !varlink_server_contains_socket(m->varlink_server, address)) {
+                r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+        }
 
         return manager_varlink_managed_oom_connect(m);
 }

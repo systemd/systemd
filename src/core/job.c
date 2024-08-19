@@ -14,6 +14,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "job.h"
+#include "json-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -1330,6 +1331,56 @@ int job_deserialize(Job *j, FILE *f) {
         }
 
         return 0;
+}
+
+static int job_unit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Job *j = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        p = unit_dbus_path(j->unit);
+        if (!p)
+                return -ENOMEM;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_STRING("id", j->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("path", p));
+}
+
+int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_strv_free_ char **pairs = NULL;
+        ActivationDetails *activation_details = userdata;
+        int r;
+
+        assert(ret);
+
+        r = activation_details_append_pair(activation_details, &pairs);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(key, value, pairs) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("key", *key),
+                                SD_JSON_BUILD_PAIR_STRING("value", *value));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+int job_build_json(Job *job, sd_json_variant **ret) {
+        assert(job);
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("id", job->id),
+                        SD_JSON_BUILD_PAIR_CALLBACK("unit", job_unit_build_json, job),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(job->type)),
+                        SD_JSON_BUILD_PAIR_STRING("state", job_state_to_string(job->state)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("activationDetails", activation_details_build_json, job->activation_details));
 }
 
 int job_coldplug(Job *j) {
