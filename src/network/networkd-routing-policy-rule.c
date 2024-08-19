@@ -652,30 +652,55 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
         return 0;
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
         assert(m);
+        assert(rreq);
+
+        Manager *manager = ASSERT_PTR(rreq->manager);
+        RoutingPolicyRule *rule = ASSERT_PTR(rreq->userdata);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_message_warning_errno(m, r, "Could not drop routing policy rule");
+        if (r < 0) {
+                log_message_full_errno(m,
+                                       (r == -ENOENT || !rule->manager) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Could not drop routing policy rule, ignoring");
+
+                if (rule->manager) {
+                        /* If the rule cannot be removed, then assume the rule is already removed. */
+                        log_routing_policy_rule_debug(rule, "Forgetting", NULL, manager);
+
+                        Request *req;
+                        if (routing_policy_rule_get_request(manager, rule, rule->family, &req) >= 0)
+                                routing_policy_rule_enter_removed(req->userdata);
+
+                        routing_policy_rule_detach(rule);
+                }
+        }
 
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
+static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
-        assert(rule->manager);
-        assert(rule->manager->rtnl);
         assert(IN_SET(rule->family, AF_INET, AF_INET6));
+        assert(manager);
+        assert(manager->rtnl);
 
-        log_routing_policy_rule_debug(rule, "Removing", NULL, rule->manager);
+        /* If the rule is remembered, then use the remembered object. */
+        (void) routing_policy_rule_get(manager, rule, rule->family, &rule);
 
-        r = sd_rtnl_message_new_routing_policy_rule(rule->manager->rtnl, &m, RTM_DELRULE, rule->family);
+        /* We cannot remove rules with the permanent flag. */
+        if (FLAGS_SET(rule->flags, FIB_RULE_PERMANENT))
+                return 0;
+
+        log_routing_policy_rule_debug(rule, "Removing", NULL, manager);
+
+        r = sd_rtnl_message_new_routing_policy_rule(manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
                 return log_warning_errno(r, "Could not allocate netlink message: %m");
 
@@ -683,11 +708,10 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
         if (r < 0)
                 return log_warning_errno(r, "Could not create netlink message: %m");
 
-        r = netlink_call_async(rule->manager->rtnl, NULL, m,
-                               routing_policy_rule_remove_handler,
-                               NULL, NULL);
+        r = manager_remove_request_add(manager, rule, routing_policy_rule,
+                                       manager->rtnl, m, routing_policy_rule_remove_handler);
         if (r < 0)
-                return log_warning_errno(r, "Could not send netlink message: %m");
+                return log_warning_errno(r, "Could not queue rtnetlink message: %m");
 
         routing_policy_rule_enter_removing(rule);
         return 0;
@@ -778,7 +802,7 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                 if (!routing_policy_rule_is_marked(rule))
                         continue;
 
-                RET_GATHER(r, routing_policy_rule_remove(rule));
+                RET_GATHER(r, routing_policy_rule_remove(rule, m));
         }
 
         return r;
