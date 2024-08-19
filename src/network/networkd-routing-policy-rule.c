@@ -465,6 +465,21 @@ static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyR
                         return r;
         }
 
+        Request *req;
+        ORDERED_SET_FOREACH(req, manager->request_queue) {
+                if (req->type != REQUEST_TYPE_ROUTING_POLICY_RULE)
+                        continue;
+
+                tmp = ASSERT_PTR(req->userdata);
+                if (tmp->family != rule->family)
+                        continue;
+                if (tmp->priority == 0 || tmp->priority > 32765)
+                        continue;
+                r = set_ensure_put(&priorities, NULL, UINT32_TO_PTR(tmp->priority));
+                if (r < 0)
+                        return r;
+        }
+
         ORDERED_HASHMAP_FOREACH(network, manager->networks)
                 HASHMAP_FOREACH(tmp, network->rules_by_section) {
                         if (tmp->family != AF_UNSPEC && tmp->family != rule->family)
@@ -786,10 +801,12 @@ void link_foreignize_routing_policy_rules(Link *link) {
 }
 
 static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
+        RoutingPolicyRule *existing;
         int r;
 
         assert(req);
         assert(link);
+        assert(link->manager);
         assert(rule);
 
         if (!link_is_ready_to_configure(link, false))
@@ -800,6 +817,9 @@ static int routing_policy_rule_process_request(Request *req, Link *link, Routing
                 return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
 
         routing_policy_rule_enter_configuring(rule);
+        if (routing_policy_rule_get(link->manager, rule, rule->family, &existing) >= 0)
+                routing_policy_rule_enter_configuring(existing);
+
         return 1;
 }
 
@@ -814,9 +834,17 @@ static int static_routing_policy_rule_configure_handler(
 
         assert(m);
         assert(link);
+        assert(rule);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
+        if (r == -EEXIST) {
+                RoutingPolicyRule *existing;
+
+                if (routing_policy_rule_get(link->manager, rule, rule->family, &existing) >= 0) {
+                        existing->source = rule->source;
+                        routing_policy_rule_enter_configured(existing);
+                }
+        } else if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
                 link_enter_failed(link);
                 return 1;
@@ -832,7 +860,8 @@ static int static_routing_policy_rule_configure_handler(
 }
 
 static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule *rule, int family) {
-        RoutingPolicyRule *existing;
+        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
+        RoutingPolicyRule *existing = NULL;
         int r;
 
         assert(link);
@@ -845,28 +874,29 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
         if (routing_policy_rule_get_request(link->manager, rule, family, NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
-        if (routing_policy_rule_get(link->manager, rule, family, &existing) < 0) {
-                _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
+        r = routing_policy_rule_dup(rule, family, &tmp);
+        if (r < 0)
+                return r;
 
-                r = routing_policy_rule_dup(rule, family, &tmp);
-                if (r < 0)
-                        return r;
-
+        if (routing_policy_rule_get(link->manager, tmp, family, &existing) < 0) {
                 r = routing_policy_rule_acquire_priority(link->manager, tmp);
                 if (r < 0)
                         return r;
+        } else {
+                /* Copy priority from existing rule. */
+                if (!tmp->priority_set) {
+                        tmp->priority_set = true;
+                        tmp->priority = existing->priority;
+                }
 
-                r = routing_policy_rule_attach(link->manager, tmp);
-                if (r < 0)
-                        return r;
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
+        }
 
-                existing = tmp;
-        } else
-                existing->source = rule->source;
-
-        log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
+        log_routing_policy_rule_debug(tmp, "Requesting", link, link->manager);
         r = link_queue_request_safe(link, REQUEST_TYPE_ROUTING_POLICY_RULE,
-                                    existing, NULL,
+                                    tmp,
+                                    routing_policy_rule_unref,
                                     routing_policy_rule_hash_func,
                                     routing_policy_rule_compare_func,
                                     routing_policy_rule_process_request,
@@ -876,7 +906,11 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
         if (r <= 0)
                 return r;
 
-        routing_policy_rule_enter_requesting(existing);
+        routing_policy_rule_enter_requesting(tmp);
+        if (existing)
+                routing_policy_rule_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
 }
 
@@ -947,8 +981,9 @@ static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *ru
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
+        bool adjust_protocol = false, is_new = false;
         RoutingPolicyRule *rule = NULL;
-        bool adjust_protocol = false;
+        Request *req = NULL;
         uint16_t type;
         int r;
 
@@ -1009,12 +1044,6 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                         log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
                         return 0;
                 }
-        }
-
-        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &tmp->flags);
-        if (r < 0) {
-                log_warning_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
-                return 0;
         }
 
         r = sd_netlink_message_read_u32(message, FRA_FWMARK, &tmp->fwmark);
@@ -1135,41 +1164,57 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
 
         (void) routing_policy_rule_get(m, tmp, tmp->family, &rule);
+        (void) routing_policy_rule_get_request(m, tmp, tmp->family, &req);
 
-        switch (type) {
-        case RTM_NEWRULE:
-                if (rule) {
-                        routing_policy_rule_enter_configured(rule);
-                        log_routing_policy_rule_debug(rule, "Received remembered", NULL, m);
-                } else if (!m->manage_foreign_rules) {
-                        routing_policy_rule_enter_configured(tmp);
-                        log_routing_policy_rule_debug(tmp, "Ignoring received", NULL, m);
-                } else {
-                        routing_policy_rule_enter_configured(tmp);
-                        log_routing_policy_rule_debug(tmp, "Remembering", NULL, m);
-                        r = routing_policy_rule_attach(m, tmp);
-                        if (r < 0) {
-                                log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
-                                return 0;
-                        }
-                }
-                break;
-        case RTM_DELRULE:
+        if (type == RTM_DELRULE) {
                 if (rule) {
                         routing_policy_rule_enter_removed(rule);
-                        if (rule->state == 0) {
-                                log_routing_policy_rule_debug(rule, "Forgetting", NULL, m);
-                                routing_policy_rule_detach(rule);
-                        } else
-                                log_routing_policy_rule_debug(rule, "Removed", NULL, m);
+                        log_routing_policy_rule_debug(rule, "Forgetting removed", NULL, m);
+                        routing_policy_rule_detach(rule);
                 } else
                         log_routing_policy_rule_debug(tmp, "Kernel removed unknown", NULL, m);
-                break;
 
-        default:
-                assert_not_reached();
+                if (req)
+                        routing_policy_rule_enter_removed(req->userdata);
+
+                return 0;
         }
 
+        if (!rule) {
+                if (!req && !m->manage_foreign_rules) {
+                        routing_policy_rule_enter_configured(tmp);
+                        log_routing_policy_rule_debug(tmp, "Ignoring received", NULL, m);
+                        return 0;
+                }
+
+                /* If we did not know the rule, then save it. */
+                r = routing_policy_rule_attach(m, tmp);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to save received routing policy rule, ignoring: %m");
+                        return 0;
+                }
+
+                rule = tmp;
+                is_new = true;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                RoutingPolicyRule *req_rule = ASSERT_PTR(req->userdata);
+
+                rule->source = req_rule->source;
+        }
+
+        /* Then, update miscellaneous info from netlink notification. */
+        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &rule->flags);
+        if (r < 0)
+                log_debug_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
+
+        routing_policy_rule_enter_configured(rule);
+        if (req)
+                routing_policy_rule_enter_configured(req->userdata);
+
+        log_routing_policy_rule_debug(rule, is_new ? "Remembering" : "Received remembered", NULL, m);
         return 1;
 }
 
