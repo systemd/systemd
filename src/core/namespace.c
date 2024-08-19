@@ -1565,12 +1565,24 @@ static int apply_one_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
-                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(
+                                mount_entry_source(m),
+                                IMAGE_SYSEXT,
+                                extension_name,
+                                /* relax_extension_release_check= */ false,
+                                &extension_release);
                 if (r == -ENOENT) {
-                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                        r = load_extension_release_pairs(
+                                        mount_entry_source(m),
+                                        IMAGE_CONFEXT,
+                                        extension_name,
+                                        /* relax_extension_release_check= */ false,
+                                        &extension_release);
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
+                if (r == -ENOENT && m->ignore)
+                        return 0;
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'extension-release' data of extension tree %s: %m", mount_entry_source(m));
 
@@ -1584,12 +1596,6 @@ static int apply_one_mount(
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(host_os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
-
-                r = load_extension_release_pairs(mount_entry_source(m), class, extension_name, /* relax_extension_release_check= */ false, &extension_release);
-                if (r == -ENOENT && m->ignore)
-                        return 0;
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to parse directory %s extension-release metadata: %m", extension_name);
 
                 r = extension_release_validate(
                                 extension_name,
