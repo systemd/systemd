@@ -761,34 +761,29 @@ invalid:
 
 static int verb_query(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        int q, r = 0;
+        int ret = 0, r;
 
         if (arg_type != 0)
-                STRV_FOREACH(p, argv + 1) {
-                        q = resolve_record(bus, *p, arg_class, arg_type, true);
-                        if (q < 0)
-                                r = q;
-                }
+                STRV_FOREACH(p, strv_skip(argv, 1))
+                        RET_GATHER(ret, resolve_record(bus, *p, arg_class, arg_type, true));
 
         else
-                STRV_FOREACH(p, argv + 1) {
+                STRV_FOREACH(p, strv_skip(argv, 1)) {
                         if (startswith(*p, "dns:"))
-                                q = resolve_rfc4501(bus, *p);
+                                RET_GATHER(ret, resolve_rfc4501(bus, *p));
                         else {
                                 int family, ifindex;
                                 union in_addr_union a;
 
-                                q = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
-                                if (q >= 0)
-                                        q = resolve_address(bus, family, &a, ifindex);
+                                r = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
+                                if (r >= 0)
+                                        RET_GATHER(ret, resolve_address(bus, family, &a, ifindex));
                                 else
-                                        q = resolve_host(bus, *p);
+                                        RET_GATHER(ret, resolve_host(bus, *p));
                         }
-                        if (q < 0)
-                                r = q;
                 }
 
-        return r;
+        return ret;
 }
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
@@ -1033,18 +1028,15 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        int q, r = 0;
+        int ret = 0;
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
-        STRV_FOREACH(p, argv + 1) {
-                q = resolve_openpgp(bus, *p);
-                if (q < 0)
-                        r = q;
-        }
+        STRV_FOREACH(p, strv_skip(argv, 1))
+                RET_GATHER(ret, resolve_openpgp(bus, *p));
 
-        return r;
+        return ret;
 }
 
 static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
@@ -1085,25 +1077,25 @@ static bool service_family_is_valid(const char *s) {
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        char **args = argv + 1;
         const char *family = "tcp";
-        int q, r = 0;
+        char **args;
+        int ret = 0;
+
+        assert(argc >= 2);
 
         if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
-                args++;
-        }
+                args = strv_skip(argv, 2);
+        } else
+                args = strv_skip(argv, 1);
 
-        STRV_FOREACH(p, args) {
-                q = resolve_tlsa(bus, family, *p);
-                if (q < 0)
-                        r = q;
-        }
+        STRV_FOREACH(p, args)
+                RET_GATHER(ret, resolve_tlsa(bus, family, *p));
 
-        return r;
+        return ret;
 }
 
 static int show_statistics(int argc, char **argv, void *userdata) {
@@ -2071,7 +2063,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
-        int r;
+        int ret = 0, r;
 
         assert(bus);
 
@@ -2129,41 +2121,34 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
         typesafe_qsort(infos, n_infos, interface_info_compare);
 
-        r = 0;
-        for (size_t i = 0; i < n_infos; i++) {
-                int q = status_ifindex(bus, infos[i].index, infos[i].name, mode, &empty_line);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        FOREACH_ARRAY(info, infos, n_infos)
+                RET_GATHER(ret, status_ifindex(bus, info->index, info->name, mode, &empty_line));
 
-        return r;
+        return ret;
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int r = 0;
+        bool empty_line = false;
+        int ret = 0;
 
-        if (argc > 1) {
-                bool empty_line = false;
+        if (argc <= 1)
+                return status_all(bus, STATUS_ALL);
 
-                STRV_FOREACH(ifname, argv + 1) {
-                        int ifindex, q;
+        STRV_FOREACH(ifname, strv_skip(argv, 1)) {
+                int ifindex;
 
-                        ifindex = rtnl_resolve_interface(&rtnl, *ifname);
-                        if (ifindex < 0) {
-                                log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
-                                continue;
-                        }
-
-                        q = status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line);
-                        if (q < 0)
-                                r = q;
+                ifindex = rtnl_resolve_interface(&rtnl, *ifname);
+                if (ifindex < 0) {
+                        log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
+                        continue;
                 }
-        } else
-                r = status_all(bus, STATUS_ALL);
 
-        return r;
+                RET_GATHER(ret, status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line));
+        }
+
+        return ret;
 }
 
 static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
@@ -2256,11 +2241,12 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
-        r = call_dns(bus, argv + 2, bus_resolve_mgr, &error, true);
+        char **args = strv_skip(argv, 2);
+        r = call_dns(bus, args, bus_resolve_mgr, &error, true);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_dns(bus, argv + 2, bus_network_mgr, &error, true);
+                r = call_dns(bus, args, bus_network_mgr, &error, true);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2336,11 +2322,12 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
 
-        r = call_domain(bus, argv + 2, bus_resolve_mgr, &error);
+        char **args = strv_skip(argv, 2);
+        r = call_domain(bus, args, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_domain(bus, argv + 2, bus_network_mgr, &error);
+                r = call_domain(bus, args, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2609,8 +2596,9 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 static int verb_nta(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
+        char **args;
         bool clear;
+        int r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2628,10 +2616,11 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 
         /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
          * with an empty list, which will clear the list of domains for an interface. */
-        clear = strv_equal(argv + 2, STRV_MAKE(""));
+        args = strv_skip(argv, 2);
+        clear = strv_equal(args, STRV_MAKE(""));
 
         if (!clear)
-                STRV_FOREACH(p, argv + 2) {
+                STRV_FOREACH(p, args) {
                         r = dns_name_is_valid(*p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
@@ -2641,11 +2630,11 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                                                        *p);
                 }
 
-        r = call_nta(bus, clear ? NULL : argv + 2, bus_resolve_mgr, &error);
+        r = call_nta(bus, clear ? NULL : args, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_nta(bus, clear ? NULL : argv + 2, bus_network_mgr, &error);
+                r = call_nta(bus, clear ? NULL : args, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -4032,8 +4021,8 @@ static int translate(const char *verb, const char *single_arg, size_t num_args, 
         *p++ = (char *) verb;
         if (single_arg)
                 *p++ = (char *) single_arg;
-        for (size_t i = 0; i < num_args; i++)
-                *p++ = args[i];
+        FOREACH_ARRAY(arg, args, num_args)
+                *p++ = *arg;
 
         optind = 0;
         return native_main((int) num, fake, bus);
