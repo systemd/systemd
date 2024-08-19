@@ -378,6 +378,47 @@ static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int 
         return -ENOENT;
 }
 
+static int routing_policy_rule_get_request(Manager *m, const RoutingPolicyRule *in, int family, Request **ret) {
+        Request *req;
+
+        assert(m);
+        assert(in);
+        assert(in->family == AF_UNSPEC || in->family == family);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (in->priority_set && in->family != AF_UNSPEC) {
+                req = ordered_set_get(
+                        m->request_queue,
+                        &(Request) {
+                                .type = REQUEST_TYPE_ROUTING_POLICY_RULE,
+                                .userdata = (void*) in,
+                                .hash_func = (hash_func_t) routing_policy_rule_hash_func,
+                                .compare_func = (compare_func_t) routing_policy_rule_compare_func,
+                        });
+                if (!req)
+                        return -ENOENT;
+
+                if (ret)
+                        *ret = req;
+                return 0;
+        }
+
+        ORDERED_SET_FOREACH(req, m->request_queue) {
+
+                if (req->type != REQUEST_TYPE_ROUTING_POLICY_RULE)
+                        continue;
+
+                RoutingPolicyRule *rule = ASSERT_PTR(req->userdata);
+                if (routing_policy_rule_equal(in, rule, family, rule->priority)) {
+                        if (ret)
+                                *ret = req;
+                        return 0;
+                }
+        }
+
+        return -ENOENT;
+}
+
 static int routing_policy_rule_attach(Manager *m, RoutingPolicyRule *rule) {
         int r;
 
@@ -800,6 +841,9 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
         assert(rule->source != NETWORK_CONFIG_SOURCE_FOREIGN);
         assert(rule->family == AF_UNSPEC || rule->family == family);
         assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (routing_policy_rule_get_request(link->manager, rule, family, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
         if (routing_policy_rule_get(link->manager, rule, family, &existing) < 0) {
                 _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
