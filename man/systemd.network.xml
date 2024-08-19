@@ -1729,6 +1729,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>GoTo=</varname></term>
+        <listitem>
+          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
+          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
+          mandatory when <varname>Type=goto</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IncomingInterface=</varname></term>
         <listitem>
           <para>Specifies incoming device to match. If the interface is loopback, the rule only matches
@@ -1853,8 +1865,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>Type=</varname></term>
         <listitem>
           <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of
-          <literal>blackhole</literal>, <literal>unreachable</literal> or <literal>prohibit</literal>.
-          </para>
+          <literal>table</literal>, <literal>goto</literal>, <literal>nop</literal>,
+          <literal>blackhole</literal>, <literal>unreachable</literal>, or <literal>prohibit</literal>.
+          When <literal>goto</literal>, the target priority must be specified in <varname>GoTo=</varname>.
+          Defaults to <literal>table</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>

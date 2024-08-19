@@ -25,12 +25,6 @@
 #include "user-util.h"
 
 static const char *const fr_act_type_table[__FR_ACT_MAX] = {
-        [FR_ACT_BLACKHOLE]   = "blackhole",
-        [FR_ACT_UNREACHABLE] = "unreachable",
-        [FR_ACT_PROHIBIT]    = "prohibit",
-};
-
-static const char *const fr_act_type_full_table[__FR_ACT_MAX] = {
         [FR_ACT_TO_TBL]      = "table",
         [FR_ACT_GOTO]        = "goto",
         [FR_ACT_NOP]         = "nop",
@@ -40,8 +34,7 @@ static const char *const fr_act_type_full_table[__FR_ACT_MAX] = {
 };
 
 assert_cc(__FR_ACT_MAX <= UINT8_MAX);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fr_act_type, int);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(fr_act_type_full, int);
+DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int);
 
 static RoutingPolicyRule* routing_policy_rule_detach_impl(RoutingPolicyRule *rule) {
         assert(rule);
@@ -519,7 +512,8 @@ static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyR
                                 return r;
                 }
 
-        for (priority = 32765; priority > 0; priority--)
+        /* priority must be smaller than goto target */
+        for (priority = rule->type == FR_ACT_GOTO ? rule->priority_goto - 1 : 32765; priority > 0; priority--)
                 if (!set_contains(priorities, UINT32_TO_PTR(priority)))
                         break;
 
@@ -1432,6 +1426,48 @@ int config_parse_routing_policy_rule_priority(
         return 0;
 }
 
+int config_parse_routing_policy_rule_goto(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        uint32_t priority;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        r = safe_atou32(rvalue, &priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (priority <= 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid goto target priority, ignoring assignment.");
+                return 0;
+        }
+
+        n->type = FR_ACT_GOTO;
+        n->priority_goto = priority;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
 int config_parse_routing_policy_rule_table(
                 const char *unit,
                 const char *filename,
@@ -1987,6 +2023,23 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
 
         if (rule->l3mdev)
                 rule->table = RT_TABLE_UNSPEC;
+
+        if (rule->type == FR_ACT_GOTO) {
+                if (rule->priority_goto <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: Type=goto is specified but the target priority GoTo= is unspecified. "
+                                               "Ignoring [RoutingPolicyRule] section from line %u.",
+                                               rule->section->filename,
+                                               rule->section->line);
+
+                if (rule->priority_set && rule->priority >= rule->priority_goto)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: goto target priority %"PRIu32" must be larger than the priority of this rule %"PRIu32". "
+                                               "Ignoring [RoutingPolicyRule] section from line %u.",
+                                               rule->section->filename,
+                                               rule->priority_goto, rule->priority,
+                                               rule->section->line);
+        }
 
         return 0;
 }

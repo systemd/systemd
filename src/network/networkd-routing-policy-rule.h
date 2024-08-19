@@ -54,7 +54,8 @@ typedef struct RoutingPolicyRule {
         struct fib_rule_port_range dport; /* FRA_DPORT_RANGE */
 } RoutingPolicyRule;
 
-const char* fr_act_type_full_to_string(int t) _const_;
+int fr_act_type_from_string(const char *s) _pure_;
+const char* fr_act_type_to_string(int t) _const_;
 
 RoutingPolicyRule* routing_policy_rule_ref(RoutingPolicyRule *rule);
 RoutingPolicyRule* routing_policy_rule_unref(RoutingPolicyRule *rule);
@@ -81,6 +82,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_goto);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_l3mdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
