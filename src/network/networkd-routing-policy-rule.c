@@ -462,13 +462,11 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                        strna(rule->iif), strna(rule->oif), strna(table));
 }
 
-static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m) {
         int r;
 
         assert(rule);
         assert(m);
-
-        /* link may be NULL. */
 
         if (rule->from_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
@@ -616,7 +614,7 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
         if (r < 0)
                 return log_warning_errno(r, "Could not allocate netlink message: %m");
 
-        r = routing_policy_rule_set_netlink_message(rule, m, NULL);
+        r = routing_policy_rule_set_netlink_message(rule, m);
         if (r < 0)
                 return log_warning_errno(r, "Could not create netlink message: %m");
 
@@ -648,7 +646,7 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Re
         if (r < 0)
                 return r;
 
-        r = routing_policy_rule_set_netlink_message(rule, m, link);
+        r = routing_policy_rule_set_netlink_message(rule, m);
         if (r < 0)
                 return r;
 
