@@ -35,12 +35,12 @@ typedef struct RoutingPolicyRule {
         union in_addr_union to; /* FRA_DST */
         union in_addr_union from; /* FRA_SRC */
         char *iif; /* FRA_IIFNAME */
-        /* FRA_GOTO */
+        uint32_t priority_goto; /* FRA_GOTO */
         bool priority_set;
         uint32_t priority; /* FRA_PRIORITY */
         uint32_t fwmark; /* FRA_FWMARK */
-        /* FRA_FLOW */
-        /* FRA_TUN_ID */
+        uint32_t realms; /* FRA_FLOW (IPv4 only) */
+        uint64_t tunnel_id; /* FRA_TUN_ID */
         int32_t suppress_ifgroup; /* FRA_SUPPRESS_IFGROUP */
         int32_t suppress_prefixlen; /* FRA_SUPPRESS_PREFIXLEN */
         uint32_t table; /* FRA_TABLE, also used in struct fib_rule_hdr */

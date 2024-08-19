@@ -212,7 +212,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         siphash24_compress_typesafe(rule->suppress_ifgroup, state);
         siphash24_compress_typesafe(rule->suppress_prefixlen, state);
         siphash24_compress_typesafe(rule->fwmask, state);
-        /* FRA_TUN_ID */
+        siphash24_compress_typesafe(rule->tunnel_id, state);
         /* fr_net (network namespace) */
         siphash24_compress_typesafe(rule->l3mdev, state);
         siphash24_compress_typesafe(rule->uid_range, state);
@@ -225,7 +225,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         siphash24_compress_typesafe(rule->from_prefixlen, state);
         siphash24_compress_typesafe(rule->to_prefixlen, state);
         siphash24_compress_typesafe(rule->tos, state);
-        /* FRA_FLOW (IPv4 only) */
+        siphash24_compress_typesafe(rule->realms, state);
         in_addr_hash_func(&rule->from, rule->family, state);
         in_addr_hash_func(&rule->to, rule->family, state);
 }
@@ -280,6 +280,10 @@ static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, con
         if (r != 0)
                 return r;
 
+        r = CMP(a->tunnel_id, b->tunnel_id);
+        if (r != 0)
+                return r;
+
         r = CMP(a->l3mdev, b->l3mdev);
         if (r != 0)
                 return r;
@@ -313,6 +317,10 @@ static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, con
                 return r;
 
         r = CMP(a->tos, b->tos);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->realms, b->realms);
         if (r != 0)
                 return r;
 
@@ -359,6 +367,10 @@ static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, co
 
         /* These flags cannot be updated. */
         if ((existing->flags ^ requesting->flags) & (FIB_RULE_PERMANENT|FIB_RULE_INVERT))
+                return false;
+
+        /* GOTO target cannot be updated. */
+        if (existing->type == FR_ACT_GOTO && existing->priority_goto != requesting->priority_goto)
                 return false;
 
         return true;
@@ -662,6 +674,24 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
         r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
         if (r < 0)
                 return r;
+
+        if (rule->type == FR_ACT_GOTO) {
+                r = sd_netlink_message_append_u32(m, FRA_GOTO, rule->priority_goto);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->realms > 0) {
+                r = sd_netlink_message_append_u32(m, FRA_FLOW, rule->realms);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->tunnel_id > 0) {
+                r = sd_netlink_message_append_u64(m, FRA_TUN_ID, htobe64(rule->tunnel_id));
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -1208,6 +1238,20 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r >= 0)
                 tmp->suppress_ifgroup = (int32_t) suppress_ifgroup;
 
+        r = sd_netlink_message_read_u64(message, FRA_TUN_ID, &tmp->tunnel_id);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_TUN_ID attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0)
+                tmp->tunnel_id = be64toh(tmp->tunnel_id);
+
+        r = sd_netlink_message_read_u32(message, FRA_FLOW, &tmp->realms);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FLOW attribute, ignoring: %m");
+                return 0;
+        }
+
         if (adjust_protocol)
                 /* As .network files does not have setting to specify protocol, we can assume the
                  * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
@@ -1259,6 +1303,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         r = sd_rtnl_message_routing_policy_rule_get_flags(message, &rule->flags);
         if (r < 0)
                 log_debug_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
+
+        r = sd_netlink_message_read_u32(message, FRA_GOTO, &rule->priority_goto);
+        if (r < 0 && r != -ENODATA)
+                log_debug_errno(r, "rtnl: could not get FRA_GOTO attribute, ignoring: %m");
 
         routing_policy_rule_enter_configured(rule);
         if (req)
