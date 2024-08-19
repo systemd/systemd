@@ -3027,6 +3027,7 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-legend         Do not show the headers and footers\n"
+               "     --no-ask-password   Do not prompt for password\n"
                "  -a --all               Show status for all links\n"
                "  -s --stats             Show detailed link statistics\n"
                "  -l --full              Do not ellipsize output\n"
@@ -3052,6 +3053,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_NO_ASK_PASSWORD,
                 ARG_JSON,
                 ARG_NO_RELOAD,
                 ARG_DROP_IN,
@@ -3060,19 +3062,20 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "stats",     no_argument,       NULL, 's'           },
-                { "full",      no_argument,       NULL, 'l'           },
-                { "lines",     required_argument, NULL, 'n'           },
-                { "json",      required_argument, NULL, ARG_JSON      },
-                { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "drop-in",   required_argument, NULL, ARG_DROP_IN   },
-                { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
-                { "stdin",     no_argument,       NULL, ARG_STDIN     },
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "all",             no_argument,       NULL, 'a'                 },
+                { "stats",           no_argument,       NULL, 's'                 },
+                { "full",            no_argument,       NULL, 'l'                 },
+                { "lines",           required_argument, NULL, 'n'                 },
+                { "json",            required_argument, NULL, ARG_JSON            },
+                { "no-reload",       no_argument,       NULL, ARG_NO_RELOAD       },
+                { "drop-in",         required_argument, NULL, ARG_DROP_IN         },
+                { "runtime",         no_argument,       NULL, ARG_RUNTIME         },
+                { "stdin",           no_argument,       NULL, ARG_STDIN           },
                 {}
         };
 
@@ -3101,6 +3104,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_RELOAD:
                         arg_no_reload = true;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case ARG_RUNTIME:
