@@ -778,7 +778,8 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
-                return DNS_SCOPE_MAYBE;
+                /* Prefer suitable per-link scopes where possible */
+                return s->link ? DNS_SCOPE_MAYBE : DNS_SCOPE_LAST_RESORT;
         }
 
         case DNS_PROTOCOL_MDNS: {
