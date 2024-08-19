@@ -3352,6 +3352,7 @@ static int native_help(void) {
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
+               "     --no-ask-password         Do not prompt for password\n"
                "  -4                           Resolve IPv4 addresses\n"
                "  -6                           Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE     Look on interface\n"
@@ -3724,6 +3725,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_NO_PAGER,
+                ARG_NO_ASK_PASSWORD,
                 ARG_JSON,
                 ARG_STALE_DATA,
                 ARG_RELAX_SINGLE_LABEL,
@@ -3749,6 +3751,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
+                { "no-ask-password",       no_argument,       NULL, ARG_NO_ASK_PASSWORD       },
                 { "json",                  required_argument, NULL, ARG_JSON                  },
                 { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
                 { "relax-single-label",    required_argument, NULL, ARG_RELAX_SINGLE_LABEL    },
@@ -3947,6 +3950,10 @@ static int native_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case ARG_JSON:
