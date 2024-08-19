@@ -76,6 +76,7 @@ void test_setup_logging(int level);
 int write_tmpfile(char *pattern, const char *contents);
 
 bool have_namespaces(void);
+bool userns_has_single_user(void);
 
 /* We use the small but non-trivial limit here */
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
