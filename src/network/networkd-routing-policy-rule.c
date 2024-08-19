@@ -162,7 +162,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRule **ret) {
+static int routing_policy_rule_dup(const RoutingPolicyRule *src, int family, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *dest = NULL;
 
         assert(src);
@@ -178,6 +178,9 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
         dest->network = NULL;
         dest->section = NULL;
         dest->iif = dest->oif = NULL;
+
+        /* Set family. */
+        dest->family = family;
 
         if (src->iif) {
                 dest->iif = strdup(src->iif);
@@ -227,15 +230,17 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         in_addr_hash_func(&rule->to, rule->family, state);
 }
 
-static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, const RoutingPolicyRule *b, bool all) {
         int r;
 
         assert(a);
         assert(b);
 
-        r = CMP(a->family, b->family);
-        if (r != 0)
-                return r;
+        if (all) {
+                r = CMP(a->family, b->family);
+                if (r != 0)
+                        return r;
+        }
 
         r = CMP(a->type, b->type);
         if (r != 0)
@@ -245,9 +250,11 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         if (r != 0)
                 return r;
 
-        r = CMP(a->priority, b->priority);
-        if (r != 0)
-                return r;
+        if (all) {
+                r = CMP(a->priority, b->priority);
+                if (r != 0)
+                        return r;
+        }
 
         r = strcmp_ptr(a->iif, b->iif);
         if (r != 0)
@@ -309,63 +316,64 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         if (r != 0)
                 return r;
 
-        r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
-        if (r != 0)
-                return r;
+        if (all) {
+                r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
 
-        r = memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
-        if (r != 0)
-                return r;
+                r = memcmp(&a->to, &b->to, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+        }
 
         return 0;
 }
 
-static bool routing_policy_rule_equal(const RoutingPolicyRule *rule1, const RoutingPolicyRule *rule2) {
-        if (rule1 == rule2)
-                return true;
-
-        if (!rule1 || !rule2)
-                return false;
-
-        return routing_policy_rule_compare_func(rule1, rule2) == 0;
+static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+        return routing_policy_rule_compare_func_full(a, b, /* all = */ true);
 }
 
-static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, RoutingPolicyRule **ret) {
+static bool routing_policy_rule_equal(const RoutingPolicyRule *a, const RoutingPolicyRule *b, int family, uint32_t priority) {
+        assert(a);
+        assert(b);
+
+        if (a->family != AF_UNSPEC && a->family != family)
+                return false;
+        if (b->family != AF_UNSPEC && b->family != family)
+                return false;
+
+        if (a->priority_set && a->priority != priority)
+                return false;
+        if (b->priority_set && b->priority != priority)
+                return false;
+
+        return routing_policy_rule_compare_func_full(a, b, /* all = */ false) == 0;
+}
+
+static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
         assert(m);
         assert(in);
+        assert(in->family == AF_UNSPEC || in->family == family);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
-        rule = set_get(m->rules, in);
-        if (rule) {
+        if (in->priority_set && in->family != AF_UNSPEC) {
+                rule = set_get(m->rules, in);
+                if (!rule)
+                        return -ENOENT;
+
                 if (ret)
                         *ret = rule;
                 return 0;
         }
 
-        if (in->priority_set)
-                return -ENOENT;
-
-        /* Also find rules configured without priority. */
-        SET_FOREACH(rule, m->rules) {
-                uint32_t priority;
-                bool found;
-
-                if (rule->priority_set)
-                        /* The rule is configured with priority. */
-                        continue;
-
-                priority = rule->priority;
-                rule->priority = 0;
-                found = routing_policy_rule_equal(rule, in);
-                rule->priority = priority;
-
-                if (found) {
+        SET_FOREACH(rule, m->rules)
+                if (routing_policy_rule_equal(in, rule, family, rule->priority)) {
                         if (ret)
                                 *ret = rule;
                         return 0;
                 }
-        }
 
         return -ENOENT;
 }
@@ -434,6 +442,7 @@ static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyR
                         break;
 
         rule->priority = priority;
+        rule->priority_set = true;
         return 0;
 }
 
@@ -688,19 +697,14 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
                         RoutingPolicyRule *existing;
 
                         if (IN_SET(rule->family, AF_INET, AF_INET6)) {
-                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                if (routing_policy_rule_get(m, rule, rule->family, &existing) >= 0)
                                         routing_policy_rule_unmark(existing);
                         } else {
-                                /* The case Family=both. */
-                                rule->family = AF_INET;
-                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                if (routing_policy_rule_get(m, rule, AF_INET, &existing) >= 0)
                                         routing_policy_rule_unmark(existing);
 
-                                rule->family = AF_INET6;
-                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                if (routing_policy_rule_get(m, rule, AF_INET6, &existing) >= 0)
                                         routing_policy_rule_unmark(existing);
-
-                                rule->family = AF_UNSPEC;
                         }
                 }
         }
@@ -786,7 +790,7 @@ static int static_routing_policy_rule_configure_handler(
         return 1;
 }
 
-static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
+static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule *rule, int family) {
         RoutingPolicyRule *existing;
         int r;
 
@@ -794,11 +798,13 @@ static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule)
         assert(link->manager);
         assert(rule);
         assert(rule->source != NETWORK_CONFIG_SOURCE_FOREIGN);
+        assert(rule->family == AF_UNSPEC || rule->family == family);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
-        if (routing_policy_rule_get(link->manager, rule, &existing) < 0) {
+        if (routing_policy_rule_get(link->manager, rule, family, &existing) < 0) {
                 _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
 
-                r = routing_policy_rule_dup(rule, &tmp);
+                r = routing_policy_rule_dup(rule, family, &tmp);
                 if (r < 0)
                         return r;
 
@@ -830,23 +836,23 @@ static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule)
         return 1;
 }
 
-static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
+static int link_request_static_routing_policy_rule(Link *link, const RoutingPolicyRule *rule) {
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
-                return link_request_routing_policy_rule(link, rule);
+                return link_request_routing_policy_rule(link, rule, rule->family);
 
-        rule->family = AF_INET;
-        r = link_request_routing_policy_rule(link, rule);
-        if (r < 0) {
-                rule->family = AF_UNSPEC;
+        assert(rule->address_family == ADDRESS_FAMILY_YES);
+
+        r = link_request_routing_policy_rule(link, rule, AF_INET);
+        if (r < 0)
                 return r;
-        }
 
-        rule->family = AF_INET6;
-        r = link_request_routing_policy_rule(link, rule);
-        rule->family = AF_UNSPEC;
-        return r;
+        r = link_request_routing_policy_rule(link, rule, AF_INET6);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int link_request_static_routing_policy_rules(Link *link) {
@@ -888,8 +894,8 @@ static const RoutingPolicyRule kernel_rules[] = {
 static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
         assert(rule);
 
-        for (size_t i = 0; i < ELEMENTSOF(kernel_rules); i++)
-                if (routing_policy_rule_equal(rule, &kernel_rules[i]))
+        FOREACH_ELEMENT(i, kernel_rules)
+                if (routing_policy_rule_equal(rule, i, i->family, i->priority))
                         return true;
 
         return false;
@@ -1084,7 +1090,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                  * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
                 tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
 
-        (void) routing_policy_rule_get(m, tmp, &rule);
+        (void) routing_policy_rule_get(m, tmp, tmp->family, &rule);
 
         switch (type) {
         case RTM_NEWRULE:
