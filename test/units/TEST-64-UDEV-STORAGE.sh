@@ -1234,6 +1234,51 @@ testcase_mdadm_lvm() {
     helper_check_device_units
 }
 
+testcase_cryptsetup() {
+    local devices=(
+        /dev/disk/by-id/scsi-0systemd_foobar_deadbeefcryptsetup{0..2}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo p455w0rd >key-file
+
+    cryptsetup luksFormat "${devices[0]}" key-file --pbkdf-force-iterations=4
+    cryptsetup open "${devices[0]}" test-luks --key-file=key-file
+
+    udevadm wait --settle --timeout=30 /dev/mapper/test-luks
+
+    udevadm info /dev/mapper/test-luks || true
+    cryptsetup status /dev/mapper/test-luks || true
+
+    ls /usr/lib/udev/rules.d/60-cryptsetup-id.rules || true
+
+    ls /usr/lib/udev/cryptsetup_id || true
+
+    /usr/lib/udev/cryptsetup_id /dev/mapper/test-luks || true
+
+    expected_crypt_device=$(udevadm info -q path "${devices[0]}")
+    crypt_device=$(udevadm info -q property --property CRYPT_DEVICE --value /dev/mapper/test-luks)
+
+    [[ "${crypt_device}" == "${expected_crypt_device}" ]]
+
+    cryptsetup close test-luks
+
+    veritysetup format "${devices[1]}" "${devices[2]}" --root-hash-file=hash-file
+    veritysetup open "${devices[1]}" test-verity "${devices[2]}" --root-hash-file=hash-file
+    udevadm wait --settle --timeout=30 /dev/mapper/test-verity
+
+    expected_data_device=$(udevadm info -q path "${devices[1]}")
+    expected_hash_device=$(udevadm info -q path "${devices[2]}")
+    data_device=$(udevadm info -q property --property CRYPT_DATA_DEVICE --value /dev/mapper/test-verity)
+    hash_device=$(udevadm info -q property --property CRYPT_HASH_DEVICE --value /dev/mapper/test-verity)
+
+    [[ "${data_device}" == "${expected_data_device}" ]]
+    [[ "${hash_device}" == "${expected_hash_device}" ]]
+
+    veritysetup close test-verity
+}
+
 udevadm settle
 udevadm control --log-level debug
 lsblk -a

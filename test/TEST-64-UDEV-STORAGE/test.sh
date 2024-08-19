@@ -524,6 +524,28 @@ testcase_mdadm_lvm() {
 
     rm -f "${TESTDIR:?}"/mdadmlvm*.img
 }
+
+testcase_cryptsetup() {
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
+    local diskpath i size
+
+    for i in {0..3}; do
+        diskpath="${TESTDIR:?}/cryptsetup${i}.img"
+
+        dd if=/dev/zero of="$diskpath" bs=1M count=64
+        qemu_opts+=(
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefcryptsetup$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/cryptsetup*.img
+}
+
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then
