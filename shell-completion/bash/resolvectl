@@ -38,7 +38,7 @@ _resolvectl() {
         [STANDALONE]='-h --help --version -4 -6 --legend=no --cname=no
                       --validate=no --synthesize=no --cache=no --relax-single-label=no --zone=no
                       --trust-anchor=no --network=no --service-address=no
-                      --service-txt=no --search=no --stale-data=no --no-pager'
+                      --service-txt=no --search=no --stale-data=no --no-pager --no-ask-password'
         [ARG]='-t --type -c --class -i --interface -p --protocol --raw --json'
     )
     local -A VERBS=(

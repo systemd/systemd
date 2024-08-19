@@ -94,4 +94,6 @@ _arguments \
     '--search=[Do not use search domains]:BOOL:(yes no)' \
     '--raw=[Dump the answer as binary data]:RAW:(payload packet)' \
     '--json=[Output as JSON]:JSON:(pretty short off)' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-ask-password[Do not prompt for password]' \
     '*::default: _resolvectl_commands'
