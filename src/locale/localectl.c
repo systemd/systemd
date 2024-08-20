@@ -187,7 +187,7 @@ static int set_locale(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &m, bus_locale, "SetLocale");
         if (r < 0)
@@ -229,7 +229,7 @@ static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         map = argv[1];
         toggle_map = argc > 2 ? argv[2] : "";
@@ -268,7 +268,7 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         layout = argv[1];
         model = argc > 2 ? argv[2] : "";
