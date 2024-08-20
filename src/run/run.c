@@ -674,7 +674,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
-                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
+                arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
 
@@ -908,7 +908,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_wait = true;
         arg_aggressive_gc = true;
 
-        arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
         arg_expand_environment = false;
         arg_send_sighup = true;
 
@@ -1176,7 +1176,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                send_term = isatty(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
+                send_term = isatty_safe(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
         }
 
         if (send_term) {

@@ -1052,8 +1052,8 @@ bool on_tty(void) {
 
         if (cached_on_tty < 0)
                 cached_on_tty =
-                        isatty(STDOUT_FILENO) > 0 &&
-                        isatty(STDERR_FILENO) > 0;
+                        isatty_safe(STDOUT_FILENO) &&
+                        isatty_safe(STDERR_FILENO);
 
         return cached_on_tty;
 }
