@@ -5,3 +5,4 @@ Name=router-captive
 [Network]
 IPv6AcceptRA=no
 IPv6SendRA=no
+IPv6Forwarding=yes
