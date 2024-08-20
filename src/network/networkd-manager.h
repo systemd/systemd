@@ -88,6 +88,11 @@ struct Manager {
         unsigned route_remove_messages;
         Set *routes;
 
+        /* IPv6 Address Label */
+        Hashmap *address_labels_by_section;
+        unsigned static_address_label_messages;
+        bool static_address_labels_configured;
+
         /* Route table name */
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
