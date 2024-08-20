@@ -273,6 +273,7 @@ typedef struct Partition {
         bool dropped;
         bool factory_reset;
         int32_t priority;
+        bool prefer_esp;
 
         uint32_t weight, padding_weight;
 
@@ -361,6 +362,8 @@ typedef struct Context {
         int backing_fd;
 
         bool from_scratch;
+
+        Partition *suppressed_xbootldr;
 } Context;
 
 static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
@@ -518,6 +521,7 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+        p->prefer_esp = false;
 
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
@@ -553,6 +557,9 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
         assert(context->n_partitions > 0);
         context->n_partitions--;
+
+        if (context->suppressed_xbootldr == p)
+                context->suppressed_xbootldr = NULL;
 
         return partition_free(p);
 }
@@ -680,6 +687,10 @@ static bool context_drop_or_foreignize_one_priority(Context *context) {
 
                 partition_drop_or_foreignize(p);
 
+                /* If we drop the partition, we don't want to pull any settings from it into the ESP. */
+                if (p == context->suppressed_xbootldr)
+                        context->suppressed_xbootldr = NULL;
+
                 /* We ensure that all verity sibling partitions have the same priority, so it's safe
                  * to drop all siblings here as well. */
 
@@ -691,7 +702,7 @@ static bool context_drop_or_foreignize_one_priority(Context *context) {
 }
 
 static uint64_t partition_min_size(const Context *context, const Partition *p) {
-        uint64_t sz;
+        uint64_t sz, override_min;
 
         assert(context);
         assert(p);
@@ -733,11 +744,16 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                         sz = d;
         }
 
-        return MAX(round_up_size(p->size_min != UINT64_MAX ? p->size_min : DEFAULT_MIN_SIZE, context->grain_size), sz);
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                override_min = MAX(context->suppressed_xbootldr->size_min, p->size_min);
+        else
+                override_min = p->size_min;
+
+        return MAX(round_up_size(override_min != UINT64_MAX ? override_min : DEFAULT_MIN_SIZE, context->grain_size), sz);
 }
 
 static uint64_t partition_max_size(const Context *context, const Partition *p) {
-        uint64_t sm;
+        uint64_t sm, override_max;
 
         /* Calculate how large the partition may become at max. This is generally the configured maximum
          * size, except when it already exists and is larger than that. In that case it's the existing size,
@@ -755,10 +771,15 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
         if (p->verity == VERITY_SIG)
                 return VERITY_SIG_SIZE;
 
-        if (p->size_max == UINT64_MAX)
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                override_max = MIN(context->suppressed_xbootldr->size_max, p->size_max);
+        else
+                override_max = p->size_max;
+
+        if (override_max == UINT64_MAX)
                 return UINT64_MAX;
 
-        sm = round_down_size(p->size_max, context->grain_size);
+        sm = round_down_size(override_max, context->grain_size);
 
         if (p->current_size != UINT64_MAX)
                 sm = MAX(p->current_size, sm);
@@ -766,13 +787,27 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
         return MAX(partition_min_size(context, p), sm);
 }
 
-static uint64_t partition_min_padding(const Partition *p) {
+static uint64_t partition_min_padding(const Context *context, const Partition *p) {
+        uint64_t override_min;
+
+        assert(context);
         assert(p);
-        return p->padding_min != UINT64_MAX ? p->padding_min : 0;
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                override_min = MAX(context->suppressed_xbootldr->padding_min, p->padding_min);
+        else
+                override_min = p->padding_min;
+
+        return override_min != UINT64_MAX ? override_min : 0;
 }
 
-static uint64_t partition_max_padding(const Partition *p) {
+static uint64_t partition_max_padding(const Context *context, const Partition *p) {
+        assert(context);
         assert(p);
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                return MIN(context->suppressed_xbootldr->padding_max, p->padding_max);
+
         return p->padding_max;
 }
 
@@ -786,7 +821,7 @@ static uint64_t partition_min_size_with_padding(Context *context, const Partitio
         assert(context);
         assert(p);
 
-        sz = partition_min_size(context, p) + partition_min_padding(p);
+        sz = partition_min_size(context, p) + partition_min_padding(context, p);
 
         if (PARTITION_EXISTS(p)) {
                 /* If the partition wasn't aligned, add extra space so that any we might add will be aligned */
@@ -897,6 +932,10 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                 if (p->dropped || PARTITION_EXISTS(p))
                         continue;
 
+                /* Skip the XBOOTLDR partition if it's suppressed */
+                if (p == context->suppressed_xbootldr)
+                        continue;
+
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(context, p);
                 assert(required % context->grain_size == 0);
@@ -923,6 +962,27 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
         return true;
 }
 
+static uint32_t partition_weight(const Context *context, const Partition *p) {
+        assert(context);
+        assert(p);
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                p = context->suppressed_xbootldr;
+
+        return p->weight;
+}
+
+static uint32_t partition_padding_weight(const Context *context, const Partition *p) {
+        assert(context);
+        assert(p);
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                p = context->suppressed_xbootldr;
+
+        return p->padding_weight;
+}
+
+
 static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
         uint64_t weight_sum = 0;
 
@@ -936,13 +996,11 @@ static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
                 if (p->padding_area != a && p->allocated_to_area != a)
                         continue;
 
-                if (p->weight > UINT64_MAX - weight_sum)
+                if (!INC_SAFE(weight_sum, partition_weight(context, p)))
                         goto overflow_sum;
-                weight_sum += p->weight;
 
-                if (p->padding_weight > UINT64_MAX - weight_sum)
+                if (!INC_SAFE(weight_sum, partition_padding_weight(context, p)))
                         goto overflow_sum;
-                weight_sum += p->padding_weight;
         }
 
         *ret = weight_sum;
@@ -1007,7 +1065,6 @@ static bool context_grow_partitions_phase(
          * get any additional room from the left-overs. Similar, if two partitions have the same weight they
          * should get the same space if possible, even if one has a smaller minimum size than the other. */
         LIST_FOREACH(partitions, p, context->partitions) {
-
                 /* Look only at partitions associated with this free area, i.e. immediately
                  * preceding it, or allocated into it */
                 if (p->allocated_to_area != a && p->padding_area != a)
@@ -1015,11 +1072,14 @@ static bool context_grow_partitions_phase(
 
                 if (p->new_size == UINT64_MAX) {
                         uint64_t share, rsz, xsz;
+                        uint32_t weight;
                         bool charge = false;
+
+                        weight = partition_weight(context, p);
 
                         /* Calculate how much this space this partition needs if everyone would get
                          * the weight based share */
-                        share = scale_by_weight(*span, p->weight, *weight_sum);
+                        share = scale_by_weight(*span, weight, *weight_sum);
 
                         rsz = partition_min_size(context, p);
                         xsz = partition_max_size(context, p);
@@ -1059,18 +1119,21 @@ static bool context_grow_partitions_phase(
 
                         if (charge) {
                                 *span = charge_size(context, *span, p->new_size);
-                                *weight_sum = charge_weight(*weight_sum, p->weight);
+                                *weight_sum = charge_weight(*weight_sum, weight);
                         }
                 }
 
                 if (p->new_padding == UINT64_MAX) {
                         uint64_t share, rsz, xsz;
+                        uint32_t padding_weight;
                         bool charge = false;
 
-                        share = scale_by_weight(*span, p->padding_weight, *weight_sum);
+                        padding_weight = partition_padding_weight(context, p);
 
-                        rsz = partition_min_padding(p);
-                        xsz = partition_max_padding(p);
+                        share = scale_by_weight(*span, padding_weight, *weight_sum);
+
+                        rsz = partition_min_padding(context, p);
+                        xsz = partition_max_padding(context, p);
 
                         if (phase == PHASE_OVERCHARGE && rsz > share) {
                                 p->new_padding = rsz;
@@ -1086,7 +1149,7 @@ static bool context_grow_partitions_phase(
 
                         if (charge) {
                                 *span = charge_size(context, *span, p->new_padding);
-                                *weight_sum = charge_weight(*weight_sum, p->padding_weight);
+                                *weight_sum = charge_weight(*weight_sum, padding_weight);
                         }
                 }
         }
@@ -1962,6 +2025,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0, &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0, p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0, p                           },
+                { "partition", "PreferESP",                config_parse_bool,              0, &p->prefer_esp              },
                 {}
         };
         int r;
@@ -2095,6 +2159,16 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (p->default_subvolume && !path_strv_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "DefaultSubvolume= must be one of the paths in Subvolumes=.");
+
+        if (p->prefer_esp) {
+                if (p->type.designator != PARTITION_XBOOTLDR)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "PreferESP= requires Type=xbootldr.");
+                if (p->copy_blocks_path || p->copy_blocks_auto || !strv_isempty(p->subvolumes) ||
+                    p->encrypt != ENCRYPT_OFF || p->verity != VERITY_OFF)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "PreferESP= cannot be combined with CopyBlocks=/Subvolumes=/Encrypt=/Verity=");
+        }
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((IN_SET(p->type.designator,
@@ -2398,6 +2472,18 @@ static int context_copy_from(Context *context) {
         return 0;
 }
 
+static bool check_cross_def_ranges_valid(uint64_t a_min, uint64_t a_max, uint64_t b_min, uint64_t b_max) {
+        uint64_t min, max;
+
+        if (a_min == UINT64_MAX && b_min == UINT64_MAX)
+                return true;
+
+        if (a_max == UINT64_MAX && b_max == UINT64_MAX)
+                return true;
+
+        return MAX(a_min != UINT64_MAX ? a_min : 0, b_min != UINT64_MAX ? b_min : 0) <= MIN(a_max, b_max);
+}
+
 static int context_read_definitions(Context *context) {
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = LIST_FIND_TAIL(partitions, context->partitions);
@@ -2493,7 +2579,7 @@ static int context_read_definitions(Context *context) {
         }
 
         /* Make sure we won't end up with more than one ESP or XBOOTLDR partition (which could break the
-         * bootloader) */
+         * bootloader). Also set up for PreferESP. */
 
         Partition *esp = NULL, *xbootldr = NULL;
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -2521,6 +2607,37 @@ static int context_read_definitions(Context *context) {
 
         if (esp->priority > 0)
                 log_warning("ESP definition has a priority set, which might create un-bootable installs.");
+
+
+        if (xbootldr && xbootldr->prefer_esp) {
+                if (!esp)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s sets PreferESP=true, but no definition for the ESP was found.",
+                                               xbootldr->definition_path);
+
+                if (esp->copy_blocks_path || esp->copy_blocks_auto || !strv_isempty(esp->subvolumes) ||
+                    esp->encrypt != ENCRYPT_OFF || esp->verity != VERITY_OFF)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s sets PreferESP=true, but %s uses CopyBlocks=/Subvolumes=/Encrypt=/Verity=.",
+                                               xbootldr->definition_path, esp->definition_path);
+
+                if (!check_cross_def_ranges_valid(esp->size_min, esp->size_max,
+                                                  xbootldr->size_min, xbootldr->size_max))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "SizeMinBytes= larger then SizeMaxBytes= between ESP and XBOOTLDR.");
+
+                if (!check_cross_def_ranges_valid(esp->padding_min, esp->padding_max,
+                                                  xbootldr->padding_min, xbootldr->padding_max))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PaddingMinBytes= larger then PaddingMaxBytes= between ESP and XBOOTLDR.");
+
+                if (!streq(xbootldr->format, esp->format))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Format= in %s must match %s, because PreferESP=true.",
+                                               xbootldr->definition_path, esp->definition_path);
+
+                context->suppressed_xbootldr = xbootldr;
+        }
 
         return 0;
 }
@@ -2903,6 +3020,11 @@ static int context_load_partition_table(Context *context) {
                 }
         }
 
+        if (context->suppressed_xbootldr && PARTITION_EXISTS(context->suppressed_xbootldr)) {
+                log_info("Cannot use ESP as $BOOT because XBOOTLDR partition already exists on disk.");
+                context->suppressed_xbootldr = NULL;
+        }
+
 add_initial_free_area:
         nsectors = fdisk_get_nsectors(c);
         assert(nsectors <= UINT64_MAX/secsz);
@@ -2958,6 +3080,8 @@ add_initial_free_area:
 }
 
 static void context_unload_partition_table(Context *context) {
+        Partition *xbootldr = NULL;
+
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -2994,7 +3118,16 @@ static void context_unload_partition_table(Context *context) {
 
                 p->current_uuid = SD_ID128_NULL;
                 p->current_label = mfree(p->current_label);
+
+                if (p->type.designator == PARTITION_DESIGNATOR_XBOOTLDR)
+                        xbootldr = p;
         }
+
+        /* The XBOOTLDR partition (w/ PreferESP=true) is only ever un-suppressed if the existing partition
+         * table prevented us from suppressing it. So when unloading this partition table, we should ensure
+         * that the XBOOTLDR partition is suppressed again. */
+        if (xbootldr && xbootldr->prefer_esp)
+                context->suppressed_xbootldr = xbootldr;
 
         context->start = UINT64_MAX;
         context->end = UINT64_MAX;
@@ -4777,6 +4910,30 @@ static int make_copy_files_denylist(
                         return r;
         }
 
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr) {
+                STRV_FOREACH(e, context->suppressed_xbootldr->exclude_files_source) {
+                        r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                        if (r < 0)
+                                return r;
+                }
+
+                STRV_FOREACH(e, context->suppressed_xbootldr->exclude_files_target) {
+                        _cleanup_free_ char *path = NULL;
+
+                        const char *s = path_startswith(*e, target);
+                        if (!s)
+                                continue;
+
+                        path = path_join(source, s);
+                        if (!path)
+                                return log_oom();
+
+                        r = add_exclude_path(path, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         /* If we're populating a root partition, we don't want any files to end up under the APIVFS mount
          * points. While we already exclude <source>/proc, users could still do something such as
          * "CopyFiles=/abc:/". Now, if /abc has a proc subdirectory with files in it, those will end up in
@@ -4911,16 +5068,42 @@ static usec_t epoch_or_infinity(void) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
+        _cleanup_free_ char **copy_files_override = NULL;
+        char **copy_files;
         int r;
 
         assert(p);
         assert(root);
 
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr) {
+                char **iter = NULL;
+
+                copy_files_override = new(char*, strv_length(p->copy_files) +
+                                          strv_length(context->suppressed_xbootldr->copy_files) + 1);
+                if (!copy_files_override)
+                        return log_oom();
+
+                iter = copy_files_override;
+                STRV_FOREACH(i, p->copy_files) {
+                        *iter = *i;
+                        iter++;
+                }
+                STRV_FOREACH(i, context->suppressed_xbootldr->copy_files) {
+                        *iter = *i;
+                        iter++;
+                }
+                *iter = NULL;
+
+                copy_files = copy_files_override;
+        } else {
+                copy_files = p->copy_files;
+        }
+
         /* copy_tree_at() automatically copies the permissions of source directories to target directories if
          * it created them. However, the root directory is created by us, so we have to manually take care
          * that it is initialized. We use the first source directory targeting "/" as the metadata source for
          * the root directory. */
-        STRV_FOREACH_PAIR(source, target, p->copy_files) {
+        STRV_FOREACH_PAIR(source, target, copy_files) {
                 _cleanup_close_ int rfd = -EBADF, sfd = -EBADF;
 
                 if (!path_equal(*target, "/"))
@@ -4941,7 +5124,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 break;
         }
 
-        STRV_FOREACH_PAIR(source, target, p->copy_files) {
+        STRV_FOREACH_PAIR(source, target, copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
@@ -5057,7 +5240,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *root) {
+static int do_make_directories(const Context *context, Partition *p, const char *root) {
         int r;
 
         assert(p);
@@ -5068,6 +5251,13 @@ static int do_make_directories(Partition *p, const char *root) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                STRV_FOREACH(d, context->suppressed_xbootldr->make_directories) {
+                        r = mkdir_p_root_full(root, *d, UID_INVALID, GID_INVALID, 0755, epoch_or_infinity(), NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
+                }
 
         return 0;
 }
@@ -5093,8 +5283,15 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
-static bool partition_needs_populate(Partition *p) {
+static bool partition_needs_populate(const Context *context, Partition *p) {
+        assert(context);
         assert(p);
+
+        if (p->type.designator == PARTITION_ESP && context->suppressed_xbootldr)
+                if (!strv_isempty(context->suppressed_xbootldr->copy_files) ||
+                    !strv_isempty(context->suppressed_xbootldr->make_directories))
+                        return true;
+
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
@@ -8399,6 +8596,22 @@ static int run(int argc, char *argv[]) {
                 if (context_allocate_partitions(context, &largest_free_area))
                         break; /* Success! */
 
+                if (context->suppressed_xbootldr) {
+                        Partition *xbootldr;
+
+                        /* We couldn't fit the partitions with XBOOTLDR suppressed. ESP too small to be used
+                         * instead of XBOOTLDR? Let's try again with the XBOOTLDR partition re-enabled. */
+                        xbootldr = TAKE_PTR(context->suppressed_xbootldr);
+
+                        if (context_allocate_partitions(context, NULL /* already calc'd */)) {
+                                log_info("Failed to allocate partitions with ESP as $BOOT, creating XBOOTLDR.");
+                                break;
+                        }
+
+                        /* Nope, failed for other reasons. Let's re-suppress and move on. */
+                        context->suppressed_xbootldr = xbootldr;
+                }
+
                 if (!context_drop_or_foreignize_one_priority(context)) {
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                             "Can't fit requested partitions into available free space (%s), refusing.",
@@ -8406,6 +8619,11 @@ static int run(int argc, char *argv[]) {
                         determine_auto_size(context);
                         return r;
                 }
+        }
+        if (context->suppressed_xbootldr) {
+                log_info("Using ESP as $BOOT, dropping XBOOTLDR.");
+                assert(!context->suppressed_xbootldr->allocated_to_area);
+                context->suppressed_xbootldr->dropped = true;
         }
 
         /* Now assign free space according to the weight logic */

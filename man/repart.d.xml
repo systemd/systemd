@@ -787,6 +787,36 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>PreferESP=</varname></term>
+
+        <listitem><para>Only permitted if <varname>Type=</varname> is <constant>xbootldr</constant> and a
+        definition exists for the EFI System Partition.
+        Takes a boolean. Defaults to off.
+        If enabled, <command>systemd-repart</command> will try to avoid this partition, and will instead
+        prefer to use the ESP as <variable>$BOOT</variable> (as defined in the
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        Specification</ulink>) if possible.
+        Ultimately, the behavior depends on the existing situation of the disk: if an
+        <constant>xbootldr</constant> partition already exists, or if it isn't possible to make an ESP that's
+        big enough, then <variable>$BOOT</variable> must be an <constant>xbootldr</constant> partition and so
+        this definition will be used as-written.
+        Otherwise, it's possible to use the ESP as <variable>$BOOT</variable>.
+        To achieve that, some of the fields set on this definition will be merged into the ESP's definition,
+        then this definition will be suppressed.
+        The following fields will be merged: <varname>Weight=</varname> (overwritten),
+        <varname>PaddingWeight=</varname> (overwritten), <varname>SizeMinBytes=</varname> (bigger value used),
+        <varname>SizeMaxBytes=</varname> (smaller value used), <varname>PaddingMinBytes=</varname> (bigger),
+        <varname>PaddingMaxBytes=</varname> (smaller), <varname>CopyFiles=</varname> (appended),
+        <varname>ExcludeFiles=</varname> (appended), <varname>ExcludeFilesTarget=</varname> (appended), and
+        <varname>MakeDirectories=</varname> (appended). This option is currently incompatible with
+        <varname>CopyBlocks=</varname>, <varname>Subvolumes=</varname>, <varname>Encrypt=</varname>, or
+        <varname>Verity=</varname> being set on either this definition or the
+        definition of the ESP. <varname>Format=</varname> must match between the two definitions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
