@@ -1463,16 +1463,25 @@ typedef struct ReconfigureData {
         sd_bus_message *message;
 } ReconfigureData;
 
+static ReconfigureData* reconfigure_data_free(ReconfigureData *data) {
+        if (!data)
+                return NULL;
+
+        link_unref(data->link);
+        sd_bus_message_unref(data->message);
+
+        return mfree(data);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ReconfigureData*, reconfigure_data_free);
+
 static void reconfigure_data_destroy_callback(ReconfigureData *data) {
         int r;
 
         assert(data);
-        assert(data->link);
         assert(data->manager);
         assert(data->manager->reloading > 0);
         assert(data->message);
-
-        link_unref(data->link);
 
         data->manager->reloading--;
         if (data->manager->reloading <= 0) {
@@ -1481,8 +1490,7 @@ static void reconfigure_data_destroy_callback(ReconfigureData *data) {
                         log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
         }
 
-        sd_bus_message_unref(data->message);
-        free(data);
+        reconfigure_data_free(data);
 }
 
 static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
@@ -1493,7 +1501,7 @@ static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink
 
 int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_free_ ReconfigureData *data = NULL;
+        _cleanup_(reconfigure_data_freep) ReconfigureData *data = NULL;
         int r;
 
         assert(link);
@@ -1505,19 +1513,9 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0;
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
-        if (r < 0)
-                return r;
-
         data = new(ReconfigureData, 1);
         if (!data)
                 return -ENOMEM;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               reconfigure_handler_on_bus_method_reload,
-                               reconfigure_data_destroy_callback, data);
-        if (r < 0)
-                return r;
 
         *data = (ReconfigureData) {
                 .link = link_ref(link),
@@ -1525,9 +1523,19 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
                 .message = sd_bus_message_ref(message),
         };
 
-        link->manager->reloading++;
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                return r;
 
         TAKE_PTR(data);
+        link->manager->reloading++;
+
         return 0;
 }
 
