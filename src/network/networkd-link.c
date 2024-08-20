@@ -1454,6 +1454,9 @@ int link_reconfigure(Link *link, bool force) {
         if (r < 0)
                 return r;
 
+        if (force || link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
+
         return 1; /* 1 means the interface will be reconfigured. */
 }
 
@@ -1535,6 +1538,9 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
 
         TAKE_PTR(data);
         link->manager->reloading++;
+
+        if (link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
 
         return 0;
 }
