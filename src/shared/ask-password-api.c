@@ -988,14 +988,14 @@ int ask_password_auto(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) &&
             req && req->keyring &&
-            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
+            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty_safe(STDIN_FILENO)) &&
             FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT)) {
                 r = ask_password_keyring(req, flags, ret);
                 if (r != -ENOKEY)
                         return r;
         }
 
-        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO))
+        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
                 return ask_password_tty(-EBADF, req, until, flags, NULL, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
