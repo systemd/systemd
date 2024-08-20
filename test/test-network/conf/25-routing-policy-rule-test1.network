@@ -27,7 +27,23 @@ Priority=101
 Family=both
 
 [RoutingPolicyRule]
+Type=table
 IncomingInterface=test1
 From=0.0.0.0/8
 Table=10
 Priority=102
+
+[RoutingPolicyRule]
+Type=goto
+IncomingInterface=test1
+From=10.0.0.0/16
+Priority=103
+GoTo=111
+Table=11
+
+[RoutingPolicyRule]
+Type=nop
+IncomingInterface=test1
+From=10.1.0.0/16
+Priority=104
+Table=12

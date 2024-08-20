@@ -178,6 +178,7 @@ Neighbor.LinkLayerAddress,                   config_parse_neighbor_lladdr,      
 Neighbor.MACAddress,                         config_parse_neighbor_lladdr,                             0,                             0 /* deprecated */
 RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule_tos,                     0,                             0
 RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule_priority,                0,                             0
+RoutingPolicyRule.GoTo,                      config_parse_routing_policy_rule_goto,                    0,                             0
 RoutingPolicyRule.Table,                     config_parse_routing_policy_rule_table,                   0,                             0
 RoutingPolicyRule.FirewallMark,              config_parse_routing_policy_rule_fwmark_mask,             0,                             0
 RoutingPolicyRule.From,                      config_parse_routing_policy_rule_prefix,                  0,                             0

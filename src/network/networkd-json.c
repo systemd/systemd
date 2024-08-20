@@ -308,7 +308,7 @@ static int routing_policy_rule_append_json(RoutingPolicyRule *rule, sd_json_vari
                         SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
                         SD_JSON_BUILD_PAIR_UNSIGNED("TOS", rule->tos),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Type", rule->type),
-                        SD_JSON_BUILD_PAIR_STRING("TypeString", fr_act_type_full_to_string(rule->type)),
+                        SD_JSON_BUILD_PAIR_STRING("TypeString", fr_act_type_to_string(rule->type)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("IPProtocol", rule->ipproto),
                         SD_JSON_BUILD_PAIR_STRING("IPProtocolString", ip_protocol_to_name(rule->ipproto)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Priority", rule->priority),
