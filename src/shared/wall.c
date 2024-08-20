@@ -32,7 +32,7 @@ static int write_to_terminal(const char *tty, const char *message) {
                 return -errno;
 
         if (!isatty_safe(fd))
-                return -errno;
+                return -ENOTTY;
 
         return loop_write_full(fd, message, SIZE_MAX, TIMEOUT_USEC);
 }

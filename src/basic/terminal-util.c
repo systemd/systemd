@@ -287,7 +287,7 @@ int open_terminal(const char *name, int mode) {
         }
 
         if (!isatty_safe(fd))
-                return negative_errno();
+                return -ENOTTY;
 
         return TAKE_FD(fd);
 }
@@ -1508,7 +1508,7 @@ int vt_restore(int fd) {
         assert(fd >= 0);
 
         if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTTY), "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT to text mode, ignoring: %m"));
@@ -1535,7 +1535,7 @@ int vt_release(int fd, bool restore) {
          * VT-switching modes. */
 
         if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTTY), "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;
