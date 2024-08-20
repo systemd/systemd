@@ -2391,7 +2391,7 @@ int table_print(Table *t, FILE *f) {
                 if (t->width != 0 && t->width != SIZE_MAX)
                         table_effective_width = t->width;
                 else if (t->width == 0 ||
-                         ((pass > 0 || !any_soft) && (pager_have() || !isatty(STDOUT_FILENO))))
+                         ((pass > 0 || !any_soft) && (pager_have() || !isatty_safe(STDOUT_FILENO))))
                         table_effective_width = table_requested_width;
                 else
                         table_effective_width = MIN(table_requested_width, columns());

@@ -555,8 +555,8 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
 
         /* In the child: */
 
-        stdout_is_tty = isatty(STDOUT_FILENO);
-        stderr_is_tty = isatty(STDERR_FILENO);
+        stdout_is_tty = isatty_safe(STDOUT_FILENO);
+        stderr_is_tty = isatty_safe(STDERR_FILENO);
 
         if (!stdout_is_tty || !stderr_is_tty) {
                 int fd;
