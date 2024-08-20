@@ -149,7 +149,7 @@ def main():
         '--runtime-scratch=no',
         *args.mkosi_args,
         '--qemu-firmware', args.firmware,
-        '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
+        *(['--qemu-kvm', 'no'] if int(os.getenv("TEST_NO_KVM", "0")) else []),
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
