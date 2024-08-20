@@ -495,16 +495,7 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem>
-          <para>Do not query the user for authentication for privileged operations.</para>
-
-          <xi:include href="version-info.xml" xpointer="v257"/>
-        </listitem>
-      </varlistentry>
-
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="j" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
