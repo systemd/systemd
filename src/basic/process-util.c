@@ -2118,7 +2118,7 @@ int posix_spawn_wrapper(
         }
         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                 /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
-                if (cgroup && cg_is_threaded(cgroup) > 0)
+                if (FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
                         return -EUCLEAN;
 
                 /* clone3() not available? */
