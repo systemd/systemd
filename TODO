@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* look at nsresourced, mountfsd, homed, importd, and try to come up with a way
+  how the forked off worker processes can be moved into transient services with
+  sandboxing, without breaking notify socket stuff and so on.
+
 * replace all \x1b, \x1B, \033 C string escape sequences in our codebase with a
   more readable \e. It's a GNU extension, but a ton more readable than the
   others, and most importantly it doesn't result in confusing errors if you
