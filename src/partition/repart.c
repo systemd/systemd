@@ -2519,6 +2519,9 @@ static int context_read_definitions(Context *context) {
                 *dest = p;
         }
 
+        if (esp->priority > 0)
+                log_warning("ESP definition has a priority set, which might create un-bootable installs.");
+
         return 0;
 }
 
