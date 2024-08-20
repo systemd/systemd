@@ -465,6 +465,10 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (l->default_route != b) {
                 l->default_route = b;
 
+                DnsServer *server = l->manager->current_dns_server;
+                if (server && server->type == DNS_SERVER_FALLBACK)
+                        manager_set_dns_server(l->manager, NULL);
+
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
 
