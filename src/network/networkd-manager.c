@@ -619,10 +619,14 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
+        sysctl_remove_monitor(m);
+
         free(m->state_file);
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
+
+        hashmap_free(m->sysctl_shadow);
 
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
@@ -690,6 +694,7 @@ int manager_start(Manager *m) {
 
         assert(m);
 
+        sysctl_add_monitor(m);
         manager_set_sysctl(m);
 
         r = manager_start_speed_meter(m);
