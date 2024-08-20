@@ -7701,7 +7701,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        if (arg_pretty < 0 && isatty(STDOUT_FILENO))
+        if (arg_pretty < 0 && isatty_safe(STDOUT_FILENO))
                 arg_pretty = true;
 
         if (arg_architecture >= 0) {
