@@ -3240,13 +3240,49 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'112:	from 192.168.101.18 tos (0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
-    def test_routing_policy_rule(self):
+    def _test_routing_policy_rule(self, manage_foreign_routes):
+        if not manage_foreign_routes:
+            copy_networkd_conf_dropin('networkd-manage-foreign-rules-no.conf')
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev')
+
+        stop_networkd()
+
+        check_output('ip -4 rule add priority 20001 table 9999 from 10.10.0.0/16')
+        check_output('ip -6 rule add priority 20001 table 9999 from 2001:db8:0:1::/64')
+
         start_networkd()
         self.wait_online('test1:degraded')
 
         self.check_routing_policy_rule_test1()
         check_json(networkctl_json())
+
+        output = check_output('ip -4 rule list priority 20001 table 9999 from 10.10.0.0/16')
+        print(output)
+        if manage_foreign_routes:
+            self.assertEqual(output, '')
+        else:
+            self.assertIn(output, '20001:	from 10.10.0.0/16 lookup 9999')
+            check_output('ip -4 rule del priority 20001 table 9999 from 10.10.0.0/16')
+
+        output = check_output('ip -6 rule list priority 20001 table 9999 from 2001:db8:0:1::/64')
+        print(output)
+        if manage_foreign_routes:
+            self.assertEqual(output, '')
+        else:
+            self.assertIn(output, '20001:	from 2001:db8:0:1::/64 lookup 9999')
+            check_output('ip -6 rule del priority 20001 table 9999 from 2001:db8:0:1::/64')
+
+    def test_routing_policy_rule(self):
+        first = True
+        for manage_foreign_routes in [True, False]:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_routing_policy_rule(manage_foreign_routes={manage_foreign_routes})')
+            with self.subTest(manage_foreign_routes=manage_foreign_routes):
+                self._test_routing_policy_rule(manage_foreign_routes)
 
     def test_routing_policy_rule_issue_11280(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev',
