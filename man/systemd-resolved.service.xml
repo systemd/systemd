@@ -217,13 +217,11 @@
 
       <listitem><para>If a query does not match any configured routing domain (either per-link or global), it
       is sent to all DNS servers that are configured on links with the <varname>DefaultRoute=</varname>
-      option set.</para></listitem>
+      option set, as well as the globally configured DNS server.</para></listitem>
 
-      <listitem><para>If no links are configured with <varname>DefaultRoute=</varname>, it is sent to the
-      globally configured DNS server.</para></listitem>
-
-      <listitem><para>If there is no link configured as <varname>DefaultRoute=</varname> and no global DNS
-      server configured, one of the compiled-in fallback DNS servers is used.</para></listitem>
+      <listitem><para>If there are no DNS servers configured on any link also configured as
+      <varname>DefaultRoute=</varname> and no global DNS server configured, one of the compiled-in fallback
+      DNS servers is used.</para></listitem>
 
       <listitem><para>Otherwise the unicast DNS query fails, as no suitable DNS servers can be determined.
       </para></listitem>
