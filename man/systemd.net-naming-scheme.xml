@@ -135,12 +135,10 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>prefix</replaceable> <replaceable>label</replaceable></term>
+          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>label</replaceable></term>
 
           <listitem><para>This property is set based on textual label given by the firmware for on-board
-          devices. The name consists of the prefix concatenated with the label. This is only available for
-          PCI devices.
-          </para>
+          devices. This is only available for PCI devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
