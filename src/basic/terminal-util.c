@@ -65,6 +65,12 @@ bool isatty_safe(int fd) {
         if (isatty(fd))
                 return true;
 
+        /* Linux/glibc returns EIO for hung up TTY on isatty(). Which is wrong, the thing doesn't stop being
+         * a TTY after all, just because it is temporarily hung up. Let's work around this here, until this
+         * is fixed in glibc. See: https://sourceware.org/bugzilla/show_bug.cgi?id=32103 */
+        if (errno == EIO)
+                return true;
+
         /* Be resilient if we're working on stdio, since they're set up by parent process. */
         assert(errno != EBADF || IN_SET(fd, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO));
 
