@@ -718,7 +718,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_DISCOVER, ACTION_VALIDATE) && geteuid() != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 
-        SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty(STDIN_FILENO));
+        SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
 
         return 1;
 }
@@ -1639,7 +1639,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                         r = sym_archive_write_open_FILE(a, f);
                 } else {
-                        if (isatty(STDOUT_FILENO))
+                        if (isatty_safe(STDOUT_FILENO))
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
 
                         r = sym_archive_write_open_fd(a, STDOUT_FILENO);
@@ -1999,12 +1999,12 @@ static int action_validate(void) {
         if (r < 0)
                 return r;
 
-        if (isatty(STDOUT_FILENO) && emoji_enabled())
+        if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
                 printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
 
         printf("%sOK%s", ansi_highlight_green(), ansi_normal());
 
-        if (isatty(STDOUT_FILENO) && emoji_enabled())
+        if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
                 printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
 
         putc('\n', stdout);

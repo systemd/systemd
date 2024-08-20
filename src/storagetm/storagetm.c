@@ -1065,7 +1065,7 @@ static int on_display_refresh(sd_event_source *s, uint64_t usec, void *userdata)
 
         c->display_refresh_scheduled = false;
 
-        if (isatty(STDERR_FILENO))
+        if (isatty_safe(STDERR_FILENO))
                 fputs(ANSI_HOME_CLEAR, stderr);
 
         /* If we have both IPv4 and IPv6, we display IPv4 info via Plymouth, since it doesn't have much
@@ -1247,7 +1247,7 @@ static int run(int argc, char* argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR events: %m");
 
-        if (isatty(STDIN_FILENO))
+        if (isatty_safe(STDIN_FILENO))
                 log_info("Hit Ctrl-C to exit target mode.");
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =

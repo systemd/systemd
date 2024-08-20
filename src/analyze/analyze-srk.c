@@ -33,7 +33,7 @@ int verb_srk(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to marshal SRK: %m");
 
-        if (isatty(STDOUT_FILENO))
+        if (isatty_safe(STDOUT_FILENO))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Refusing to write binary data to TTY, please redirect output to file.");
 

@@ -8,6 +8,7 @@
 #include "exec-util.h"
 #include "log.h"
 #include "process-util.h"
+#include "terminal-util.h"
 
 static pid_t agent_pid = 0;
 
@@ -17,9 +18,8 @@ int ask_password_agent_open(void) {
         if (agent_pid > 0)
                 return 0;
 
-        /* We check STDIN here, not STDOUT, since this is about input,
-         * not output */
-        if (!isatty(STDIN_FILENO))
+        /* We check STDIN here, not STDOUT, since this is about input, not output */
+        if (!isatty_safe(STDIN_FILENO))
                 return 0;
 
         if (!is_main_thread())
