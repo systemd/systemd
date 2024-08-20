@@ -319,7 +319,7 @@ static int link_update_default_route(Link *l) {
         if (r < 0)
                 goto clear;
 
-        l->default_route = r > 0;
+        link_set_default_route(l, r > 0);
         return 0;
 
 clear:
