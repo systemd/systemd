@@ -354,7 +354,7 @@ static int setup_input(
                         return -errno;
 
                 /* Try to make this the controlling tty, if it is a tty */
-                if (isatty(STDIN_FILENO))
+                if (isatty_safe(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
 
                 return STDIN_FILENO;
