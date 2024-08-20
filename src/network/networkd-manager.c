@@ -87,13 +87,8 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 
         log_debug("Coming back from suspend, reconfiguring all connections...");
 
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_reconfigure(link, /* force = */ true);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                        link_enter_failed(link);
-                }
-        }
+        HASHMAP_FOREACH(link, m->links_by_index)
+                (void) link_reconfigure(link, /* force = */ true);
 
         return 0;
 }
@@ -1143,13 +1138,9 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         HASHMAP_FOREACH(link, m->links_by_index) {
                 if (message)
-                        r = link_reconfigure_on_bus_method_reload(link, message);
+                        (void) link_reconfigure_on_bus_method_reload(link, message);
                 else
-                        r = link_reconfigure(link, /* force = */ false);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to reconfigure the interface: %m");
-                        link_enter_failed(link);
-                }
+                        (void) link_reconfigure(link, /* force = */ false);
         }
 
         r = 0;

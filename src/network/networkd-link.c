@@ -427,8 +427,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 }
 
 void link_enter_failed(Link *link) {
-        int r;
-
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -444,13 +442,8 @@ void link_enter_failed(Link *link) {
         }
 
         log_link_info(link, "Trying to reconfigure the interface.");
-        r = link_reconfigure(link, /* force = */ true);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                goto stop;
-        }
-
-        return;
+        if (link_reconfigure(link, /* force = */ true) > 0)
+                return;
 
 stop:
         (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
@@ -1451,8 +1444,11 @@ int link_reconfigure(Link *link, bool force) {
                 return 0; /* 0 means no-op. */
 
         r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
-        if (r < 0)
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                link_enter_failed(link);
                 return r;
+        }
 
         if (force || link->state == LINK_STATE_FAILED)
                 link_set_state(link, LINK_STATE_INITIALIZED);
@@ -1517,8 +1513,10 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
                 return 0;
 
         data = new(ReconfigureData, 1);
-        if (!data)
-                return -ENOMEM;
+        if (!data) {
+                r = -ENOMEM;
+                goto failed;
+        }
 
         *data = (ReconfigureData) {
                 .link = link_ref(link),
@@ -1528,13 +1526,13 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
         if (r < 0)
-                return r;
+                goto failed;
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                reconfigure_handler_on_bus_method_reload,
                                reconfigure_data_destroy_callback, data);
         if (r < 0)
-                return r;
+                goto failed;
 
         TAKE_PTR(data);
         link->manager->reloading++;
@@ -1543,6 +1541,11 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
                 link_set_state(link, LINK_STATE_INITIALIZED);
 
         return 0;
+
+failed:
+        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+        link_enter_failed(link);
+        return r;
 }
 
 static int link_initialized_and_synced(Link *link) {
