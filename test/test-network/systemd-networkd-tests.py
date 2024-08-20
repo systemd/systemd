@@ -3729,12 +3729,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_ipv6_address_label(self):
         copy_network_unit('25-ipv6-address-label-section.network', '12-dummy.netdev')
+        copy_networkd_conf_dropin('networkd-address-label.conf')
         start_networkd()
         self.wait_online('dummy98:degraded')
 
         output = check_output('ip addrlabel list')
         print(output)
-        self.assertRegex(output, '2004:da8:1::/64')
+        self.assertRegex(output, '2004:da8:1::/64 dev dummy98 label 4444')
+        self.assertRegex(output, '2004:da8:2::/64 label 5555')
 
     def test_ipv6_proxy_ndp(self):
         copy_network_unit('25-ipv6-proxy-ndp.network', '12-dummy.netdev')
