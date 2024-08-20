@@ -1401,7 +1401,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
                 "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
         int r;
 
-        if (isatty(STDOUT_FILENO))
+        if (isatty_safe(STDOUT_FILENO))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
