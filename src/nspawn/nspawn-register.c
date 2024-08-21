@@ -15,6 +15,7 @@
 
 static int append_machine_properties(
                 sd_bus_message *m,
+                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -47,6 +48,16 @@ static int append_machine_properties(
                                   "char-pts", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
+        if (enable_fuse) {
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
+                                          /* Allow the container to
+                                           * use FUSE, if
+                                           * copy_devnodes() included
+                                           * it. */
+                                          "/dev/fuse", "rw");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         for (j = 0; j < n_mounts; j++) {
                 CustomMount *cm = mounts + j;
@@ -207,6 +218,7 @@ int register_machine(
 
                 r = append_machine_properties(
                                 m,
+                                FLAGS_SET(flags, REGISTER_MACHINE_ENABLE_FUSE),
                                 mounts,
                                 n_mounts,
                                 kill_signal,
@@ -327,6 +339,7 @@ int allocate_scope(
 
         r = append_machine_properties(
                         m,
+                        FLAGS_SET(flags, ALLOCATE_SCOPE_ENABLE_FUSE),
                         mounts,
                         n_mounts,
                         kill_signal,
