@@ -163,7 +163,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func,
                                       Job, job_free);
 
-static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb,  Job **ret) {
+static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb, Job **ret) {
         _cleanup_(job_freep) Job *j = NULL;
         int r;
 
@@ -844,8 +844,8 @@ static int target_method_list_finish(
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
-        int r;
         uint64_t flags;
+        int r;
 
         assert(msg);
 
@@ -906,8 +906,8 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
         const char *version;
-        int r;
         uint64_t flags;
+        int r;
 
         assert(msg);
 
