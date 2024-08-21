@@ -909,7 +909,7 @@ DnsServer *manager_get_dns_server(Manager *m) {
                  * servers */
 
                 HASHMAP_FOREACH(l, m->links)
-                        if (l->dns_servers) {
+                        if (l->dns_servers && l->default_route) {
                                 found = true;
                                 break;
                         }
