@@ -2260,15 +2260,13 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "DECLINE");
 
-        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+        /* This function is mostly called when the acquired address conflicts with another host.
+         * Restarting the daemon to acquire another address. */
+        r = client_restart(client);
+        if (r < 0)
+                return r;
 
-        if (client->state != DHCP_STATE_STOPPED) {
-                r = sd_dhcp_client_start(client);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return 1; /* sent and restarted. */
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
