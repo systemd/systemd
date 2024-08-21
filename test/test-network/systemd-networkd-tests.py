@@ -3074,9 +3074,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-    def test_routing_policy_rule_issue_11280(self):
+    def test_routing_policy_rule_restart_and_reconfigure(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev',
                           '25-routing-policy-rule-dummy98.network', '12-dummy.netdev')
+
+        # For #11280 and #34068.
 
         for trial in range(3):
             restart_networkd(show_logs=(trial > 0))
@@ -3089,6 +3091,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             output = check_output('ip rule list table 8')
             print(output)
             self.assertRegex(output, '112:	from 192.168.101.18 tos (0x08|throughput) iif dummy98 oif dummy98 lookup 8')
+
+            networkctl_reconfigure('test1')
+            self.wait_online('test1:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
+
+            networkctl_reconfigure('dummy98')
+            self.wait_online('dummy98:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
 
     def test_routing_policy_rule_reconfigure(self):
         copy_network_unit('25-routing-policy-rule-reconfigure2.network', '11-dummy.netdev')
