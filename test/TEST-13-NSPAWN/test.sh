@@ -20,6 +20,10 @@ test_append_files() {
     # for IPMasquerade=
     instmods "=net/netfilter"
     generate_module_dependencies
+    # For unprivileged mountfsd.
+    if command -v openssl >/dev/null 2>&1; then
+        inst_binary openssl
+    fi
 
     # Create a dummy container "template" with a minimal toolset, which we can
     # then use as a base for our nspawn/machinectl tests
