@@ -1112,4 +1112,75 @@ testcase_unpriv() {
     echo hello | cmp "$tmpdir/stdout.txt" -
 }
 
+testcase_fuse() {
+    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+        echo "FUSE is not supported, skipping the test..."
+        return 0
+    fi
+
+    # Assume that the tests are running on a kernel that is new enough for FUSE
+    # to have user-namespace support; and so we should expect that nspawn
+    # enables FUSE.  This test does not validate that the version check
+    # disables FUSE on old kernels.
+
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fuse.XXX)"
+    create_dummy_container "$root"
+
+    # To avoid adding any complex dependencies to the test, we simply check
+    # that /dev/fuse can be opened for reading and writing (O_RDWR), but that
+    # actually reading from it fails with EPERM.  This can be done with a
+    # simple Bash script: run `cat <>/dev/fuse` and if the EPERM error message
+    # comes from "bash" then we know it couldn't be opened, while if it comes
+    # from "cat" then we know that it was opened but not read.  If we are able
+    # to read from the file, then this indicates that it's not a real FUSE
+    # device (which requires us to mount a type="fuse" filesystem with the
+    # option string "fd=${num}" for /dev/fuse FD before reading from it will
+    # return anything other than EPERM); if this happens then most likely
+    # nspawn didn't create the file at all and Bash "<>" simply created a new
+    # normal file.
+    #
+    #    "cat: -: Operation not permitted"                   # pass the test; opened but not read
+    #    "bash: line 1: /dev/fuse: Operation not permitted"  # fail the test; could not open
+    #    ""                                                  # fail the test; reading worked
+    [[ "$(systemd-nspawn --pipe --directory="$root" \
+              bash -c 'cat <>/dev/fuse' 2>&1)" == 'cat: -: Operation not permitted' ]]
+
+    rm -fr "$root"
+}
+
+testcase_unpriv_fuse() {
+    # Same as above, but for unprivileged operation.
+
+    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+        echo "FUSE is not supported, skipping the test..."
+        return 0
+    fi
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping rootless test..."
+        return 0
+    fi
+
+    local tmpdir name
+    tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv-fuse.XXX)"
+    # $name must be such that len("ns-$(id -u testuser)-nspawn-${name}-65535")
+    # <= 31, or nsresourced will reject the request for a namespace.
+    # Therefore; len($name) <= 10 bytes.
+    name="ufuse-${tmpdir##*.}"
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    create_dummy_ddi "$tmpdir" "$name"
+    chown --recursive testuser: "$tmpdir"
+
+    [[ "$(systemd-run \
+              --pipe \
+              --uid=testuser \
+              --property=Delegate=yes \
+              --setenv=SYSTEMD_LOG_LEVEL \
+              --setenv=SYSTEMD_LOG_TARGET \
+              -- \
+              systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" \
+                  bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
+}
+
 run_testcases
