@@ -351,11 +351,13 @@ static bool routing_policy_rule_equal(const RoutingPolicyRule *a, const RoutingP
         return routing_policy_rule_compare_func_full(a, b, /* all = */ false) == 0;
 }
 
-static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, const RoutingPolicyRule *requesting, int family) {
+static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, const RoutingPolicyRule *requesting) {
         assert(existing);
+        assert(IN_SET(existing->family, AF_INET, AF_INET6));
         assert(requesting);
+        assert(IN_SET(requesting->family, AF_INET, AF_INET6) || requesting->address_family == ADDRESS_FAMILY_YES);
 
-        if (!routing_policy_rule_equal(existing, requesting, family, existing->priority))
+        if (!routing_policy_rule_equal(existing, requesting, existing->family, existing->priority))
                 return false;
 
         /* These flags cannot be updated. */
@@ -791,7 +793,7 @@ static void manager_unmark_routing_policy_rule(Manager *m, const RoutingPolicyRu
         if (routing_policy_rule_get(m, rule, family, &existing) < 0)
                 return;
 
-        if (!routing_policy_rule_can_update(existing, rule, rule->family))
+        if (!routing_policy_rule_can_update(existing, rule))
                 return;
 
         routing_policy_rule_unmark(existing);
