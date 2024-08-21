@@ -42,6 +42,9 @@ at_exit() {
 
     mountpoint -q /var/lib/machines && umount --recursive /var/lib/machines
     rm -f /run/systemd/nspawn/*.nspawn
+
+    rm -fr /var/tmp/TEST-13-NSPAWN.*
+    rm -f /run/verity.d/test-13-nspawn-*.crt
 }
 
 trap at_exit EXIT
@@ -1029,6 +1032,84 @@ EOF
     systemctl mask systemd-networkd.service
 
     rm -fr "$root"
+}
+
+can_do_rootless_nspawn() {
+    # Our create_dummy_ddi() uses squashfs and openssl.
+    command -v mksquashfs &&
+    command -v openssl &&
+
+    # mountfsd must be enabled...
+    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
+    # ...and have pidfd support for unprivileged operation.
+    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
+
+    # nsresourced must be enabled...
+    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
+    # ...and must support the UserNamespaceInterface.
+    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
+           /run/systemd/userdb/io.systemd.NamespaceResource \
+           io.systemd.NamespaceResource.AllocateUserRange \
+           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
+           2>&1 || true) |
+        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
+}
+
+create_dummy_ddi() {
+    local outdir="${1:?}"
+    local container_name="${2:?}"
+
+    cat >"$outdir"/openssl.conf <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req -config "$outdir"/openssl.conf -subj="/CN=waldo" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout "${outdir}/${container_name}.key" -out "${outdir}/${container_name}.crt"
+
+    mkdir -p /run/verity.d
+    cp "${outdir}/${container_name}.crt" "/run/verity.d/test-13-nspawn-${container_name}.crt"
+
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+        systemd-repart --make-ddi=portable \
+                       --copy-source=/usr/share/TEST-13-NSPAWN-container-template \
+                       --certificate="${outdir}/${container_name}.crt" \
+                       --private-key="${outdir}/${container_name}.key" \
+                       "${outdir}/${container_name}.raw"
+}
+
+testcase_unpriv() {
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping rootless test..."
+        return 0
+    fi
+
+    local tmpdir name
+    tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
+    name="unpriv-${tmpdir##*.}"
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    create_dummy_ddi "$tmpdir" "$name"
+    chown --recursive testuser: "$tmpdir"
+
+    systemd-run \
+        --pipe \
+        --uid=testuser \
+        --property=Delegate=yes \
+        -- \
+        systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
+    echo hello | cmp "$tmpdir/stdout.txt" -
 }
 
 run_testcases
