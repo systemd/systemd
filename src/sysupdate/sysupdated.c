@@ -163,7 +163,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func,
                                       Job, job_free);
 
-static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb,  Job **ret) {
+static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb, Job **ret) {
         _cleanup_(job_freep) Job *j = NULL;
         int r;
 
