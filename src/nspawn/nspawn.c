@@ -2147,18 +2147,20 @@ static int setup_boot_id(void) {
 }
 
 static int copy_devnodes(const char *dest) {
-        static const char devnodes[] =
-                "null\0"
-                "zero\0"
-                "full\0"
-                "random\0"
-                "urandom\0"
-                "tty\0"
-                "net/tun\0";
-
+        _cleanup_strv_free_ char **devnodes = NULL;
         int r = 0;
 
         assert(dest);
+
+        devnodes = strv_new("null",
+                            "zero",
+                            "full",
+                            "random",
+                            "urandom",
+                            "tty",
+                            "net/tun");
+        if (!devnodes)
+                return log_oom();
 
         BLOCK_WITH_UMASK(0000);
 
@@ -2166,11 +2168,11 @@ static int copy_devnodes(const char *dest) {
         if (userns_mkdir(dest, "/dev/net", 0755, 0, 0) < 0)
                 return log_error_errno(r, "Failed to create /dev/net directory: %m");
 
-        NULSTR_FOREACH(d, devnodes) {
+        STRV_FOREACH(d, devnodes) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
 
-                from = path_join("/dev/", d);
+                from = path_join("/dev/", *d);
                 if (!from)
                         return log_oom();
 
