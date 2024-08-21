@@ -111,20 +111,20 @@ static int dhcp4_address_on_conflict(Link *link) {
         assert(link);
         assert(link->dhcp_client);
 
+        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict was detected.");
+
         r = sd_dhcp_client_send_decline(link->dhcp_client);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to send DHCP DECLINE, ignoring: %m");
 
         if (!link->dhcp_lease)
-                /* Unlikely, but during probing the address, the lease may be lost. */
                 return 0;
 
-        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict was detected.");
         r = dhcp4_lease_lost(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to drop DHCPv4 lease: %m");
 
-        /* It is not necessary to call address_remove() here, as dhcp4_lease_lost() removes it. */
+        /* It is not necessary to call address_remove() here, as dhcp4_lease_lost() removes the address. */
         return 0;
 }
 
