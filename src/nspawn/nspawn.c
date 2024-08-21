@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <linux/fuse.h>
 #include <linux/loop.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -2162,6 +2163,57 @@ static int setup_boot_id(void) {
         return mount_nofollow_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
+static int get_fuse_version(uint32_t *major, uint32_t *minor) {
+        int r;
+        ssize_t n;
+        _cleanup_close_ int fd;
+        _cleanup_(umount_and_rmdir_and_freep) char *dir;
+        _cleanup_free_ char *opts = NULL;
+        union {
+                char unstructured[FUSE_MIN_READ_BUFFER];
+                struct {
+                        struct fuse_in_header header;
+                        /* Don't use <linux/fuse.h>:`struct fuse_init_in` because a newer fuse.h might give
+                         * us a bigger struct than what an older kernel actually gives us, and that would
+                         * break our short-read checks. */
+                        struct {
+                                uint32_t major;
+                                uint32_t minor;
+                        } body;
+                } structured;
+        } request;
+
+        /* Get a FUSE handle. */
+        fd = open("/dev/fuse", O_RDWR);
+        if (fd < 0)
+                return log_warning_errno(errno, "Disabling FUSE: Failed to open /dev/fuse: %m");
+        r = mkdtemp_malloc("/tmp/nspawn-fuse-XXXXXX", &dir);
+        if (r < 0)
+                return log_warning_errno(r, "Disabling FUSE: Failed to create temporary directory: %m");
+        if (asprintf(&opts, "fd=%i,rootmode=40000,user_id=0,group_id=0", fd) < 0)
+                return log_oom();
+        if (mount("nspawn-fuse", dir, "fuse.nspawn", 0, opts) < 0)
+                return log_warning_errno(r, "Disabling FUSE: Failed to mount test handle: %m");
+
+        /* Read a request from the FUSE handle. */
+        n = read(fd, &request.unstructured, sizeof request);
+        if (n < 0)
+                return log_warning_errno(errno, "Disabling FUSE: Failed to read /dev/fuse: %m");
+        if ((size_t) n < sizeof request.structured.header ||
+            (size_t) n < request.structured.header.len)
+                return log_warning_errno(-1, "Disabling FUSE: Failed to read /dev/fuse: Short read");
+
+        /* Assume that the request is a FUSE_INIT request, and return the version information from it. */
+        if (request.structured.header.opcode != FUSE_INIT)
+                return log_warning_errno(-1, "Disabling FUSE: Initial request from /dev/fuse should have opcode=%i (FUSE_INIT), but has opcode=%"PRIu32,
+                                   FUSE_INIT, request.structured.header.opcode);
+        if (request.structured.header.len < sizeof request.structured)
+                return log_warning_errno(-1, "Disabling FUSE: Initial FUSE_INIT request from /dev/fuse is too short");
+        *major = request.structured.body.major;
+        *minor = request.structured.body.minor;
+        return 0;
+}
+
 static int copy_devnodes(const char *dest) {
         static const char devnodes[] =
                 "null\0"
@@ -2170,6 +2222,7 @@ static int copy_devnodes(const char *dest) {
                 "random\0"
                 "urandom\0"
                 "tty\0"
+                "fuse\0"
                 "net/tun\0";
 
         int r = 0;
@@ -2185,6 +2238,21 @@ static int copy_devnodes(const char *dest) {
         NULSTR_FOREACH(d, devnodes) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
+
+                if (streq(d, "fuse")) {
+                        /* FUSE is only userns-safe in FUSE version 7.27 and later.
+                         * https://github.com/torvalds/linux/commit/da315f6e03988a7127680bbc26e1028991b899b8 */
+                        uint32_t major, minor;
+                        if (get_fuse_version(&major, &minor) < 0) {
+                                /* get_fuse_version() already logged a warning. */
+                                continue;
+                        }
+                        if (major < 7 || (major == 7 && minor < 27)) {
+                                log_warning("Disabling FUSE: FUSE version %" PRIu32 ".%" PRIu32 " is too old to support user namespaces",
+                                            major, minor);
+                                continue;
+                        }
+                }
 
                 from = path_join("/dev/", d);
                 if (!from)
