@@ -578,6 +578,8 @@ int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
 void exec_directory_sort(ExecDirectory *d);
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type);
 
+int exec_context_has_vpick_extensions(const ExecContext *context);
+
 ExecCleanMask exec_clean_mask_from_string(const char *s);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
