@@ -683,15 +683,21 @@ static int client_initialize(sd_dhcp_client *client) {
 
 static void client_stop(sd_dhcp_client *client, int error) {
         assert(client);
+        DHCP_CLIENT_DONT_DESTROY(client);
 
-        if (error < 0)
-                log_dhcp_client_errno(client, error, "STOPPED: %m");
-        else if (error == SD_DHCP_CLIENT_EVENT_STOP)
-                log_dhcp_client(client, "STOPPED");
-        else
-                log_dhcp_client(client, "STOPPED: Unknown event");
+        if (sd_dhcp_client_is_running(client)) {
+                if (error < 0)
+                        log_dhcp_client_errno(client, error, "STOPPED: %m");
+                else if (error == SD_DHCP_CLIENT_EVENT_STOP)
+                        log_dhcp_client(client, "STOPPED");
+                else
+                        log_dhcp_client(client, "STOPPED: Unknown event");
 
-        client_notify(client, error);
+                client_notify(client, error);
+        } else if (error < 0) {
+                log_dhcp_client_errno(client, error, "FAILED: %m");
+                client_notify(client, error);
+        }
 
         client_initialize(client);
 }
