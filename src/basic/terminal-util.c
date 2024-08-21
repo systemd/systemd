@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
