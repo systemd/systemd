@@ -289,14 +289,14 @@ static int hwdb_new(const char *path, sd_hwdb **ret) {
 
         hwdb->n_ref = 1;
 
-        /* Find hwdb.bin in the explicit path if provided, or iterate over hwdb_bin_paths otherwise  */
+        /* Find hwdb.bin in the explicit path if provided, or iterate over HWDB_BIN_PATHS otherwise  */
         if (!isempty(path)) {
                 log_debug("Trying to open \"%s\"...", path);
                 hwdb->f = fopen(path, "re");
                 if (!hwdb->f)
                         return log_debug_errno(errno, "Failed to open %s: %m", path);
         } else {
-                NULSTR_FOREACH(p, hwdb_bin_paths) {
+                NULSTR_FOREACH(p, HWDB_BIN_PATHS) {
                         log_debug("Trying to open \"%s\"...", p);
                         hwdb->f = fopen(p, "re");
                         if (hwdb->f) {
