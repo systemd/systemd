@@ -2185,6 +2185,13 @@ int proc_dir_read_pidref(DIR *d, PidRef *ret) {
                 if (r == 0)
                         break;
 
+                /* We might read kernel thread pids for which we cannot create a pidfd so catch those and
+                 * don't try to create a pidfd for them. */
+                if (pid_is_kernel_thread(pid) > 0) {
+                        *ret = PIDREF_MAKE_FROM_PID(pid);
+                        return 1;
+                }
+
                 r = pidref_set_pid(ret, pid);
                 if (r == -ESRCH) /* gone by now? skip it */
                         continue;
