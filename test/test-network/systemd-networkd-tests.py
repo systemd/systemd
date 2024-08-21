@@ -3288,13 +3288,27 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(manage_foreign_routes=manage_foreign_routes):
                 self._test_routing_policy_rule(manage_foreign_routes)
 
-    def test_routing_policy_rule_issue_11280(self):
+    def test_routing_policy_rule_restart_and_reconfigure(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev',
                           '25-routing-policy-rule-dummy98.network', '12-dummy.netdev')
+
+        # For #11280 and #34068.
 
         for trial in range(3):
             restart_networkd(show_logs=(trial > 0))
             self.wait_online('test1:degraded', 'dummy98:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
+
+            networkctl_reconfigure('test1')
+            self.wait_online('test1:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
+
+            networkctl_reconfigure('dummy98')
+            self.wait_online('dummy98:degraded')
 
             self.check_routing_policy_rule_test1()
             self.check_routing_policy_rule_dummy98()
