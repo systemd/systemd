@@ -307,13 +307,6 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--property=</option></term>
 
@@ -410,6 +403,7 @@
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
