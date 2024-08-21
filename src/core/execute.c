@@ -1849,6 +1849,45 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c) {
         return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
+static int extension_name_has_vpick(char *path) {
+        _cleanup_free_ char *dir = NULL;
+        int r;
+
+        assert(path);
+
+        r = path_extract_filename(path, &dir);
+        if (r == -EADDRNOTAVAIL)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return endswith(dir, ".v") ? 1 : 0;
+}
+
+int exec_context_has_vpick_extensions(const ExecContext *context) {
+        int r;
+
+        assert(context);
+
+        FOREACH_ARRAY(mi, context->extension_images, context->n_extension_images) {
+                r = extension_name_has_vpick(mi->source);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        STRV_FOREACH(ed, context->extension_directories) {
+                r = extension_name_has_vpick(*ed);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        return 0;
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
         assert(s);
 
