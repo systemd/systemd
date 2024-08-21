@@ -116,7 +116,18 @@ systemd_networkd_wait_online_sources = files(
 
 networkctl_sources = files(
         'networkctl.c',
-        'networkctl-config-file.c'
+        'networkctl-address-label.c',
+        'networkctl-config-file.c',
+        'networkctl-description.c',
+        'networkctl-dump-util.c',
+        'networkctl-journal.c',
+        'networkctl-link-info.c',
+        'networkctl-list.c',
+        'networkctl-lldp.c',
+        'networkctl-misc.c',
+        'networkctl-status-link.c',
+        'networkctl-status-system.c',
+        'networkctl-util.c',
 )
 
 network_generator_sources = files(
