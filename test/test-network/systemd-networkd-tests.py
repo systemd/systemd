@@ -3211,6 +3211,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, routable_map[carrier])
 
     def check_routing_policy_rule_test1(self):
+        print('### Checking routing policy rules requested by test1')
+
         output = check_output('ip rule list iif test1 priority 111')
         print(output)
         self.assertRegex(output, r'111:	from 192.168.100.18 tos (0x08|throughput) iif test1 oif test1 lookup 7')
@@ -3236,7 +3238,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('104:	from 10.1.0.0/16 iif test1 lookup 12 nop', output)
 
     def check_routing_policy_rule_dummy98(self):
-        output = check_output('ip rule list table 8')
+        print('### Checking routing policy rules requested by dummy98')
+
+        output = check_output('ip rule list priority 112')
         print(output)
         self.assertRegex(output, r'112:	from 192.168.101.18 tos (0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
@@ -3284,13 +3288,27 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(manage_foreign_routes=manage_foreign_routes):
                 self._test_routing_policy_rule(manage_foreign_routes)
 
-    def test_routing_policy_rule_issue_11280(self):
+    def test_routing_policy_rule_restart_and_reconfigure(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev',
                           '25-routing-policy-rule-dummy98.network', '12-dummy.netdev')
+
+        # For #11280 and #34068.
 
         for trial in range(3):
             restart_networkd(show_logs=(trial > 0))
             self.wait_online('test1:degraded', 'dummy98:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
+
+            networkctl_reconfigure('test1')
+            self.wait_online('test1:degraded')
+
+            self.check_routing_policy_rule_test1()
+            self.check_routing_policy_rule_dummy98()
+
+            networkctl_reconfigure('dummy98')
+            self.wait_online('dummy98:degraded')
 
             self.check_routing_policy_rule_test1()
             self.check_routing_policy_rule_dummy98()
