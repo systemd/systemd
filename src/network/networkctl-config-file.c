@@ -17,6 +17,7 @@
 #include "netlink-util.h"
 #include "networkctl.h"
 #include "networkctl-config-file.h"
+#include "networkctl-util.h"
 #include "pager.h"
 #include "path-lookup.h"
 #include "path-util.h"
