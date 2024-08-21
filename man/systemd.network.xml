@@ -28,7 +28,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A plain ini-style text file that encodes network configuration for matching network
+    <para>HOGE.A plain ini-style text file that encodes network configuration for matching network
     interfaces, used by
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
