@@ -779,7 +779,11 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_NO;
 
                 /* Prefer suitable per-link scopes where possible */
-                return s->link ? DNS_SCOPE_MAYBE : DNS_SCOPE_LAST_RESORT;
+                DnsServer *server = dns_scope_get_server(s);
+                if (server && server->type == DNS_SERVER_FALLBACK)
+                        return DNS_SCOPE_LAST_RESORT;
+
+                return DNS_SCOPE_MAYBE;
         }
 
         case DNS_PROTOCOL_MDNS: {
