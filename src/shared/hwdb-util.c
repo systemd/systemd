@@ -667,7 +667,7 @@ int hwdb_query(const char *modalias, const char *root) {
         assert(modalias);
 
         if (!isempty(root))
-                NULSTR_FOREACH(p, hwdb_bin_paths) {
+                NULSTR_FOREACH(p, HWDB_BIN_PATHS) {
                         _cleanup_free_ char *hwdb_bin = NULL;
 
                         hwdb_bin = path_join(root, p);
@@ -699,7 +699,7 @@ bool hwdb_should_reload(sd_hwdb *hwdb) {
                 return false;
 
         /* if hwdb.bin doesn't exist anywhere, we need to update */
-        NULSTR_FOREACH(p, hwdb_bin_paths)
+        NULSTR_FOREACH(p, HWDB_BIN_PATHS)
                 if (stat(p, &st) >= 0) {
                         found = true;
                         break;
