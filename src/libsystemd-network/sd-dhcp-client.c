@@ -2223,7 +2223,11 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "RELEASE");
 
-        return 0;
+        /* This function is mostly called when stopping daemon. Hence, do not call client_stop() or
+         * client_restart(). Otherwise, the notification callback will be called again and we may easily
+         * enter an infinite loop. */
+        client_initialize(client);
+        return 1; /* sent and stopped. */
 }
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
