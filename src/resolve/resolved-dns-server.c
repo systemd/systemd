@@ -100,9 +100,7 @@ int dns_server_new(
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
-        if (type != DNS_SERVER_FALLBACK &&
-            m->current_dns_server &&
-            m->current_dns_server->type == DNS_SERVER_FALLBACK)
+        if (type != DNS_SERVER_FALLBACK && dns_server_is_fallback(m->current_dns_server))
                 manager_set_dns_server(m, NULL);
 
         if (ret)
@@ -909,7 +907,7 @@ DnsServer *manager_get_dns_server(Manager *m) {
                  * servers */
 
                 HASHMAP_FOREACH(l, m->links)
-                        if (l->dns_servers) {
+                        if (l->dns_servers && l->default_route) {
                                 found = true;
                                 break;
                         }
