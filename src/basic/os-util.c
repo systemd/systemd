@@ -457,12 +457,12 @@ int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eo
         const char *k = strptime(support_end, "%Y-%m-%d", &tm);
         if (!k || *k)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to parse SUPPORT_END= in os-release file, ignoring: %m");
+                                      "Failed to parse SUPPORT_END= in os-release file, ignoring");
 
         time_t eol = timegm(&tm);
-        if (eol == (time_t) -1)
+        if (eol < 0)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
+                                      "Parsed SUPPORT_END= time in os-release file out of range, refusing");
 
         if (ret_eol)
                 *ret_eol = eol * USEC_PER_SEC;
