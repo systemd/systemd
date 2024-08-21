@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 
-#include "sd-bus.h"
-
 #include "output-mode.h"
 #include "pager.h"
 
@@ -20,6 +18,3 @@ extern unsigned arg_lines;
 extern char *arg_drop_in;
 extern sd_json_format_flags_t arg_json_format_flags;
 extern bool arg_ask_password;
-
-bool networkd_is_running(void);
-int acquire_bus(sd_bus **ret);
