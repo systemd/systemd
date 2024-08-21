@@ -42,6 +42,9 @@ if want_kernel_install
 
         install_data('install.conf',
                      install_dir : kerneldir)
+ 
+        install_data('uki.conf',
+                     install_dir : kerneldir)
 
         if install_sysconfdir
                 install_emptydir(sysconfdir / 'kernel/install.d')
