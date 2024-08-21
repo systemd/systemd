@@ -2138,14 +2138,8 @@ static int client_receive_message_raw(
 }
 
 int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->fd >= 0, -EINVAL);
-
-        if (client->state != DHCP_STATE_BOUND)
-                return 0;
-
-        assert(client->lease);
+        if (!sd_dhcp_client_is_running(client) || client->state != DHCP_STATE_BOUND)
+                return 0; /* do nothing */
 
         client->start_delay = 0;
         client->discover_attempt = 1;
@@ -2199,13 +2193,12 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_send_release(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->lease, -EUNATCH);
-
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;
         int r;
+
+        if (!sd_dhcp_client_is_running(client) || !client->lease)
+                return 0; /* do nothing */
 
         r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
         if (r < 0)
@@ -2234,13 +2227,12 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->lease, -EUNATCH);
-
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;
         int r;
+
+        if (!sd_dhcp_client_is_running(client) || !client->lease)
+                return 0; /* do nothing */
 
         r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
         if (r < 0)
