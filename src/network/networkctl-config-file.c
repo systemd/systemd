@@ -402,7 +402,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !!arg_drop_in,
-                .stdin = arg_stdin,
+                .stdin_ = arg_stdin,
         };
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         ReloadFlags reload = 0;

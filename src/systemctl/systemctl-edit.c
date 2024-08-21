@@ -317,7 +317,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
                 .overwrite_with_origin = true,
-                .stdin = arg_stdin,
+                .stdin_ = arg_stdin,
         };
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
