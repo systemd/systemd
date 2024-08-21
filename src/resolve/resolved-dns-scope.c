@@ -778,6 +778,11 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
+                /* Prefer suitable per-link scopes where possible */
+                DnsServer *server = dns_scope_get_server(s);
+                if (server && server->type == DNS_SERVER_FALLBACK)
+                        return DNS_SCOPE_LAST_RESORT;
+
                 return DNS_SCOPE_MAYBE;
         }
 
