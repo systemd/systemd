@@ -112,7 +112,7 @@ int edit_files_add(
 static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
         assert(e);
         assert(e->context);
-        assert(!e->context->stdin);
+        assert(!e->context->read_from_stdin);
         assert(e->path);
         assert(f);
         assert(filename);
@@ -200,7 +200,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
         assert(e->path);
         assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
         assert(contents || contents_size == 0);
-        assert(e->context->stdin == !!contents);
+        assert(e->context->read_from_stdin == !!contents);
 
         if (e->temp)
                 return 0;
@@ -216,7 +216,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
         if (fchmod(fileno(f), 0644) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
 
-        if (e->context->stdin) {
+        if (e->context->read_from_stdin) {
                 if (fwrite(contents, 1, contents_size, f) != contents_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to write stdin data to temporary file '%s'.", temp);
@@ -331,7 +331,7 @@ static int strip_edit_temp_file(EditFile *e) {
         if (!tmp)
                 return log_oom();
 
-        with_marker = e->context->marker_start && !e->context->stdin;
+        with_marker = e->context->marker_start && !e->context->read_from_stdin;
 
         if (with_marker) {
                 /* Trim out the lines between the two markers */
@@ -457,7 +457,7 @@ int do_edit_files_and_install(EditFileContext *context) {
         if (context->n_files == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
 
-        if (context->stdin) {
+        if (context->read_from_stdin) {
                 r = read_full_stream(stdin, &stdin_data, &stdin_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read stdin: %m");
@@ -476,7 +476,7 @@ int do_edit_files_and_install(EditFileContext *context) {
         _cleanup_close_ int stdin_data_fd = -EBADF;
 
         FOREACH_ARRAY(editfile, context->files, context->n_files) {
-                if (context->stdin) {
+                if (context->read_from_stdin) {
                         r = edit_file_install_one_stdin(editfile, stdin_data, stdin_size, &stdin_data_fd);
                         if (r == 0) {
                                 log_notice("Stripped stdin content is empty, not writing file.");
