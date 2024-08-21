@@ -4450,6 +4450,13 @@ int exec_invoke(
                 }
         }
 
+        /*
+         * Set nice value _after_ the call to sched_setattr() because struct sched_attr includes sched_nice
+         * which we do not set, thus it will clobber any previously set nice value. Scheduling policy might
+         * be reasonably set together with nice value e.g. in case of SCHED_BATCH (see sched(7)).
+         * It would be ideal to set both with the same call, but we cannot easily do so because of all the
+         * extra logic in setpriority_closest().
+         */
         if (context->nice_set) {
                 r = setpriority_closest(context->nice);
                 if (r < 0) {
