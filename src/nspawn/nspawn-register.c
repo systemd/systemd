@@ -31,7 +31,7 @@ static int append_machine_properties(
 
         /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device policies in
          * sync regardless if we are run with or without the --keep-unit switch. */
-        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 2,
+        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 3,
                                   /* Allow the container to
                                    * access and create the API
                                    * device nodes, so that
@@ -44,7 +44,12 @@ static int append_machine_properties(
                                    * do not permit the
                                    * container to ever create
                                    * these device nodes. */
-                                  "char-pts", "rw");
+                                  "char-pts", "rw",
+                                  /* Allow the conntainer to
+                                   * use FUSE, if
+                                   * copy_devnodes() included
+                                   * it. */
+                                  "/dev/fuse", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
 
