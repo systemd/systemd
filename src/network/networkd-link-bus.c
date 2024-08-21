@@ -666,14 +666,10 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
                 return 1; /* Polkit will call us back */
 
         r = link_reconfigure(l, /* force = */ true);
+        if (r > 0)
+                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                link_set_state(l, LINK_STATE_INITIALIZED);
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
-                if (r < 0)
-                        return r;
-        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
