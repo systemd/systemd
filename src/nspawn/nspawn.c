@@ -3810,11 +3810,19 @@ static int outer_child(
         ssize_t l;
         int r;
 
-        /* This is the "outer" child process, i.e the one forked off by the container manager itself. It
-         * already has its own CLONE_NEWNS namespace (which was created by the clone()). It still lives in
-         * the host's CLONE_NEWPID, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER and CLONE_NEWNET
-         * namespaces. After it completed a number of initializations a second child (the "inner" one) is
-         * forked off it, and it exits. */
+        /* This is the "outer" child process, i.e the one forked off by the container manager itself.  Its
+         * namespace situation is:
+         *
+         *  - CLONE_NEWNS   : already has its own (created by clone() if arg_privileged, or unshare() if !arg_unprivileged)
+         *  - CLONE_NEWUSER : if  arg_privileged: still in the host's
+         *                    if !arg_privileged: already has its own (created by nsresource_allocate_userns()->setns(userns_fd))
+         *  - CLONE_NEWPID  : still in the host's
+         *  - CLONE_NEWUTS  : still in the host's
+         *  - CLONE_NEWIPC  : still in the host's
+         *  - CLONE_NEWNET  : still in the host's
+         *
+         * After it completed a number of initializations a second child (the "inner" one) is forked off it,
+         * and it exits. */
 
         assert(barrier);
         assert(directory);
