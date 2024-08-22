@@ -21,7 +21,6 @@ _arguments \
     '(--ephemeral -x)'{--ephemeral,-x}'[Run container with snapshot of root directory, and remove it after exit.]' \
     '(--image -i)'{--image=,-i+}'[Disk image to mount the root directory for the container from.]:disk image: _files' \
     '(--boot -b)'{--boot,-b}'[Automatically search for an init binary and invoke it instead of a shell or a user supplied program.]' \
-    '--init=[Invoke the specified program as init in the container.]: : _message "path to init"' \
     '(--user -u)'{--user=,-u+}'[Run the command under specified user, create home directory and cd into it.]:user:_users' \
     '(--machine -M)'{--machine=,-M+}'[Sets the machine name for this container.]: : _message "container name"' \
     '--uuid=[Set the specified uuid for the container.]: : _message "container UUID"' \
