@@ -139,7 +139,6 @@ static char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
 static StartMode arg_start_mode = START_PID1;
-static char *arg_init = NULL;
 static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
@@ -245,7 +244,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_supplementary_gids, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_init, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_interfaces, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_macvlan, strv_freep);
@@ -349,7 +347,6 @@ static int help(void) {
                "\n%3$sExecution:%4$s\n"
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
-               "     --init=PATH            Path to init to invoke\n"
                "     --chdir=PATH           Set working directory in the container\n"
                "  -E --setenv=NAME[=VALUE]  Pass an environment variable to PID 1\n"
                "  -u --user=USER            Run the command under specified user or UID\n"
@@ -700,7 +697,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_PRIVATE_NETWORK,
-                ARG_INIT,
                 ARG_UUID,
                 ARG_READ_ONLY,
                 ARG_CAPABILITY,
@@ -768,7 +764,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-network",        no_argument,       NULL, ARG_PRIVATE_NETWORK        },
                 { "as-pid2",                no_argument,       NULL, 'a'                        },
                 { "boot",                   no_argument,       NULL, 'b'                        },
-                { "init",                   required_argument, NULL, ARG_INIT                   },
                 { "uuid",                   required_argument, NULL, ARG_UUID                   },
                 { "read-only",              no_argument,       NULL, ARG_READ_ONLY              },
                 { "capability",             required_argument, NULL, ARG_CAPABILITY             },
@@ -987,14 +982,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_start_mode = START_BOOT;
                         arg_settings_mask |= SETTING_START_MODE;
-                        break;
-
-                case ARG_INIT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_init);
-                        if (r < 0)
-                                return r;
-
-                        arg_settings_mask |= SETTING_INIT;
                         break;
 
                 case 'a':
@@ -1790,9 +1777,6 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode == USER_NAMESPACE_NO && !strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--bind-user= requires --private-users");
-
-        if (arg_start_mode != START_BOOT && arg_init)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --init= without --boot");
 
         /* Drop duplicate --bind-user= entries */
         strv_uniq(arg_bind_user);
@@ -3606,21 +3590,15 @@ static int inner_child(
                 memcpy_safe(a + 1, arg_parameters, m * sizeof(char*));
                 a[1 + m] = NULL;
 
-                if (arg_init) {
-                        a[0] = arg_init;
+                FOREACH_STRING(init,
+                               "/usr/lib/systemd/systemd",
+                               "/lib/systemd/systemd",
+                               "/sbin/init") {
+                        a[0] = (char*) init;
                         execve(a[0], a, env_use);
-                        exec_target = arg_init;
-                } else {
-                        FOREACH_STRING(init,
-                                        "/usr/lib/systemd/systemd",
-                                        "/lib/systemd/systemd",
-                                        "/sbin/init") {
-                                a[0] = (char*) init;
-                                execve(a[0], a, env_use);
-                        }
-
-                        exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
                 }
+
+                exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
         } else if (!strv_isempty(arg_parameters)) {
                 const char *dollar_path;
 
@@ -4606,9 +4584,6 @@ static int merge_settings(Settings *settings, const char *path) {
                 arg_start_mode = settings->start_mode;
                 strv_free_and_replace(arg_parameters, settings->parameters);
         }
-
-        if ((arg_settings_mask & SETTING_INIT) == 0 && settings->init)
-                free_and_replace(arg_init, settings->init);
 
         if ((arg_settings_mask & SETTING_EPHEMERAL) == 0 &&
             settings->ephemeral >= 0)
