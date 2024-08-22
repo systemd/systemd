@@ -21,7 +21,6 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1263,14 +1262,11 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
-
         r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        journal_browse_prepare();
 
         if (proc_mounted() == 0)
                 log_full(arg_no_warn ? LOG_DEBUG : LOG_WARNING,

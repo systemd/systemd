@@ -23,6 +23,7 @@
 #include "journal-upload.h"
 #include "journal-util.h"
 #include "log.h"
+#include "logs-show.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-argument.h"
@@ -30,7 +31,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -766,9 +766,6 @@ static int run(int argc, char **argv) {
 
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
         r = parse_config();
         if (r < 0)
                 return r;
@@ -777,7 +774,7 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        sigbus_install();
+        journal_browse_prepare();
 
         r = setup_uploader(&u, arg_url, arg_save_state);
         if (r < 0)
