@@ -3750,7 +3750,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PreparingForShutdownWithMetadata", "a{sv}", property_get_preparing_shutdown_with_metadata, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, 0),
+        SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Docked", "b", property_get_docked, 0, 0),
         SD_BUS_PROPERTY("LidClosed", "b", property_get_lid_closed, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OnExternalPower", "b", property_get_on_external_power, 0, 0),
@@ -4353,6 +4353,7 @@ int manager_start_scope(
                 const char *slice,
                 const char *description,
                 const char * const *requires,
+                const char * const *wants,
                 const char * const *extra_after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
@@ -4394,6 +4395,16 @@ int manager_start_scope(
 
         STRV_FOREACH(i, requires) {
                 r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(i, wants) {
+                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
                 if (r < 0)
                         return r;
 
@@ -4464,6 +4475,7 @@ int manager_start_scope(
                                         slice,
                                         description,
                                         requires,
+                                        wants,
                                         extra_after,
                                         requires_mounts_for,
                                         more_properties,
