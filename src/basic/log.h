@@ -359,6 +359,18 @@ int log_syntax_invalid_utf8_internal(
                 const char *func,
                 const char *rvalue);
 
+int log_syntax_parse_error_internal(
+                const char *unit,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                bool critical, /* When true, propagate the passed error, otherwise this always returns 0. */
+                const char *file,
+                int line,
+                const char *func,
+                const char *lvalue,
+                const char *rvalue);
+
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
@@ -374,6 +386,12 @@ int log_syntax_invalid_utf8_internal(
                         ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, rvalue) \
                         : -EINVAL;                                      \
         })
+
+#define log_syntax_parse_error_full(unit, config_file, config_line, error, critical, lvalue, rvalue) \
+        log_syntax_parse_error_internal(unit, config_file, config_line, error, critical, PROJECT_FILE, __LINE__, __func__, lvalue, rvalue)
+
+#define log_syntax_parse_error(unit, config_file, config_line, error, lvalue, rvalue) \
+        log_syntax_parse_error_full(unit, config_file, config_line, error, /* critical = */ false, lvalue, rvalue)
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 

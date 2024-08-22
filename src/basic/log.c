@@ -1689,6 +1689,44 @@ int log_syntax_invalid_utf8_internal(
                                    "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
 }
 
+int log_syntax_parse_error_internal(
+                const char *unit,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                bool critical,
+                const char *file,
+                int line,
+                const char *func,
+                const char *lvalue,
+                const char *rvalue) {
+
+        PROTECT_ERRNO;
+        _cleanup_free_ char *escaped = NULL;
+
+        /* OOM is always handled as critical. */
+        if (ERRNO_VALUE(error) == ENOMEM)
+                return log_oom_internal(LOG_ERR, file, line, func);
+
+        if (rvalue && !utf8_is_valid(rvalue)) {
+                escaped = utf8_escape_invalid(rvalue);
+                if (!escaped)
+                        rvalue = "(oom)";
+                else
+                        rvalue = " (escaped)";
+        }
+
+        log_syntax_internal(unit, critical ? LOG_ERR : LOG_WARNING, config_file, config_line, error,
+                            file, line, func,
+                            "Failed to parse %s=%s%s%s%s%s",
+                            strna(lvalue), strempty(escaped), strempty(rvalue),
+                            critical ? "" : ", ignoring",
+                            error == 0 ? "." : ": ",
+                            error == 0 ? "" : STRERROR(error));
+
+        return critical ? -ERRNO_VALUE(error) : 0;
+}
+
 void log_set_upgrade_syslog_to_journal(bool b) {
         upgrade_syslog_to_journal = b;
 
