@@ -203,6 +203,43 @@ static inline bool section_is_invalid(ConfigSection *section) {
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
+#define log_section_full_errno_zerook(section, level, error, ...)       \
+        ({                                                              \
+                const ConfigSection *_s = (section);                    \
+                log_syntax(/* unit = */ NULL,                           \
+                           level,                                       \
+                           _s ? _s->filename : NULL,                    \
+                           _s ? _s->line : 0,                           \
+                           error,                                       \
+                           __VA_ARGS__);                                \
+        })
+
+#define log_section_full_errno(section, level, error, ...)              \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_section_full_errno_zerook(section, level, _error, __VA_ARGS__); \
+        })
+
+#define log_section_full(section, level, fmt, ...)                      \
+        ({                                                              \
+                if (BUILD_MODE_DEVELOPER)                               \
+                        assert(!strstr(fmt, "%m"));                     \
+                (void) log_section_full_errno_zerook(section, level, 0, fmt, ##__VA_ARGS__); \
+        })
+
+#define log_section_debug(section, ...)                  log_section_full(section, LOG_DEBUG,   __VA_ARGS__)
+#define log_section_info(section, ...)                   log_section_full(section, LOG_INFO,    __VA_ARGS__)
+#define log_section_notice(section, ...)                 log_section_full(section, LOG_NOTICE,  __VA_ARGS__)
+#define log_section_warning(section, ...)                log_section_full(section, LOG_WARNING, __VA_ARGS__)
+#define log_section_error(section, ...)                  log_section_full(section, LOG_ERR,     __VA_ARGS__)
+
+#define log_section_debug_errno(section, error, ...)     log_section_full_errno(section, LOG_DEBUG,   error, __VA_ARGS__)
+#define log_section_info_errno(section, error, ...)      log_section_full_errno(section, LOG_INFO,    error, __VA_ARGS__)
+#define log_section_notice_errno(section, error, ...)    log_section_full_errno(section, LOG_NOTICE,  error, __VA_ARGS__)
+#define log_section_warning_errno(section, error, ...)   log_section_full_errno(section, LOG_WARNING, error, __VA_ARGS__)
+#define log_section_error_errno(section, error, ...)     log_section_full_errno(section, LOG_ERR,     error, __VA_ARGS__)
+
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
 CONFIG_PARSER_PROTOTYPE(config_parse_long);
