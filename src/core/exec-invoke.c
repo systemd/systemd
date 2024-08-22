@@ -2539,9 +2539,11 @@ static int setup_exec_directory(
                 /* Lock down the access mode (we use chmod_and_chown() to make this idempotent. We don't
                  * specify UID/GID here, so that path_chown_recursive() can optimize things depending on the
                  * current UID/GID ownership.) */
-                r = chmod_and_chown(pp ?: p, context->directories[type].mode, UID_INVALID, GID_INVALID);
-                if (r < 0)
-                        goto fail;
+                if (type != EXEC_DIRECTORY_STATE) {
+                        r = chmod_and_chown(pp ?: p, context->directories[type].mode, UID_INVALID, GID_INVALID);
+                        if (r < 0)
+                                goto fail;
+                }
 
                 /* Skip the rest (which deals with ownership) in user mode, since ownership changes are not
                  * available to user code anyway */
@@ -2551,9 +2553,11 @@ static int setup_exec_directory(
                 /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
                  * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
                  * assignments to exist. */
-                r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
-                if (r < 0)
-                        goto fail;
+                if (type != EXEC_DIRECTORY_STATE) {
+                        r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
@@ -2605,6 +2609,8 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                uid_t uid,
+                gid_t gid,
                 BindMount **ret_bind_mounts,
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
@@ -2612,6 +2618,7 @@ static int compile_bind_mounts(
         _cleanup_strv_free_ char **empty_directories = NULL;
         BindMount *bind_mounts = NULL;
         size_t n, h = 0;
+        bool idmapped = false;
         int r;
 
         assert(context);
@@ -2684,6 +2691,9 @@ static int compile_bind_mounts(
                         r = strv_consume(&empty_directories, private_root);
                         if (r < 0)
                                 return r;
+
+                        if (t == EXEC_DIRECTORY_STATE)
+                                idmapped = true;
                 }
 
                 FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items) {
@@ -2717,6 +2727,9 @@ static int compile_bind_mounts(
                                 .destination = TAKE_PTR(d),
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
+                                .idmapped = idmapped,
+                                .uid = uid,
+                                .gid = gid,
                         };
                 }
         }
@@ -3044,7 +3057,9 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
-                char **error_path) {
+                char **error_path,
+                uid_t uid,
+                gid_t gid) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
@@ -3080,7 +3095,7 @@ static int apply_mount_namespace(
                         return r;
         }
 
-        r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, uid, gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
@@ -4825,7 +4840,9 @@ int exec_invoke(
                                           runtime,
                                           memory_pressure_path,
                                           needs_sandboxing,
-                                          &error_path);
+                                          &error_path,
+                                          uid,
+                                          gid);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
