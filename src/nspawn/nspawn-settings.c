@@ -122,7 +122,6 @@ Settings* settings_free(Settings *s) {
         if (!s)
                 return NULL;
 
-        free(s->init);
         strv_free(s->parameters);
         strv_free(s->environment);
         free(s->user);
