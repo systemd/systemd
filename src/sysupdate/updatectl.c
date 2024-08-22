@@ -324,7 +324,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         Version v = {};
         char *version_json = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *contents_json = NULL;
-        bool newest = false, available = false, installed = false, obsolete = false, protected = false;
+        bool newest = false, available = false, installed = false, obsolete = false, protected = false,
+                incomplete = false;
         int r;
 
         assert(reply);
@@ -348,6 +349,7 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                                      { "installed",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&installed),     0 },
                                      { "obsolete",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&obsolete),      0 },
                                      { "protected",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&protected),     0 },
+                                     { "incomplete",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&incomplete),    0 },
                                      { "changelog_urls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    PTR_TO_SIZE(&v.changelog),   0 },
                                      { "contents",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, PTR_TO_SIZE(&contents_json), 0 },
                                      {},
@@ -362,6 +364,7 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(v.flags, UPDATE_INSTALLED, installed);
         SET_FLAG(v.flags, UPDATE_OBSOLETE, obsolete);
         SET_FLAG(v.flags, UPDATE_PROTECTED, protected);
+        SET_FLAG(v.flags, UPDATE_INCOMPLETE, incomplete);
 
         r = sd_json_variant_format(contents_json, 0, &v.contents_json);
         if (r < 0)
