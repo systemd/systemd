@@ -462,6 +462,8 @@ struct ExecParameters {
         char *unit_id;
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX];
+
+        bool debug_invocation;
 };
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -629,7 +631,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max < 0 ||                           \
+                bool _do_log = _p->debug_invocation ||                            \
+                               _c->log_level_max < 0 ||                           \
                                _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \
@@ -674,7 +677,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max < 0 ||                           \
+                bool _do_log = _p->debug_invocation ||                            \
+                               _c->log_level_max < 0 ||                           \
                                _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \
