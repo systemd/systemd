@@ -31,6 +31,7 @@ typedef enum CopyFlags {
         COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
         COPY_LOCK_BSD      = 1 << 17, /* Return a BSD exclusively locked file descriptor referring to the copied image/directory. */
         COPY_VERIFY_LINKED = 1 << 18, /* Check the source file is still linked after copying. */
+        COPY_ATTR          = 1 << 19, /* Copy file attributes */
 } CopyFlags;
 
 typedef enum DenyType {

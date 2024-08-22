@@ -2889,7 +2889,8 @@ static int setup_ephemeral(
                                0600,
                                COPY_LOCK_BSD|
                                COPY_REFLINK|
-                               COPY_CRTIME);
+                               COPY_CRTIME|
+                               COPY_ATTR);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
