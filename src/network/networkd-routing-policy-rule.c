@@ -832,6 +832,9 @@ static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule)
 static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         int r;
 
+        assert(link);
+        assert(rule);
+
         if (IN_SET(rule->family, AF_INET, AF_INET6))
                 return link_request_routing_policy_rule(link, rule);
 
