@@ -170,61 +170,68 @@ node /org/freedesktop/sysupdate1/target/host {
     <refsect2>
       <title>Methods</title>
 
-      <para><function>List()</function> returns a list of versions available for this target.  The
-      <varname>flags</varname> argument can be used to pass additional options, with bit 0 mapping to
-      <option>offline</option>.  When <option>offline</option> is true, this method returns only the versions
-      installed locally.  Otherwise, this method pulls metadata from the network and returns all versions
+      <para><function>List()</function> returns a list of versions available for this target. Additional
+      options may be passed through the <varname>flags</varname> argument. Valid flags are defined as follows:
+      </para>
+
+      <programlisting>
+#define SD_SYSUPDATE_OFFLINE    (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
+
+      <para>When <constant>SD_SYSUPDATE_OFFLINE</constant> is set, this method returns only the versions
+      installed locally. Otherwise, this method pulls metadata from the network and returns all versions
       available for this target. Use <function>Describe()</function> to query more information about each
       version returned by this method.</para>
 
       <para><function>Describe()</function> returns all known information about a given version as a JSON
       object. The <varname>version</varname> argument is used to pass the version to be described. Additional
-      options may be passed through the <varname>flags</varname> argument. The only supported value currently
-      is <varname>SD_SYSTEMD_SYSUPDATE_OFFLINE</varname>, which prevents the call from accessing the network
-      and restricts results to locally installed versions. This flag is defined as follows:</para>
-
-      <programlisting>
-#define SD_SYSTEMD_SYSUPDATE_OFFLINE    (UINT64_C(1) &lt;&lt; 0)
-      </programlisting>
-
-      <para>The returned JSON object contains several known keys. More keys may be added in the future. The
-      currently known keys are as follows:</para>
+      options may be passed through the <varname>flags</varname> argument. This method supports the same flags
+      as <function>List()</function>. The returned JSON object contains several known keys. More keys may be
+      added in the future. The currently known keys are as follows:</para>
 
       <variablelist>
         <varlistentry>
-          <term>version</term>
+          <term><literal>version</literal></term>
           <listitem><para>A string containing the version number.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>newest</term>
+          <term><literal>newest</literal></term>
           <listitem><para>A boolean indicating whether this version is the latest available for the target.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>available</term>
+          <term><literal>available</literal></term>
           <listitem><para>A boolean indicating whether this version is available for download.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>installed</term>
+          <term><literal>installed</literal></term>
           <listitem><para>A boolean indicating whether this version is installed locally.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>obsolete</term>
+          <term><literal>obsolete</literal></term>
           <listitem><para>A boolean indicating whether this version is considered obsolete by the service,
           and is therefore disallowed from being installed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>protected</term>
+          <term><literal>protected</literal></term>
           <listitem><para>A boolean indicating whether this version is exempt from deletion by a
           <function>Vacuum()</function> operation.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term>changelog_urls</term>
+          <term><literal>incomplete</literal></term>
+          <listitem><para>A boolean indicating whether this version is incomplete, which means that it is
+          missing some file. Note that only installed incomplete versions will be offered by the service;
+          versions that are incomplete on the server-side are completely ignored. Incomplete versions can
+          be repaired in-place by calling <function>Update()</function> on that version.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>changelog_urls</literal></term>
           <listitem><para>A list of strings that contain user-presentable URLs to ChangeLogs associated with
           this version.</para></listitem>
         </varlistentry>
@@ -326,9 +333,12 @@ node /org/freedesktop/sysupdate1/target/host {
       <para>All methods called on this interface expose additional variables to the polkit rules.
       <literal>class</literal> contains the class of the Target being acted upon, and <literal>name</literal>
       contains the name of the same Target. Additionally, each method exposes its arguments to the
-      rule. Arguments containing flags are unwrapped into a variable-per-flag; for example, the
-      <literal>SD_SYSTEMD_SYSUPDATE_OFFLINE</literal> flag is exposed as a variable named
-      <literal>offline</literal>.</para>
+      rule. Flags are mapped as follows:</para>
+
+      <itemizedlist>
+        <listitem><para><constant>SD_SYSUPDATE_OFFLINE</constant> → <literal>update</literal></para></listitem>
+      </itemizedlist>
+
     </refsect2>
   </refsect1>
 

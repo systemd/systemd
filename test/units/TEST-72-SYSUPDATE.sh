@@ -53,6 +53,10 @@ at_exit() {
 
 trap at_exit EXIT
 
+update_checksums() {
+	(cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+}
+
 new_version() {
     local sector_size="${1:?}"
     local version="${2:?}"
@@ -74,7 +78,7 @@ new_version() {
     echo $RANDOM >"$WORKDIR/source/dir-$version/bar.txt"
     tar --numeric-owner -C "$WORKDIR/source/dir-$version/" -czf "$WORKDIR/source/dir-$version.tar.gz" .
 
-    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    update_checksums
 }
 
 update_now() {
@@ -91,9 +95,9 @@ verify_version() {
     local sector_size="${2:?}"
     local version="${3:?}"
     local part1_number="${4:?}"
-    local part2_number="${5:?}"
-    local gpt_reserved_sectors part1_offset part2_offset
+    local gpt_reserved_sectors part2_number part1_offset part2_offset
 
+    part2_number=$(( part1_number + 2 ))
     gpt_reserved_sectors=$((1024 * 1024 / sector_size))
     part1_offset=$(((part1_number - 1) * 2048 + gpt_reserved_sectors))
     part2_offset=$(((part2_number - 1) * 2048 + gpt_reserved_sectors))
@@ -108,6 +112,12 @@ verify_version() {
 
     # Check the extra efi
     cmp "$WORKDIR/source/uki-extra-$version.efi" "$WORKDIR/xbootldr/EFI/Linux/uki_$version.efi.extra.d/extra.addon.efi"
+}
+
+verify_version_current() {
+    local version="${3:?}"
+
+    verify_version "$@"
 
     # Check the directories
     cmp "$WORKDIR/source/dir-$version/foo.txt" "$WORKDIR/dirs/current/foo.txt"
@@ -225,24 +235,50 @@ EOF
     # Install initial version and verify
     new_version "$sector_size" v1
     update_now
-    verify_version "$blockdev" "$sector_size" v1 1 3
+    verify_version_current "$blockdev" "$sector_size" v1 1
 
     # Create second version, update and verify that it is added
     new_version "$sector_size" v2
     update_now
-    verify_version "$blockdev" "$sector_size" v2 2 4
+    verify_version "$blockdev" "$sector_size" v1 1
+    verify_version_current "$blockdev" "$sector_size" v2 2
 
     # Create third version, update and verify it replaced the first version
     new_version "$sector_size" v3
     update_now
-    verify_version "$blockdev" "$sector_size" v3 1 3
+    verify_version_current "$blockdev" "$sector_size" v3 1
+    verify_version "$blockdev" "$sector_size" v2 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1+3-0.efi"
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
     test ! -d "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
-    # Create fourth version, update using updatectl and verify it replaced the
-    # second version
+    # Create fourth version, but make it be incomplete (i.e. missing some files)
+    # on the server-side. Verify that it's not offered as an update.
     new_version "$sector_size" v4
+    rm "$WORKDIR/source/uki-extra-v4.efi"
+    update_checksums
+    (! "$SYSUPDATE" --verify=no check-new)
+
+    # Create a fifth version, that's complete on the server side. We should
+    # completely skip the incomplete v4 and install v5 instead.
+    new_version "$sector_size" v5
+    update_now
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+
+    # Make the local installation of v5 incomplete by deleting a file, then make
+    # sure that sysupdate still recognizes the installation and can complete it
+    # in place
+    rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
+    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    update_now
+    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    verify_version "$blockdev" "$sector_size" v3 1
+    verify_version_current "$blockdev" "$sector_size" v5 2
+
+    # Create sixth version, update using updatectl and verify it replaced the
+    # correct version
+    new_version "$sector_size" v6
     if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
         systemctl start systemd-sysupdated
         "$SYSUPDATE" --verify=no check-new
@@ -254,7 +290,8 @@ EOF
     # User-facing updatectl returns 0 if there's no updates, so use the low-level
     # utility to make sure we did upgrade
     (! "$SYSUPDATE" --verify=no check-new )
-    verify_version "$blockdev" "$sector_size" v4 2 4
+    verify_version_current "$blockdev" "$sector_size" v6 1
+    verify_version "$blockdev" "$sector_size" v5 2
 
     # Next, let's run updatectl's various inspection commands. We're not
     # testing for specific output, but this will at least catch obvious crashes
@@ -265,18 +302,18 @@ EOF
         cp "$CONFIGDIR/01-first.conf" /run/sysupdate.test.d/01-first.conf
         updatectl list
         updatectl list host
-        updatectl list host@v4
+        updatectl list host@v6
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
     
-    # Create fifth version, and update through a file:// URL. This should be
+    # Create seventh version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
     # (and not curl) this test should be quite good even if not comprehensive. This
     # will test the SHA256SUMS logic at least (we turn off GPG validation though,
     # see above)
-    new_version "$sector_size" v5
+    new_version "$sector_size" v7
 
     cat >"$CONFIGDIR/02-second.conf" <<EOF
 [Source]
@@ -306,7 +343,8 @@ InstancesMax=3
 EOF
 
     update_now
-    verify_version "$blockdev" "$sector_size" v5 1 3
+    verify_version "$blockdev" "$sector_size" v6 1
+    verify_version_current "$blockdev" "$sector_size" v7 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
