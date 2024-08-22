@@ -725,12 +725,19 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
         return 0;
 }
 
-static int sysupdate_run_simple(sd_json_variant **ret, ...) {
+static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_close_pair_ int pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *target_arg = NULL;
         int r;
+
+        if (t) {
+                r = target_get_argument(t, &target_arg);
+                if (r < 0)
+                        return r;
+        }
 
         r = pipe2(pipe, O_CLOEXEC);
         if (r < 0)
@@ -760,7 +767,12 @@ static int sysupdate_run_simple(sd_json_variant **ret, ...) {
                         _exit(EXIT_FAILURE);
                 }
 
-                va_start(ap, ret);
+                if (target_arg && strv_extend(&args, target_arg) < 0) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
+
+                va_start(ap, t);
                 while ((arg = va_arg(ap, char*))) {
                         r = strv_extend(&args, arg);
                         if (r < 0)
@@ -1158,16 +1170,11 @@ static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_erro
 
 static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_free_ char *target_arg = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *version_json;
         int r;
 
-        r = target_get_argument(t, &target_arg);
-        if (r < 0)
-                return r;
-
-        r = sysupdate_run_simple(&v, "--offline", "list", target_arg, NULL);
+        r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
                 return r;
 
@@ -1189,16 +1196,11 @@ static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus
 }
 
 static int target_get_appstream(Target *t, char ***ret) {
-        _cleanup_free_ char *target_arg = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *appstream_url_json;
         int r;
 
-        r = target_get_argument(t, &target_arg);
-        if (r < 0)
-                return r;
-
-        r = sysupdate_run_simple(&v, "--offline", "list", target_arg, NULL);
+        r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
                 return r;
 
@@ -1241,18 +1243,11 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_strv_free_ char **components = NULL;
-        _cleanup_free_ char *target_arg = NULL;
         sd_json_variant *v;
         bool have_default;
         int r;
 
-        if (t) {
-                r = target_get_argument(t, &target_arg);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sysupdate_run_simple(&json, "components", target_arg, NULL);
+        r = sysupdate_run_simple(&json, t, "components", NULL);
         if (r < 0)
                 return r;
 
