@@ -581,6 +581,9 @@ static int get_device_firmware_node_sun(sd_device *dev, uint32_t *ret) {
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to parse firmware_node/sun '%s', ignoring: %m", attr);
 
+        if (*ret == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "firmware_node/sun == 0, ignoring: %m");
+
         return 0;
 }
 
