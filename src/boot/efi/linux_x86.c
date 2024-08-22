@@ -164,7 +164,7 @@ EFI_STATUS linux_exec_efi_handover(
                 linux_relocated = xmalloc_pages(
                                 AllocateMaxAddress,
                                 EfiLoaderCode,
-                                EFI_SIZE_TO_PAGES(kernel_size_in_memory > kernel->iov_len ? kernel_size_in_memory : kernel->iov_len),
+                                EFI_SIZE_TO_PAGES(MAX(kernel_size_in_memory, kernel->iov_len)),
                                 UINT32_MAX);
                 linux_buffer = memcpy(
                                 PHYSICAL_ADDRESS_TO_POINTER(linux_relocated.addr), kernel->iov_base, kernel->iov_len);
