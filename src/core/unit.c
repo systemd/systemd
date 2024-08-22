@@ -3830,6 +3830,7 @@ void unit_reset_failed(Unit *u) {
 
         ratelimit_reset(&u->start_ratelimit);
         u->start_limit_hit = false;
+        u->debug_invocation = false;
 }
 
 Unit *unit_following(Unit *u) {
@@ -5400,6 +5401,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         if (!p->unit_id)
                 return -ENOMEM;
 
+        p->debug_invocation = u->debug_invocation;
+
         return 0;
 }
 
@@ -5600,26 +5603,28 @@ static int unit_export_invocation_id(Unit *u) {
         return 0;
 }
 
-static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
+static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite) {
         const char *p;
         char buf[2];
         int r;
 
         assert(u);
-        assert(c);
 
-        if (u->exported_log_level_max)
+        /* When the debug_invocation logic runs, overwrite will be true as we always want to switch the max
+         * log level that the journal applies, and we want to always restore the previous level once done */
+
+        if (!overwrite && u->exported_log_level_max)
                 return 0;
 
-        if (c->log_level_max < 0)
+        if (log_level_max < 0)
                 return 0;
 
-        assert(c->log_level_max <= 7);
-
-        buf[0] = '0' + c->log_level_max;
-        buf[1] = 0;
+        assert(log_level_max <= 7);
 
         p = strjoina("/run/systemd/units/log-level-max:", u->id);
+        buf[0] = '0' + log_level_max;
+        buf[1] = 0;
+
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create maximum log level symlink %s: %m", p);
@@ -5766,7 +5771,7 @@ void unit_export_state_files(Unit *u) {
 
         c = unit_get_exec_context(u);
         if (c) {
-                (void) unit_export_log_level_max(u, c);
+                (void) unit_export_log_level_max(u, c->log_level_max, /* overwrite= */ false);
                 (void) unit_export_log_extra_fields(u, c);
                 (void) unit_export_log_ratelimit_interval(u, c);
                 (void) unit_export_log_ratelimit_burst(u, c);
@@ -5822,6 +5827,16 @@ void unit_unlink_state_files(Unit *u) {
 
                 u->exported_log_ratelimit_burst = false;
         }
+}
+
+int unit_overwrite_log_level_max(Unit *u, int log_level_max) {
+        assert(u);
+
+        if (!u->exported_log_level_max)
+                return 0; /* Nothing to do */
+
+        /* Ensure that the new log level is exported for the journal, in place of the previous one */
+        return unit_export_log_level_max(u, log_level_max, /* overwrite= */ true);
 }
 
 int unit_prepare_exec(Unit *u) {
