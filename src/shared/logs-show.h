@@ -11,7 +11,9 @@
 
 #include "macro.h"
 #include "output-mode.h"
+#include "rlimit-util.h"
 #include "set.h"
+#include "sigbus.h"
 #include "time-util.h"
 
 typedef struct LogId {
@@ -123,4 +125,12 @@ static inline int journal_get_boots(
                                    /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
                                    advance_older, max_ids,
                                    ret_ids, ret_n_ids);
+}
+
+static inline void journal_browse_prepare(void) {
+        /* Increase max number of open files if we can, we might needs this when browsing journal files,
+         * which might be split up into many files. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
+        sigbus_install();
 }
