@@ -853,6 +853,9 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
+        if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
+
         const char *details[] = {
                 "class", target_class_to_string(t->class),
                 "name", t->name,
@@ -916,7 +919,10 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
                 return r;
 
         if (isempty(version))
-                return -EINVAL;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Version must be specified");
+
+        if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
@@ -1057,7 +1063,7 @@ static int target_method_update(sd_bus_message *msg, void *userdata, sd_bus_erro
                 return r;
 
         if (flags != 0)
-                return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(EINVAL), "Flags argument must be 0: %m");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
 
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
