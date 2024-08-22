@@ -454,18 +454,18 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
 
                 /* positive offset */
                 ASSERT_OK_POSITIVE(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1), &id));
-                ASSERT_TRUE(sd_id128_equal(id, ids[i].id));
+                ASSERT_EQ_ID128(id, ids[i].id);
 
                 /* negative offset */
                 ASSERT_OK_POSITIVE(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1) - (int) n_ids, &id));
-                ASSERT_TRUE(sd_id128_equal(id, ids[i].id));
+                ASSERT_EQ_ID128(id, ids[i].id);
 
                 for (size_t k = 0; k < n_ids; k++) {
                         int offset = (int) k - (int) i;
 
                         /* relative offset */
                         ASSERT_OK_POSITIVE(journal_find_boot(j, ids[i].id, offset, &id));
-                        ASSERT_TRUE(sd_id128_equal(id, ids[k].id));
+                        ASSERT_EQ_ID128(id, ids[k].id);
                 }
         }
 
@@ -524,9 +524,9 @@ static void test_sequence_numbers_one(void) {
         ASSERT_EQ(seqnum, UINT64_C(2));
 
         ASSERT_EQ(one->header->state, STATE_ONLINE);
-        ASSERT_FALSE(sd_id128_equal(one->header->file_id, one->header->machine_id));
-        ASSERT_FALSE(sd_id128_equal(one->header->file_id, one->header->tail_entry_boot_id));
-        ASSERT_TRUE(sd_id128_equal(one->header->file_id, one->header->seqnum_id));
+        ASSERT_NE_ID128(one->header->file_id, one->header->machine_id);
+        ASSERT_NE_ID128(one->header->file_id, one->header->tail_entry_boot_id);
+        ASSERT_EQ_ID128(one->header->file_id, one->header->seqnum_id);
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
@@ -534,10 +534,10 @@ static void test_sequence_numbers_one(void) {
                                     UINT64_MAX, NULL, m, one, &two));
 
         ASSERT_EQ(two->header->state, STATE_ONLINE);
-        ASSERT_FALSE(sd_id128_equal(two->header->file_id, one->header->file_id));
-        ASSERT_TRUE(sd_id128_equal(two->header->machine_id, one->header->machine_id));
-        ASSERT_TRUE(sd_id128_is_null(two->header->tail_entry_boot_id)); /* Not written yet. */
-        ASSERT_TRUE(sd_id128_equal(two->header->seqnum_id, one->header->seqnum_id));
+        ASSERT_NE_ID128(two->header->file_id, one->header->file_id);
+        ASSERT_EQ_ID128(two->header->machine_id, one->header->machine_id);
+        ASSERT_EQ_ID128(two->header->tail_entry_boot_id, SD_ID128_NULL); /* Not written yet. */
+        ASSERT_EQ_ID128(two->header->seqnum_id, one->header->seqnum_id);
 
         append_number(two, 3, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -547,7 +547,7 @@ static void test_sequence_numbers_one(void) {
         ASSERT_EQ(seqnum, UINT64_C(4));
 
         /* Verify tail_entry_boot_id. */
-        ASSERT_TRUE(sd_id128_equal(two->header->tail_entry_boot_id, one->header->tail_entry_boot_id));
+        ASSERT_EQ_ID128(two->header->tail_entry_boot_id, one->header->tail_entry_boot_id);
 
         append_number(one, 5, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -568,7 +568,7 @@ static void test_sequence_numbers_one(void) {
                 ASSERT_OK(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
                                             UINT64_MAX, NULL, m, NULL, &two));
 
-                ASSERT_TRUE(sd_id128_equal(two->header->seqnum_id, seqnum_id));
+                ASSERT_EQ_ID128(two->header->seqnum_id, seqnum_id);
 
                 append_number(two, 7, NULL, &seqnum, NULL);
                 printf("seqnum=%"PRIu64"\n", seqnum);
@@ -997,7 +997,7 @@ static void verify_entry(sd_journal *j, const TestEntry *entry) {
         assert(entry);
 
         ASSERT_OK(sd_journal_get_monotonic_usec(j, &t, &id));
-        ASSERT_STREQ(SD_ID128_TO_STRING(id), SD_ID128_TO_STRING(entry->boot_id));
+        ASSERT_EQ_ID128(id, entry->boot_id);
         ASSERT_EQ(t, entry->ts.monotonic);
 
         ASSERT_OK(sd_journal_get_realtime_usec(j, &t));
