@@ -430,7 +430,7 @@ static int list_versions(sd_bus *bus, const char *target_path) {
                         &error,
                         &reply,
                         "t",
-                        arg_offline ? SD_SYSTEMD_SYSUPDATE_OFFLINE : 0);
+                        arg_offline ? SD_SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call List");
 
@@ -473,7 +473,7 @@ static int list_versions(sd_bus *bus, const char *target_path) {
                                              op,
                                              "st",
                                              *version,
-                                             arg_offline ? SD_SYSTEMD_SYSUPDATE_OFFLINE : 0);
+                                             arg_offline ? SD_SYSUPDATE_OFFLINE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to call Describe: %m");
                 TAKE_PTR(op);
@@ -508,7 +508,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                         &reply,
                         "st",
                         version,
-                        arg_offline ? SD_SYSTEMD_SYSUPDATE_OFFLINE : 0);
+                        arg_offline ? SD_SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call Describe");
 
@@ -707,7 +707,7 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
                                      op,
                                      "st",
                                      new_version,
-                                     arg_offline ? SD_SYSTEMD_SYSUPDATE_OFFLINE : 0);
+                                     arg_offline ? SD_SYSUPDATE_OFFLINE : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to call Describe: %m");
         TAKE_PTR(op);
