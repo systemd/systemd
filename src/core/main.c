@@ -1938,7 +1938,7 @@ static int do_reexecute(
                 FDSet *fds,
                 const char *switch_root_dir,
                 const char *switch_root_init,
-                uint64_t capability_ambient_set,
+                uint64_t saved_capability_ambient_set,
                 const char **ret_error_message) {
 
         size_t i, args_size;
@@ -2000,7 +2000,7 @@ static int do_reexecute(
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
 
-        r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(saved_capability_ambient_set, /* also_inherit= */ false);
         if (r < 0)
                 log_warning_errno(r, "Failed to apply the starting ambient set, ignoring: %m");
 
@@ -2379,12 +2379,12 @@ static int initialize_runtime(
                 bool first_boot,
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
-                uint64_t *original_ambient_set,
+                uint64_t *saved_ambient_set,
                 const char **ret_error_message) {
 
         int r;
 
-        assert(original_ambient_set);
+        assert(saved_ambient_set);
         assert(ret_error_message);
 
         /* Sets up various runtime parameters. Many of these initializations are conditionalized:
@@ -2506,14 +2506,16 @@ static int initialize_runtime(
          * system manager operation, because by default it starts with an empty ambient set.
          *
          * Preserve the ambient set for later use with sd-executor processes. */
-        r = capability_get_ambient(original_ambient_set);
+        r = capability_get_ambient(saved_ambient_set);
         if (r < 0)
                 log_warning_errno(r, "Failed to save ambient capabilities, ignoring: %m");
 
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the manager itself to
          * operate. */
-        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
@@ -3011,7 +3013,7 @@ int main(int argc, char *argv[]) {
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
         const char *error_message = NULL;
-        uint64_t original_ambient_set;
+        uint64_t saved_ambient_set = 0;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
         FDSet *fds = NULL;
@@ -3286,7 +3288,7 @@ int main(int argc, char *argv[]) {
                                first_boot,
                                &saved_rlimit_nofile,
                                &saved_rlimit_memlock,
-                               &original_ambient_set,
+                               &saved_ambient_set,
                                &error_message);
         if (r < 0)
                 goto finish;
@@ -3308,7 +3310,7 @@ int main(int argc, char *argv[]) {
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_START)] = security_start_timestamp;
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_FINISH)] = security_finish_timestamp;
 
-        m->original_ambient_set = original_ambient_set;
+        m->saved_ambient_set = saved_ambient_set;
 
         set_manager_defaults(m);
         set_manager_settings(m);
@@ -3385,7 +3387,7 @@ finish:
                                  fds,
                                  switch_root_dir,
                                  switch_root_init,
-                                 original_ambient_set,
+                                 saved_ambient_set,
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
