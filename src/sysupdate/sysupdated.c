@@ -86,7 +86,6 @@ typedef enum JobType {
         JOB_CHECK_NEW,
         JOB_UPDATE,
         JOB_VACUUM,
-        JOB_DESCRIBE_FEATURE,
         _JOB_TYPE_MAX,
         _JOB_TYPE_INVALID = -EINVAL,
 } JobType;
@@ -106,7 +105,6 @@ struct Job {
         JobType type;
         bool offline;
         char *version; /* Passed into sysupdate for JOB_DESCRIBE and JOB_UPDATE */
-        char *feature; /* Passed into sysupdate for JOB_DESCRIBE_FEATURE */
 
         unsigned progress_percent;
 
@@ -134,12 +132,11 @@ static const char* const target_class_table[_TARGET_CLASS_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
-        [JOB_LIST]             = "list",
-        [JOB_DESCRIBE]         = "describe",
-        [JOB_CHECK_NEW]        = "check-new",
-        [JOB_UPDATE]           = "update",
-        [JOB_VACUUM]           = "vacuum",
-        [JOB_DESCRIBE_FEATURE] = "describe-feature",
+        [JOB_LIST]      = "list",
+        [JOB_DESCRIBE]  = "describe",
+        [JOB_CHECK_NEW] = "check-new",
+        [JOB_UPDATE]    = "update",
+        [JOB_VACUUM]    = "vacuum",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(job_type, JobType);
@@ -153,7 +150,6 @@ static Job *job_free(Job *j) {
 
         free(j->object_path);
         free(j->version);
-        free(j->feature);
 
         sd_json_variant_unref(j->json);
 
@@ -445,8 +441,8 @@ static int job_start(Job *j) {
                         NULL, /* maybe --verify=no */
                         NULL, /* maybe --component=, --root=, or --image= */
                         NULL, /* maybe --offline */
-                        NULL, /* list, check-new, update, vacuum, features */
-                        NULL, /* maybe version (for list, update), maybe feature (features) */
+                        NULL, /* list, check-new, update, vacuum */
+                        NULL, /* maybe version (for list, update) */
                         NULL
                 };
                 size_t k = 2;
@@ -496,12 +492,6 @@ static int job_start(Job *j) {
 
                 case JOB_VACUUM:
                         cmd[k++] = "vacuum";
-                        break;
-
-                case JOB_DESCRIBE_FEATURE:
-                        cmd[k++] = "features";
-                        assert(!isempty(j->feature));
-                        cmd[k++] = j->feature;
                         break;
 
                 default:
@@ -584,26 +574,20 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
                 action = "org.freedesktop.sysupdate1.vacuum";
                 break;
 
-        case JOB_DESCRIBE_FEATURE:
-                action = NULL;
-                break;
-
         default:
                 assert_not_reached();
         }
 
-        if (action) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                action,
-                                /* details= */ NULL,
-                                &j->manager->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
+        r = bus_verify_polkit_async(
+                        msg,
+                        action,
+                        /* details= */ NULL,
+                        &j->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = job_cancel(j);
         if (r < 0)
@@ -932,8 +916,6 @@ static int target_method_describe_finish(
                 sd_bus_error *error) {
         _cleanup_free_ char *text = NULL;
         int r;
-
-        /* NOTE: This is also reused by target_method_describe_feature */
 
         assert(json);
 
@@ -1311,7 +1293,8 @@ static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_b
 
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         const char *feature;
         uint64_t flags;
         int r;
@@ -1328,20 +1311,15 @@ static int target_method_describe_feature(sd_bus_message *msg, void *userdata, s
         if (flags != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
 
-        r = job_new(JOB_DESCRIBE_FEATURE, t, msg, target_method_describe_finish, &j);
+        r = sysupdate_run_simple(&json, t, "features", feature, NULL);
         if (r < 0)
                 return r;
 
-        j->feature = strdup(feature);
-        if (!j->feature)
-                return log_oom();
-
-        r = job_start(j);
+        r = sd_json_variant_format(json, 0, &formatted);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to start job: %m");
-        TAKE_PTR(j); /* Avoid job from being killed & freed */
+                return r;
 
-        return 1;
+        return sd_bus_reply_method_return(msg, "s", formatted);
 }
 
 static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
