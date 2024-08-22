@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "common-signal.h"
 #include "discover-image.h"
+#include "dropin.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -1123,13 +1124,14 @@ static int target_method_vacuum_finish(
                 sd_json_variant *json,
                 sd_bus_error *error) {
 
-        uint64_t instances;
+        uint64_t instances, disabled;
 
         assert(json);
 
         instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "removed"));
+        disabled = sd_json_variant_unsigned(sd_json_variant_by_key(json, "disabled_transfers"));
 
-        return sd_bus_reply_method_return(msg, "u", instances);
+        return sd_bus_reply_method_return(msg, "uu", instances, disabled);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1238,6 +1240,146 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
                 return r;
 
         return sd_bus_send(NULL, reply, NULL);
+}
+
+
+static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        sd_json_variant *v;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "t", &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        r = sysupdate_run_simple(&json, t, "features", NULL);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(json, "features");
+        if (!v)
+                return -EINVAL;
+        r = sd_json_variant_strv(v, &features);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(msg, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, features);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        Target *t = ASSERT_PTR(userdata);
+        _cleanup_free_ char *formatted = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        const char *feature;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "st", &feature, &flags);
+        if (r < 0)
+                return r;
+
+        if (isempty(feature))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Feature must be specified");
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        r = sysupdate_run_simple(&json, t, "features", feature, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_format(json, 0, &formatted);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(msg, "s", formatted);
+}
+
+static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *feature_ext = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        const char *feature;
+        uint64_t flags;
+        int enabled, r;
+
+        assert(msg);
+
+        if (t->class != TARGET_HOST)
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_NOT_SUPPORTED,
+                                                  "For now, features can only be managed on the host system.");
+
+        r = sd_bus_message_read(msg, "sbt", &feature, &enabled, &flags);
+        if (r < 0)
+                return r;
+
+        if (isempty(feature))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Feature must be specified");
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        if (!endswith(feature, ".feature")) {
+                feature_ext = strjoin(feature, ".feature");
+                if (!feature_ext)
+                        return -ENOMEM;
+                feature = feature_ext;
+        }
+
+        if (!filename_is_valid(feature))
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_INVALID_ARGS,
+                                                  "The specified feature is invalid");
+
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "feature", feature,
+                "enabled", true_false(enabled),
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                msg,
+                "org.freedesktop.sysupdate1.manage-features",
+                details,
+                &t->manager->polkit_registry,
+                error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        /* We write to a file named 50-systemd-sysupdate-enabled.conf, because it's _very_ unlikely that
+         * a sysadmin would name their own config files that in this context. */
+        r = write_drop_in_format(SYSCONF_DIR "/sysupdate.d", feature, 50, "systemd-sysupdate-enabled",
+                                 "# Generated via org.freedesktop.sysupdate1 D-Bus interface\n\n"
+                                 "[Transfer]\n"
+                                 "Enabled=%s\n",
+                                 true_false(enabled));
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(msg, NULL);
 }
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
@@ -1390,7 +1532,7 @@ static const sd_bus_vtable target_vtable[] = {
 
         SD_BUS_METHOD_WITH_ARGS("Vacuum",
                                 SD_BUS_NO_ARGS,
-                                SD_BUS_RESULT("u", count),
+                                SD_BUS_RESULT("u", instances, "u", disabled_transfers),
                                 target_method_vacuum,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
@@ -1404,6 +1546,24 @@ static const sd_bus_vtable target_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", version),
                                 target_method_get_version,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("ListFeatures",
+                                SD_BUS_ARGS("t", flags),
+                                SD_BUS_RESULT("as", features),
+                                target_method_list_features,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("DescribeFeature",
+                                SD_BUS_ARGS("s", feature, "t", flags),
+                                SD_BUS_RESULT("s", json),
+                                target_method_describe_feature,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("SetFeatureEnabled",
+                                SD_BUS_ARGS("s", feature, "b", enabled, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                target_method_set_feature_enabled,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
