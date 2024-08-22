@@ -15,5 +15,4 @@ Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
 [Service]
-Environment=LISTEN_FDNAMES=varlink
 ExecStart=-systemd-creds
