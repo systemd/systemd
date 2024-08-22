@@ -468,7 +468,7 @@ int exec_spawn(
 
         /* Restore the original ambient capability set the manager was started with to pass it to
          * sd-executor. */
-        r = capability_ambient_set_apply(unit->manager->original_ambient_set, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(unit->manager->saved_ambient_set, /* also_inherit= */ false);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to apply the starting ambient set: %m");
 

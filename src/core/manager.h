@@ -512,7 +512,7 @@ struct Manager {
         unsigned soft_reboots_count;
 
         /* Original ambient capabilities when we were initialized */
-        uint64_t original_ambient_set;
+        uint64_t saved_ambient_set;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
