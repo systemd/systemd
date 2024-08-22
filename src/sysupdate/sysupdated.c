@@ -163,7 +163,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func,
                                       Job, job_free);
 
-static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb,  Job **ret) {
+static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb, Job **ret) {
         _cleanup_(job_freep) Job *j = NULL;
         int r;
 
@@ -725,12 +725,19 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
         return 0;
 }
 
-static int sysupdate_run_simple(sd_json_variant **ret, ...) {
+static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_close_pair_ int pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *target_arg = NULL;
         int r;
+
+        if (t) {
+                r = target_get_argument(t, &target_arg);
+                if (r < 0)
+                        return r;
+        }
 
         r = pipe2(pipe, O_CLOEXEC);
         if (r < 0)
@@ -760,7 +767,12 @@ static int sysupdate_run_simple(sd_json_variant **ret, ...) {
                         _exit(EXIT_FAILURE);
                 }
 
-                va_start(ap, ret);
+                if (target_arg && strv_extend(&args, target_arg) < 0) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
+
+                va_start(ap, t);
                 while ((arg = va_arg(ap, char*))) {
                         r = strv_extend(&args, arg);
                         if (r < 0)
@@ -844,8 +856,8 @@ static int target_method_list_finish(
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
-        int r;
         uint64_t flags;
+        int r;
 
         assert(msg);
 
@@ -853,10 +865,13 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
+        if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
+
         const char *details[] = {
                 "class", target_class_to_string(t->class),
                 "name", t->name,
-                "offline", one_zero(FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE)),
+                "offline", one_zero(FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -875,7 +890,7 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        j->offline = FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE);
+        j->offline = FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
@@ -906,8 +921,8 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
         const char *version;
-        int r;
         uint64_t flags;
+        int r;
 
         assert(msg);
 
@@ -916,13 +931,16 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
                 return r;
 
         if (isempty(version))
-                return -EINVAL;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Version must be specified");
+
+        if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
                 "name", t->name,
                 "version", version,
-                "offline", one_zero(FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE)),
+                "offline", one_zero(FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -945,7 +963,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         if (!j->version)
                 return log_oom();
 
-        j->offline = FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE);
+        j->offline = FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
@@ -1057,7 +1075,7 @@ static int target_method_update(sd_bus_message *msg, void *userdata, sd_bus_erro
                 return r;
 
         if (flags != 0)
-                return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(EINVAL), "Flags argument must be 0: %m");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
 
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
@@ -1152,16 +1170,11 @@ static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_erro
 
 static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_free_ char *target_arg = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *version_json;
         int r;
 
-        r = target_get_argument(t, &target_arg);
-        if (r < 0)
-                return r;
-
-        r = sysupdate_run_simple(&v, "--offline", "list", target_arg, NULL);
+        r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
                 return r;
 
@@ -1183,16 +1196,11 @@ static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus
 }
 
 static int target_get_appstream(Target *t, char ***ret) {
-        _cleanup_free_ char *target_arg = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *appstream_url_json;
         int r;
 
-        r = target_get_argument(t, &target_arg);
-        if (r < 0)
-                return r;
-
-        r = sysupdate_run_simple(&v, "--offline", "list", target_arg, NULL);
+        r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
                 return r;
 
@@ -1235,18 +1243,11 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_strv_free_ char **components = NULL;
-        _cleanup_free_ char *target_arg = NULL;
         sd_json_variant *v;
         bool have_default;
         int r;
 
-        if (t) {
-                r = target_get_argument(t, &target_arg);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sysupdate_run_simple(&json, "components", target_arg, NULL);
+        r = sysupdate_run_simple(&json, t, "components", NULL);
         if (r < 0)
                 return r;
 
