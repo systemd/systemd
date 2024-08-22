@@ -856,7 +856,7 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
                 "name", t->name,
-                "offline", one_zero(FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE)),
+                "offline", one_zero(FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -875,7 +875,7 @@ static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        j->offline = FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE);
+        j->offline = FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
@@ -922,7 +922,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
                 "class", target_class_to_string(t->class),
                 "name", t->name,
                 "version", version,
-                "offline", one_zero(FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE)),
+                "offline", one_zero(FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE)),
                 NULL
         };
 
@@ -945,7 +945,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         if (!j->version)
                 return log_oom();
 
-        j->offline = FLAGS_SET(flags, SD_SYSTEMD_SYSUPDATE_OFFLINE);
+        j->offline = FLAGS_SET(flags, SD_SYSUPDATE_OFFLINE);
 
         r = job_start(j);
         if (r < 0)
