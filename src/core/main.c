@@ -2513,7 +2513,9 @@ static int initialize_runtime(
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the manager itself to
          * operate. */
-        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
