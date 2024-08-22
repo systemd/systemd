@@ -17,5 +17,4 @@ Before=sysinit.target shutdown.target
 After=systemd-remount-fs.service var.mount
 
 [Service]
-Environment=LISTEN_FDNAMES=varlink
 ExecStart={{LIBEXECDIR}}/systemd-pcrlock --location=770
