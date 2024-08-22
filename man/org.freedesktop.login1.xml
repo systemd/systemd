@@ -260,7 +260,7 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
       readonly (st) ScheduledShutdown = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DesignatedMaintenanceTime = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
@@ -1616,12 +1616,12 @@ node /org/freedesktop/login1/session/1 {
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
       <function>CanSleep()</function>,
-      <varname>SleepOperation</varname>,
-      <varname>DesignatedMaintenanceTime</varname>, and
+      <varname>SleepOperation</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
       <para><varname>HandleSecureAttentionKey</varname>,
+      <function>SecureAttentionKey()</function>,
       <varname>PreparingForShutdownWithMetadata</varname>, and
-      <function>SecureAttentionKey()</function> were added in version 257.</para>
+      <varname>DesignatedMaintenanceTime</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
