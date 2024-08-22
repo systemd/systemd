@@ -33,7 +33,7 @@
 
         <action id="org.freedesktop.sysupdate1.check">
                 <description gettext-domain="systemd">Check for system updates</description>
-                <message gettext-domain="systemd">Authentication is required to check for system updates</message>
+                <message gettext-domain="systemd">Authentication is required to check for system updates.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -43,7 +43,7 @@
 
         <action id="org.freedesktop.sysupdate1.update">
                 <description gettext-domain="systemd">Install system updates</description>
-                <message gettext-domain="systemd">Authentication is required to install system updates</message>
+                <message gettext-domain="systemd">Authentication is required to install system updates.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -53,7 +53,7 @@
 
         <action id="org.freedesktop.sysupdate1.update-to-version">
                 <description gettext-domain="systemd">Install specific system version</description>
-                <message gettext-domain="systemd">Authentication is required to update the system to a specific (possibly old) version</message>
+                <message gettext-domain="systemd">Authentication is required to update the system to a specific (possibly old) version.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -63,7 +63,7 @@
 
         <action id="org.freedesktop.sysupdate1.vacuum">
                 <description gettext-domain="systemd">Cleanup old system updates</description>
-                <message gettext-domain="systemd">Authentication is required to cleanup old system updates</message>
+                <message gettext-domain="systemd">Authentication is required to cleanup old system updates.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
