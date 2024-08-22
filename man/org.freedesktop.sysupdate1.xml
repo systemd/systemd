@@ -180,11 +180,11 @@ node /org/freedesktop/sysupdate1/target/host {
       <para><function>Describe()</function> returns all known information about a given version as a JSON
       object. The <varname>version</varname> argument is used to pass the version to be described. Additional
       options may be passed through the <varname>flags</varname> argument. The only supported value currently
-      is <varname>SD_SYSTEMD_SYSUPDATE_OFFLINE</varname>, which prevents the call from accessing the network
+      is <varname>SD_SYSUPDATE_OFFLINE</varname>, which prevents the call from accessing the network
       and restricts results to locally installed versions. This flag is defined as follows:</para>
 
       <programlisting>
-#define SD_SYSTEMD_SYSUPDATE_OFFLINE    (UINT64_C(1) &lt;&lt; 0)
+#define SD_SYSUPDATE_OFFLINE    (UINT64_C(1) &lt;&lt; 0)
       </programlisting>
 
       <para>The returned JSON object contains several known keys. More keys may be added in the future. The
@@ -327,8 +327,8 @@ node /org/freedesktop/sysupdate1/target/host {
       <literal>class</literal> contains the class of the Target being acted upon, and <literal>name</literal>
       contains the name of the same Target. Additionally, each method exposes its arguments to the
       rule. Arguments containing flags are unwrapped into a variable-per-flag; for example, the
-      <literal>SD_SYSTEMD_SYSUPDATE_OFFLINE</literal> flag is exposed as a variable named
-      <literal>offline</literal>.</para>
+      <literal>SD_SYSUPDATE_OFFLINE</literal> flag is exposed as a variable named <literal>offline</literal>.
+      </para>
     </refsect2>
   </refsect1>
 
