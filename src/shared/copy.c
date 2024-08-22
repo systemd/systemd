@@ -814,9 +814,11 @@ static int fd_copy_regular(
         if (fdf < 0)
                 return fdf;
 
-        r = read_attr_fd(fdf, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
-                return r;
+        if (FLAGS_SET(copy_flags, COPY_ATTR)) {
+                r = read_attr_fd(fdf, &attrs);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
+                        return r;
+        }
 
         if (copy_flags & COPY_MAC_CREATE) {
                 r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG);
@@ -1442,9 +1444,11 @@ int copy_file_at_full(
         if (r < 0)
                 return r;
 
-        r = read_attr_at(dir_fdf, from, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
-                return r;
+        if (FLAGS_SET(copy_flags, COPY_ATTR)) {
+                r = read_attr_at(dir_fdf, from, &attrs);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
+                        return r;
+        }
 
         WITH_UMASK(0000) {
                 fdt = xopenat_lock_full(dir_fdt, to,
@@ -1543,9 +1547,11 @@ int copy_file_atomic_at_full(
         if (fdt < 0)
                 return fdt;
 
-        r = read_attr_at(dir_fdf, from, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
-                return r;
+        if (FLAGS_SET(copy_flags, COPY_ATTR)) {
+                r = read_attr_at(dir_fdf, from, &attrs);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
+                        return r;
+        }
 
         attrs = (attrs & ~chattr_mask) | (chattr_flags & chattr_mask);
 
