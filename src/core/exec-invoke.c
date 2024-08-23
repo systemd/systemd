@@ -2883,13 +2883,8 @@ static int setup_ephemeral(
         if (*root_image) {
                 log_debug("Making ephemeral copy of %s to %s", *root_image, new_root);
 
-                fd = copy_file(*root_image,
-                               new_root,
-                               O_EXCL,
-                               0600,
-                               COPY_LOCK_BSD|
-                               COPY_REFLINK|
-                               COPY_CRTIME);
+                fd = copy_file(*root_image, new_root, O_EXCL, 0600,
+                               COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
