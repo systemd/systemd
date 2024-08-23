@@ -765,6 +765,35 @@ static int memorize_hardlink(
         return 1;
 }
 
+static int prepare_reflink(int fdf, const char *from, int fdt, unsigned *chattr_mask, unsigned *chattr_flags) {
+        unsigned attrs = 0;
+        int r;
+
+        assert(!!chattr_mask == !!chattr_flags);
+        assert(fdf >= 0 || fdf == AT_FDCWD);
+        assert(fdt >= 0);
+
+        if (chattr_mask && FLAGS_SET(*chattr_mask, FS_NOCOW_FL))
+                return 0;
+
+        r = read_attr_at(fdf, from, &attrs);
+        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
+                return r;
+
+        if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
+                if (chattr_mask && chattr_flags) {
+                        *chattr_mask |= FS_NOCOW_FL;
+                        *chattr_flags |= FS_NOCOW_FL;
+                } else {
+                        r = chattr_full(fdt, NULL, FS_NOCOW_FL, FS_NOCOW_FL, NULL, NULL, 0);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int fd_copy_tree_generic(
                 int df,
                 const char *from,
@@ -823,6 +852,12 @@ static int fd_copy_regular(
                 mac_selinux_create_file_clear();
         if (fdt < 0)
                 return -errno;
+
+        if (FLAGS_SET(copy_flags, COPY_REFLINK)) {
+                r = prepare_reflink(fdf, /*from=*/ NULL, fdt, /*chattr_mask=*/ NULL, /*chattr_flags=*/ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
         if (r < 0)
@@ -1446,6 +1481,12 @@ int copy_file_at_full(
                         goto fail;
         }
 
+        if (FLAGS_SET(copy_flags, COPY_REFLINK)) {
+                r = prepare_reflink(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
+                if (r < 0)
+                        return r;
+        }
+
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
@@ -1523,6 +1564,12 @@ int copy_file_atomic_at_full(
                 mac_selinux_create_file_clear();
         if (fdt < 0)
                 return fdt;
+
+        if (FLAGS_SET(copy_flags, COPY_REFLINK)) {
+                r = prepare_reflink(dir_fdf, from, fdt, &chattr_mask, &chattr_flags);
+                if (r < 0)
+                        return r;
+        }
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
