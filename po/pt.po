@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-05-31 07:36+0000\n"
 "Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
@@ -378,7 +378,8 @@ msgid "Import a disk image"
 msgstr "Importar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+#, fuzzy
+msgid "Authentication is required to import an image."
 msgstr "É necessária autenticação para importar uma imagem"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -386,7 +387,8 @@ msgid "Export a disk image"
 msgstr "Exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+#, fuzzy
+msgid "Authentication is required to export disk image."
 msgstr "É necessária autenticação para exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -394,7 +396,8 @@ msgid "Download a disk image"
 msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+#, fuzzy
+msgid "Authentication is required to download a disk image."
 msgstr "É necessária autenticação para baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -402,8 +405,9 @@ msgid "Cancel transfer of a disk image"
 msgstr "Cancelar transferência de uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "É necessária autenticação para cancelar a transferência em andamento de uma "
 "imagem de disco"
@@ -812,7 +816,8 @@ msgid "Set a wall message"
 msgstr "Definir uma mensagem de parede"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "É necessária autenticação para definir uma mensagem de parede"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -887,10 +892,22 @@ msgstr ""
 "É necessária autenticação para gerir máquinas virtuais locais e contentores."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Gerir máquinas virtuais locais e contentores"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"É necessária autenticação para gerir máquinas virtuais locais e contentores."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Gerir máquinas virtuais locais e imagens contentores"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1036,8 +1053,6 @@ msgstr "É necessária autenticação para reconfigurar a interface de rede."
 
 #: src/network/org.freedesktop.network1.policy:187
 #, fuzzy
-#| msgid ""
-#| "Specify whether persistent storage for systemd-networkd is available."
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Especifique se há armazenamento persistente para systemd-networkd disponível."
@@ -1086,7 +1101,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registrar um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "É necessária autenticação para registrar um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1094,7 +1110,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "É necessária autenticação para remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1105,6 +1122,89 @@ msgstr "Reverter definições de resolução de nome"
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "É necessária autenticação para redefinir as definições de resolução de nome."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "É necessária autenticação para suspender o sistema."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "É necessária autenticação para definir os servidores NTP."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "É necessária autenticação para redefinir as definições de NTP."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "É necessária autenticação para definir o fuso horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

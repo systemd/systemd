@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-07-29 08:38+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -313,7 +313,8 @@ msgstr "Geslo je poteklo, potrebna je sprememba."
 
 #: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
-msgstr "Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
+msgstr ""
+"Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
 
 #: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
@@ -381,7 +382,8 @@ msgid "Import a disk image"
 msgstr "Uvozite posnetek diska"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+#, fuzzy
+msgid "Authentication is required to import an image."
 msgstr "Za uvoz posnetka je potrebno preverjanje pristnosti"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -389,7 +391,8 @@ msgid "Export a disk image"
 msgstr "Izvozi posnetek diska"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+#, fuzzy
+msgid "Authentication is required to export disk image."
 msgstr "Za izvoz posnetka diska je potrebno preverjanje pristnosti"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -397,7 +400,8 @@ msgid "Download a disk image"
 msgstr "Prenesi posnetek diska"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+#, fuzzy
+msgid "Authentication is required to download a disk image."
 msgstr "Za prenos posnetka diska je potrebno preverjanje pristnosti"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -405,8 +409,9 @@ msgid "Cancel transfer of a disk image"
 msgstr "Prekliči prenos posnetka diska"
 
 #: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Preverjanje pristnosti je potrebno za preklic tekočega prenosa posnetka diska"
 
@@ -508,7 +513,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
+msgstr ""
+"Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -570,7 +576,8 @@ msgstr "Dovoli pripenjanje naprav na delovišča"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -814,7 +821,8 @@ msgid "Set a wall message"
 msgstr "Nastavi stensko sporočilo"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Preverjanje pristnosti je potrebno za nastavitev stenskega sporočila"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -893,10 +901,23 @@ msgstr ""
 "računalnikov in vsebnikov."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Upravljaj krajevne navidezne računalnike in vsebnike"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje krajevnih navideznih "
+"računalnikov in vsebnikov."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Upravljaj posnetke krajevnih navideznih računalnikov in vsebnikov"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1102,7 +1123,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registrirajte storitev DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Za registracijo storitve DNS-SD je potrebno preverjanje pristnosti"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1110,7 +1132,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Prekliči registracijo storitve DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
 "Za preklic registracije storitve DNS-SD je potrebno preverjanje pristnosti"
 
@@ -1123,6 +1146,91 @@ msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Za ponastavitev nastavitev razločljivosti imena je potrebno preverjanje "
 "pristnosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr ""
+"Za začasno prekinitev delovanja sistema je potrebno preverjanje pristnosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Za nastavitev domen je potrebno preverjanje pristnosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Za nastavitev strežnikov NTP je potrebno preverjanje pristnosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Za nastavitev domen je potrebno preverjanje pristnosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Za ponastavitev nastavitev NTP je potrebno preverjanje pristnosti."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Za nastavitev sistemskega časa je potrebno preverjanje pristnosti."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Za nastavitev sistemskega časa je potrebno preverjanje pristnosti."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"Za nastavitev sistemskega časovnega pasu je potrebno preverjanje pristnosti."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Za nastavitev sistemskega časa je potrebno preverjanje pristnosti."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
