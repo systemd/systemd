@@ -359,15 +359,15 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
+        r = xdg_user_config_dir("/user-tmpfiles.d", &persistent_config);
         if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
-        r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
+        r = xdg_user_runtime_dir("/user-tmpfiles.d", &runtime_config);
         if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
-        r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
+        r = xdg_user_data_dir("/user-tmpfiles.d", &data_home);
         if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
