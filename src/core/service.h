@@ -95,6 +95,7 @@ typedef enum ServiceTimeoutFailureMode {
 typedef enum ServiceRestartMode {
         SERVICE_RESTART_MODE_NORMAL,
         SERVICE_RESTART_MODE_DIRECT,
+        SERVICE_RESTART_MODE_DEBUG,
         _SERVICE_RESTART_MODE_MAX,
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
