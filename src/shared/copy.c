@@ -1502,8 +1502,9 @@ int copy_file_at_full(
                         goto fail;
         }
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
+        unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
+        if (chattr_mask != 0 || nocow != 0)
+                (void) chattr_fd(fdt,  chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
                 if (fsync(fdt) < 0) {
@@ -1590,8 +1591,9 @@ int copy_file_atomic_at_full(
 
         t = mfree(t);
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
+        unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
+        if (chattr_mask != 0 || nocow != 0)
+                (void) chattr_fd(fdt,  chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
