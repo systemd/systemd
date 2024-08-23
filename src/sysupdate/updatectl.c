@@ -534,7 +534,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                 r = terminal_urlify(*url, NULL, &changelog_link);
                 if (r < 0)
                         return log_error_errno(r, "Could not urlify link to change-log: %m");
-                
+
                 printf("ChangeLog: %s\n", strna(changelog_link));
         }
         printf("\n");
@@ -654,7 +654,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
                         NULL);
         if (r < 0)
                 return log_bus_error(r, &error, op->target_id, "get current version");
-        
+
         r = sd_bus_message_read_basic(reply, 's', &current);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -904,7 +904,7 @@ static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *erro
 }
 
 static int update_interrupted(sd_event_source *source, void *userdata) {
-        /* Since the event loop is exiting, we will never recieve the JobRemoved
+        /* Since the event loop is exiting, we will never receive the JobRemoved
          * signal. So, we must free the userdata here. */
         _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
