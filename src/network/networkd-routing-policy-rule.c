@@ -993,6 +993,9 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
 static int link_request_static_routing_policy_rule(Link *link, const RoutingPolicyRule *rule) {
         int r;
 
+        assert(link);
+        assert(rule);
+
         if (IN_SET(rule->family, AF_INET, AF_INET6))
                 return link_request_routing_policy_rule(link, rule, rule->family);
 
@@ -1057,7 +1060,6 @@ static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *ru
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
-        bool adjust_protocol = false, is_new = false;
         RoutingPolicyRule *rule = NULL;
         Request *req = NULL;
         uint16_t type;
@@ -1179,17 +1181,6 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
-        if (r == -ENODATA)
-                /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended.
-                 * When the received message does not have FRA_PROTOCOL, then we need to adjust the
-                 * protocol of the rule later. */
-                adjust_protocol = true;
-        else if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
-                return 0;
-        }
-
         uint8_t l3mdev = 0;
         r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &l3mdev);
         if (r < 0 && r != -ENODATA) {
@@ -1248,10 +1239,19 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        if (adjust_protocol)
+        /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended. If the received
+         * message does not have FRA_PROTOCOL, then we need to adjust the protocol of the rule. That requires
+         * all properties compared in the routing_policy_rule_compare_func(), hence it must be done after
+         * reading them. */
+        r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
+        if (r == -ENODATA)
                 /* As .network files does not have setting to specify protocol, we can assume the
                  * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
                 tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
+        else if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
+                return 0;
+        }
 
         (void) routing_policy_rule_get(m, tmp, tmp->family, &rule);
         (void) routing_policy_rule_get_request(m, tmp, tmp->family, &req);
@@ -1270,6 +1270,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
+        bool is_new = false;
         if (!rule) {
                 if (!req && !m->manage_foreign_rules) {
                         routing_policy_rule_enter_configured(tmp);

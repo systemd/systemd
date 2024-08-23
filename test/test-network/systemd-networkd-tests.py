@@ -3225,6 +3225,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('101:	from all iif test1 lookup 9', output)
 
+        output = check_output('ip -6 rule list iif test1 priority 101')
+        print(output)
+        self.assertIn('101:	from all iif test1 lookup 9', output)
+
         output = check_output('ip rule list iif test1 priority 102')
         print(output)
         self.assertIn('102:	from 0.0.0.0/8 iif test1 lookup 10', output)
