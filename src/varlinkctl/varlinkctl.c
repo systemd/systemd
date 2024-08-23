@@ -334,6 +334,10 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         url = argv[1];
         interfaces = strv_skip(argv, 2);
 
+        STRV_FOREACH(i, interfaces)
+                if (!varlink_idl_qualified_symbol_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink interface name: '%s'", *i);
+
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
@@ -497,6 +501,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
+
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
 
         if (parameter) {
                 source = "<argv[4]>";
