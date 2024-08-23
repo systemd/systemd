@@ -1149,7 +1149,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         if (isempty(type)) {
-                r = reply_method_errorf(q, BUS_ERROR_NO_SUCH_SERVICE, "'%s' does not provide valid service", dns_query_string(q));
+                r = reply_method_errorf(q, BUS_ERROR_INCONSISTENT_SERVICE_RECORDS, "'%s' does not provide a consistent set of service resource records", dns_query_string(q));
                 goto finish;
         }
 
