@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-06-06 00:50+0000\n"
 "Last-Translator: hanjinpeng <hanjinpeng@kylinos.cn>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
@@ -346,7 +346,7 @@ msgstr "導入磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr "導入映像需要身份驗證"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -356,7 +356,7 @@ msgstr "匯出磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr "匯出磁片映像需要驗證"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -366,7 +366,7 @@ msgstr "下載磁片映像"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr "下載磁片映像需要驗證"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -376,7 +376,7 @@ msgstr "取消磁片映像的傳輸"
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr "需要身份驗證才能取消正在進行的磁片映像傳輸"
 
 #: src/locale/org.freedesktop.locale1.policy:22
@@ -719,7 +719,8 @@ msgid "Set a wall message"
 msgstr "設定 wall 訊息"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "設定 wall 訊息需要身份驗證"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -789,10 +790,21 @@ msgid ""
 msgstr "管理本機虛擬機器及容器需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "管理本機虛擬機器及容器"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "管理本機虛擬機器及容器需要驗證。"
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "管理本機虛擬機器及容器映像"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -975,7 +987,8 @@ msgid "Register a DNS-SD service"
 msgstr "註冊 DNS-SD 服務"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "註冊 DNS-SD 服務需要身份驗證"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -983,7 +996,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "取消註冊 DNS-SD 服務"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "取消註冊 DNS-SD 服務需要身份驗證"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -993,6 +1007,89 @@ msgstr "還原名稱解析設定"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr "重設名稱解析設定需要身份驗證。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "暫停系統需要驗證。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "設定網域需要身份驗證。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "設定 NTP 伺服器需要身份驗證。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "設定網域需要身份驗證。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "重設 NTP 設定需要身份驗證。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "設定系統時間需要驗證。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "設定系統時間需要驗證。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "設定系統時區需要驗證。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "設定系統時間需要驗證。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
