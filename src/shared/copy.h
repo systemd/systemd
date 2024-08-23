@@ -31,6 +31,15 @@ typedef enum CopyFlags {
         COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
         COPY_LOCK_BSD      = 1 << 17, /* Return a BSD exclusively locked file descriptor referring to the copied image/directory. */
         COPY_VERIFY_LINKED = 1 << 18, /* Check the source file is still linked after copying. */
+
+        /* A root image might be subject to lots of random writes so we provide a flag to try to disable COW
+         * on a copied file which tends to not perform well in combination with lots of random writes.
+         *
+         * Note: btrfs actually isn't impressed by us setting the flag after making the copy, but this at
+         * least makes the intention clear. We don't want to unconditionally set the flag before doing the
+         * copy because reflinking from COW to NOCOW files is not supported.
+         */
+        COPY_NOCOW_AFTER   = 1 << 19,
 } CopyFlags;
 
 typedef enum DenyType {
