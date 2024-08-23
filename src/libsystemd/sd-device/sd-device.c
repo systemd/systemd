@@ -728,7 +728,7 @@ int device_read_uevent_file(sd_device *device) {
         _cleanup_free_ char *uevent = NULL;
         const char *syspath, *key = NULL, *value = NULL, *major = NULL, *minor = NULL;
         char *path;
-        size_t uevent_len;
+        size_t uevent_len = 0;
         int r;
 
         enum {
@@ -1679,8 +1679,8 @@ int device_get_device_id(sd_device *device, const char **ret) {
 
 int device_read_db_internal_filename(sd_device *device, const char *filename) {
         _cleanup_free_ char *db = NULL;
-        const char *value;
-        size_t db_len;
+        const char *value = NULL;
+        size_t db_len = 0;
         char key = '\0';  /* Unnecessary initialization to appease gcc-12.0.0-0.4.fc36 */
         int r;
 
