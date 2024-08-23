@@ -589,11 +589,14 @@ static int get_device_firmware_node_sun(sd_device *dev, uint32_t *ret) {
 }
 
 static int pci_get_slot_from_firmware_node_sun(sd_device *dev, uint32_t *ret) {
-        int r;
         sd_device *slot_dev;
+        int r;
 
         assert(dev);
         assert(ret);
+
+        if (!naming_scheme_has(NAMING_FIRMWARE_NODE_SUN))
+                return -EOPNOTSUPP;
 
         /* Try getting the ACPI _SUN for the device */
         if (get_device_firmware_node_sun(dev, ret) >= 0)
@@ -690,12 +693,8 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
                          strna(domain), bus_and_slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
-        if (naming_scheme_has(NAMING_FIRMWARE_NODE_SUN))
-                r = pci_get_slot_from_firmware_node_sun(pci_dev, &slot);
-        else
-                r = -1;
-        /* If we don't find a slot using firmware_node/sun, fallback to hotplug_slot */
-        if (r < 0) {
+        if (pci_get_slot_from_firmware_node_sun(pci_dev, &slot) < 0) {
+                /* If we don't find a slot using firmware_node/sun, fallback to hotplug_slot */
                 r = pci_get_hotplug_slot(pci_dev, &slot);
                 if (r < 0)
                         return r;
