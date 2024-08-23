@@ -17,80 +17,6 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-int xdg_user_runtime_dir(char **ret, const char *suffix) {
-        const char *e;
-        char *j;
-
-        assert(ret);
-        assert(suffix);
-
-        e = getenv("XDG_RUNTIME_DIR");
-        if (!e)
-                return -ENXIO;
-
-        j = path_join(e, suffix);
-        if (!j)
-                return -ENOMEM;
-
-        *ret = j;
-        return 0;
-}
-
-int xdg_user_config_dir(char **ret, const char *suffix) {
-        _cleanup_free_ char *j = NULL;
-        const char *e;
-        int r;
-
-        assert(ret);
-
-        e = getenv("XDG_CONFIG_HOME");
-        if (e) {
-                j = path_join(e, suffix);
-                if (!j)
-                        return -ENOMEM;
-        } else {
-                r = get_home_dir(&j);
-                if (r < 0)
-                        return r;
-
-                if (!path_extend(&j, "/.config", suffix))
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(j);
-        return 0;
-}
-
-int xdg_user_data_dir(char **ret, const char *suffix) {
-        _cleanup_free_ char *j = NULL;
-        const char *e;
-        int r;
-
-        assert(ret);
-        assert(suffix);
-
-        /* We don't treat /etc/xdg/systemd here as the spec
-         * suggests because we assume that is a link to
-         * /etc/systemd/ anyway. */
-
-        e = getenv("XDG_DATA_HOME");
-        if (e) {
-                j = path_join(e, suffix);
-                if (!j)
-                        return -ENOMEM;
-        } else {
-                r = get_home_dir(&j);
-                if (r < 0)
-                        return r;
-
-                if (!path_extend(&j, "/.local/share", suffix))
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(j);
-        return 1;
-}
-
 int runtime_directory(char **ret, RuntimeScope scope, const char *suffix) {
         int r;
 
@@ -109,7 +35,7 @@ int runtime_directory(char **ret, RuntimeScope scope, const char *suffix) {
                 return strdup_to(ret, e);
 
         if (scope == RUNTIME_SCOPE_USER) {
-                r = xdg_user_runtime_dir(ret, suffix);
+                r = xdg_user_runtime_dir(suffix, ret);
                 if (r < 0)
                         return r;
         } else {
@@ -193,7 +119,7 @@ static char** user_dirs(
         if (r < 0)
                 return NULL;
 
-        r = xdg_user_data_dir(&data_home, "/systemd/user");
+        r = xdg_user_data_dir("/systemd/user", &data_home);
         if (r < 0 && r != -ENXIO)
                 return NULL;
 
@@ -326,7 +252,7 @@ static int acquire_transient_dir(
         else if (scope == RUNTIME_SCOPE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
         else
-                return xdg_user_runtime_dir(ret, "/systemd/transient");
+                return xdg_user_runtime_dir("/systemd/transient", ret);
 
         if (!transient)
                 return -ENOMEM;
@@ -354,11 +280,11 @@ static int acquire_config_dirs(RuntimeScope scope, char **persistent, char **run
                 break;
 
         case RUNTIME_SCOPE_USER:
-                r = xdg_user_config_dir(&a, "/systemd/user");
+                r = xdg_user_config_dir("/systemd/user", &a);
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = xdg_user_runtime_dir(runtime, "/systemd/user");
+                r = xdg_user_runtime_dir("/systemd/user", runtime);
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
@@ -411,11 +337,11 @@ static int acquire_control_dirs(RuntimeScope scope, char **persistent, char **ru
         }
 
         case RUNTIME_SCOPE_USER:
-                r = xdg_user_config_dir(&a, "/systemd/user.control");
+                r = xdg_user_config_dir("/systemd/user.control", &a);
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = xdg_user_runtime_dir(runtime, "/systemd/user.control");
+                r = xdg_user_runtime_dir("/systemd/user.control", runtime);
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
