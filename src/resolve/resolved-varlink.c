@@ -830,7 +830,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         if (isempty(type)) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
+                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
                 goto finish;
         }
 
