@@ -182,7 +182,7 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
         int r;
 
-        r = xdg_user_config_dir(&base, "/systemd");
+        r = xdg_user_config_dir("/systemd", &base);
         if (r < 0)
                 return r;
 
@@ -2479,7 +2479,7 @@ static int initialize_runtime(
                 /* Create the runtime directory and place the inaccessible device nodes there, if we run in
                  * user mode. In system mode mount_setup() already did that. */
 
-                r = xdg_user_runtime_dir(&p, "/systemd");
+                r = xdg_user_runtime_dir("/systemd", &p);
                 if (r < 0) {
                         *ret_error_message = "$XDG_RUNTIME_DIR is not set";
                         return log_struct_errno(LOG_EMERG, r,
