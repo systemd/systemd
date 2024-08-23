@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+// TEST
+
 #include "sd-varlink-idl.h"
 
 #include "ansi-color.h"
