@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-05-21 11:35+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -362,7 +362,8 @@ msgid "Import a disk image"
 msgstr "Impor sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+#, fuzzy
+msgid "Authentication is required to import an image."
 msgstr "Otentikasi diperlukan untuk mengimpor suatu image"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -370,7 +371,8 @@ msgid "Export a disk image"
 msgstr "Ekspor sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+#, fuzzy
+msgid "Authentication is required to export disk image."
 msgstr "Otentikasi diperlukan untuk mengekspor suatu image disk"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -378,7 +380,8 @@ msgid "Download a disk image"
 msgstr "Unduh sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+#, fuzzy
+msgid "Authentication is required to download a disk image."
 msgstr "Otentikasi diperlukan untuk mengunduh suatu image disk"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -386,8 +389,9 @@ msgid "Cancel transfer of a disk image"
 msgstr "Batalkan transfer suatu image disk"
 
 #: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Otentikasi diperlukan untuk membatalkan transfer suatu image disk yang "
 "sedang berjalan"
@@ -776,7 +780,8 @@ msgid "Set a wall message"
 msgstr "Setel suatu pesan wall"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -852,10 +857,22 @@ msgstr ""
 "Otentikasi diperlukan untuk mengelola mesin virtual lokal dan kontainer."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Kelola mesin virtual lokal dan kontainer"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Otentikasi diperlukan untuk mengelola mesin virtual lokal dan kontainer."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Kelola mesin virtual lokal dan image kontainer"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1003,8 +1020,6 @@ msgstr "Otentikasi diperlukan untuk mengonfigurasi ulang antar muka jaringan."
 
 #: src/network/org.freedesktop.network1.policy:187
 #, fuzzy
-#| msgid ""
-#| "Specify whether persistent storage for systemd-networkd is available."
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Menentukan apakah penyimpanan persisten bagi systemd-networkd tersedia."
@@ -1052,7 +1067,8 @@ msgid "Register a DNS-SD service"
 msgstr "Daftarkan suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Otentikasi diperlukan untuk mendaftarkan suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1060,7 +1076,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Cabut pendaftaran suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Otentikasi diperlukan untuk mencabut pendaftaran suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1070,6 +1087,89 @@ msgstr "Pulihkan pengaturan resolusi nama"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Otentikasi diperlukan untuk me-reset pengaturan resolusi nama."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Otentikasi diperlukan untuk mensuspensi sistem."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Otentikasi diperlukan untuk mengatur domain."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Otentikasi diperlukan untuk menyetel server NTP."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Otentikasi diperlukan untuk mengatur domain."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Otentikasi diperlukan untuk mereset pengaturan NTP."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Otentikasi diperlukan untuk menyetel zona waktu sistem."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

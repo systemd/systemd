@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
@@ -379,7 +379,8 @@ msgid "Import a disk image"
 msgstr "Імпортування образу диска"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+#, fuzzy
+msgid "Authentication is required to import an image."
 msgstr "Для імпортування образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -387,7 +388,8 @@ msgid "Export a disk image"
 msgstr "Експортування образу диска"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+#, fuzzy
+msgid "Authentication is required to export disk image."
 msgstr "Для експортування образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -395,7 +397,8 @@ msgid "Download a disk image"
 msgstr "Отримання образу диска"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+#, fuzzy
+msgid "Authentication is required to download a disk image."
 msgstr "Для отримання образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -403,8 +406,9 @@ msgid "Cancel transfer of a disk image"
 msgstr "Скасування передавання образу диска"
 
 #: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr "Для скасування передавання образу диска слід пройти розпізнавання"
 
 #: src/locale/org.freedesktop.locale1.policy:22
@@ -813,7 +817,8 @@ msgid "Set a wall message"
 msgstr "Встановлення повідомлення на стіні"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Для встановлення повідомлення на стіні слід пройти розпізнавання"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -892,10 +897,23 @@ msgstr ""
 "слід пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Керування локальними віртуальними машинами і контейнерами"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Для доступу до керування локальними віртуальними машинами і контейнерами "
+"слід пройти розпізнавання."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Керування локальними образами віртуальних машин і контейнерів"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1092,7 +1110,8 @@ msgid "Register a DNS-SD service"
 msgstr "Реєстрація служби DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Для реєстрації служби DNS-SD слід пройти розпізнавання"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1100,7 +1119,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Зняття з реєстрації служби DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Для зняття з реєстрації служби DNS-SD слід пройти розпізнавання"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1112,6 +1132,90 @@ msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Для повернення до початкових параметрів визначення назв вузлів за адресами "
 "слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Для призупинення системи слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Для встановлення доменів слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Для встановлення серверів NTP слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Для встановлення доменів слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Для скидання параметрів NTP до типових слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Для встановлення загальносистемного часу слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Для встановлення загальносистемного часу слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"Для встановлення загальносистемного часового поясу слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Для встановлення загальносистемного часу слід пройти розпізнавання."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

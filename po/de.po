@@ -12,7 +12,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-05-07 17:36+0000\n"
 "Last-Translator: Jarne Förster <fedora@mymailclient.de>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
@@ -388,7 +388,8 @@ msgid "Import a disk image"
 msgstr "Datenabbild importieren"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+#, fuzzy
+msgid "Authentication is required to import an image."
 msgstr "Authentifizierung ist erforderlich um ein Datenabbild zu importieren"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -396,7 +397,8 @@ msgid "Export a disk image"
 msgstr "Datenabbild exportieren"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+#, fuzzy
+msgid "Authentication is required to export disk image."
 msgstr "Authentifizierung ist erforderlich um ein Datenabbild zu exportieren"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -404,7 +406,8 @@ msgid "Download a disk image"
 msgstr "Datenabbild herunterladen"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+#, fuzzy
+msgid "Authentication is required to download a disk image."
 msgstr "Authentifizierung ist erforderlich um ein Datenabbild herunterzuladen"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -413,8 +416,9 @@ msgstr "Transfer eines Datenabbilds abbrechen"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Authentifizierung ist erforderlich um den aktuellen Transfer eines "
 "Datenabbildes abzubrechen"
@@ -846,7 +850,8 @@ msgid "Set a wall message"
 msgstr "Nachricht an alle einstellen"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -925,10 +930,23 @@ msgstr ""
 "erforderlich."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Lokale virtuelle Maschinen und Container verwalten"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Legitimierung ist zum Verwalten lokaler virtueller Maschinen und Container "
+"erforderlich."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Lokale virtuelle Maschinen und Containerabbilder verwalten"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1084,8 +1102,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:187
 #, fuzzy
-#| msgid ""
-#| "Specify whether persistent storage for systemd-networkd is available."
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
 "Bitte geben Sie an, ob permanenter Speicher für systemd-networkd verfügbar "
@@ -1137,7 +1153,8 @@ msgid "Register a DNS-SD service"
 msgstr "Einen DNS-SD-Dienst registrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Legitimierung ist zum Anmelden eines DNS-SD-Dienstes notwendig"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1145,7 +1162,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Einen DNS-SD-Dienst deregistrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Legitimierung ist zum Abmelden eines DNS-SD-Dienstes notwendig"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1157,6 +1175,89 @@ msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Legitimierung ist zum Zurücksetzen der Namensauflösungseinstellungen "
 "erforderlich."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Legitimierung ist zum Festlegen von Domains notwendig."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Legitimierung ist zum Festlegen von NTP-Servern notwendig."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Legitimierung ist zum Festlegen von Domains notwendig."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Legitimierung ist zum Zurücksetzen der NTP-Einstellungen notwendig."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Legitimierung ist zum Festlegen der Systemzeitzone notwendig."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

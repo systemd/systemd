@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2021-08-26 18:05+0000\n"
 "Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
@@ -362,7 +362,7 @@ msgstr "Importar una imagen de máquina virtual o de contenedor"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr ""
 "Necesita autenticarse para importar una imagen de máquina virtual o de "
 "contenedor"
@@ -374,7 +374,7 @@ msgstr "Exportar imagen de máquina virtual o de contenedor"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr ""
 "Necesita autenticarse para exportar una imagen de máquina virtual o de "
 "contenedor"
@@ -386,7 +386,7 @@ msgstr "Descargar una imagen de máquina virtual o de contenedor"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr ""
 "Necesita autenticarse para descargar una imagen de máquina virtual o de "
 "contenedor"
@@ -398,7 +398,7 @@ msgstr ""
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Necesita autenticarse para cambiar la contraseña del espacio personal de un "
 "usuario."
@@ -820,7 +820,8 @@ msgid "Set a wall message"
 msgstr "Establecer muro de texto"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Necesita autenticarse para establecer un muro de texto"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -897,10 +898,23 @@ msgstr ""
 "contenedores locales."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Administrar máquinas virtuales y contenedores locales"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Necesita autenticarse para administrar las máquinas virtuales y los "
+"contenedores locales."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Administrar imágenes de máquina virtual y de contenedores locales"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1097,7 +1111,7 @@ msgstr "Registrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
-msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Se requiere autenticación para establecer un muro de texto"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1106,7 +1120,7 @@ msgstr "Desregistrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
-msgid "Authentication is required to unregister a DNS-SD service"
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Se requiere autenticación para establecer un muro de texto"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1117,6 +1131,89 @@ msgstr "Revertir configuración de resolución de nombres"
 #, fuzzy
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Se requiere autenticación para configurar el teclado del sistema."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Necesita autenticarse para suspender el sistema."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Necesita autenticarse para establecer dominios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Necesita autenticarse para establecer servidores NTP."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Necesita autenticarse para establecer dominios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Necesita autenticarse para restablecer la configuración de NTP."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Necesita autenticarse para establecer la fecha y hora del sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Necesita autenticarse para establecer la fecha y hora del sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Necesita autenticarse para establecer la zona horaria del sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Necesita autenticarse para establecer la fecha y hora del sistema."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
