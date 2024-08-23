@@ -798,7 +798,6 @@ static int fd_copy_regular(
                 void *userdata) {
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
-        unsigned attrs = 0;
         int r, q;
 
         assert(st);
@@ -814,10 +813,6 @@ static int fd_copy_regular(
         if (fdf < 0)
                 return fdf;
 
-        r = read_attr_fd(fdf, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
-                return r;
-
         if (copy_flags & COPY_MAC_CREATE) {
                 r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG);
                 if (r < 0)
@@ -828,9 +823,6 @@ static int fd_copy_regular(
                 mac_selinux_create_file_clear();
         if (fdt < 0)
                 return -errno;
-
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
         if (r < 0)
@@ -846,9 +838,6 @@ static int fd_copy_regular(
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
-
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, ~CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
                 r = fd_verify_linked(fdf);
@@ -1430,7 +1419,6 @@ int copy_file_at_full(
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         struct stat st;
-        unsigned attrs = 0;
         int r;
 
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
@@ -1446,10 +1434,6 @@ int copy_file_at_full(
 
         r = stat_verify_regular(&st);
         if (r < 0)
-                return r;
-
-        r = read_attr_at(dir_fdf, from, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
                 return r;
 
         WITH_UMASK(0000) {
@@ -1468,10 +1452,8 @@ int copy_file_at_full(
                         goto fail;
         }
 
-        attrs = (attrs & ~chattr_mask) | (chattr_flags & chattr_mask);
-
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
         if (r < 0)
@@ -1486,8 +1468,8 @@ int copy_file_at_full(
                         goto fail;
         }
 
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, ~CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
                 if (fsync(fdt) < 0) {
@@ -1532,7 +1514,6 @@ int copy_file_atomic_at_full(
 
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_close_ int fdt = -EBADF;
-        unsigned attrs = 0;
         int r;
 
         assert(to);
@@ -1549,14 +1530,8 @@ int copy_file_atomic_at_full(
         if (fdt < 0)
                 return fdt;
 
-        r = read_attr_at(dir_fdf, from, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP)
-                return r;
-
-        attrs = (attrs & ~chattr_mask) | (chattr_flags & chattr_mask);
-
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
         r = copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0)
@@ -1577,8 +1552,8 @@ int copy_file_atomic_at_full(
 
         t = mfree(t);
 
-        if (attrs != 0)
-                (void) chattr_full(fdt, NULL, attrs, ~CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
