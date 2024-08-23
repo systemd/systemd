@@ -354,55 +354,56 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         return -EOPNOTSUPP;
 }
 
-static int get_path_alloc(uint64_t type, const char *suffix, char **path) {
+static int get_path_alloc(uint64_t type, const char *suffix, char **ret) {
         _cleanup_free_ char *buffer = NULL;
-        char *buffer2 = NULL;
-        const char *ret;
+        const char *p;
         int r;
 
-        assert(path);
+        assert(ret);
 
-        r = get_path(type, &buffer, &ret);
+        r = get_path(type, &buffer, &p);
         if (r < 0)
                 return r;
 
         if (suffix) {
-                suffix += strspn(suffix, "/");
-                buffer2 = path_join(ret, suffix);
-                if (!buffer2)
+                char *suffixed = path_join(p, suffix);
+                if (!suffixed)
                         return -ENOMEM;
+
+                path_simplify(suffixed);
+
+                free_and_replace(buffer, suffixed);
         } else if (!buffer) {
-                buffer = strdup(ret);
+                buffer = strdup(p);
                 if (!buffer)
                         return -ENOMEM;
         }
 
-        *path = buffer2 ?: TAKE_PTR(buffer);
+        *ret = TAKE_PTR(buffer);
         return 0;
 }
 
-_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
+_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **ret) {
         int r;
 
-        assert_return(path, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = get_path_alloc(type, suffix, path);
+        r = get_path_alloc(type, suffix, ret);
         if (r != -EOPNOTSUPP)
                 return r;
 
         /* Fall back to sd_path_lookup_strv */
         _cleanup_strv_free_ char **l = NULL;
-        char *buffer;
 
         r = sd_path_lookup_strv(type, suffix, &l);
         if (r < 0)
                 return r;
 
-        buffer = strv_join(l, ":");
-        if (!buffer)
+        char *joined = strv_join(l, ":");
+        if (!joined)
                 return -ENOMEM;
 
-        *path = buffer;
+        *ret = joined;
         return 0;
 }
 
@@ -613,11 +614,11 @@ static int get_search(uint64_t type, char ***ret) {
         return -EOPNOTSUPP;
 }
 
-_public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths) {
-        _cleanup_strv_free_ char **l = NULL, **n = NULL;
+_public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        assert_return(paths, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_search(type, &l);
         if (r == -EOPNOTSUPP) {
@@ -633,31 +634,20 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***path
                 l[0] = TAKE_PTR(t);
                 l[1] = NULL;
 
-                *paths = TAKE_PTR(l);
+                *ret = TAKE_PTR(l);
                 return 0;
-
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
-        if (!suffix) {
-                *paths = TAKE_PTR(l);
-                return 0;
-        }
+        if (suffix)
+                STRV_FOREACH(i, l) {
+                        if (!path_extend(i, suffix))
+                                return -ENOMEM;
 
-        n = new(char*, strv_length(l)+1);
-        if (!n)
-                return -ENOMEM;
+                        path_simplify(*i);
+                }
 
-        char **j = n;
-        STRV_FOREACH(i, l) {
-                *j = path_join(*i, suffix);
-                if (!*j)
-                        return -ENOMEM;
-
-                j++;
-        }
-        *j = NULL;
-
-        *paths = TAKE_PTR(n);
+        *ret = TAKE_PTR(l);
         return 0;
 }
