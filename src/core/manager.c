@@ -1031,7 +1031,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         r = mkdir_label("/run/systemd/units", 0755);
                 else {
                         _cleanup_free_ char *units_path = NULL;
-                        r = xdg_user_runtime_dir(&units_path, "/systemd/units");
+                        r = xdg_user_runtime_dir("/systemd/units", &units_path);
                         if (r < 0)
                                 return r;
 
