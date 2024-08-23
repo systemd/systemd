@@ -171,6 +171,7 @@ static SD_VARLINK_DEFINE_ERROR(BadAddressSize);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
 static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
+static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -203,4 +204,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_BadAddressSize,
                 &vl_error_ResourceRecordTypeInvalidForQuery,
                 &vl_error_ZoneTransfersNotPermitted,
-                &vl_error_ResourceRecordTypeObsolete);
+                &vl_error_ResourceRecordTypeObsolete,
+                &vl_error_InconsistentServiceRecords);
