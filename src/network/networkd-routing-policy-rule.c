@@ -2004,16 +2004,25 @@ int config_parse_routing_policy_rule_type(
         return 0;
 }
 
+#define log_rule_section(rule, fmt, ...)                                \
+        ({                                                              \
+                const RoutingPolicyRule *_rule = (rule);                \
+                log_section_warning_errno(                              \
+                                _rule ? _rule->section : NULL,          \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [RoutingPolicyRule] section.", \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+        assert(rule);
+
         if (section_is_invalid(rule->section))
                 return -EINVAL;
 
         if ((rule->family == AF_INET && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) ||
             (rule->family == AF_INET6 && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                "%s: address family specified by Family= conflicts with the address "
-                                "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
-                                rule->section->filename, rule->section->line);
+                return log_rule_section(rule, "Address family specified by Family= conflicts with To= and/or From=.");
 
         if (rule->family == AF_UNSPEC) {
                 if (IN_SET(rule->address_family, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_NO))
@@ -2023,24 +2032,18 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                 /* rule->family can be AF_UNSPEC only when Family=both. */
         }
 
+        assert(IN_SET(rule->family, AF_INET, AF_INET6) || rule->address_family == ADDRESS_FAMILY_YES);
+
         if (rule->l3mdev)
                 rule->table = RT_TABLE_UNSPEC;
 
         if (rule->type == FR_ACT_GOTO) {
                 if (rule->priority_goto <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: Type=goto is specified but the target priority GoTo= is unspecified. "
-                                               "Ignoring [RoutingPolicyRule] section from line %u.",
-                                               rule->section->filename,
-                                               rule->section->line);
+                        return log_rule_section(rule, "Type=goto is specified but the target priority GoTo= is unspecified.");
 
                 if (rule->priority_set && rule->priority >= rule->priority_goto)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: goto target priority %"PRIu32" must be larger than the priority of this rule %"PRIu32". "
-                                               "Ignoring [RoutingPolicyRule] section from line %u.",
-                                               rule->section->filename,
-                                               rule->priority_goto, rule->priority,
-                                               rule->section->line);
+                        return log_rule_section(rule, "Goto target priority %"PRIu32" must be larger than the priority of this rule %"PRIu32".",
+                                                rule->priority_goto, rule->priority);
         }
 
         return 0;
