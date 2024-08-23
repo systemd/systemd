@@ -315,6 +315,9 @@ util-lib:
 utmp/wtmp:
   - changed-files:
     - any-glob-to-any-file: '**/*utmp*'
+varlink:
+  - changed-files:
+    - any-glob-to-any-file: ['src/varlink/*', 'src/libsystemd/sd-varlink/*', 'src/systemd/sd-varlink*']
 vconsole:
   - changed-files:
     - any-glob-to-any-file: '**/*vconsole*'
