@@ -65,26 +65,20 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
         return 0;
 }
 
-static int from_user_dir(const char *field, char **buffer, const char **ret) {
+static int from_xdg_user_dir(const char *field, char **buffer, const char **ret) {
+        _cleanup_free_ char *user_dirs = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *b = NULL;
-        _cleanup_free_ const char *fn = NULL;
-        const char *c = NULL;
         int r;
 
         assert(field);
         assert(buffer);
         assert(ret);
 
-        r = from_home_dir("XDG_CONFIG_HOME", ".config", &b, &c);
+        r = sd_path_lookup(SD_PATH_USER_CONFIGURATION, "user-dirs.dirs", &user_dirs);
         if (r < 0)
                 return r;
 
-        fn = path_join(c, "user-dirs.dirs");
-        if (!fn)
-                return -ENOMEM;
-
-        f = fopen(fn, "re");
+        f = fopen(user_dirs, "re");
         if (!f) {
                 if (errno == ENOENT)
                         goto fallback;
@@ -107,14 +101,12 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 if (!p)
                         continue;
 
-                p += strspn(p, WHITESPACE);
-
+                p = skip_leading_chars(p, WHITESPACE);
                 if (*p != '=')
                         continue;
                 p++;
 
-                p += strspn(p, WHITESPACE);
-
+                p = skip_leading_chars(p, WHITESPACE);
                 if (*p != '"')
                         continue;
                 p++;
@@ -125,62 +117,34 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 *e = 0;
 
                 /* Three syntaxes permitted: relative to $HOME, $HOME itself, and absolute path */
-                if (startswith(p, "$HOME/")) {
-                        _cleanup_free_ char *h = NULL;
+                if (streq(p, "$HOME"))
+                        goto home;
 
-                        r = get_home_dir(&h);
-                        if (r < 0)
-                                return r;
+                const char *s = startswith(p, "$HOME/");
+                if (s)
+                        return from_home_dir(/* envname = */ NULL, s, buffer, ret);
 
-                        if (!path_extend(&h, p+5))
+                if (path_is_absolute(p)) {
+                        char *c = strdup(p);
+                        if (!c)
                                 return -ENOMEM;
 
-                        *buffer = h;
-                        *ret = TAKE_PTR(h);
-                        return 0;
-                } else if (streq(p, "$HOME")) {
-
-                        r = get_home_dir(buffer);
-                        if (r < 0)
-                                return r;
-
-                        *ret = *buffer;
-                        return 0;
-                } else if (path_is_absolute(p)) {
-                        char *copy;
-
-                        copy = strdup(p);
-                        if (!copy)
-                                return -ENOMEM;
-
-                        *buffer = copy;
-                        *ret = copy;
+                        *ret = *buffer = c;
                         return 0;
                 }
         }
 
 fallback:
         /* The desktop directory defaults to $HOME/Desktop, the others to $HOME */
-        if (streq(field, "XDG_DESKTOP_DIR")) {
-                _cleanup_free_ char *h = NULL;
+        if (streq(field, "XDG_DESKTOP_DIR"))
+                return from_home_dir(/* envname = */ NULL, "Desktop", buffer, ret);
 
-                r = get_home_dir(&h);
-                if (r < 0)
-                        return r;
+home:
+        r = get_home_dir(buffer);
+        if (r < 0)
+                return r;
 
-                if (!path_extend(&h, "Desktop"))
-                        return -ENOMEM;
-
-                *buffer = h;
-                *ret = TAKE_PTR(h);
-        } else {
-                r = get_home_dir(buffer);
-                if (r < 0)
-                        return r;
-
-                *ret = *buffer;
-        }
-
+        *ret = *buffer;
         return 0;
 }
 
@@ -287,28 +251,28 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_USER_DOCUMENTS:
-                return from_user_dir("XDG_DOCUMENTS_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DOCUMENTS_DIR", buffer, ret);
 
         case SD_PATH_USER_MUSIC:
-                return from_user_dir("XDG_MUSIC_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_MUSIC_DIR", buffer, ret);
 
         case SD_PATH_USER_PICTURES:
-                return from_user_dir("XDG_PICTURES_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_PICTURES_DIR", buffer, ret);
 
         case SD_PATH_USER_VIDEOS:
-                return from_user_dir("XDG_VIDEOS_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_VIDEOS_DIR", buffer, ret);
 
         case SD_PATH_USER_DOWNLOAD:
-                return from_user_dir("XDG_DOWNLOAD_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DOWNLOAD_DIR", buffer, ret);
 
         case SD_PATH_USER_PUBLIC:
-                return from_user_dir("XDG_PUBLICSHARE_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_PUBLICSHARE_DIR", buffer, ret);
 
         case SD_PATH_USER_TEMPLATES:
-                return from_user_dir("XDG_TEMPLATES_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_TEMPLATES_DIR", buffer, ret);
 
         case SD_PATH_USER_DESKTOP:
-                return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
         case SD_PATH_SYSTEMD_UTIL:
                 *ret = PREFIX_NOSLASH "/lib/systemd";
