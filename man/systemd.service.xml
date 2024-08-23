@@ -730,6 +730,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TimeoutMountSec=</varname></term>
+        <listitem><para>Configures a timeout on the mount operations requested through <command>systemctl
+        bind …</command> or <command>systemctl mount-image …</command>, see
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details. Takes the usual time values and defaults to <constant>infinity</constant>, i.e. by default
+        no timeout is applied. If a timeout is configured the mount operation will be aborted forcibly when
+        the timeout is reached.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeMaxSec=</varname></term>
 
         <listitem><para>Configures a maximum time for the service to run. If this is used and the service has been
