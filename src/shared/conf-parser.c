@@ -1005,7 +1005,7 @@ int config_parse_bool(
         }
 
         *b = k;
-        return 0;
+        return 1; /* set */
 }
 
 int config_parse_id128(
@@ -1453,7 +1453,7 @@ int config_parse_ifname(
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
-                return 0;
+                return 1;
         }
 
         if (!ifname_valid(rvalue)) {
@@ -1465,7 +1465,7 @@ int config_parse_ifname(
         if (r < 0)
                 return log_oom();
 
-        return 0;
+        return 1;
 }
 
 int config_parse_ifnames(
