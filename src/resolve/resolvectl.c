@@ -3520,7 +3520,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 ARG_SET_DOMAIN,
                 ARG_SET_LLMNR,
                 ARG_SET_MDNS,
-                ARG_SET_PRIVATE,
+                ARG_SET_DNS_OVER_TLS,
                 ARG_SET_DNSSEC,
                 ARG_SET_NTA,
                 ARG_REVERT_LINK,
@@ -3552,7 +3552,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
                 { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
                 { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-dnsovertls",        required_argument, NULL, ARG_SET_PRIVATE           },
+                { "set-dnsovertls",        required_argument, NULL, ARG_SET_DNS_OVER_TLS      },
                 { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
                 { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
                 { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
@@ -3760,7 +3760,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_SET_LINK;
                         break;
 
-                case ARG_SET_PRIVATE:
+                case ARG_SET_DNS_OVER_TLS:
                         arg_set_dns_over_tls = optarg;
                         arg_mode = MODE_SET_LINK;
                         break;
