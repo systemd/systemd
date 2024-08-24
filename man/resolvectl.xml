@@ -570,10 +570,20 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-m</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>These switches are not supported and are silently ignored.</para>
+        <listitem><para>This switch for "private" operation is supported only partially. When specified, the
+        interface will not be used as the default route. See also
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        about the default route.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option></term>
+
+        <listitem><para>The switch is not supported and is silently ignored.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
