@@ -1563,22 +1563,20 @@ int config_parse_routing_policy_rule_prefix(
         int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        if (streq(lvalue, "To")) {
+        if (streq_ptr(lvalue, "To")) {
                 buffer = &rule->to;
                 prefixlen = &rule->to_prefixlen;
-        } else {
+        } else if (streq_ptr(lvalue, "From")) {
                 buffer = &rule->from;
                 prefixlen = &rule->from_prefixlen;
-        }
+        } else
+                assert_not_reached();
 
         if (rule->family == AF_UNSPEC)
                 r = in_addr_prefix_from_string_auto(rvalue, &rule->family, buffer, prefixlen);
@@ -1590,7 +1588,7 @@ int config_parse_routing_policy_rule_prefix(
         }
 
         TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
 int config_parse_routing_policy_rule_device(
@@ -1647,35 +1645,31 @@ int config_parse_routing_policy_rule_port_range(
 
         _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
-        uint16_t low, high;
+        struct fib_rule_port_range *p;
         int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = parse_ip_port_range(rvalue, &low, &high, /* allow_zero = */ false);
+        if (streq_ptr(lvalue, "SourcePort"))
+                p = &rule->sport;
+        else if (streq_ptr(lvalue, "DestinationPort"))
+                p = &rule->dport;
+        else
+                assert_not_reached();
+
+        r = parse_ip_port_range(rvalue, &p->start, &p->end, /* allow_zero = */ false);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;
         }
 
-        if (streq(lvalue, "SourcePort")) {
-                rule->sport.start = low;
-                rule->sport.end = high;
-        } else {
-                rule->dport.start = low;
-                rule->dport.end = high;
-        }
-
         TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
 int config_parse_routing_policy_rule_ip_protocol(
@@ -1846,36 +1840,33 @@ int config_parse_routing_policy_rule_uid_range(
 
         _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
-        uid_t start, end;
+        struct fib_rule_uid_range *p;
         int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = get_user_creds(&rvalue, &start, NULL, NULL, NULL, 0);
-        if (r >= 0)
-                end = start;
-        else {
-                r = parse_uid_range(rvalue, &start, &end);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid uid or uid range '%s', ignoring: %m", rvalue);
-                        return 0;
-                }
+        p = &rule->uid_range;
+
+        if (get_user_creds(&rvalue, &p->start, NULL, NULL, NULL, 0) >= 0) {
+                p->end = p->start;
+                TAKE_PTR(rule);
+                return 1;
         }
 
-        rule->uid_range.start = start;
-        rule->uid_range.end = end;
+        r = parse_uid_range(rvalue, &p->start, &p->end);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid uid or uid range '%s', ignoring: %m", rvalue);
+                return 0;
+        }
 
         TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
 int config_parse_routing_policy_rule_suppress_prefixlen(
