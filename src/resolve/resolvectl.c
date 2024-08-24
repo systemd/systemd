@@ -71,8 +71,9 @@ typedef enum RawType {
 } RawType;
 static RawType arg_raw = RAW_NONE;
 
+/* Used by compat interfaces: systemd-resolve and resolvconf. */
 ExecutionMode arg_mode = MODE_RESOLVE_HOST;
-
+int arg_set_default_route = -1; /* tristate */
 char **arg_set_dns = NULL;
 char **arg_set_domain = NULL;
 static const char *arg_set_llmnr = NULL;
@@ -4177,6 +4178,12 @@ static int compat_main(int argc, char *argv[]) {
 
         case MODE_SET_LINK:
                 assert(arg_ifname);
+
+                if (arg_set_default_route >= 0) {
+                        r = translate("default_route", arg_ifname, 1, STRV_MAKE(yes_no(arg_set_default_route)));
+                        if (r < 0)
+                                return r;
+                }
 
                 if (arg_set_dns) {
                         r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns);
