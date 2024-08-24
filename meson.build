@@ -1083,6 +1083,7 @@ else
         elif bpf_compiler == 'gcc'
                 bpf_gcc = find_program('bpf-gcc',
                                        'bpf-none-gcc',
+                                       'bpf-unknown-none-gcc',
                                        required : true,
                                        version : '>= 13.1.0')
                 bpf_gcc_found = bpf_gcc.found()
