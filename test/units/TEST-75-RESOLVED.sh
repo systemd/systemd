@@ -252,6 +252,12 @@ manual_testcase_01_resolvectl() {
     assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
     assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
 
+    # Tests for 'resolvconf -p'
+    resolvectl default-route hoge yes
+    assert_in 'yes' "$(resolvectl default-route hoge)"
+    echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF -p" -a hoge
+    assert_in 'no' "$(resolvectl default-route hoge)"
+
     # Tests for _localdnsstub and _localdnsproxy
     assert_in '127.0.0.53' "$(resolvectl query _localdnsstub)"
     assert_in '_localdnsstub' "$(resolvectl query 127.0.0.53)"

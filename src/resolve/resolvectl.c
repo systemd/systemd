@@ -71,8 +71,9 @@ typedef enum RawType {
 } RawType;
 static RawType arg_raw = RAW_NONE;
 
+/* Used by compat interfaces: systemd-resolve and resolvconf. */
 ExecutionMode arg_mode = MODE_RESOLVE_HOST;
-
+int arg_set_default_route = -1; /* tristate */
 char **arg_set_dns = NULL;
 char **arg_set_domain = NULL;
 static const char *arg_set_llmnr = NULL;
@@ -3520,7 +3521,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 ARG_SET_DOMAIN,
                 ARG_SET_LLMNR,
                 ARG_SET_MDNS,
-                ARG_SET_PRIVATE,
+                ARG_SET_DNS_OVER_TLS,
                 ARG_SET_DNSSEC,
                 ARG_SET_NTA,
                 ARG_REVERT_LINK,
@@ -3552,7 +3553,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
                 { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
                 { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-dnsovertls",        required_argument, NULL, ARG_SET_PRIVATE           },
+                { "set-dnsovertls",        required_argument, NULL, ARG_SET_DNS_OVER_TLS      },
                 { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
                 { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
                 { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
@@ -3760,7 +3761,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_SET_LINK;
                         break;
 
-                case ARG_SET_PRIVATE:
+                case ARG_SET_DNS_OVER_TLS:
                         arg_set_dns_over_tls = optarg;
                         arg_mode = MODE_SET_LINK;
                         break;
@@ -4177,6 +4178,12 @@ static int compat_main(int argc, char *argv[]) {
 
         case MODE_SET_LINK:
                 assert(arg_ifname);
+
+                if (arg_set_default_route >= 0) {
+                        r = translate("default-route", arg_ifname, 1, STRV_MAKE(yes_no(arg_set_default_route)));
+                        if (r < 0)
+                                return r;
+                }
 
                 if (arg_set_dns) {
                         r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns);

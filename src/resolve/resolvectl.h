@@ -22,6 +22,7 @@ typedef enum ExecutionMode {
 } ExecutionMode;
 
 extern ExecutionMode arg_mode;
+extern int arg_set_default_route;
 extern char **arg_set_dns;
 extern char **arg_set_domain;
 extern bool arg_ifindex_permissive;
