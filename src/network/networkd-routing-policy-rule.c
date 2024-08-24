@@ -1869,7 +1869,7 @@ int config_parse_routing_policy_rule_uid_range(
         return 1;
 }
 
-int config_parse_routing_policy_rule_suppress_prefixlen(
+int config_parse_routing_policy_rule_suppress(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1883,78 +1883,44 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
 
         _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
+        int32_t val, *p;
         int r;
 
         assert(filename);
-        assert(section);
         assert(lvalue);
-        assert(rvalue);
-        assert(data);
 
         r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = parse_ip_prefix_length(rvalue, &rule->suppress_prefixlen);
-        if (r == -ERANGE) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(rule);
-        return 0;
-}
-
-int config_parse_routing_policy_rule_suppress_ifgroup(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
-        int32_t suppress_ifgroup;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
+        if (streq(lvalue, "SuppressPrefixLength"))
+                p = &rule->suppress_prefixlen;
+        else if (streq(lvalue, "SuppressInterfaceGroup"))
+                p = &rule->suppress_ifgroup;
+        else
+                assert_not_reached();
 
         if (isempty(rvalue)) {
-                rule->suppress_ifgroup = -1;
+                *p = -1;
+                TAKE_PTR(rule);
+                return 1;
+        }
+
+        r = safe_atoi32(rvalue, &val);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (val < 0 || val > ltype) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid value specified to %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
-        r = safe_atoi32(rvalue, &suppress_ifgroup);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse SuppressInterfaceGroup=, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-        if (suppress_ifgroup < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Value of SuppressInterfaceGroup= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-        rule->suppress_ifgroup = suppress_ifgroup;
+        *p = val;
         TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
 int config_parse_routing_policy_rule_type(
