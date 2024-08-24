@@ -77,18 +77,25 @@ void link_foreignize_routing_policy_rules(Link *link);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
+typedef enum RoutingPolicyRuleConfParserType {
+        ROUTING_POLICY_RULE_IIF,
+        ROUTING_POLICY_RULE_OIF,
+        ROUTING_POLICY_RULE_FAMILY,
+        ROUTING_POLICY_RULE_INVERT,
+        ROUTING_POLICY_RULE_IP_PROTOCOL,
+        ROUTING_POLICY_RULE_L3MDEV,
+        ROUTING_POLICY_RULE_TOS,
+        _ROUTING_POLICY_RULE_CONF_PARSER_MAX,
+        _ROUTING_POLICY_RULE_CONF_PARSER_INVALID = -EINVAL,
+} RoutingPolicyRuleConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_goto);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_l3mdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
