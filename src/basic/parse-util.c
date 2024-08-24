@@ -714,22 +714,6 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow
         return 0;
 }
 
-int parse_ip_prefix_length(const char *s, int32_t *ret) {
-        unsigned l;
-        int r;
-
-        r = safe_atou(s, &l);
-        if (r < 0)
-                return r;
-
-        if (l > 128)
-                return -ERANGE;
-
-        *ret = (int32_t) l;
-
-        return 0;
-}
-
 int parse_oom_score_adjust(const char *s, int *ret) {
         int r, v;
 

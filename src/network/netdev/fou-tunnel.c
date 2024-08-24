@@ -142,47 +142,6 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         return 0;
 }
 
-int config_parse_ip_protocol(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-
-        uint8_t *proto = ASSERT_PTR(data);
-        int r;
-
-        r = parse_ip_protocol_full(rvalue, /* relaxed= */ true);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=%s', ignoring: %m",
-                           lvalue, rvalue);
-                return 0;
-        }
-
-        if (r > UINT8_MAX) {
-                /* linux/fou.h defines the netlink field as one byte, so we need to reject
-                 * protocols numbers that don't fit in one byte. */
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid '%s=%s', allowed range is 0..255, ignoring.",
-                           lvalue, rvalue);
-                return 0;
-        }
-
-        *proto = r;
-        return 0;
-}
-
 int config_parse_fou_tunnel_address(
                 const char *unit,
                 const char *filename,
