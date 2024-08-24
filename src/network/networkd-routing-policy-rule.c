@@ -1361,7 +1361,7 @@ int config_parse_routing_policy_rule_tos(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1371,17 +1371,17 @@ int config_parse_routing_policy_rule_tos(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = safe_atou8(rvalue, &n->tos);
+        r = safe_atou8(rvalue, &rule->tos);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule TOS, ignoring: %s", rvalue);
                 return 0;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1397,7 +1397,7 @@ int config_parse_routing_policy_rule_priority(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1407,25 +1407,25 @@ int config_parse_routing_policy_rule_priority(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
         if (isempty(rvalue)) {
-                n->priority = 0;
-                n->priority_set = false;
-                TAKE_PTR(n);
+                rule->priority = 0;
+                rule->priority_set = false;
+                TAKE_PTR(rule);
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &n->priority);
+        r = safe_atou32(rvalue, &rule->priority);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
                 return 0;
         }
-        n->priority_set = true;
+        rule->priority_set = true;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1441,7 +1441,7 @@ int config_parse_routing_policy_rule_goto(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = ASSERT_PTR(userdata);
         uint32_t priority;
         int r;
@@ -1450,7 +1450,7 @@ int config_parse_routing_policy_rule_goto(
         assert(lvalue);
         assert(rvalue);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1464,10 +1464,10 @@ int config_parse_routing_policy_rule_goto(
                 return 0;
         }
 
-        n->type = FR_ACT_GOTO;
-        n->priority_goto = priority;
+        rule->type = FR_ACT_GOTO;
+        rule->priority_goto = priority;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1483,7 +1483,7 @@ int config_parse_routing_policy_rule_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1493,18 +1493,18 @@ int config_parse_routing_policy_rule_table(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = manager_get_route_table_from_string(network->manager, rvalue, &n->table);
+        r = manager_get_route_table_from_string(network->manager, rvalue, &rule->table);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse RPDB rule route table \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1520,7 +1520,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1530,17 +1530,17 @@ int config_parse_routing_policy_rule_fwmark_mask(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = parse_fwmark_fwmask(rvalue, &n->fwmark, &n->fwmask);
+        r = parse_fwmark_fwmask(rvalue, &rule->fwmark, &rule->fwmask);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
                 return 0;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1556,7 +1556,7 @@ int config_parse_routing_policy_rule_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         union in_addr_union *buffer;
         uint8_t *prefixlen;
@@ -1568,28 +1568,28 @@ int config_parse_routing_policy_rule_prefix(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
         if (streq(lvalue, "To")) {
-                buffer = &n->to;
-                prefixlen = &n->to_prefixlen;
+                buffer = &rule->to;
+                prefixlen = &rule->to_prefixlen;
         } else {
-                buffer = &n->from;
-                prefixlen = &n->from_prefixlen;
+                buffer = &rule->from;
+                prefixlen = &rule->from_prefixlen;
         }
 
-        if (n->family == AF_UNSPEC)
-                r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (rule->family == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &rule->family, buffer, prefixlen);
         else
-                r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
+                r = in_addr_prefix_from_string(rvalue, rule->family, buffer, prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1605,7 +1605,7 @@ int config_parse_routing_policy_rule_device(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1615,7 +1615,7 @@ int config_parse_routing_policy_rule_device(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1625,11 +1625,11 @@ int config_parse_routing_policy_rule_device(
                 return 0;
         }
 
-        r = free_and_strdup(streq(lvalue, "IncomingInterface") ? &n->iif : &n->oif, rvalue);
+        r = free_and_strdup(streq(lvalue, "IncomingInterface") ? &rule->iif : &rule->oif, rvalue);
         if (r < 0)
                 return log_oom();
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1645,7 +1645,7 @@ int config_parse_routing_policy_rule_port_range(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         uint16_t low, high;
         int r;
@@ -1656,7 +1656,7 @@ int config_parse_routing_policy_rule_port_range(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1667,14 +1667,14 @@ int config_parse_routing_policy_rule_port_range(
         }
 
         if (streq(lvalue, "SourcePort")) {
-                n->sport.start = low;
-                n->sport.end = high;
+                rule->sport.start = low;
+                rule->sport.end = high;
         } else {
-                n->dport.start = low;
-                n->dport.end = high;
+                rule->dport.start = low;
+                rule->dport.end = high;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1690,7 +1690,7 @@ int config_parse_routing_policy_rule_ip_protocol(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1700,7 +1700,7 @@ int config_parse_routing_policy_rule_ip_protocol(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1710,9 +1710,9 @@ int config_parse_routing_policy_rule_ip_protocol(
                 return 0;
         }
 
-        n->ipproto = r;
+        rule->ipproto = r;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1728,7 +1728,7 @@ int config_parse_routing_policy_rule_invert(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1738,7 +1738,7 @@ int config_parse_routing_policy_rule_invert(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1748,9 +1748,9 @@ int config_parse_routing_policy_rule_invert(
                 return 0;
         }
 
-        SET_FLAG(n->flags, FIB_RULE_INVERT, r);
+        SET_FLAG(rule->flags, FIB_RULE_INVERT, r);
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1766,7 +1766,7 @@ int config_parse_routing_policy_rule_l3mdev(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1776,7 +1776,7 @@ int config_parse_routing_policy_rule_l3mdev(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1786,9 +1786,9 @@ int config_parse_routing_policy_rule_l3mdev(
                 return 0;
         }
 
-        n->l3mdev = r;
+        rule->l3mdev = r;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1804,7 +1804,7 @@ int config_parse_routing_policy_rule_family(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         AddressFamily a;
         int r;
@@ -1815,7 +1815,7 @@ int config_parse_routing_policy_rule_family(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1826,9 +1826,9 @@ int config_parse_routing_policy_rule_family(
                 return 0;
         }
 
-        n->address_family = a;
+        rule->address_family = a;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1844,7 +1844,7 @@ int config_parse_routing_policy_rule_uid_range(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         uid_t start, end;
         int r;
@@ -1855,7 +1855,7 @@ int config_parse_routing_policy_rule_uid_range(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
@@ -1871,10 +1871,10 @@ int config_parse_routing_policy_rule_uid_range(
                 }
         }
 
-        n->uid_range.start = start;
-        n->uid_range.end = end;
+        rule->uid_range.start = start;
+        rule->uid_range.end = end;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1890,7 +1890,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int r;
 
@@ -1900,11 +1900,11 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        r = parse_ip_prefix_length(rvalue, &n->suppress_prefixlen);
+        r = parse_ip_prefix_length(rvalue, &rule->suppress_prefixlen);
         if (r == -ERANGE) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
                 return 0;
@@ -1914,7 +1914,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 return 0;
         }
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1930,7 +1930,7 @@ int config_parse_routing_policy_rule_suppress_ifgroup(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
         int32_t suppress_ifgroup;
         int r;
@@ -1941,12 +1941,12 @@ int config_parse_routing_policy_rule_suppress_ifgroup(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
         if (isempty(rvalue)) {
-                n->suppress_ifgroup = -1;
+                rule->suppress_ifgroup = -1;
                 return 0;
         }
 
@@ -1961,8 +1961,8 @@ int config_parse_routing_policy_rule_suppress_ifgroup(
                            "Value of SuppressInterfaceGroup= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
                 return 0;
         }
-        n->suppress_ifgroup = suppress_ifgroup;
-        TAKE_PTR(n);
+        rule->suppress_ifgroup = suppress_ifgroup;
+        TAKE_PTR(rule);
         return 0;
 }
 
@@ -1978,9 +1978,9 @@ int config_parse_routing_policy_rule_type(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
         Network *network = userdata;
-        int r, t;
+        int r;
 
         assert(filename);
         assert(section);
@@ -1988,20 +1988,20 @@ int config_parse_routing_policy_rule_type(
         assert(rvalue);
         assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        t = fr_act_type_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, t,
+        r = fr_act_type_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse FIB rule type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        n->type = (uint8_t) t;
+        rule->type = (uint8_t) r;
 
-        TAKE_PTR(n);
+        TAKE_PTR(rule);
         return 0;
 }
 
