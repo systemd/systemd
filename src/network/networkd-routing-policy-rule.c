@@ -1349,7 +1349,7 @@ static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *re
         return 0;
 }
 
-int config_parse_routing_policy_rule_priority(
+static int config_parse_routing_policy_rule_priority(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1361,25 +1361,13 @@ int config_parse_routing_policy_rule_priority(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
+        RoutingPolicyRule *rule = ASSERT_PTR(userdata);
         int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
 
         if (isempty(rvalue)) {
                 rule->priority = 0;
                 rule->priority_set = false;
-                TAKE_PTR(rule);
-                return 0;
+                return 1;
         }
 
         r = safe_atou32(rvalue, &rule->priority);
@@ -1387,13 +1375,12 @@ int config_parse_routing_policy_rule_priority(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
                 return 0;
         }
-        rule->priority_set = true;
 
-        TAKE_PTR(rule);
-        return 0;
+        rule->priority_set = true;
+        return 1;
 }
 
-int config_parse_routing_policy_rule_goto(
+static int config_parse_routing_policy_rule_goto(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1405,18 +1392,12 @@ int config_parse_routing_policy_rule_goto(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = ASSERT_PTR(userdata);
+        RoutingPolicyRule *rule = ASSERT_PTR(userdata);
         uint32_t priority;
         int r;
 
-        assert(filename);
         assert(lvalue);
         assert(rvalue);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
 
         r = safe_atou32(rvalue, &priority);
         if (r < 0) {
@@ -1430,12 +1411,10 @@ int config_parse_routing_policy_rule_goto(
 
         rule->type = FR_ACT_GOTO;
         rule->priority_goto = priority;
-
-        TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
-int config_parse_routing_policy_rule_table(
+static int config_parse_routing_policy_rule_table(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1447,32 +1426,24 @@ int config_parse_routing_policy_rule_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
+        RoutingPolicyRule *rule = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(rule->network)->manager);
+        uint32_t *table = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
-
-        r = manager_get_route_table_from_string(network->manager, rvalue, &rule->table);
+        r = manager_get_route_table_from_string(manager, rvalue, table);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse RPDB rule route table \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
-int config_parse_routing_policy_rule_fwmark_mask(
+static int config_parse_routing_policy_rule_fwmark(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1484,19 +1455,10 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
+        RoutingPolicyRule *rule = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
 
         r = parse_fwmark_fwmask(rvalue, &rule->fwmark, &rule->fwmask);
         if (r < 0) {
@@ -1504,11 +1466,10 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 return 0;
         }
 
-        TAKE_PTR(rule);
-        return 0;
+        return 1;
 }
 
-int config_parse_routing_policy_rule_prefix(
+static int config_parse_routing_policy_rule_prefix(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1520,18 +1481,12 @@ int config_parse_routing_policy_rule_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
+        RoutingPolicyRule *rule = ASSERT_PTR(userdata);
         union in_addr_union *buffer;
         uint8_t *prefixlen;
         int r;
 
-        assert(filename);
         assert(rvalue);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
 
         if (streq_ptr(lvalue, "To")) {
                 buffer = &rule->to;
@@ -1551,11 +1506,10 @@ int config_parse_routing_policy_rule_prefix(
                 return 0;
         }
 
-        TAKE_PTR(rule);
         return 1;
 }
 
-int config_parse_routing_policy_rule_port_range(
+static int config_parse_routing_policy_rule_port_range(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1567,24 +1521,10 @@ int config_parse_routing_policy_rule_port_range(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
-        struct fib_rule_port_range *p;
+        struct fib_rule_port_range *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
         assert(rvalue);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
-
-        if (streq_ptr(lvalue, "SourcePort"))
-                p = &rule->sport;
-        else if (streq_ptr(lvalue, "DestinationPort"))
-                p = &rule->dport;
-        else
-                assert_not_reached();
 
         r = parse_ip_port_range(rvalue, &p->start, &p->end, /* allow_zero = */ false);
         if (r < 0) {
@@ -1592,11 +1532,10 @@ int config_parse_routing_policy_rule_port_range(
                 return 0;
         }
 
-        TAKE_PTR(rule);
         return 1;
 }
 
-int config_parse_routing_policy_rule_uid_range(
+static int config_parse_routing_policy_rule_uid_range(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1608,23 +1547,13 @@ int config_parse_routing_policy_rule_uid_range(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
-        struct fib_rule_uid_range *p;
+        struct fib_rule_uid_range *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
         assert(rvalue);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
-
-        p = &rule->uid_range;
 
         if (get_user_creds(&rvalue, &p->start, NULL, NULL, NULL, 0) >= 0) {
                 p->end = p->start;
-                TAKE_PTR(rule);
                 return 1;
         }
 
@@ -1635,11 +1564,10 @@ int config_parse_routing_policy_rule_uid_range(
                 return 0;
         }
 
-        TAKE_PTR(rule);
         return 1;
 }
 
-int config_parse_routing_policy_rule_suppress(
+static int config_parse_routing_policy_rule_suppress(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1651,28 +1579,13 @@ int config_parse_routing_policy_rule_suppress(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
-        int32_t val, *p;
+        int32_t val, *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
         assert(lvalue);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
-
-        if (streq(lvalue, "SuppressPrefixLength"))
-                p = &rule->suppress_prefixlen;
-        else if (streq(lvalue, "SuppressInterfaceGroup"))
-                p = &rule->suppress_ifgroup;
-        else
-                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = -1;
-                TAKE_PTR(rule);
                 return 1;
         }
 
@@ -1689,11 +1602,10 @@ int config_parse_routing_policy_rule_suppress(
         }
 
         *p = val;
-        TAKE_PTR(rule);
         return 1;
 }
 
-int config_parse_routing_policy_rule_type(
+static int config_parse_routing_policy_rule_type(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1705,19 +1617,10 @@ int config_parse_routing_policy_rule_type(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_unref_or_set_invalidp) RoutingPolicyRule *rule = NULL;
-        Network *network = userdata;
+        uint8_t *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = routing_policy_rule_new_static(network, filename, section_line, &rule);
-        if (r < 0)
-                return log_oom();
 
         r = fr_act_type_from_string(rvalue);
         if (r < 0) {
@@ -1726,10 +1629,8 @@ int config_parse_routing_policy_rule_type(
                 return 0;
         }
 
-        rule->type = (uint8_t) r;
-
-        TAKE_PTR(rule);
-        return 0;
+        *p = (uint8_t) r;
+        return 1;
 }
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
@@ -1749,10 +1650,21 @@ static RoutingPolicyRuleConfParser routing_policy_rule_conf_parser_table[_ROUTIN
         [ROUTING_POLICY_RULE_IIF]                = { .parser = config_parse_ifname,                         .ltype = 0,               .offset = offsetof(RoutingPolicyRule, iif),                },
         [ROUTING_POLICY_RULE_OIF]                = { .parser = config_parse_ifname,                         .ltype = 0,               .offset = offsetof(RoutingPolicyRule, oif),                },
         [ROUTING_POLICY_RULE_FAMILY]             = { .parser = config_parse_routing_policy_rule_family,     .ltype = 0,               .offset = offsetof(RoutingPolicyRule, address_family),     },
+        [ROUTING_POLICY_RULE_FWMARK]             = { .parser = config_parse_routing_policy_rule_fwmark,     .ltype = 0,               .offset = 0,                                               },
+        [ROUTING_POLICY_RULE_GOTO]               = { .parser = config_parse_routing_policy_rule_goto,       .ltype = 0,               .offset = 0,                                               },
         [ROUTING_POLICY_RULE_INVERT]             = { .parser = config_parse_uint32_flag,                    .ltype = FIB_RULE_INVERT, .offset = offsetof(RoutingPolicyRule, flags),              },
         [ROUTING_POLICY_RULE_IP_PROTOCOL]        = { .parser = config_parse_ip_protocol,                    .ltype = 0,               .offset = offsetof(RoutingPolicyRule, ipproto),            },
         [ROUTING_POLICY_RULE_L3MDEV]             = { .parser = config_parse_bool,                           .ltype = 0,               .offset = offsetof(RoutingPolicyRule, l3mdev),             },
+        [ROUTING_POLICY_RULE_SPORT]              = { .parser = config_parse_routing_policy_rule_port_range, .ltype = 0,               .offset = offsetof(RoutingPolicyRule, sport),              },
+        [ROUTING_POLICY_RULE_DPORT]              = { .parser = config_parse_routing_policy_rule_port_range, .ltype = 0,               .offset = offsetof(RoutingPolicyRule, dport),              },
+        [ROUTING_POLICY_RULE_PREFIX]             = { .parser = config_parse_routing_policy_rule_prefix,     .ltype = 0,               .offset = 0,                                               },
+        [ROUTING_POLICY_RULE_PRIORITY]           = { .parser = config_parse_routing_policy_rule_priority,   .ltype = 0,               .offset = 0,                                               },
+        [ROUTING_POLICY_RULE_SUPPRESS_IFGROUP]   = { .parser = config_parse_routing_policy_rule_suppress,   .ltype = INT32_MAX,       .offset = offsetof(RoutingPolicyRule, suppress_ifgroup),   },
+        [ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN] = { .parser = config_parse_routing_policy_rule_suppress,   .ltype = 128,             .offset = offsetof(RoutingPolicyRule, suppress_prefixlen), },
+        [ROUTING_POLICY_RULE_TABLE]              = { .parser = config_parse_routing_policy_rule_table,      .ltype = 0,               .offset = offsetof(RoutingPolicyRule, table),              },
         [ROUTING_POLICY_RULE_TOS]                = { .parser = config_parse_uint8,                          .ltype = 0,               .offset = offsetof(RoutingPolicyRule, tos),                },
+        [ROUTING_POLICY_RULE_TYPE]               = { .parser = config_parse_routing_policy_rule_type,       .ltype = 0,               .offset = offsetof(RoutingPolicyRule, type),               },
+        [ROUTING_POLICY_RULE_UID_RANGE]          = { .parser = config_parse_routing_policy_rule_uid_range,  .ltype = 0,               .offset = offsetof(RoutingPolicyRule, uid_range),          },
 };
 
 int config_parse_routing_policy_rule(
