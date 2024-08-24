@@ -17,16 +17,15 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-int runtime_directory(char **ret, RuntimeScope scope, const char *suffix) {
+int runtime_directory(RuntimeScope scope, const char *suffix, char **ret) {
         int r;
 
-        assert(ret);
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
         assert(suffix);
-        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, RUNTIME_SCOPE_GLOBAL));
+        assert(ret);
 
         /* Accept $RUNTIME_DIRECTORY as authoritative
-         * If its missing apply the suffix to /run or $XDG_RUNTIME_DIR
-         * if we are in a user runtime scope.
+         * If it's missing, apply the suffix to /run/, or $XDG_RUNTIME_DIR if we are in a user runtime scope.
          *
          * Return value indicates whether the suffix was applied or not */
 
@@ -45,7 +44,7 @@ int runtime_directory(char **ret, RuntimeScope scope, const char *suffix) {
                 *ret = d;
         }
 
-        return true;
+        return 1;
 }
 
 static const char* const user_data_unit_paths[] = {
