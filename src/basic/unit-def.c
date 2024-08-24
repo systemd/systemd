@@ -234,6 +234,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART]               = "auto-restart",
         [SERVICE_AUTO_RESTART_QUEUED]        = "auto-restart-queued",
         [SERVICE_CLEANING]                   = "cleaning",
+        [SERVICE_MOUNTING]                   = "mounting",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
