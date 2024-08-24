@@ -1984,6 +1984,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_usec(f, "exec-context-timeout-mount-usec", c->timeout_mount_usec);
+        if (r < 0)
+                return r;
+
         if (c->nice_set) {
                 r = serialize_item_format(f, "exec-context-nice", "%i", c->nice);
                 if (r < 0)
@@ -2897,6 +2901,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         }
                 } else if ((val = startswith(l, "exec-context-timeout-clean-usec="))) {
                         r = deserialize_usec(val, &c->timeout_clean_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-timeout-mount-usec="))) {
+                        r = deserialize_usec(val, &c->timeout_mount_usec);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-nice="))) {
