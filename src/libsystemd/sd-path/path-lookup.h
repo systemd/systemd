@@ -55,6 +55,8 @@ typedef struct LookupPaths {
 int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 
+int runtime_directory(RuntimeScope scope, const char *suffix, char **ret);
+
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 
 /* We don't treat /etc/xdg/systemd in these functions as the xdg base dir spec suggests because we assume
@@ -69,7 +71,6 @@ static inline int xdg_user_config_dir(const char *suffix, char **ret) {
 static inline int xdg_user_data_dir(const char *suffix, char **ret) {
         return sd_path_lookup(SD_PATH_USER_SHARED, suffix, ret);
 }
-int runtime_directory(char **ret, RuntimeScope scope, const char *suffix);
 
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
