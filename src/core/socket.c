@@ -419,9 +419,6 @@ static int socket_verify(Socket *s) {
         if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
 
-        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing.");
-
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
