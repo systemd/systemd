@@ -371,34 +371,29 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         return 0;
 }
 
-static int get_paths_from_environ(const char *var, char ***paths, bool *append) {
+static int get_paths_from_environ(const char *var, char ***ret) {
         const char *e;
         int r;
 
         assert(var);
-        assert(paths);
-        assert(append);
-
-        *append = false;
+        assert(ret);
 
         e = getenv(var);
-        if (e) {
-                const char *k;
-
-                k = endswith(e, ":");
-                if (k) {
-                        e = strndupa_safe(e, k - e);
-                        *append = true;
-                }
-
-                /* FIXME: empty components in other places should be rejected. */
-
-                r = path_split_and_make_absolute(e, paths);
-                if (r < 0)
-                        return r;
+        if (!e) {
+                *ret = NULL;
+                return 0;
         }
 
-        return 0;
+        bool append = endswith(e, ":"); /* Whether to append the normal search paths after what's obtained
+                                           from envvar */
+
+        /* FIXME: empty components in other places should be rejected. */
+
+        r = path_split_and_make_absolute(e, ret);
+        if (r < 0)
+                return r;
+
+        return append;
 }
 
 int lookup_paths_init(
@@ -416,7 +411,6 @@ int lookup_paths_init(
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL,
                 *persistent_attached = NULL, *runtime_attached = NULL;
-        bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
@@ -478,11 +472,11 @@ int lookup_paths_init(
                 return r;
 
         /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths, &append);
+        r = get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths);
         if (r < 0)
                 return r;
 
-        if (!paths || append) {
+        if (!paths || r > 0) {
                 /* Let's figure something out. */
 
                 _cleanup_strv_free_ char **add = NULL;
@@ -680,16 +674,15 @@ void lookup_paths_log(LookupPaths *lp) {
 }
 
 char **generator_binary_paths(RuntimeScope scope) {
-        bool append = false; /* Add items from SYSTEMD_GENERATOR_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_GENERATOR_PATH", &paths, &append);
+        r = get_paths_from_environ("SYSTEMD_GENERATOR_PATH", &paths);
         if (r < 0)
                 return NULL;
 
-        if (!paths || append) {
+        if (!paths || r > 0) {
                 _cleanup_strv_free_ char **add = NULL;
 
                 switch (scope) {
@@ -730,15 +723,14 @@ char **generator_binary_paths(RuntimeScope scope) {
 
 char **env_generator_binary_paths(RuntimeScope runtime_scope) {
         _cleanup_strv_free_ char **paths = NULL, **add = NULL;
-        bool append = false; /* Add items from SYSTEMD_ENVIRONMENT_GENERATOR_PATH before normal directories */
         int r;
 
         /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", &paths, &append);
+        r = get_paths_from_environ("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", &paths);
         if (r < 0)
                 return NULL;
 
-        if (!paths || append) {
+        if (!paths || r > 0) {
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_SYSTEM:
