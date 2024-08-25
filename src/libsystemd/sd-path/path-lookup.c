@@ -342,6 +342,9 @@ static int patch_root_prefix(char **p, const char *root_dir) {
 
         assert(p);
 
+        if (!root_dir)
+                return 0;
+
         if (!*p)
                 return 0;
 
