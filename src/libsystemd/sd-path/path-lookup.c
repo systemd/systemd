@@ -180,17 +180,18 @@ bool path_is_user_config_dir(const char *path) {
 static int acquire_generator_dirs(
                 RuntimeScope scope,
                 const char *tempdir,
-                char **generator,
-                char **generator_early,
-                char **generator_late) {
+                char **ret,
+                char **ret_early,
+                char **ret_late) {
 
-        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *p = NULL;
+        _cleanup_free_ char *prefix_alloc = NULL, *g = NULL, *early = NULL, *late = NULL;
         const char *prefix;
+        int r;
 
-        assert(generator);
-        assert(generator_early);
-        assert(generator_late);
         assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, RUNTIME_SCOPE_GLOBAL));
+        assert(ret);
+        assert(ret_early);
+        assert(ret_late);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
                 return -EOPNOTSUPP;
@@ -199,49 +200,38 @@ static int acquire_generator_dirs(
                 prefix = tempdir;
         else if (scope == RUNTIME_SCOPE_SYSTEM)
                 prefix = "/run/systemd";
-        else {
-                /* RUNTIME_SCOPE_USER */
-                const char *e;
+        else { /* RUNTIME_SCOPE_USER */
+                r = xdg_user_runtime_dir("/systemd", &prefix_alloc);
+                if (r < 0)
+                        return r;
 
-                e = getenv("XDG_RUNTIME_DIR");
-                if (!e)
-                        return -ENXIO;
-
-                p = path_join(e, "/systemd");
-                if (!p)
-                        return -ENOMEM;
-
-                prefix = p;
+                prefix = prefix_alloc;
         }
 
-        x = path_join(prefix, "generator");
-        if (!x)
+        g = path_join(prefix, "generator");
+        if (!g)
                 return -ENOMEM;
 
-        y = path_join(prefix, "generator.early");
-        if (!y)
+        early = path_join(prefix, "generator.early");
+        if (!early)
                 return -ENOMEM;
 
-        z = path_join(prefix, "generator.late");
-        if (!z)
+        late = path_join(prefix, "generator.late");
+        if (!late)
                 return -ENOMEM;
 
-        *generator = TAKE_PTR(x);
-        *generator_early = TAKE_PTR(y);
-        *generator_late = TAKE_PTR(z);
+        *ret = TAKE_PTR(g);
+        *ret_early = TAKE_PTR(early);
+        *ret_late = TAKE_PTR(late);
 
         return 0;
 }
 
-static int acquire_transient_dir(
-                RuntimeScope scope,
-                const char *tempdir,
-                char **ret) {
-
+static int acquire_transient_dir(RuntimeScope scope, const char *tempdir, char **ret) {
         char *transient;
 
-        assert(ret);
         assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, RUNTIME_SCOPE_GLOBAL));
+        assert(ret);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
                 return -EOPNOTSUPP;
@@ -250,11 +240,12 @@ static int acquire_transient_dir(
                 transient = path_join(tempdir, "transient");
         else if (scope == RUNTIME_SCOPE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
-        else
+        else /* RUNTIME_SCOPE_USER */
                 return xdg_user_runtime_dir("/systemd/transient", ret);
 
         if (!transient)
                 return -ENOMEM;
+
         *ret = transient;
         return 0;
 }
