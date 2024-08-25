@@ -2393,10 +2393,9 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 s->n_accepted++;
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return;
                 if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-
                         log_unit_warning_errno(UNIT(s), r, "Failed to set socket on service: %m");
                         goto fail;
                 }
@@ -3419,17 +3418,22 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char* socket_fdname(Socket *s) {
+const char* socket_fdname(Socket *s) {
         assert(s);
 
-        /* Returns the name to use for $LISTEN_NAMES. If the user
-         * didn't specify anything specifically, use the socket unit's
-         * name as fallback. */
+        /* Returns the name to use for $LISTEN_NAMES. If the user didn't specify anything specifically,
+         * use the socket unit's name as fallback for Accept=no sockets, "connection" otherwise. */
 
-        return s->fdname ?: UNIT(s)->id;
+        if (s->fdname)
+                return s->fdname;
+
+        if (s->accept)
+                return "connection";
+
+        return UNIT(s)->id;
 }
 
-static PidRef *socket_control_pid(Unit *u) {
+static PidRef* socket_control_pid(Unit *u) {
         return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
