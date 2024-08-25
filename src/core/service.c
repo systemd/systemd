@@ -1426,6 +1426,7 @@ static int service_collect_fds(
         assert(n_storage_fds);
 
         if (s->socket_fd >= 0) {
+                Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
 
                 /* Pass the per-connection socket */
 
@@ -1433,7 +1434,7 @@ static int service_collect_fds(
                 if (!rfds)
                         return -ENOMEM;
 
-                rfd_names = strv_new("connection");
+                rfd_names = strv_new(socket_fdname(sock));
                 if (!rfd_names)
                         return -ENOMEM;
 
