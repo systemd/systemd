@@ -328,7 +328,7 @@ static int socket_add_extras(Socket *s) {
 
         if (have_non_accept_socket(s)) {
 
-                if (!UNIT_DEREF(s->service)) {
+                if (!UNIT_ISSET(s->service)) {
                         Unit *x;
 
                         r = unit_load_related_unit(u, ".service", &x);
@@ -416,7 +416,7 @@ static int socket_verify(Socket *s) {
         if (s->accept && s->max_connections <= 0)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
 
-        if (s->accept && UNIT_DEREF(s->service))
+        if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP)
