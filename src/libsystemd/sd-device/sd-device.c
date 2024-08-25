@@ -1211,7 +1211,7 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         if (devtype)
                 *devtype = device->devtype;
 
-        return !!device->devtype;
+        return 0;
 }
 
 _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype, sd_device **ret) {
