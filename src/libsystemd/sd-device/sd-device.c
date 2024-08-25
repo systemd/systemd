@@ -1198,6 +1198,20 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         return 0;
 }
 
+_public_ int sd_device_get_driver_subsystem(sd_device *device, const char **ret) {
+        assert_return(device, -EINVAL);
+
+        if (!device_in_subsystem(device, "drivers"))
+                return -ENOENT;
+
+        assert(device->driver_subsystem);
+
+        if (ret)
+                *ret = device->driver_subsystem;
+
+        return 0;
+}
+
 _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         int r;
 
@@ -1629,7 +1643,7 @@ int device_get_device_id(sd_device *device, const char **ret) {
 
         if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
-                const char *subsystem;
+                const char *subsystem, *driver_subsystem;
                 dev_t devnum;
                 int ifindex, r;
 
@@ -1658,6 +1672,7 @@ int device_get_device_id(sd_device *device, const char **ret) {
                         if (r == O_DIRECTORY)
                                 return -EINVAL;
 
+                        r = sd_device_get_driver_subsystem(device, &driver_subsystem);
                         if (streq(subsystem, "drivers")) {
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real
                                  * subsystem encoded as well */
