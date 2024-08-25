@@ -1198,6 +1198,20 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         return 0;
 }
 
+_public_ int sd_device_get_driver_subsystem(sd_device *device, const char **ret) {
+        assert_return(device, -EINVAL);
+
+        if (!device_in_subsystem(device, "drivers"))
+                return -ENOENT;
+
+        assert(device->driver_subsystem);
+
+        if (ret)
+                *ret = device->driver_subsystem;
+
+        return 0;
+}
+
 _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         int r;
 

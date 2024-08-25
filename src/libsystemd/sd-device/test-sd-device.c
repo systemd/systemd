@@ -79,9 +79,11 @@ static void test_sd_device_one(sd_device *d) {
                                                * sd_device_new_from_device_id() may not work as expected. */
                 const char *name, *id;
 
-                if (streq(subsystem, "drivers"))
-                        name = strjoina(d->driver_subsystem, ":", sysname);
-                else
+                if (streq(subsystem, "drivers")) {
+                        const char *driver_subsystem;
+                        ASSERT_OK(sd_device_get_driver_subsystem(d, &driver_subsystem));
+                        name = strjoina(driver_subsystem, ":", sysname);
+                } else
                         name = sysname;
                 assert_se(sd_device_new_from_subsystem_sysname(&dev, subsystem, name) >= 0);
                 assert_se(sd_device_get_syspath(dev, &val) >= 0);

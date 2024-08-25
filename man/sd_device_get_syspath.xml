@@ -22,6 +22,7 @@
     <refname>sd_device_get_sysname</refname>
     <refname>sd_device_get_sysnum</refname>
     <refname>sd_device_get_subsystem</refname>
+    <refname>sd_device_get_driver_subsystem</refname>
     <refname>sd_device_get_devtype</refname>
     <refname>sd_device_get_devname</refname>
     <refname>sd_device_get_devnum</refname>
@@ -62,6 +63,12 @@
 
       <funcprototype>
         <funcdef>int <function>sd_device_get_subsystem</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_driver_subsystem</function></funcdef>
         <paramdef>sd_device *<parameter>device</parameter></paramdef>
         <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
@@ -125,6 +132,13 @@
     <para><function>sd_device_get_subsystem()</function> returns the kernel subsystem of the specified device
     record. This is a short string fitting into a filename, and thus does not contain a slash and cannot be
     empty. Example: <literal>tty</literal>, <literal>block</literal> or <literal>net</literal>.</para>
+
+    <para><function>sd_device_get_driver_subsystem()</function> returns the connected bus type of the devices
+    loaded by the specified driver device record. For example, when <literal>iwlwifi</literal> driver device
+    is specified, which is used by the wireless network interfaces connected to PCI bus, this function returns
+    <literal>pci</literal>. This function only succeeds when <function>sd_device_get_subsystem()</function>
+    returns <literal>drivers</literal>. Example: <literal>pci</literal>, <literal>i2c</literal>, or
+    <literal>hid</literal>.</para>
 
     <para><function>sd_device_get_devtype()</function> returns the device type of the specified device
     record, if the subsystem manages multiple types of devices. Example: for devices of the
@@ -206,6 +220,7 @@
     <function>sd_device_get_ifindex()</function>,
     <function>sd_device_get_driver()</function>, and
     <function>sd_device_get_diskseq()</function> were added in version 251.</para>
+    <para><function>sd_device_get_driver_subsystem()</function> was added in version 257.</para>
   </refsect1>
 
   <refsect1>
