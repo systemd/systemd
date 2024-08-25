@@ -328,7 +328,7 @@ static int socket_add_extras(Socket *s) {
 
         if (have_non_accept_socket(s)) {
 
-                if (!UNIT_DEREF(s->service)) {
+                if (!UNIT_ISSET(s->service)) {
                         Unit *x;
 
                         r = unit_load_related_unit(u, ".service", &x);
@@ -410,20 +410,20 @@ static int socket_verify(Socket *s) {
         if (!s->ports)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
 
+        if (s->max_connections <= 0)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
+
         if (s->accept && have_non_accept_socket(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit configured for accepting sockets, but sockets are non-accepting. Refusing.");
 
-        if (s->accept && s->max_connections <= 0)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
-
-        if (s->accept && UNIT_DEREF(s->service))
+        if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
-
-        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing.");
 
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
+
+        if (s->accept && s->fdname)
+                log_unit_warning(UNIT(s), "FileDescriptorName= has no effect in combination with Accept=yes. Ignoring.");
 
         return 0;
 }
@@ -3422,7 +3422,7 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char* socket_fdname(Socket *s) {
+const char* socket_fdname(Socket *s) {
         assert(s);
 
         /* Returns the name to use for $LISTEN_NAMES. If the user
@@ -3432,7 +3432,7 @@ char* socket_fdname(Socket *s) {
         return s->fdname ?: UNIT(s)->id;
 }
 
-static PidRef *socket_control_pid(Unit *u) {
+static PidRef* socket_control_pid(Unit *u) {
         return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
