@@ -3422,7 +3422,7 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char* socket_fdname(Socket *s) {
+const char* socket_fdname(Socket *s) {
         assert(s);
 
         /* Returns the name to use for $LISTEN_NAMES. If the user
@@ -3432,7 +3432,7 @@ char* socket_fdname(Socket *s) {
         return s->fdname ?: UNIT(s)->id;
 }
 
-static PidRef *socket_control_pid(Unit *u) {
+static PidRef* socket_control_pid(Unit *u) {
         return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
