@@ -7,12 +7,14 @@
 # Arnaud T. <listes.00@gmail.com>, 2021.
 # blutch112 <vincent.lefebvre59@gmail.com>, 2022.
 # Léane GRASSER <leane.grasser@proton.me>, 2023, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-07-11 11:38+0000\n"
-"Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
+"PO-Revision-Date: 2024-08-25 11:38+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
 "Language: fr\n"
@@ -20,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.6.2\n"
+"X-Generator: Weblate 5.7\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -393,7 +395,6 @@ msgid "Import a disk image"
 msgstr "Importer une image disque"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
 msgstr "Une authentification est requise pour importer une image."
 
@@ -402,7 +403,6 @@ msgid "Export a disk image"
 msgstr "Exporter une image disque"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
 msgstr "Une authentification est requise pour exporter une image disque."
 
@@ -411,7 +411,6 @@ msgid "Download a disk image"
 msgstr "Télécharger une image disque"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
 msgstr "Une authentification est requise pour télécharger une image disque."
 
@@ -420,7 +419,6 @@ msgid "Cancel transfer of a disk image"
 msgstr "Annuler le transfert d'une image disque"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
@@ -844,7 +842,6 @@ msgid "Set a wall message"
 msgstr "Définir un message wall"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
 msgstr "Une authentification est requise pour définir un message wall."
 
@@ -1147,7 +1144,6 @@ msgid "Register a DNS-SD service"
 msgstr "Enregistrer un service DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
 msgstr "Une authentification est requise pour enregistrer un service DNS-SD."
 
@@ -1156,7 +1152,6 @@ msgid "Unregister a DNS-SD service"
 msgstr "Supprimer l'enregistrement d'un service DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
 "Une authentification est requise pour supprimer l'enregistrement d'un "
