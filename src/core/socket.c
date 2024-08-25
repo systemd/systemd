@@ -422,6 +422,9 @@ static int socket_verify(Socket *s) {
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
+        if (s->accept && s->fdname)
+                log_unit_warning(UNIT(s), "FileDescriptorName= has no effect in combination with Accept=yes. Ignoring.");
+
         return 0;
 }
 
