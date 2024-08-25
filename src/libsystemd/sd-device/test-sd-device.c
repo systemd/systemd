@@ -91,7 +91,7 @@ static void test_sd_device_one(sd_device *d) {
                 dev = sd_device_unref(dev);
 
                 /* The device ID depends on subsystem. */
-                assert_se(device_get_device_id(d, &id) >= 0);
+                assert_se(sd_device_get_device_id(d, &id) >= 0);
                 r = sd_device_new_from_device_id(&dev, id);
                 if (r == -ENODEV && ifindex > 0)
                         log_device_warning_errno(d, r,

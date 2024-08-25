@@ -1046,6 +1046,7 @@ global:
         sd_varlink_take_fd;
         sd_varlink_unref;
         sd_varlink_wait;
+        sd_device_get_device_id;
         sd_device_get_driver_subsystem;
         sd_device_monitor_is_running;
         sd_device_monitor_get_fd;

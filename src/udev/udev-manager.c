@@ -729,7 +729,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0 && r != -ENOENT)
                 return r;
 

@@ -1637,9 +1637,8 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         }
 }
 
-int device_get_device_id(sd_device *device, const char **ret) {
-        assert(device);
-        assert(ret);
+_public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
+        assert_return(device, -EINVAL);
 
         if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
@@ -1689,7 +1688,8 @@ int device_get_device_id(sd_device *device, const char **ret) {
                 device->device_id = TAKE_PTR(id);
         }
 
-        *ret = device->device_id;
+        if (ret)
+                *ret = device->device_id;
         return 0;
 }
 
