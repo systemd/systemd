@@ -410,11 +410,11 @@ static int socket_verify(Socket *s) {
         if (!s->ports)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
 
+        if (s->max_connections <= 0)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
+
         if (s->accept && have_non_accept_socket(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit configured for accepting sockets, but sockets are non-accepting. Refusing.");
-
-        if (s->accept && s->max_connections <= 0)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
 
         if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
