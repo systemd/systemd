@@ -250,137 +250,91 @@ static int acquire_transient_dir(RuntimeScope scope, const char *tempdir, char *
         return 0;
 }
 
-static int acquire_config_dirs(RuntimeScope scope, char **persistent, char **runtime) {
+typedef enum LookupDirType {
+        LOOKUP_DIR_CONFIG,
+        LOOKUP_DIR_CONTROL,
+        LOOKUP_DIR_ATTACHED,
+        _LOOKUP_DIR_MAX,
+        _LOOKUP_DIR_INVALID = -EINVAL,
+} LookupDirType;
+
+static int acquire_lookup_dirs(
+                LookupDirType type,
+                RuntimeScope scope,
+                char **ret_persistent,
+                char **ret_runtime) {
+
+        /* RUNTIME_SCOPE_USER dirs are relative to XDG_CONFIG_DIR and XDG_RUNTIME_DIR, respectively */
+        static const struct {
+                const char *persistent;
+                const char *runtime;
+        } dirs[_LOOKUP_DIR_MAX][_RUNTIME_SCOPE_MAX] = {
+                [LOOKUP_DIR_CONFIG] = {
+                        [RUNTIME_SCOPE_SYSTEM] = { SYSTEM_CONFIG_UNIT_DIR, "/run/systemd/system" },
+                        [RUNTIME_SCOPE_GLOBAL] = { USER_CONFIG_UNIT_DIR,   "/run/systemd/user"   },
+                        [RUNTIME_SCOPE_USER]   = { "systemd/user",         "systemd/user"        },
+                },
+                [LOOKUP_DIR_CONTROL] = {
+                        [RUNTIME_SCOPE_SYSTEM] = { "/etc/systemd/system.control", "/run/systemd/system.control" },
+                        [RUNTIME_SCOPE_USER]   = { "systemd/user.control",        "systemd/user.control"        },
+                },
+                [LOOKUP_DIR_ATTACHED] = {
+                        [RUNTIME_SCOPE_SYSTEM] = { "/etc/systemd/system.attached", "/run/systemd/system.attached" },
+                        /* Portable services are not available to regular users for now. */
+                },
+        };
+
         _cleanup_free_ char *a = NULL, *b = NULL;
         int r;
 
-        assert(persistent);
-        assert(runtime);
+        assert(type >= 0 && type < _LOOKUP_DIR_MAX);
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, RUNTIME_SCOPE_GLOBAL));
+        assert(ret_persistent);
+        assert(ret_runtime);
+
+        const char *persistent = dirs[type][scope].persistent;
+        const char *runtime = dirs[type][scope].runtime;
+        assert(!persistent == !runtime);
+
+        if (!persistent)
+                return -EOPNOTSUPP;
 
         switch (scope) {
 
         case RUNTIME_SCOPE_SYSTEM:
-                a = strdup(SYSTEM_CONFIG_UNIT_DIR);
-                b = strdup("/run/systemd/system");
-                break;
-
         case RUNTIME_SCOPE_GLOBAL:
-                a = strdup(USER_CONFIG_UNIT_DIR);
-                b = strdup("/run/systemd/user");
-                break;
+                a = strdup(persistent);
+                b = strdup(runtime);
+                if (!a || !b)
+                        return -ENOMEM;
+
+                *ret_persistent = TAKE_PTR(a);
+                *ret_runtime = TAKE_PTR(b);
+
+                return 0;
 
         case RUNTIME_SCOPE_USER:
-                r = xdg_user_config_dir("/systemd/user", &a);
-                if (r < 0 && r != -ENXIO)
+                r = xdg_user_config_dir(persistent, &a);
+                if (r < 0)
                         return r;
 
-                r = xdg_user_runtime_dir("/systemd/user", runtime);
+                r = xdg_user_runtime_dir(runtime, ret_runtime);
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
 
                         /* If XDG_RUNTIME_DIR is not set, don't consider that fatal, simply initialize the runtime
                          * directory to NULL */
-                        *runtime = NULL;
+                        *ret_runtime = NULL;
                 }
 
-                *persistent = TAKE_PTR(a);
+                *ret_persistent = TAKE_PTR(a);
 
                 return 0;
 
         default:
                 assert_not_reached();
         }
-
-        if (!a || !b)
-                return -ENOMEM;
-
-        *persistent = TAKE_PTR(a);
-        *runtime = TAKE_PTR(b);
-
-        return 0;
-}
-
-static int acquire_control_dirs(RuntimeScope scope, char **persistent, char **runtime) {
-        _cleanup_free_ char *a = NULL;
-        int r;
-
-        assert(persistent);
-        assert(runtime);
-
-        switch (scope) {
-
-        case RUNTIME_SCOPE_SYSTEM:  {
-                _cleanup_free_ char *b = NULL;
-
-                a = strdup("/etc/systemd/system.control");
-                if (!a)
-                        return -ENOMEM;
-
-                b = strdup("/run/systemd/system.control");
-                if (!b)
-                        return -ENOMEM;
-
-                *runtime = TAKE_PTR(b);
-
-                break;
-        }
-
-        case RUNTIME_SCOPE_USER:
-                r = xdg_user_config_dir("/systemd/user.control", &a);
-                if (r < 0 && r != -ENXIO)
-                        return r;
-
-                r = xdg_user_runtime_dir("/systemd/user.control", runtime);
-                if (r < 0) {
-                        if (r != -ENXIO)
-                                return r;
-
-                        /* If XDG_RUNTIME_DIR is not set, don't consider this fatal, simply initialize the directory to
-                         * NULL */
-                        *runtime = NULL;
-                }
-
-                break;
-
-        case RUNTIME_SCOPE_GLOBAL:
-                return -EOPNOTSUPP;
-
-        default:
-                assert_not_reached();
-        }
-
-        *persistent = TAKE_PTR(a);
-
-        return 0;
-}
-
-static int acquire_attached_dirs(
-                RuntimeScope scope,
-                char **ret_persistent,
-                char **ret_runtime) {
-
-        _cleanup_free_ char *a = NULL, *b = NULL;
-
-        assert(ret_persistent);
-        assert(ret_runtime);
-
-        /* Portable services are not available to regular users for now. */
-        if (scope != RUNTIME_SCOPE_SYSTEM)
-                return -EOPNOTSUPP;
-
-        a = strdup("/etc/systemd/system.attached");
-        if (!a)
-                return -ENOMEM;
-
-        b = strdup("/run/systemd/system.attached");
-        if (!b)
-                return -ENOMEM;
-
-        *ret_persistent = TAKE_PTR(a);
-        *ret_runtime = TAKE_PTR(b);
-
-        return 0;
 }
 
 static int patch_root_prefix(char **p, const char *root_dir) {
@@ -489,15 +443,23 @@ int lookup_paths_init(
         }
 
         /* Note: when XDG_RUNTIME_DIR is not set this will not return -ENXIO, but simply set runtime_config to NULL */
-        r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
+        r = acquire_lookup_dirs(LOOKUP_DIR_CONFIG, scope, &persistent_config, &runtime_config);
         if (r < 0)
                 return r;
 
         if (scope == RUNTIME_SCOPE_USER) {
-                r = acquire_config_dirs(RUNTIME_SCOPE_GLOBAL, &global_persistent_config, &global_runtime_config);
+                r = acquire_lookup_dirs(LOOKUP_DIR_CONFIG, RUNTIME_SCOPE_GLOBAL, &global_persistent_config, &global_runtime_config);
                 if (r < 0)
                         return r;
         }
+
+        r = acquire_lookup_dirs(LOOKUP_DIR_CONTROL, scope, &persistent_control, &runtime_control);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        r = acquire_lookup_dirs(LOOKUP_DIR_ATTACHED, scope, &persistent_attached, &runtime_attached);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
 
         if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
@@ -510,15 +472,6 @@ int lookup_paths_init(
         /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
         r = acquire_transient_dir(scope, tempdir, &transient);
         if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENXIO))
-                return r;
-
-        /* Note: when XDG_RUNTIME_DIR is not set this will not return -ENXIO, but simply set runtime_control to NULL */
-        r = acquire_control_dirs(scope, &persistent_control, &runtime_control);
-        if (r < 0 && r != -EOPNOTSUPP)
-                return r;
-
-        r = acquire_attached_dirs(scope, &persistent_attached, &runtime_attached);
-        if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
         /* First priority is whatever has been passed to us via env vars */
