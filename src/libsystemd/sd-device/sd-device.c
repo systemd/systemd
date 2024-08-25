@@ -345,9 +345,11 @@ _public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
         assert_return(ret, -EINVAL);
         assert_return(ifname, -EINVAL);
 
-        r = device_new_from_main_ifname(ret, ifname);
-        if (r >= 0)
-                return r;
+        if (ifname_valid(ifname)) {
+                r = device_new_from_main_ifname(ret, ifname);
+                if (r >= 0)
+                        return r;
+        }
 
         r = rtnl_resolve_ifname_full(NULL, RESOLVE_IFNAME_ALTERNATIVE | RESOLVE_IFNAME_NUMERIC, ifname, &main_name, NULL);
         if (r < 0)
