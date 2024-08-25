@@ -9,12 +9,13 @@
 # Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
 # Andrei Stepanov <adem4ik@gmail.com>, 2023.
 # "Sergey A." <sw@atrus.ru>, 2023, 2024.
+# "Sergey A." <Ser82-png@yandex.ru>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-06-03 00:35+0000\n"
-"Last-Translator: \"Sergey A.\" <sw@atrus.ru>\n"
+"PO-Revision-Date: 2024-08-25 11:38+0000\n"
+"Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -23,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.5.5\n"
+"X-Generator: Weblate 5.7\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -396,39 +397,35 @@ msgid "Import a disk image"
 msgstr "Импортировать образ диска"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr "Чтобы импортировать образ диска, необходимо пройти аутентификацию"
+msgstr "Чтобы импортировать образ диска, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
 msgstr "Экспортировать образ диска"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr "Чтобы экспортировать образ диска, необходимо пройти аутентификацию"
+msgstr "Чтобы экспортировать образ диска, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
 msgstr "Загрузить образ диска"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "Чтобы загрузить образ диска, необходимо пройти аутентификацию"
+msgstr "Чтобы загрузить образ диска, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
 msgstr "Отменить передачу образа диска"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Чтобы отменить текущую передачу образа диска, необходимо пройти "
-"аутентификацию"
+"аутентификацию."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -864,10 +861,9 @@ msgid "Set a wall message"
 msgstr "Отправить сообщение на все терминалы"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
 msgstr ""
-"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию"
+"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -946,16 +942,14 @@ msgstr ""
 "аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:95
-#, fuzzy
 msgid "Create a local virtual machine or container"
-msgstr "Управление виртуальными машинами и контейнерами"
+msgstr "Создание виртуальной машины или контейнера"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-#, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"Для управления виртуальными машинами и контейнерами, необходимо пройти "
+"Для создания виртуальной машины или контейнера, необходимо пройти "
 "аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:106
@@ -1168,19 +1162,17 @@ msgid "Register a DNS-SD service"
 msgstr "Зарегистрировать службу в DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
 msgstr ""
-"Чтобы зарегистрировать службу в DNS-SD, необходимо пройти аутентификацию"
+"Чтобы зарегистрировать службу в DNS-SD, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Удалить службу из DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Чтобы удалить службу из DNS-SD, необходимо пройти аутентификацию"
+msgstr "Чтобы удалить службу из DNS-SD, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1193,88 +1185,83 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Подписка на результаты запроса"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
 msgstr ""
-"Чтобы перевести систему в ждущий режим, необходимо пройти аутентификацию."
+"Чтобы подписаться на результаты запроса, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Дамп кеша"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "Чтобы задать домены, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп кеша, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Дамп состояние сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "Чтобы задать NTP-серверы, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Дамп статистики"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "Чтобы задать домены, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп статистики, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Сброс статистики"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr ""
-"Чтобы сбросить локальные настройки NTP, необходимо пройти аутентификацию."
+msgstr "Чтобы сбросить статистику, необходимо пройти аутентификацию."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Проверка наличия обновлений системы"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+msgstr ""
+"Чтобы проверить наличие обновлений системы, необходимо пройти аутентификацию."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Установка обновлений системы"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+msgstr "Чтобы установить обновления системы, необходимо пройти аутентификацию."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Установка определённой версии системы"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "Чтобы настроить часовой пояс, необходимо пройти аутентификацию."
+msgstr ""
+"Чтобы обновить систему до определённой (возможно, устаревшей) версии, "
+"необходимо пройти аутентификацию."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Удаление устаревших обновлений системы"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+msgstr ""
+"Чтобы удалить устаревшие обновления системы, необходимо пройти "
+"аутентификацию."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
