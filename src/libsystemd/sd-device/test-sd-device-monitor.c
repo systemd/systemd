@@ -377,8 +377,17 @@ TEST(sd_device_monitor_receive) {
         ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
 
         ASSERT_OK(fd = sd_device_monitor_get_fd(monitor_client));
+
         for (;;) {
-                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                usec_t timeout;
+                int events;
+
+                ASSERT_OK(events = sd_device_monitor_get_events(monitor_client));
+                ASSERT_EQ(events, (int) EPOLLIN);
+                ASSERT_OK(sd_device_monitor_get_timeout(monitor_client, &timeout));
+                ASSERT_EQ(timeout, USEC_INFINITY);
+
+                r = fd_wait_for_event(fd, events, MAX(10 * USEC_PER_SEC, timeout));
                 if (r == -EINTR)
                         continue;
                 ASSERT_OK_POSITIVE(r);
