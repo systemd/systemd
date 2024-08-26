@@ -155,7 +155,8 @@
 
         <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
         environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
-        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal> or <literal>mir</literal>. See
+        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal>, <literal>mir</literal>, or
+        <literal>web</literal>. See
         <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
         details about the session type.</para>
 
