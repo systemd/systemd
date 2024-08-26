@@ -1443,10 +1443,9 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                Unit *u;
-
                 /* Pass all our configured sockets for singleton services */
 
+                Unit *u;
                 UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         int cn_fds;
@@ -1459,8 +1458,7 @@ static int service_collect_fds(
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
                                 return cn_fds;
-
-                        if (cn_fds <= 0)
+                        if (cn_fds == 0)
                                 continue;
 
                         if (!rfds) {
