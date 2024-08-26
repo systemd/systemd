@@ -154,9 +154,17 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                return fd;
+        if (isempty(path)) {
+                dir_fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC, O_PATH, &fd); /* drop O_PATH if it is set */
+                if (dir_fd < 0)
+                        return dir_fd;
+        } else {
+                fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd < 0)
+                        return fd;
 
-        return read_attr_fd(fd, ret);
+                dir_fd = fd;
+        }
+
+        return read_attr_fd(dir_fd, ret);
 }
