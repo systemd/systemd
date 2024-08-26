@@ -1805,7 +1805,7 @@ static const char *user_record_home_directory_real(UserRecord *h) {
                 return h->home_directory_auto;
 
         /* The root user is special, hence be special about it */
-        if (streq_ptr(h->user_name, "root"))
+        if (user_record_is_root(h))
                 return "/root";
 
         return "/";
@@ -1853,7 +1853,7 @@ static const char *user_record_shell_real(UserRecord *h) {
         if (h->shell)
                 return h->shell;
 
-        if (streq_ptr(h->user_name, "root"))
+        if (user_record_is_root(h))
                 return "/bin/sh";
 
         if (user_record_disposition(h) == USER_REGULAR)
@@ -2033,7 +2033,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (!uid_is_valid(h->uid))
                 return _USER_DISPOSITION_INVALID;
 
-        if (h->uid == 0 || h->uid == UID_NOBODY)
+        if (user_record_is_root(h) || user_record_is_nobody(h))
                 return USER_INTRINSIC;
 
         if (uid_is_system(h->uid))
@@ -2409,6 +2409,18 @@ int user_record_test_password_change_required(UserRecord *h) {
 
         /* No password changing necessary */
         return change_permitted ? 0 : -EROFS;
+}
+
+int user_record_is_root(const UserRecord *u) {
+        assert(u);
+
+        return u->uid == 0 || streq_ptr(u->user_name, "root");
+}
+
+int user_record_is_nobody(const UserRecord *u) {
+        assert(u);
+
+        return u->uid == UID_NOBODY || STRPTR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody");
 }
 
 int suitable_blob_filename(const char *name) {
