@@ -366,7 +366,8 @@ TEST(sd_device_monitor_receive) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         union sockaddr_union sa;
         const char *syspath;
-        int fd, r;
+        usec_t timeout;
+        int fd, event, r;
 
         prepare_loopback(&device);
 
@@ -377,8 +378,13 @@ TEST(sd_device_monitor_receive) {
         ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
 
         ASSERT_OK(fd = sd_device_monitor_get_fd(monitor_client));
+        ASSERT_OK(event = sd_device_monitor_get_events(monitor_client));
+        ASSERT_EQ(event, (int) EPOLLIN);
+        ASSERT_OK(sd_device_monitor_get_timeout(monitor_client, &timeout));
+        ASSERT_EQ(timeout, USEC_INFINITY);
+
         for (;;) {
-                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                r = fd_wait_for_event(fd, event, 10 * USEC_PER_SEC);
                 if (r == -EINTR)
                         continue;
                 ASSERT_OK_POSITIVE(r);
