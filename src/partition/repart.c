@@ -5163,7 +5163,7 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
 
         if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
                 STRV_FOREACH(subvol, p->subvolumes) {
-                        if (p->default_subvolume && streq(*subvol, p->default_subvolume))
+                        if (streq_ptr(*subvol, p->default_subvolume))
                                 continue;
 
                         r = strv_extend_many(&sv, "--subvol", *subvol);
