@@ -18,11 +18,7 @@ rm -rf "$SRCDIR"/debian/patches/*
 DEB_HOST_GNU_TYPE="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)"
 mount --mkdir --bind "$BUILDDIR" "$SRCDIR/obj-$DEB_HOST_GNU_TYPE"
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 # Add a new changelog entry to update the version. We use a fixed date since a dynamic one causes a full
 # rebuild every time.

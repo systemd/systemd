@@ -9,11 +9,7 @@ if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
     exit 1
 fi
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.19.91'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
