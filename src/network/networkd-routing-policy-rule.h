@@ -77,19 +77,27 @@ void link_foreignize_routing_policy_rules(Link *link);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_goto);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_l3mdev);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_ifgroup);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
+typedef enum RoutingPolicyRuleConfParserType {
+        ROUTING_POLICY_RULE_IIF,
+        ROUTING_POLICY_RULE_OIF,
+        ROUTING_POLICY_RULE_FAMILY,
+        ROUTING_POLICY_RULE_FWMARK,
+        ROUTING_POLICY_RULE_GOTO,
+        ROUTING_POLICY_RULE_INVERT,
+        ROUTING_POLICY_RULE_IP_PROTOCOL,
+        ROUTING_POLICY_RULE_L3MDEV,
+        ROUTING_POLICY_RULE_SPORT,
+        ROUTING_POLICY_RULE_DPORT,
+        ROUTING_POLICY_RULE_PREFIX,
+        ROUTING_POLICY_RULE_PRIORITY,
+        ROUTING_POLICY_RULE_SUPPRESS_IFGROUP,
+        ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN,
+        ROUTING_POLICY_RULE_TABLE,
+        ROUTING_POLICY_RULE_TOS,
+        ROUTING_POLICY_RULE_TYPE,
+        ROUTING_POLICY_RULE_UID_RANGE,
+        _ROUTING_POLICY_RULE_CONF_PARSER_MAX,
+        _ROUTING_POLICY_RULE_CONF_PARSER_INVALID = -EINVAL,
+} RoutingPolicyRuleConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule);

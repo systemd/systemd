@@ -24,6 +24,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "in-addr-util.h"
+#include "ip-protocol-list.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_network.h"
@@ -1005,7 +1006,36 @@ int config_parse_bool(
         }
 
         *b = k;
-        return 0;
+        return 1; /* set */
+}
+
+int config_parse_uint32_flag(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *flags = ASSERT_PTR(data);
+        int r;
+
+        assert(ltype != 0);
+
+        r = isempty(rvalue) ? 0 : parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=%s. Ignoring assignment: %m",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        SET_FLAG(*flags, ltype, r);
+        return 1;
 }
 
 int config_parse_id128(
@@ -1453,7 +1483,7 @@ int config_parse_ifname(
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
-                return 0;
+                return 1;
         }
 
         if (!ifname_valid(rvalue)) {
@@ -1465,7 +1495,7 @@ int config_parse_ifname(
         if (r < 0)
                 return log_oom();
 
-        return 0;
+        return 1;
 }
 
 int config_parse_ifnames(
@@ -2052,4 +2082,40 @@ int config_parse_timezone(
         }
 
         return free_and_strdup_warn(tz, rvalue);
+}
+
+int config_parse_ip_protocol(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *proto = ASSERT_PTR(data);
+        int r;
+
+        r = isempty(rvalue) ? 0 : parse_ip_protocol_full(rvalue, /* relaxed= */ ltype);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=%s', ignoring: %m",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        if (r > UINT8_MAX) {
+                /* linux/fib_rules.h and linux/fou.h define the netlink field as one byte, so we need to
+                 * reject protocols numbers that don't fit in one byte. */
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid '%s=%s', allowed range is 0..255, ignoring.",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *proto = r;
+        return 1; /* done. */
 }
