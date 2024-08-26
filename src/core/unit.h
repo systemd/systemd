@@ -926,15 +926,15 @@ void unit_ref_unset(UnitRef *ref);
 
 int unit_patch_contexts(Unit *u);
 
-ExecContext *unit_get_exec_context(const Unit *u) _pure_;
-KillContext *unit_get_kill_context(const Unit *u) _pure_;
-CGroupContext *unit_get_cgroup_context(const Unit *u) _pure_;
+ExecContext* unit_get_exec_context(const Unit *u) _pure_;
+KillContext* unit_get_kill_context(const Unit *u) _pure_;
+CGroupContext* unit_get_cgroup_context(const Unit *u) _pure_;
 
-ExecRuntime *unit_get_exec_runtime(const Unit *u) _pure_;
-CGroupRuntime *unit_get_cgroup_runtime(const Unit *u) _pure_;
+ExecRuntime* unit_get_exec_runtime(const Unit *u) _pure_;
+CGroupRuntime* unit_get_cgroup_runtime(const Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);
-CGroupRuntime *unit_setup_cgroup_runtime(Unit *u);
+CGroupRuntime* unit_setup_cgroup_runtime(Unit *u);
 
 const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
 char* unit_concat_strv(char **l, UnitWriteFlags flags);
