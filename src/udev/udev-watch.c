@@ -111,7 +111,7 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
         assert(dev);
         assert(dirfd >= 0);
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
 
@@ -188,7 +188,7 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
 
