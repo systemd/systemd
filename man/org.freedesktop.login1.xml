@@ -1516,8 +1516,9 @@ node /org/freedesktop/login1/session/1 {
       available.</para>
 
       <para><varname>Type</varname> encodes the session type. It's one of <literal>unspecified</literal> (for
-      cron PAM sessions and suchlike), <literal>tty</literal> (for text logins) or
-      <literal>x11</literal>/<literal>mir</literal>/<literal>wayland</literal> (for graphical logins).</para>
+      cron PAM sessions and suchlike), <literal>tty</literal> (for text logins), <literal>web</literal> (for
+      web-based logins), or <literal>x11</literal>/<literal>mir</literal>/<literal>wayland</literal> (for
+      graphical logins).</para>
 
       <para><varname>Class</varname> encodes the session class. It's one of <literal>user</literal> (for
       normal user sessions), <literal>greeter</literal> (for display manager pseudo-sessions), or
