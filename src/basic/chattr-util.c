@@ -149,14 +149,23 @@ int read_attr_fd(int fd, unsigned *ret) {
 }
 
 int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                return fd;
+        if (isempty(path)) {
+                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC, O_PATH, &fd_close); /* drop O_PATH if it is set */
+                if (fd < 0)
+                        return fd;
+        } else {
+                fd_close = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd_close < 0)
+                        return fd_close;
+
+                fd = fd_close;
+        }
 
         return read_attr_fd(fd, ret);
 }
