@@ -155,7 +155,7 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_SYSTEM(m))
+        if (!MANAGER_IS_USER(m))
                 return 0;
 
         assert(m->managed_oom_varlink);
@@ -200,6 +200,9 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
 
         if (m->managed_oom_varlink)
                 return 1;
+
+        if (!MANAGER_IS_USER(m))
+                return -EINVAL;
 
         r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
         if (r == -ENOENT)
