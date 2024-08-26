@@ -268,9 +268,16 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 } else if (type == TYPE_PRIVATE)
                         log_debug("Private DNS server data not supported, ignoring.");
 
-                if (!arg_set_dns)
+                if (strv_isempty(arg_set_dns))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No DNS servers specified, refusing operation.");
+
+                if (strv_isempty(arg_set_domain)) {
+                        /* When no domain/search is set, clear the current domains. */
+                        r = strv_extend(&arg_set_domain, "");
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         return 1; /* work to do */
