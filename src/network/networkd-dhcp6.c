@@ -878,8 +878,7 @@ int config_parse_dhcp6_pd_prefix_hint(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
-                         "Failed to parse WithoutRA= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode);
 
 static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_MAX] = {
         [DHCP6_CLIENT_START_MODE_NO]                  = "no",
