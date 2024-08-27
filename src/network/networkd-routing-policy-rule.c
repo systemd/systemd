@@ -1637,8 +1637,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
                 config_parse_routing_policy_rule_family,
                 routing_policy_rule_address_family,
                 AddressFamily,
-                ADDRESS_FAMILY_NO,
-                "Invalid family");
+                ADDRESS_FAMILY_NO);
 
 typedef struct RoutingPolicyRuleConfParser {
         ConfigParserCallback parser;

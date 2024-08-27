@@ -232,7 +232,7 @@ int settings_allocate_properties(Settings *s) {
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode);
 
 int config_parse_expose_port(
                 const char *unit,
@@ -832,7 +832,7 @@ int config_parse_cpu_affinity(
         return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode);
 
 static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
         [RESOLV_CONF_OFF]            = "off",
@@ -914,7 +914,7 @@ int config_parse_link_journal(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone_mode, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone_mode, timezone_mode, TimezoneMode);
 
 static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
         [TIMEZONE_OFF]     = "off",
@@ -927,7 +927,7 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership, "Failed to parse user namespace ownership mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership);
 
 static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
         [USER_NAMESPACE_OWNERSHIP_OFF]   = "off",
