@@ -69,6 +69,7 @@ build() {
     CXX_LD="$( ((LLVM)) && echo lld)" \
     rpmbuild \
         -bb \
+        --noprep \
         --build-in-place \
         --with upstream \
         $( ((WITH_TESTS)) || echo "--nocheck") \

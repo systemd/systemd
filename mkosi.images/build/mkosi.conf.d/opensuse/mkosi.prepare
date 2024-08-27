@@ -30,6 +30,7 @@ mkosi-chroot \
 until mkosi-chroot \
     rpmbuild \
     -bd \
+    --noprep \
     --build-in-place \
     --with upstream \
     --define "_topdir /var/tmp" \
