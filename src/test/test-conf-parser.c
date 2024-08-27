@@ -166,7 +166,7 @@ TEST(config_parse_unsigned) {
 TEST(config_parse_strv) {
         test_config_parse_strv_one("", STRV_MAKE_EMPTY);
         test_config_parse_strv_one("foo", STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
+        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar"));
         test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
         test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
         test_config_parse_strv_one("\xc3\x7f", STRV_MAKE("\xc3\x7f"));
