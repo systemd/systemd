@@ -437,7 +437,7 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
         if (m == 0)
                 buf = strdup("-");
         else {
-                assert(m+1 < ELEMENTSOF(l));
+                assert(m < ELEMENTSOF(l));
                 l[m] = NULL;
 
                 buf = strv_join((char**) l, "+");
