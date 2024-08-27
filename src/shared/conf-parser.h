@@ -454,8 +454,8 @@ int config_parse_unsigned_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 unsigned min,
                 unsigned max,
                 bool ignoring,
@@ -467,8 +467,8 @@ static inline int config_parse_uint32_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint32_t min,
                 uint32_t max,
                 bool ignoring,
@@ -478,7 +478,7 @@ static inline int config_parse_uint32_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)
@@ -494,8 +494,8 @@ static inline int config_parse_uint16_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint16_t min,
                 uint16_t max,
                 bool ignoring,
@@ -505,7 +505,7 @@ static inline int config_parse_uint16_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)
@@ -521,8 +521,8 @@ static inline int config_parse_uint8_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint8_t min,
                 uint8_t max,
                 bool ignoring,
@@ -532,7 +532,7 @@ static inline int config_parse_uint8_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)
