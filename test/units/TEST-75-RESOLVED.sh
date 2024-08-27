@@ -945,6 +945,58 @@ testcase_12_resolvectl2() {
     restart_resolved
 }
 
+testcase_mdns_self() {
+    # issue #32990 and #33806
+
+    # Cleanup
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/enable-mdns.conf
+        rm -rf /run/systemd/dnssd
+        ip link del hoge
+    }
+
+    trap cleanup RETURN
+
+    mkdir -p /run/systemd/resolved.conf.d
+    cat >/run/systemd/resolved.conf.d/enable-mdns.conf <<EOF
+[Resolve]
+MulticastDNS=yes
+EOF
+
+    mkdir -p /run/systemd/dnssd
+    cat >/run/systemd/dnssd/ssh.dnssd <<EOF
+[Service]
+Name=%H
+Type=_ssh._tcp
+Port=22
+EOF
+
+    ip link add hoge type dummy
+    ip link set hoge up
+    ip link set hoge multicast on
+    ip address add 192.168.0.12/24 dev hoge
+    assert_in '192.168.0.12/24' "$(ip address show dev hoge)"
+
+    # make sure networkd is not running.
+    systemctl stop systemd-networkd.socket
+    systemctl stop systemd-networkd.service
+
+    # restart resolved and enable mdns on hoge
+    restart_resolved
+    resolvectl mdns hoge yes
+    resolvectl domain hoge local
+    assert_in 'Global: yes' "$(resolvectl mdns)"
+    assert_in 'yes' "$(resolvectl mdns hoge)"
+    assert_in 'local' "$(resolvectl domain hoge)"
+
+    run dig -p 5353 "$(hostname -s).local" @192.168.0.12
+    grep -qE "$(hostname -s)\.local\.\s+[0-9]+\s+IN\s+A\s+192\.168\.0\.12" "$RUN_OUT"
+
+    run resolvectl query "$(hostname -s).local"
+    grep -qE "$(hostname -s).local: " "$RUN_OUT"
+    grep -qE ".*192\.168\.0\.12\s+-- link: hoge" "$RUN_OUT"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
