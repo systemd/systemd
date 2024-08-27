@@ -1882,8 +1882,6 @@ int unit_start(Unit *u, ActivationDetails *details) {
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
-        if (state == UNIT_MAINTENANCE)
-                return -EAGAIN;
 
         /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
@@ -1990,6 +1988,9 @@ int unit_stop(Unit *u) {
         state = unit_active_state(u);
         if (UNIT_IS_INACTIVE_OR_FAILED(state))
                 return -EALREADY;
+
+        if (IN_SET(state, UNIT_MAINTENANCE, UNIT_REFRESHING))
+                return -EAGAIN;
 
         following = unit_following(u);
         if (following) {
@@ -5412,21 +5413,25 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         return 0;
 }
 
-int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
+int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret) {
+        CGroupRuntime *crt = NULL;
         pid_t pid;
         int r;
 
         assert(u);
         assert(ret);
 
-        /* Forks off a helper process and makes sure it is a member of the unit's cgroup. Returns == 0 in the child,
-         * and > 0 in the parent. The pid parameter is always filled in with the child's PID. */
+        /* Forks off a helper process and makes sure it is a member of the unit's cgroup, if configured to
+         * do so. Returns == 0 in the child, and > 0 in the parent. The pid parameter is always filled in
+         * with the child's PID. */
 
-        (void) unit_realize_cgroup(u);
+        if (into_cgroup) {
+                (void) unit_realize_cgroup(u);
 
-        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
-        if (!crt)
-                return -ENOMEM;
+                crt = unit_setup_cgroup_runtime(u);
+                if (!crt)
+                        return -ENOMEM;
+        }
 
         r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
         if (r < 0)
@@ -5450,7 +5455,7 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
         (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
         (void) ignore_signals(SIGPIPE);
 
-        if (crt->cgroup_path) {
+        if (crt && crt->cgroup_path) {
                 r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
@@ -5468,7 +5473,7 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
         assert(u);
         assert(ret_pid);
 
-        r = unit_fork_helper_process(u, "(sd-rmrf)", &pid);
+        r = unit_fork_helper_process(u, "(sd-rmrf)", /* into_cgroup= */ true, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -6373,6 +6378,65 @@ Condition *unit_find_failed_condition(Unit *u) {
                         return c;
 
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
+}
+
+bool unit_can_live_mount(Unit *u, const char *dst, char **error) {
+        assert(u);
+        assert(error);
+
+        if (!UNIT_VTABLE(u)->live_mount) {
+                *error = strdup("live mounting not supported for this unit type");
+                return false;
+        }
+
+        if (u->load_state != UNIT_LOADED) {
+                *error = strdup("unit not loaded");
+                return false;
+        }
+
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                *error = strdup("unit not active");
+                return false;
+        }
+
+        if (UNIT_VTABLE(u)->can_live_mount && !UNIT_VTABLE(u)->can_live_mount(u, dst, error))
+                return false;
+
+        *error = NULL;
+
+        return true;
+}
+
+int unit_live_mount(
+                Unit *u,
+                const char *src,
+                const char *dst,
+                sd_bus_message *message,
+                MountInNamespaceFlags flags,
+                const MountOptions *options) {
+
+        assert(u);
+
+        /* Special return values:
+         *
+         *   -EOPNOTSUPP → live mounting not supported for this unit type
+         *   -EBUSY      → unit currently can't be changed since it's not running or not properly loaded, or
+         *                 has a job queued or similar
+         */
+
+        if (!UNIT_VTABLE(u)->live_mount)
+                return -EOPNOTSUPP;
+
+        if (u->load_state != UNIT_LOADED)
+                return -EBUSY;
+
+        if (u->job)
+                return -EBUSY;
+
+        if (unit_active_state(u) != UNIT_ACTIVE)
+                return -EBUSY;
+
+        return UNIT_VTABLE(u)->live_mount(u, src, dst, message, flags, options);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
