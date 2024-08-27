@@ -21,7 +21,7 @@
 #include "strv.h"
 #include "utf8.h"
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         _cleanup_free_ char *server_name = NULL;
