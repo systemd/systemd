@@ -23,7 +23,7 @@ static const char* const duplex_table[_DUP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex);
 
 static const struct {
         uint32_t opt;
@@ -72,7 +72,7 @@ static const char* const port_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort);
 
 static const char* const mdi_table[] = {
         [ETH_TP_MDI_INVALID]  = "unknown",
