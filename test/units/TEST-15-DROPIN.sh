@@ -365,7 +365,7 @@ testcase_transient_slice_dropins() {
            0
 
     data=$(systemctl show -P Documentation a-b-c.slice)
-    test "$data" = "man:drop1 man:drop2 man:drop3 man:drop4 man:drop5 man:drop1 man:drop2 man:drop3 man:drop4"
+    test "$data" = "man:drop1 man:drop2 man:drop3 man:drop4 man:drop5"
 
     # Do a reload and check again
     systemctl daemon-reload
