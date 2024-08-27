@@ -2761,6 +2761,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s Result = '...';
       readonly s ReloadResult = '...';
       readonly s CleanResult = '...';
+      readonly s MountResult = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s USBFunctionDescriptors = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3425,6 +3426,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property CleanResult is not documented!-->
 
+    <!--property MountResult is not documented!-->
+
     <!--property USBFunctionDescriptors is not documented!-->
 
     <!--property USBFunctionStrings is not documented!-->
@@ -4054,6 +4057,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadResult"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CleanResult"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountResult"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="USBFunctionDescriptors"/>
 
@@ -12136,6 +12141,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
       <para><varname>StatusBusError</varname>,
       <varname>StatusVarlinkError</varname>,
+      <varname>MountResult</varname>,
+      <varname>TimeoutMountUSec</varname>,
       <varname>PrivateTmpEx</varname>, and
       <varname>ImportCredentialEx</varname> were added in version 257.</para>
     </refsect2>
@@ -12174,7 +12181,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>, and
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>TimeoutMountUSec</varname>, and
       <varname>ImportCredentialEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
@@ -12209,7 +12217,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>TimeoutMountUSec</varname>, and
       <varname>ImportCredentialEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
@@ -12244,7 +12253,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>TimeoutMountUSec</varname>, and
       <varname>ImportCredentialEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
