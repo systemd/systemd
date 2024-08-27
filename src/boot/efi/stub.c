@@ -565,13 +565,10 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         if (!loaded_image->DeviceHandle)
                 return;
 
-        uint64_t loader_features = 0;
-        err = efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features);
-        if (err != EFI_SUCCESS)
-                return;
-
         /* Don't measure again, if sd-boot already initialized the random seed */
-        if (!FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
+        uint64_t loader_features = 0;
+        (void) efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features);
+        if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
                 return;
 
         _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
