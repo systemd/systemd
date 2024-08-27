@@ -242,9 +242,9 @@ int bind_user_prepare(
                  * and the user/group databases fully synthesized at runtime. Moreover, the name of the
                  * user/group name of the "nobody" account differs between distros, hence a check by numeric
                  * UID is safer. */
-                if (u->uid == 0 || streq(u->user_name, "root"))
+                if (user_record_is_root(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'root' user not supported, sorry.");
-                if (u->uid == UID_NOBODY || STR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody"))
+                if (user_record_is_nobody(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'nobody' user not supported, sorry.");
 
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
