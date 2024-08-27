@@ -174,7 +174,7 @@ static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
 
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE, "Invalid crash action");
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE);
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
