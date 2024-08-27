@@ -72,10 +72,7 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode,
-                                journal_write_split_mode,
-                                JournalWriteSplitMode,
-                                "Failed to parse split mode setting");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
 
 /**********************************************************************
  **********************************************************************

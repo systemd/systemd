@@ -240,6 +240,12 @@ static inline bool section_is_invalid(ConfigSection *section) {
 #define log_section_warning_errno(section, error, ...)   log_section_full_errno(section, LOG_WARNING, error, __VA_ARGS__)
 #define log_section_error_errno(section, error, ...)     log_section_full_errno(section, LOG_ERR,     error, __VA_ARGS__)
 
+/* These macro assume variables 'unit', 'filename', and so on exist. */
+#define LOG_SYNTAX_PARSE_ERROR_FULL(error, critical)                    \
+        log_syntax_parse_error_full(unit, filename, line, error, critical, lvalue, rvalue);
+#define LOG_SYNTAX_PARSE_ERROR(error)                                   \
+        LOG_SYNTAX_PARSE_ERROR_FULL(error, false)
+
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
 CONFIG_PARSER_PROTOTYPE(config_parse_long);
@@ -305,7 +311,7 @@ typedef enum ConfigParseStringFlags {
         CONFIG_PARSE_STRING_SAFE_AND_ASCII = CONFIG_PARSE_STRING_SAFE | CONFIG_PARSE_STRING_ASCII,
 } ConfigParseStringFlags;
 
-#define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
+#define DEFINE_CONFIG_PARSE(function, parser)                           \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 int *i = data, r;                                       \
                                                                         \
@@ -315,17 +321,14 @@ typedef enum ConfigParseStringFlags {
                 assert(data);                                           \
                                                                         \
                 r = parser(rvalue);                                     \
-                if (r < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (r < 0)                                              \
+                        return LOG_SYNTAX_PARSE_ERROR(r);               \
                                                                         \
                 *i = r;                                                 \
                 return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
+#define DEFINE_CONFIG_PARSE_PTR(function, parser, type)                 \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = ASSERT_PTR(data);                             \
                 int r;                                                  \
@@ -336,13 +339,12 @@ typedef enum ConfigParseStringFlags {
                                                                         \
                 r = parser(rvalue, i);                                  \
                 if (r < 0)                                              \
-                        log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                   msg ", ignoring: %s", rvalue);       \
+                        return LOG_SYNTAX_PARSE_ERROR(r);               \
                                                                         \
                 return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type, msg) \
+#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type)      \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -352,20 +354,17 @@ typedef enum ConfigParseStringFlags {
                 assert(data);                                           \
                                                                         \
                 x = from_string(rvalue);                                \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (x < 0)                                              \
+                        return LOG_SYNTAX_PARSE_ERROR(x);               \
                                                                         \
                 *i = x;                                                 \
                 return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
-        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type, msg)
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type)                  \
+        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type)
 
-#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
+#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -380,17 +379,14 @@ typedef enum ConfigParseStringFlags {
                 }                                                       \
                                                                         \
                 x = name##_from_string(rvalue);                         \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (x < 0)                                              \
+                        return LOG_SYNTAX_PARSE_ERROR(x);               \
                                                                         \
                 *i = x;                                                 \
                 return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
+#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid)               \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
                 type **enums = ASSERT_PTR(data);                               \
                 _cleanup_free_ type *xs = NULL;                                \
@@ -414,26 +410,24 @@ typedef enum ConfigParseStringFlags {
                         r = extract_first_word(&p, &en, NULL, 0);              \
                         if (r == -ENOMEM)                                      \
                                 return log_oom();                              \
-                        if (r < 0) {                                           \
-                                log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                           msg ", ignoring: %s", en);          \
-                                return 0;                                      \
-                        }                                                      \
+                        if (r < 0)                                             \
+                                return LOG_SYNTAX_PARSE_ERROR(r);              \
                         if (r == 0)                                            \
                                 break;                                         \
                                                                                \
                         x = name##_from_string(en);                            \
                         if (x < 0) {                                           \
                                 log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                           msg ", ignoring: %s", en);          \
+                                           "Failed to parse %s in %s=, ignoring.", \
+                                           en, lvalue);                        \
                                 continue;                                      \
                         }                                                      \
                                                                                \
-                        for (type *ys = xs; x != invalid && *ys != invalid; ys++)       \
-                                if (*ys == x) {                                         \
+                        for (type *ys = xs; x != invalid && *ys != invalid; ys++) \
+                                if (*ys == x) {                                \
                                         log_syntax(unit, LOG_NOTICE, filename, line, 0, \
-                                                   "Duplicate entry, ignoring: %s",     \
-                                                   en);                        \
+                                                   "Duplicate entry %s in %s=, ignoring.", \
+                                                   en, lvalue);                \
                                         x = invalid;                           \
                                 }                                              \
                                                                                \
