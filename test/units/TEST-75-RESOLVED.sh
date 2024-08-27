@@ -985,6 +985,87 @@ testcase_12_resolvectl2() {
     restart_resolved
 }
 
+testcase_mdns() {
+    # For issue #32990 and #33806
+
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/enable-mdns.conf
+        rm -rf /run/systemd/dnssd
+        ip link del veth99 || :
+        ip netns del ns99 || :
+    }
+
+    trap cleanup RETURN
+
+    mkdir -p /run/systemd/resolved.conf.d
+    cat >/run/systemd/resolved.conf.d/enable-mdns.conf <<EOF
+[Resolve]
+MulticastDNS=yes
+EOF
+
+    mkdir -p /run/systemd/dnssd
+    cat >/run/systemd/dnssd/ssh.dnssd <<EOF
+[Service]
+Name=%H
+Type=_ssh._tcp
+Port=22
+TxtText=hogehogehoge
+Priority=42
+Weight=13
+EOF
+
+    ip netns add ns99
+    ip link add veth99 type veth peer name veth-peer
+    ip link set veth-peer netns ns99
+    ip link set veth99 up
+    ip netns exec ns99 ip link set veth-peer up
+    ip link set veth99 multicast on
+    ip address add 192.168.0.12/24 dev veth99
+    ip netns exec ns99 ip address add 192.168.0.10/24 dev veth-peer
+    assert_in '192.168.0.12/24' "$(ip address show dev veth99)"
+    assert_in '192.168.0.10/24' "$(ip netns exec ns99 ip address show dev veth-peer)"
+
+    # make sure networkd is not running.
+    systemctl stop systemd-networkd.socket
+    systemctl stop systemd-networkd.service
+
+    # restart resolved and enable mdns on interface veth99
+    restart_resolved
+    resolvectl mdns veth99 yes
+    resolvectl domain veth99 local
+    assert_in 'Global: yes' "$(resolvectl mdns)"
+    assert_in 'yes' "$(resolvectl mdns veth99)"
+    assert_in 'local' "$(resolvectl domain veth99)"
+
+    run ip netns exec ns99 dig -p 5353 "ns1.local" @192.168.0.12
+    grep -qE "ns1\.local\.\s+[0-9]+\s+IN\s+A\s+192\.168\.0\.12" "$RUN_OUT"
+
+    run ip netns exec ns99 dig -p 5353 -t SRV "ns1._ssh._tcp.local" @192.168.0.12
+    grep -qE "ns1\._ssh\._tcp\.local\.\s+[0-9]+\s+IN\s+SRV\s+42\s+13\s+22\s+ns1\.local\." "$RUN_OUT"
+
+    run ip netns exec ns99 dig -p 5353 -t TXT "ns1._ssh._tcp.local" @192.168.0.12
+    grep -qE "ns1\._ssh\._tcp\.local\.\s+[0-9]+\s+IN\s+TXT\s+\"hogehogehoge\"" "$RUN_OUT"
+
+    run resolvectl query "ns1.local" || :
+    grep -qE "ns1.local: " "$RUN_OUT"
+    grep -qE ".*192\.168\.0\.12\s+-- link: veth99" "$RUN_OUT"
+
+    run resolvectl query -t SRV "ns1._ssh._tcp.local" || :
+    grep -qE "ns1\._ssh\._tcp\.local IN SRV 42 13 22 ns1\.local\s+-- link: veth99" "$RUN_OUT"
+
+    run resolvectl query -t TXT "ns1._ssh._tcp.local" || :
+    grep -qE "ns1\._ssh\._tcp\.local IN TXT \"hogehogehoge\"\s+-- link: veth99" "$RUN_OUT"
+
+    run resolvectl service "ns1._ssh._tcp.local" || :
+    grep -qE "ns1\._ssh\._tcp\.local: ns1\.local:22 \[priority=42, weight=13\]" "$RUN_OUT"
+
+    # refuse queries from a local address. See issue #32990 and the comment:
+    # https://github.com/systemd/systemd/pull/34141#discussion_r1736318656
+    (! dig -p 5353 "ns1.local" @192.168.0.12)
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
