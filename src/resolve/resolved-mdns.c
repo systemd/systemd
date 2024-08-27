@@ -386,12 +386,6 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         if (r <= 0)
                 return r;
 
-        /* Refuse traffic from the local host, to avoid query loops. However, allow legacy mDNS
-         * unicast queries through anyway (we never send those ourselves, hence no risk).
-         * i.e. check for the source port nr. */
-        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p))
-                return 0;
-
         scope = manager_find_scope(m, p);
         if (!scope) {
                 log_debug("Got mDNS UDP packet on unknown scope. Ignoring.");
@@ -400,6 +394,21 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+
+                /* RFC 6762 section 6:
+                 * The source UDP port in all Multicast DNS responses MUST be 5353 (the well-known port
+                 * assigned to mDNS). Multicast DNS implementations MUST silently ignore any Multicast DNS
+                 * responses they receive where the source UDP port is not 5353. */
+                if (p->sender_port != MDNS_PORT) {
+                        log_trace("Received mDNS reply packet from port %u, ignoring.", p->sender_port);
+                        return 0;
+                }
+
+                /* Refuse reply from the local host, to avoid query loops. */
+                if (manager_packet_from_local_address(m, p)) {
+                        log_trace("Received mDNS reply from us, ignoring.");
+                        return 0;
+                }
 
                 log_debug("Got mDNS reply packet");
 
