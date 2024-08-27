@@ -376,7 +376,7 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
 
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK) + 1]; /* one string per known flag at most */
+        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + 1) + 1]; /* one string per known flag at most */
         size_t m = 0;
 
         assert(ret);
