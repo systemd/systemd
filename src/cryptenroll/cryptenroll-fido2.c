@@ -67,8 +67,7 @@ int load_volume_key_fido2(
 
 int enroll_fido2(
                 struct crypt_device *cd,
-                const void *volume_key,
-                size_t volume_key_size,
+                const struct iovec *volume_key,
                 const char *device,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
@@ -87,8 +86,7 @@ int enroll_fido2(
         int r, keyslot;
 
         assert_se(cd);
-        assert_se(volume_key);
-        assert_se(volume_key_size > 0);
+        assert_se(iovec_is_set(volume_key));
         assert_se(device);
 
         assert_se(node = crypt_get_device_name(cd));
@@ -139,8 +137,8 @@ int enroll_fido2(
         keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
+                        volume_key->iov_base,
+                        volume_key->iov_len,
                         base64_encoded,
                         base64_encoded_size);
         if (keyslot < 0)
