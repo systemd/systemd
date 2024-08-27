@@ -51,6 +51,11 @@ CHANGES WITH 257 in spe:
           filesystem. `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0` can be used to override
           this behavior.
 
+        systemd-resolved:
+
+        * 'resolvconf' command now supports '-p' switch. If specified, the
+          interface will not be used as the default route.
+
         — <place>, <date>
 
 CHANGES WITH 256:

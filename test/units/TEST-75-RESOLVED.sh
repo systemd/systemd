@@ -243,6 +243,8 @@ manual_testcase_01_resolvectl() {
         RESOLVCONF="$TMPDIR"/resolvconf
         ln -s "$(command -v resolvectl 2>/dev/null)" "$RESOLVCONF"
     fi
+
+    # DNS servers
     echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
     echo nameserver 10.0.2.3 10.0.2.4 | "$RESOLVCONF" -a hoge.foo
     assert_in '10.0.2.1 10.0.2.2' "$(resolvectl dns hoge)"
@@ -251,6 +253,44 @@ manual_testcase_01_resolvectl() {
     echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -a hoge.foo.dhcp
     assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
     assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
+
+    # domain
+    # without domain/search clears existing domain
+    resolvectl domain hoge test-domain.example.com
+    assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
+    echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
+    assert_not_in 'test-domain.example.com' "$(resolvectl domain hoge)"
+    # cannot set domain without DNS servers
+    (! echo domain test-domain.example.com | "$RESOLVCONF" -a hoge)
+    # can set domain with DNS server(s)
+    echo -e "nameserver 10.0.2.1 10.0.2.2\ndomain test-domain1.example.com test-domain2.example.com\nsearch test-search-domain.example.com" | "$RESOLVCONF" -a hoge
+    assert_in 'test-domain1.example.com' "$(resolvectl domain hoge)"
+    assert_in 'test-domain2.example.com' "$(resolvectl domain hoge)"
+    assert_in 'test-search-domain.example.com' "$(resolvectl domain hoge)"
+
+    # Tests for 'resolvconf -x'
+    echo nameserver 10.0.2.1 | "$RESOLVCONF" -x -a hoge
+    assert_in '~.' "$(resolvectl domain hoge)"
+    resolvectl domain hoge "hoge.example.com"
+    assert_in 'hoge.example.com' "$(resolvectl domain hoge)"
+    assert_not_in '~.' "$(resolvectl domain hoge)"
+    echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | "$RESOLVCONF" -x -a hoge
+    assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
+    assert_in '~.' "$(resolvectl domain hoge)"
+
+    # Tests for 'resolvconf -p'
+    resolvectl default-route hoge yes
+    assert_in 'yes' "$(resolvectl default-route hoge)"
+    echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -p -a hoge
+    assert_in 'no' "$(resolvectl default-route hoge)"
+
+    # Tests for 'resolvconf -d'
+    resolvectl dns hoge 10.0.3.1 10.0.3.2
+    resolvectl domain hoge test-domain.example.com
+    "$RESOLVCONF" -d hoge
+    assert_not_in '10.0.3.1' "$(resolvectl dns hoge)"
+    assert_not_in '10.0.3.2' "$(resolvectl dns hoge)"
+    assert_not_in 'test-domain.example.com' "$(resolvectl domain hoge)"
 
     # Tests for _localdnsstub and _localdnsproxy
     assert_in '127.0.0.53' "$(resolvectl query _localdnsstub)"
