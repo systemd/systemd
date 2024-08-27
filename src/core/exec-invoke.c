@@ -2106,7 +2106,6 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
                              ouid, ouid);
-
         if (r < 0)
                 return -ENOMEM;
 
@@ -2120,7 +2119,6 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
                              ogid, ogid);
-
         if (r < 0)
                 return -ENOMEM;
 
