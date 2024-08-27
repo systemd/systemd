@@ -291,4 +291,4 @@ static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, USE_DOMAINS_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains, "Failed to parse UseDomains=")
+DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains);
