@@ -18,15 +18,14 @@
 
 static int search_policy_hash(
                 struct crypt_device *cd,
-                const void *hash,
-                size_t hash_size) {
+                const struct iovec *hash) {
 
         int r;
 
         assert(cd);
-        assert(hash || hash_size == 0);
+        assert(iovec_is_valid(hash));
 
-        if (hash_size == 0)
+        if (!iovec_is_set(hash))
                 return 0;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
@@ -59,7 +58,7 @@ static int search_policy_hash(
                 if (r < 0)
                         return log_error_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
 
-                if (memcmp_nn(hash, hash_size, thash, thash_size) == 0)
+                if (memcmp_nn(hash->iov_base, hash->iov_len, thash, thash_size) == 0)
                         return keyslot; /* Found entry with same hash. */
         }
 
@@ -242,8 +241,7 @@ int load_volume_key_tpm2(
 }
 
 int enroll_tpm2(struct crypt_device *cd,
-                const void *volume_key,
-                size_t volume_key_size,
+                const struct iovec *volume_key,
                 const char *device,
                 uint32_t seal_key_handle,
                 const char *device_key,
@@ -276,8 +274,7 @@ int enroll_tpm2(struct crypt_device *cd,
         CLEANUP_ERASE(binary_salt);
 
         assert(cd);
-        assert(volume_key);
-        assert(volume_key_size > 0);
+        assert(iovec_is_set(volume_key));
         assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
         assert(ret_slot_to_wipe);
@@ -436,7 +433,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return log_error_errno(r, "Failed to seal to TPM2: %m");
 
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
-        r = search_policy_hash(cd, policy.buffer, policy.size);
+        r = search_policy_hash(cd, &IOVEC_MAKE(policy.buffer, policy.size));
         if (r == -ENOENT)
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
@@ -487,8 +484,8 @@ int enroll_tpm2(struct crypt_device *cd,
         keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
+                        volume_key->iov_base,
+                        volume_key->iov_len,
                         base64_encoded,
                         base64_encoded_size);
         if (keyslot < 0)
