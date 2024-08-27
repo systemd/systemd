@@ -2038,11 +2038,12 @@ int config_parse_calendar(
         }
 
         r = calendar_spec_from_string(rvalue, &c);
-        if (r < 0)
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse calendar specification, ignoring: %s", rvalue);
-        else
-                *cr = TAKE_PTR(c);
+                return 0;
+        }
 
+        free_and_replace_full(*cr, c, calendar_spec_free);
         return 0;
 }
 
