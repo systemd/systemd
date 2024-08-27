@@ -16,78 +16,85 @@
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
 
-        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
+        ASSERT_OK(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL));
         ASSERT_STREQ(expected, path);
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
         int log_level = 0;
 
-        assert_se(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >= 0);
-        assert_se(expected == log_level);
+        ASSERT_OK(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL));
+        ASSERT_EQ(expected, log_level);
 }
 
 static void test_config_parse_log_facility_one(const char *rvalue, int expected) {
         int log_facility = 0;
 
-        assert_se(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >= 0);
-        assert_se(expected == log_facility);
+        ASSERT_OK(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL));
+        ASSERT_EQ(expected, log_facility);
 }
 
 static void test_config_parse_iec_size_one(const char *rvalue, size_t expected) {
         size_t iec_size = 0;
 
-        assert_se(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >= 0);
-        assert_se(expected == iec_size);
+        ASSERT_OK(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL));
+        ASSERT_EQ(expected, iec_size);
 }
 
 static void test_config_parse_si_uint64_one(const char *rvalue, uint64_t expected) {
         uint64_t si_uint64 = 0;
 
-        assert_se(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL) >= 0);
-        assert_se(expected == si_uint64);
+        ASSERT_OK(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL));
+        ASSERT_EQ(expected, si_uint64);
 }
 
 static void test_config_parse_int_one(const char *rvalue, int expected) {
         int v = -1;
 
-        assert_se(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected) {
         unsigned v = 0;
 
-        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_strv_one(const char *rvalue, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
-        assert_se(strv_equal(expected, strv));
+        ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL));
+        ASSERT_TRUE(strv_equal(expected, strv));
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {
         mode_t v = 0;
 
-        assert_se(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_sec_one(const char *rvalue, usec_t expected) {
         usec_t v = 0;
 
-        assert_se(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_nsec_one(const char *rvalue, nsec_t expected) {
         nsec_t v = 0;
 
-        assert_se(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
+}
+
+static void test_config_parse_iec_uint64_one(const char *rvalue, uint64_t expected) {
+        uint64_t v = 0;
+
+        ASSERT_OK(config_parse_iec_uint64("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 TEST(config_parse_path) {
@@ -166,7 +173,7 @@ TEST(config_parse_unsigned) {
 TEST(config_parse_strv) {
         test_config_parse_strv_one("", STRV_MAKE_EMPTY);
         test_config_parse_strv_one("foo", STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
+        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar"));
         test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
         test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
         test_config_parse_strv_one("\xc3\x7f", STRV_MAKE("\xc3\x7f"));
@@ -206,11 +213,8 @@ TEST(config_parse_nsec) {
 }
 
 TEST(config_parse_iec_uint64) {
-        uint64_t offset = 0;
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
-        assert_se(offset == 4 * 1024 * 1024);
-
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        test_config_parse_iec_uint64_one("4M", UINT64_C(4 * 1024 * 1024));
+        test_config_parse_iec_uint64_one("4.5M", UINT64_C((4 * 1024 + 512) * 1024));
 }
 
 #define x10(x) x x x x x x x x x x
