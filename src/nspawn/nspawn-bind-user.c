@@ -88,7 +88,7 @@ static int convert_user(
         _cleanup_(group_record_unrefp) GroupRecord *converted_group = NULL;
         _cleanup_(user_record_unrefp) UserRecord *converted_user = NULL;
         _cleanup_free_ char *h = NULL;
-        sd_json_variant *p, *hp = NULL;
+        sd_json_variant *p, *hp = NULL, *ssh = NULL;
         int r;
 
         assert(u);
@@ -115,8 +115,10 @@ static int convert_user(
 
         /* Acquire the source hashed password array as-is, so that it retains the JSON_VARIANT_SENSITIVE flag */
         p = sd_json_variant_by_key(u->json, "privileged");
-        if (p)
+        if (p) {
                 hp = sd_json_variant_by_key(p, "hashedPassword");
+                ssh = sd_json_variant_by_key(p, "sshAuthorizedKeys");
+        }
 
         r = user_record_build(
                         &converted_user,
@@ -127,8 +129,9 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(
-                                                                                  SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_VARIANT(hp))))));
+                                        SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
+                                                                           SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
+                                                                           SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build container user record: %m");
 
