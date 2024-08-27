@@ -574,9 +574,6 @@ static int mount_verify(Mount *m) {
         if (p && !p->what && !UNIT(m)->perpetual)
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "What= setting is missing. Refusing.");
 
-        if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP)
-                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
-
         return 0;
 }
 

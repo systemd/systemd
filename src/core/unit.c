@@ -4216,9 +4216,10 @@ static int user_from_unit_name(Unit *u, char **ret) {
         return 0;
 }
 
-static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
+static int unit_verify_contexts(const Unit *u) {
         assert(u);
 
+        const ExecContext *ec = unit_get_exec_context(u);
         if (!ec)
                 return 0;
 
@@ -4231,6 +4232,11 @@ static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
             exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
+
+        const KillContext *kc = unit_get_kill_context(u);
+
+        if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
         return 0;
 }
@@ -4362,7 +4368,7 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
-        return unit_verify_contexts(u, ec);
+        return unit_verify_contexts(u);
 }
 
 ExecContext *unit_get_exec_context(const Unit *u) {
