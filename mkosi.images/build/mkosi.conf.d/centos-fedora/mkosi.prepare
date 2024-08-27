@@ -32,6 +32,7 @@ sed '/Source0/d' --in-place "pkg/$PKG_SUBDIR/systemd.spec"
 until mkosi-chroot \
     rpmbuild \
     -br \
+    --noprep \
     --build-in-place \
     --with upstream \
     --define "_topdir /var/tmp" \
