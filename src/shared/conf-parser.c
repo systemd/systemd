@@ -852,7 +852,7 @@ int _hashmap_by_section_find_unused_line(
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
-        DEFINE_CONFIG_PARSE_PTR(config_parse_##type, conv_func, vartype, "Failed to parse " #type " value")
+        DEFINE_CONFIG_PARSE_PTR(config_parse_##type, conv_func, vartype)
 
 DEFINE_PARSER(int, int, safe_atoi);
 DEFINE_PARSER(long, long, safe_atoli);
@@ -2055,9 +2055,9 @@ int config_parse_calendar(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");
-DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad, "Failed to parse permyriad value");
-DEFINE_CONFIG_PARSE_PTR(config_parse_sec_fix_0, parse_sec_fix_0, usec_t, "Failed to parse time value");
+DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent);
+DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad);
+DEFINE_CONFIG_PARSE_PTR(config_parse_sec_fix_0, parse_sec_fix_0, usec_t);
 
 int config_parse_timezone(
                 const char *unit,
