@@ -147,6 +147,25 @@ int config_get_stats_by_path(
 int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st);
 bool stats_by_path_equal(Hashmap *a, Hashmap *b);
 
+typedef struct ConfigSectionParser {
+        ConfigParserCallback parser;
+        int ltype;
+        size_t offset;
+} ConfigSectionParser;
+
+int config_section_parse(
+                const ConfigSectionParser *parsers,
+                size_t n_parsers,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *userdata);
+
 typedef struct ConfigSection {
         unsigned line;
         bool invalid;
