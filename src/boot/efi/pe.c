@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "devicetree.h"
+#include "chid.h"
 #include "pe.h"
 #include "util.h"
 
@@ -212,6 +213,11 @@ static void pe_locate_sections(
                         /* Special handling of .dtb sections */
                         if (base && pe_section_name_equal(section_names[i], ".dtb")) {
                                 err = devicetree_match((const uint8_t *) base + j->VirtualAddress, j->VirtualSize);
+
+                                /* Firmware does not provide the devicetree, so try matching against a predefined list */
+                                if (err == EFI_UNSUPPORTED) {
+                                        err = hwid_match((const uint8_t *) base + j->VirtualAddress, j->VirtualSize);
+                                }
 
                                 if (err == EFI_SUCCESS) {
                                         sections[i] = (PeSectionVector) {
