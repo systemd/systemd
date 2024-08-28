@@ -53,11 +53,13 @@ int clock_is_localtime(const char *adjtime_path) {
 }
 
 int clock_set_timezone(int *ret_minutesdelta) {
-        struct timespec ts;
         struct tm tm;
+        int r;
 
-        assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-        assert_se(localtime_r(&ts.tv_sec, &tm));
+        r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
+        if (r < 0)
+                return r;
+
         int minutesdelta = tm.tm_gmtoff / 60;
 
         struct timezone tz = {
