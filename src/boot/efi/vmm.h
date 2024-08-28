@@ -11,3 +11,14 @@ bool in_hypervisor(void);
 bool is_confidential_vm(void);
 
 const char* smbios_find_oem_string(const char *name);
+
+struct raw_smbios_info {
+        char *Manufacturer;
+        char *ProductName;
+        char *ProductSku;
+        char *Family;
+        char *BaseboardProduct;
+        char *BaseboardManufacturer;
+};
+
+EFI_STATUS smbios_populate_raw_info(struct raw_smbios_info *info);

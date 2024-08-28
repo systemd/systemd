@@ -31,6 +31,7 @@ struct fdt_header {
 };
 
 EFI_STATUS devicetree_match(const void *dtb_buffer, size_t dtb_length);
+EFI_STATUS devicetree_match_by_compatible(const void *dtb_buffer, size_t dtb_length, const char *fw_compat);
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name);
 EFI_STATUS devicetree_install_from_memory(
                 struct devicetree_state *state, const void *dtb_buffer, size_t dtb_length);
