@@ -21,11 +21,12 @@
  * parameter. Opposed to glibc's clone function, using this function does not set up a separate stack for the child, but
  * relies on copy-on-write semantics on the one stack at a common virtual address, just as fork does.
  *
- * To obtain copy-on-write semantics, flags must not contain CLONE_VM, and thus CLONE_THREAD and CLONE_SIGHAND (which
- * require CLONE_VM) are not usable.
+ * To obtain copy-on-write semantics, flags must not contain CLONE_VM, and thus CLONE_THREAD and CLONE_SIGHAND
+ * (which require CLONE_VM) are not usable.
  *
- * Additionally, as this function does not pass the ptid, newtls and ctid parameters to the kernel, flags must not
- * contain CLONE_PARENT_SETTID, CLONE_CHILD_SETTID, CLONE_CHILD_CLEARTID or CLONE_SETTLS.
+ * Additionally, as this function does not pass the ptid (pidfd in the case of CLONE_PIDFD), newtls and ctid
+ * parameters to the kernel, flags must not contain CLONE_PARENT_SETTID, CLONE_CHILD_SETTID, CLONE_CHILD_CLEARTID,
+ * CLONE_SETTLS, or CLONE_PIDFD.
  *
  * WARNING: 💣 this call (just like glibc's own clone() wrapper) will not synchronize on glibc's malloc
  *          locks, which means they will be in an undefined state in the child if the parent is
@@ -37,8 +38,7 @@
 static inline pid_t raw_clone(unsigned long flags) {
         pid_t ret;
 
-        assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
-                         CLONE_CHILD_CLEARTID|CLONE_SETTLS)) == 0);
+        assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|CLONE_CHILD_CLEARTID|CLONE_SETTLS|CLONE_PIDFD)) == 0);
 #if defined(__s390x__) || defined(__s390__) || defined(__CRIS__)
         /* On s390/s390x and cris the order of the first and second arguments
          * of the raw clone() system call is reversed. */
