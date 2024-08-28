@@ -536,8 +536,8 @@ static int write_to_syslog(
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_time[64],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        time_t t;
         struct tm tm;
+        int r;
 
         if (syslog_fd < 0)
                 return 0;
@@ -547,9 +547,9 @@ static int write_to_syslog(
 
         xsprintf(header_priority, "<%i>", level);
 
-        t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
-        if (!localtime_r(&t, &tm))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
+        if (r < 0)
+                return r;
 
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
                 return -EINVAL;
