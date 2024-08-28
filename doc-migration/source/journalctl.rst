@@ -1,5 +1,3 @@
-
-
 .. meta::
     :title: journalctl
 
@@ -457,7 +455,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: short-full
 
    is very similar, but shows timestamps in the format the
@@ -468,7 +465,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 232
-
 .. option:: short-iso
 
    is very similar, but shows timestamps in the
@@ -477,7 +473,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: short-iso-precise
 
    as for ``short-iso`` but includes full microsecond
@@ -486,7 +481,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 234
-
 .. option:: short-precise
 
    is very similar, but shows classic syslog timestamps with full microsecond
@@ -495,7 +489,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 207
-
 .. option:: short-monotonic
 
    is very similar, but shows monotonic timestamps instead of wallclock
@@ -504,7 +497,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: short-delta
 
    as for ``short-monotonic`` but includes the time difference
@@ -514,7 +506,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 252
-
 .. option:: short-unix
 
    is very similar, but shows seconds passed since January 1st 1970 UTC instead of
@@ -523,7 +514,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 230
-
 .. option:: verbose
 
    shows the full-structured entry items with all fields.
@@ -531,7 +521,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: export
 
    serializes the journal into a binary (but mostly text-based) stream suitable
@@ -543,7 +532,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: json
 
    formats entries as JSON objects, separated by newline characters (see `Journal JSON Format <https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format>`_
@@ -551,20 +539,16 @@ following options:
    1. Fields larger than 4096 bytes are encoded as ``null``
      values. (This may be turned off by passing ``--all``, but be aware that this may
      allocate overly long JSON objects.)
-
      Journal entries permit non-unique fields within the same log entry. JSON does
      not allow non-unique fields within objects. Due to this, if a non-unique field is encountered a
      JSON array is used as field value, listing all field values as elements.
-
      Fields containing non-printable or non-UTF8 bytes are encoded as arrays
      containing the raw bytes individually formatted as unsigned numbers.
-
    Note that this encoding is reversible (with the exception of the size limit).
 
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: json-pretty
 
    formats entries as JSON data structures, but formats them in multiple lines in
@@ -573,7 +557,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: json-sse
 
    formats entries as JSON data structures, but wraps them in a format suitable for
@@ -583,7 +566,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: json-seq
 
    formats entries as JSON data structures, but prefixes them with an ASCII Record
@@ -594,7 +576,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 240
-
 .. option:: cat
 
    generates a very terse output, only showing the actual message of each journal
@@ -605,7 +586,6 @@ following options:
    .. only:: html
 
       .. versionadded:: 206
-
 .. option:: with-unit
 
    similar to ``short-full``, but prefixes the unit and user unit names
@@ -1135,4 +1115,3 @@ See Also
 ========
 
 :ref:`systemd(1)`, :ref:`systemd-cat(1)`, :ref:`systemd-journald.service(8)`, :ref:`systemctl(1)`, :ref:`coredumpctl(1)`, :ref:`systemd.journal-fields(7)`, :ref:`journald.conf(5)`, :ref:`systemd.time(7)`, :ref:`systemd-journal-remote.service(8)`, :ref:`systemd-journal-upload.service(8)`
-
