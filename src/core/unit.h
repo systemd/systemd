@@ -22,6 +22,7 @@ typedef enum UnitMountDependencyType {
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
+#include "mount-util.h"
 #include "pidref.h"
 #include "unit-file.h"
 
@@ -45,11 +46,11 @@ typedef enum CollectMode {
 } CollectMode;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
-        return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING);
+        return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
 }
 
 static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
-        return IN_SET(t, UNIT_ACTIVE, UNIT_ACTIVATING, UNIT_RELOADING);
+        return IN_SET(t, UNIT_ACTIVE, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING);
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
@@ -584,6 +585,10 @@ typedef struct UnitVTable {
 
         bool (*can_reload)(Unit *u);
 
+        /* Add a bind/image mount into the unit namespace while it is running. */
+        int (*live_mount)(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
+        int (*can_live_mount)(Unit *u, const char *src, const char *dst, sd_bus_error *error);
+
         /* Serialize state and file descriptors that should be carried over into the new
          * instance after reexecution. */
         int (*serialize)(Unit *u, FILE *f, FDSet *fds);
@@ -980,7 +985,7 @@ int unit_acquire_invocation_id(Unit *u);
 
 int unit_set_exec_params(Unit *s, ExecParameters *p);
 
-int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret);
+int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret);
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
@@ -1040,6 +1045,9 @@ int unit_freezer_action(Unit *u, FreezerAction action);
 void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_next, FreezerState *ret_objective);
 void unit_set_freezer_state(Unit *u, FreezerState state);
 void unit_freezer_complete(Unit *u, FreezerState kernel_state);
+
+int unit_can_live_mount(Unit *u, const char *src, const char *dst, sd_bus_error *error);
+int unit_live_mount(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
 
 Condition *unit_find_failed_condition(Unit *u);
 
