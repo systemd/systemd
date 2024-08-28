@@ -5,6 +5,9 @@
 #include "log.h"
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
+#include "efi-string.h"
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -30,6 +33,13 @@ static inline void freep(void *p) {
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 void *xmalloc(size_t size);
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+static inline void *xmalloc(size_t size) {
+        void *t = xmalloc(size);
+        memset(t, 0, size);
+        return t;
+}
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
@@ -87,6 +97,7 @@ char16_t *mangle_stub_cmdline(char16_t *cmdline);
 
 EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, uint64_t offset, size_t size, char **content, size_t *content_size);
+EFI_STATUS file_handle_read(EFI_FILE *handle, uint64_t offset, size_t size, char **ret, size_t *ret_size);
 
 static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
