@@ -541,33 +541,43 @@
         <term><varname>Subvolumes=</varname></term>
 
         <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
-        that should be a subvolume within the new file system. This option may be used more than once to
-        specify multiple directories. Note that this setting does not create the directories themselves, that
-        can be configured with <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
+        that should be a subvolume within the new file system. Each path may optionally be followed by a
+        colon and a list of comma-separated subvolume flags. The following flags are understood:</para>
 
-        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
+        <table class='flags'>
+          <title>Subvolume Flags</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="spec" />
+            <colspec colname="purpose" />
+            <thead>
+              <row>
+                <entry>Flag</entry>
+                <entry>Purpose</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row id='D'>
+                <entry><literal>default</literal></entry>
+                <entry>Make this subvolume the default subvolume. Can only be specified for a single subvolume.</entry>
+              </row>
+              <row id='R'>
+                <entry><literal>ro</literal></entry>
+                <entry>Make this subvolume read-only.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Note that this setting does not create the directories themselves, that can be configured with
+        <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
+
+        <para>Note that this setting only takes effect if the target filesystem supports subvolumes, such as
         <literal>btrfs</literal>.</para>
 
-        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        <para>Note that this setting is only supported in combination with <option>--offline=yes</option>
         since btrfs-progs 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultSubvolume=</varname></term>
-
-        <listitem><para>Takes an absolute path specifying the default subvolume within the new filesystem.
-        Note that this setting does not create the subvolume itself, that can be configured with
-        <varname>Subvolumes=</varname>.</para>
-
-        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
-        <literal>btrfs</literal>.</para>
-
-        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since btrfs-progs 6.11 or newer.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
