@@ -188,6 +188,7 @@ struct Service {
         ServiceResult result;
         ServiceResult reload_result;
         ServiceResult clean_result;
+        ServiceResult mount_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -232,6 +233,9 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
+        sd_bus_message *mount_request;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
