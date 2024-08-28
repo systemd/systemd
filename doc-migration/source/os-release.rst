@@ -1,5 +1,3 @@
-
-
 .. meta::
     :title: os-release
 
@@ -24,7 +22,7 @@ os-release(5)
 ``/etc/initrd-release``
 ``/usr/lib/extension-release.d/extension-release.<IMAGE>``
 
-   =======================================================================================================================================
+   =====================================================================================================================================
 
 .. only:: man
 
@@ -590,4 +588,3 @@ See Also
 ========
 
 :ref:`systemd(1)`, `lsb_release(1) <http://linux.die.net/man/ 1/lsb_release>`_, :ref:`hostname(5)`, :ref:`machine-id(5)`, :ref:`machine-info(5)`
-

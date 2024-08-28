@@ -1,5 +1,3 @@
-
-
 .. meta::
     :title: systemd
 
@@ -109,7 +107,6 @@ The following unit types are available:
 1. Service units, which start and control daemons
   and the processes they consist of. For details, see
   :ref:`systemd.service(5)`.
-
   Socket units, which encapsulate local IPC or
   network sockets in the system, useful for socket-based
   activation. For details about socket units, see
@@ -117,43 +114,34 @@ The following unit types are available:
   for details on socket-based activation and other forms of
   activation, see
   :ref:`daemon(7)`.
-
   Target units are useful to group units, or
   provide well-known synchronization points during boot-up, see
   :ref:`systemd.target(5)`.
-
   Device units expose kernel devices in systemd
   and may be used to implement device-based activation. For
   details, see
   :ref:`systemd.device(5)`.
-
   Mount units control mount points in the file
   system, for details see
   :ref:`systemd.mount(5)`.
-
   Automount units provide automount capabilities,
   for on-demand mounting of file systems as well as parallelized
   boot-up. See
   :ref:`systemd.automount(5)`.
-
   Timer units are useful for triggering activation
   of other units based on timers. You may find details in
   :ref:`systemd.timer(5)`.
-
   Swap units are very similar to mount units and
   encapsulate memory swap partitions or files of the operating
   system. They are described in
   :ref:`systemd.swap(5)`.
-
   Path units may be used to activate other
   services when file system objects change or are modified. See
   :ref:`systemd.path(5)`.
-
   Slice units may be used to group units which
   manage system processes (such as service and scope units) in a
   hierarchical tree for resource management purposes. See
   :ref:`systemd.slice(5)`.
-
   Scope units are similar to service units, but
   manage foreign processes instead of starting them as well. See
   :ref:`systemd.scope(5)`.
@@ -208,14 +196,10 @@ systemd only keeps a minimal set of units loaded into memory. Specifically, the 
 kept loaded into memory are those for which at least one of the following conditions is true:
 
 1. It is in an active, activating, deactivating or failed state (i.e. in any unit state except for ``inactive``)
-
   It has a job queued for it
-
   It is a dependency of at least one other unit that is loaded into memory
-
   It has some form of resource still allocated (e.g. a service unit that is inactive but for which
   a process is still lingering that ignored the request to be terminated)
-
   It has been pinned into memory programmatically by a D-Bus call
 
 systemd will automatically and implicitly load units from disk — if they are not loaded yet — as soon as
@@ -1070,16 +1054,12 @@ generators:
   ``io.systemd.credential:<name>=<value>``,
   and
   ``io.systemd.credential.binary:<name>=<value>``.
-
   At the same time it will import credentials from QEMU ``fw_cfg``. (Note
   that the SMBIOS mechanism is generally preferred, because it is faster and generic.)
-
   Credentials may be passed via the kernel command line, using the
   ``systemd.set-credential=`` parameter, see above.
-
   Credentials may be passed from the UEFI environment via
   :ref:`systemd-stub(7)`.
-
   When the service manager is invoked during the initrd → host transition it will import
   all files in ``/run/credentials/@initrd/`` as system credentials.
 
@@ -1161,7 +1141,6 @@ track its boot progress. Specifically the following fields are sent:
   .. only:: html
 
      .. versionadded:: 256
-
   An ``X_SYSTEMD_MACHINE_ID=…`` message will be sent out once the machine
   ID of the system has been determined. See
   :ref:`machine-id(5)` for
@@ -1170,7 +1149,6 @@ track its boot progress. Specifically the following fields are sent:
   .. only:: html
 
      .. versionadded:: 256
-
   An ``X_SYSTEMD_SIGNALS_LEVEL=…`` message will be sent out once the
   service manager installed the various UNIX process signal handlers described above. The field's value
   is an unsigned integer formatted as decimal string, and indicates the supported UNIX process signal
@@ -1179,7 +1157,6 @@ track its boot progress. Specifically the following fields are sent:
   * ``X_SYSTEMD_SIGNALS_LEVEL=2`` covers the various UNIX process signals
     documented above – which are a superset of those supported by the historical SysV init
     system.
-
   Signals sent to PID 1 before this message is sent might not be handled correctly yet. A consumer
   of these messages should parse the value as an unsigned integer indication the level of support. For
   now only the mentioned level 2 is defined, but later on additional levels might be defined with higher
@@ -1188,7 +1165,6 @@ track its boot progress. Specifically the following fields are sent:
   .. only:: html
 
      .. versionadded:: 256
-
   ``X_SYSTEMD_UNIT_ACTIVE=…`` and
   ``X_SYSTEMD_UNIT_INACTIVE=…`` messages will be sent out for each target unit as it
   becomes active or stops being active. This is useful to track boot progress and functionality. For
@@ -1200,7 +1176,6 @@ track its boot progress. Specifically the following fields are sent:
   .. only:: html
 
      .. versionadded:: 256
-
   An ``X_SYSTEMD_SHUTDOWN=…`` message will be sent out very shortly before
   the system shuts down. The value is one of the strings ``reboot``,
   ``halt``, ``poweroff``, ``kexec`` and indicates which kind
@@ -1209,7 +1184,6 @@ track its boot progress. Specifically the following fields are sent:
   .. only:: html
 
      .. versionadded:: 256
-
   An ``X_SYSTEMD_REBOOT_PARAMETER=…`` message will also be sent out very
   shortly before the system shuts down. Its value is the reboot argument as configured with
   ``systemctl --reboot-argument=…``.
@@ -1495,4 +1469,3 @@ The `systemd Homepage <https://systemd.io/>`_, :ref:`systemd-system.conf(5)`, `l
 For more information about the concepts and
 ideas behind systemd, please refer to the
 `Original Design Document <https://0pointer.de/blog/projects/systemd.html>`_.
-
