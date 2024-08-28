@@ -159,7 +159,7 @@ def main():
             *(
                 [
                     "systemd.mask=serial-getty@.service",
-                    "systemd.show_status=no",
+                    "systemd.show_status=error",
                     "systemd.crash_shell=0",
                     "systemd.crash_action=poweroff",
                 ]
