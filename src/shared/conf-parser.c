@@ -793,6 +793,37 @@ bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
         return true;
 }
 
+int config_section_parse(
+                const ConfigSectionParser *parsers,
+                size_t n_parsers,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *userdata) {
+
+        assert(parsers);
+        assert(n_parsers > 0);
+        assert(ltype >= 0);
+        assert((size_t) ltype < n_parsers);
+        assert(userdata);
+
+        const ConfigSectionParser *e = parsers + ltype;
+        assert(e->parser);
+
+        /* This is used when a object is dynamically allocated per [SECTION] in a config parser, e.g.
+         * [Address] for systemd.network. Takes the allocated object as 'userdata', then it is passed to
+         * config parsers in the table. The 'data' field points to an element of the passed object, where
+         * its offset is given by the table. */
+
+        return e->parser(unit, filename, line, section, section_line, lvalue, e->ltype, rvalue,
+                         (uint8_t*) userdata + e->offset, userdata);
+}
+
 void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
         siphash24_compress_string(c->filename, state);
         siphash24_compress_typesafe(c->line, state);
