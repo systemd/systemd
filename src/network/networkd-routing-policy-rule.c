@@ -1639,13 +1639,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
                 AddressFamily,
                 ADDRESS_FAMILY_NO);
 
-typedef struct RoutingPolicyRuleConfParser {
-        ConfigParserCallback parser;
-        int ltype;
-        size_t offset;
-} RoutingPolicyRuleConfParser;
-
-static RoutingPolicyRuleConfParser routing_policy_rule_conf_parser_table[_ROUTING_POLICY_RULE_CONF_PARSER_MAX] = {
+static const ConfigSectionParser routing_policy_rule_conf_parser_table[_ROUTING_POLICY_RULE_CONF_PARSER_MAX] = {
         [ROUTING_POLICY_RULE_IIF]                = { .parser = config_parse_ifname,                         .ltype = 0,               .offset = offsetof(RoutingPolicyRule, iif),                },
         [ROUTING_POLICY_RULE_OIF]                = { .parser = config_parse_ifname,                         .ltype = 0,               .offset = offsetof(RoutingPolicyRule, oif),                },
         [ROUTING_POLICY_RULE_FAMILY]             = { .parser = config_parse_routing_policy_rule_family,     .ltype = 0,               .offset = offsetof(RoutingPolicyRule, address_family),     },
@@ -1683,19 +1677,13 @@ int config_parse_routing_policy_rule(
         int r;
 
         assert(filename);
-        assert(ltype >= 0);
-        assert(ltype < _ROUTING_POLICY_RULE_CONF_PARSER_MAX);
 
         r = routing_policy_rule_new_static(network, filename, section_line, &rule);
         if (r < 0)
                 return log_oom();
 
-        RoutingPolicyRuleConfParser *e = routing_policy_rule_conf_parser_table + ltype;
-        assert(e->parser);
-        assert(e->offset < sizeof(RoutingPolicyRule));
-
-        r = e->parser(unit, filename, line, section, section_line, lvalue, e->ltype, rvalue,
-                      (uint8_t*) rule + e->offset, rule);
+        r = config_section_parse(routing_policy_rule_conf_parser_table, ELEMENTSOF(routing_policy_rule_conf_parser_table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, rule);
         if (r <= 0) /* 0 means non-critical error, but the section will be ignored. */
                 return r;
 
