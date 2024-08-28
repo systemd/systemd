@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
@@ -160,3 +163,19 @@ done
 varlinkctl info /run/systemd/io.systemd.Hostname
 varlinkctl introspect /run/systemd/io.systemd.Hostname io.systemd.Hostname
 varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
+
+varlinkctl info /run/systemd/io.systemd.Manager
+varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
+
+for i in $(seq 3); do
+    systemd-run --service-type=oneshot --no-block sleep infinity
+done
+
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+JOB="$(varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Manager.ListJobs '{}' | jq --slurp .[0].id)"
+assert_eq "$(varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.ListJobs "{\"id\": $JOB}" | jq .id)" "$JOB"
+
+systemctl start user@4711
+varlinkctl info /run/user/4711/systemd/io.systemd.Manager
+varlinkctl introspect /run/user/4711/systemd/io.systemd.Manager
+varlinkctl call /run/user/4711/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
