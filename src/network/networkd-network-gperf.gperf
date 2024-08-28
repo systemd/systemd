@@ -161,16 +161,16 @@ Address.Peer,                                config_parse_address,              
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
 Address.Label,                               config_parse_label,                                       0,                             0
 Address.PreferredLifetime,                   config_parse_lifetime,                                    0,                             0
-Address.HomeAddress,                         config_parse_address_flags,                               IFA_F_HOMEADDRESS,             0
-Address.ManageTemporaryAddress,              config_parse_address_flags,                               IFA_F_MANAGETEMPADDR,          0
-Address.PrefixRoute,                         config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0 /* deprecated */
-Address.AddPrefixRoute,                      config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0
-Address.AutoJoin,                            config_parse_address_flags,                               IFA_F_MCAUTOJOIN,              0
+Address.HomeAddress,                         config_parse_address_section,                             ADDRESS_HOME_ADDRESS,          0
+Address.ManageTemporaryAddress,              config_parse_address_section,                             ADDRESS_MANAGE_TEMPORARY_ADDRESS, 0
+Address.PrefixRoute,                         config_parse_address_section,                             ADDRESS_PREFIX_ROUTE,          0 /* deprecated */
+Address.AddPrefixRoute,                      config_parse_address_section,                             ADDRESS_ADD_PREFIX_ROUTE,      0
+Address.AutoJoin,                            config_parse_address_section,                             ADDRESS_AUTO_JOIN,             0
 Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0
 Address.Scope,                               config_parse_address_scope,                               0,                             0
-Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
-Address.NetLabel,                            config_parse_address_netlabel,                            0,                             0
-Address.NFTSet,                              config_parse_address_ip_nft_set,                          NFT_SET_PARSE_NETWORK,         0
+Address.RouteMetric,                         config_parse_address_section,                             ADDRESS_ROUTE_METRIC,          0
+Address.NetLabel,                            config_parse_address_section,                             ADDRESS_NET_LABEL,             0
+Address.NFTSet,                              config_parse_address_section,                             ADDRESS_NFT_SET,               0
 IPv6AddressLabel.Prefix,                     config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL_PREFIX,     0
 IPv6AddressLabel.Label,                      config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL,            0
 Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
