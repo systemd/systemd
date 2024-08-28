@@ -57,6 +57,7 @@ int verb_is_active(int argc, char *argv[], void *userdata) {
         static const UnitActiveState states[] = {
                 UNIT_ACTIVE,
                 UNIT_RELOADING,
+                UNIT_REFRESHING,
         };
 
         /* According to LSB: 3, "program is not running" */
