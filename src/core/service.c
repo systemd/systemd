@@ -2027,22 +2027,6 @@ static ServiceState service_determine_dead_state(Service *s) {
         return s->fd_store && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
 }
 
-static void service_set_debug_invocation(Service *s, bool enable) {
-        assert(s);
-
-        if (s->restart_mode != SERVICE_RESTART_MODE_DEBUG)
-                return;
-
-        if (enable == UNIT(s)->debug_invocation)
-                return; /* Nothing to do */
-
-        UNIT(s)->debug_invocation = enable;
-        unit_overwrite_log_level_max(UNIT(s), enable ? LOG_PRI(LOG_DEBUG) : s->exec_context.log_level_max);
-
-        if (enable)
-                log_unit_notice(UNIT(s), "Service failed, subsequent restarts will be executed with debug level logging.");
-}
-
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         ServiceState end_state, restart_state;
         int r;
@@ -2106,13 +2090,19 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
                 }
 
-                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
-
                 /* If the relevant option is set, and the unit doesn't already have logging level set to
                  * debug, enable it now. Make sure to overwrite the state in /run/systemd/units/ too, to
                  * ensure journald doesn't prune the messages. The previous state is saved and restored
                  * once the auto-restart flow ends. */
-                service_set_debug_invocation(s, /* enable= */ true);
+                if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG) {
+                        r = unit_set_debug_invocation(UNIT(s), true);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to enable debug invocation, ignoring: %m");
+                        if (r > 0)
+                                log_unit_notice(UNIT(s), "Service dead, subsequent restarts will be executed with debug level logging.");
+                }
+
+                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else {
@@ -2121,7 +2111,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * can still introspect the counter. */
                 service_set_state(s, end_state);
 
-                service_set_debug_invocation(s, /* enable= */ false);
+                (void) unit_set_debug_invocation(s, false);
         }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
@@ -4957,7 +4947,7 @@ static void service_reset_failed(Unit *u) {
         s->live_mount_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
 
-        service_set_debug_invocation(s, /* enable= */ false);
+        (void) unit_set_debug_invocation(s, /* enable= */ false);
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
