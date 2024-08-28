@@ -171,8 +171,8 @@ Address.Scope,                               config_parse_address_scope,        
 Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
 Address.NetLabel,                            config_parse_address_netlabel,                            0,                             0
 Address.NFTSet,                              config_parse_address_ip_nft_set,                          NFT_SET_PARSE_NETWORK,         0
-IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0
-IPv6AddressLabel.Label,                      config_parse_address_label,                               0,                             0
+IPv6AddressLabel.Prefix,                     config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL_PREFIX,     0
+IPv6AddressLabel.Label,                      config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL,            0
 Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
 Neighbor.LinkLayerAddress,                   config_parse_neighbor_lladdr,                             0,                             0
 Neighbor.MACAddress,                         config_parse_neighbor_lladdr,                             0,                             0 /* deprecated */
