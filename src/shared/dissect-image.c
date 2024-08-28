@@ -3405,10 +3405,8 @@ int dissected_image_load_verity_sig_partition(
         rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
-        if (!sd_json_variant_is_string(rh))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
 
-        r = unhexmem(sd_json_variant_string(rh), &root_hash, &root_hash_size);
+        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
