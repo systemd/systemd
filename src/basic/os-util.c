@@ -450,24 +450,29 @@ int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eo
                 support_end = _support_end_alloc;
         }
 
-        if (isempty(support_end)) /* An empty string is a explicit way to say "no EOL exists" */
+        if (isempty(support_end)) { /* An empty string is a explicit way to say "no EOL exists" */
+                if (ret_eol)
+                        *ret_eol = USEC_INFINITY;
+
                 return false;  /* no end date defined */
+        }
 
         struct tm tm = {};
         const char *k = strptime(support_end, "%Y-%m-%d", &tm);
         if (!k || *k)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to parse SUPPORT_END= in os-release file, ignoring: %m");
+                                      "Failed to parse SUPPORT_END= from os-release file, ignoring: %s", support_end);
 
-        time_t eol = timegm(&tm);
-        if (eol == (time_t) -1)
-                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
+        usec_t eol;
+        r = mktime_or_timegm_usec(&tm, /* utc= */ true, &eol);
+        if (r < 0)
+                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to convert SUPPORT_END= time from os-release file, ignoring: %m");
 
         if (ret_eol)
-                *ret_eol = eol * USEC_PER_SEC;
+                *ret_eol = eol;
 
-        return DIV_ROUND_UP(now(CLOCK_REALTIME), USEC_PER_SEC) > (usec_t) eol;
+        return now(CLOCK_REALTIME) > eol;
 }
 
 const char* os_release_pretty_name(const char *pretty_name, const char *name) {
