@@ -34,8 +34,8 @@ Network.IPv6Forwarding,                  config_parse_tristate,                 
 Network.IPv6PrivacyExtensions,           config_parse_ipv6_privacy_extensions,   0,          offsetof(Manager, ipv6_privacy_extensions)
 Network.UseDomains,                      config_parse_use_domains,               0,          offsetof(Manager, use_domains)
 IPv6AcceptRA.UseDomains,                 config_parse_use_domains,               0,          offsetof(Manager, ndisc_use_domains)
-IPv6AddressLabel.Prefix,                 config_parse_address_label_prefix,      1,          0
-IPv6AddressLabel.Label,                  config_parse_address_label,             1,          0
+IPv6AddressLabel.Prefix,                 config_parse_ipv6_address_label_section, IPV6_ADDRESS_LABEL_BY_MANAGER | IPV6_ADDRESS_LABEL_PREFIX, 0
+IPv6AddressLabel.Label,                  config_parse_ipv6_address_label_section, IPV6_ADDRESS_LABEL_BY_MANAGER | IPV6_ADDRESS_LABEL,        0
 DHCPv4.UseDomains,                       config_parse_use_domains,               0,          offsetof(Manager, dhcp_use_domains)
 DHCPv4.DUIDType,                         config_parse_duid_type,                 0,          offsetof(Manager, dhcp_duid)
 DHCPv4.DUIDRawData,                      config_parse_duid_rawdata,              0,          offsetof(Manager, dhcp_duid)
