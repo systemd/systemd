@@ -1,5 +1,3 @@
-
-
 .. meta::
     :title: busctl
 
@@ -600,4 +598,3 @@ See Also
 ========
 
 `dbus-daemon(1) <https://dbus.freedesktop.org/doc/dbus-daemon.1.html>`_, `D-Bus <https://www.freedesktop.org/wiki/Software/dbus>`_, :ref:`sd-bus(3)`, :ref:`varlinkctl(1)`, :ref:`systemd(1)`, :ref:`machinectl(1)`, `wireshark(1) <http://linux.die.net/man/ 1/wireshark>`_
-

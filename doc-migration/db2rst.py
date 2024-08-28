@@ -194,7 +194,7 @@ def _concat(el):
             if len(s) > 0 and not s[-1].isspace() and i.tail[0] in " \t":
                 s += i.tail[0]
             s += _remove_indent_and_escape(i.tail, el.tag)
-    return s
+    return s.strip()
 
 
 def _original_xml(el):
