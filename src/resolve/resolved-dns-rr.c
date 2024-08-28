@@ -793,12 +793,14 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
 
 static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         struct tm tm;
+        int r;
 
         assert(buf);
         assert(l > STRLEN("YYYYMMDDHHmmSS"));
 
-        if (!gmtime_r(&sec, &tm))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(sec * USEC_PER_SEC, /* utc= */ true, &tm);
+        if (r < 0)
+                return r;
 
         if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
                 return -EINVAL;
