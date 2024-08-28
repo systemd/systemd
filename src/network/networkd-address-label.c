@@ -336,7 +336,7 @@ void manager_drop_invalid_address_labels(Manager *manager) {
         drop_invalid_address_labels(manager->address_labels_by_section);
 }
 
-int config_parse_address_label_prefix(
+static int config_parse_ipv6_address_label_prefix(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -348,35 +348,20 @@ int config_parse_address_label_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
-        Manager *manager = ltype ? userdata : NULL;
-        Network *network = ltype ? NULL : userdata;
+        AddressLabel *label = ASSERT_PTR(userdata);
         unsigned char prefixlen;
         union in_addr_union a;
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(userdata);
-
-        r = address_label_new_static(manager, network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
         if (isempty(rvalue)) {
-                n->prefix_set = false;
-                TAKE_PTR(n);
-                return 0;
+                label->prefix_set = false;
+                return 1;
         }
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &prefixlen);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid prefix for address label, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
         if (in6_addr_is_ipv4_mapped_address(&a.in6) && prefixlen > 96) {
                 /* See ip6addrlbl_alloc() in net/ipv6/addrlabel.c of kernel. */
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -385,14 +370,13 @@ int config_parse_address_label_prefix(
                 return 0;
         }
 
-        n->prefix = a.in6;
-        n->prefixlen = prefixlen;
-        n->prefix_set = true;
-        TAKE_PTR(n);
-        return 0;
+        label->prefix = a.in6;
+        label->prefixlen = prefixlen;
+        label->prefix_set = true;
+        return 1;
 }
 
-int config_parse_address_label(
+static int config_parse_ipv6_address_label(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -404,40 +388,67 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
-        Manager *manager = ltype ? userdata : NULL;
-        Network *network = ltype ? NULL : userdata;
-        uint32_t k;
+        uint32_t k, *label = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(userdata);
-
-        r = address_label_new_static(manager, network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
         if (isempty(rvalue)) {
-                n->label = UINT32_MAX;
-                TAKE_PTR(n);
-                return 0;
+                *label = UINT32_MAX;
+                return 1;
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse address label, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (k == UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 
-        n->label = k;
-        TAKE_PTR(n);
+        *label = k;
+        return 1;
+}
+
+int config_parse_ipv6_address_label_section(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const ConfigSectionParser table[_IPV6_ADDRESS_LABEL_CONF_PARSER_MAX] = {
+                [IPV6_ADDRESS_LABEL]        = { .parser = config_parse_ipv6_address_label,        .ltype = 0, .offset = offsetof(AddressLabel, label), },
+                [IPV6_ADDRESS_LABEL_PREFIX] = { .parser = config_parse_ipv6_address_label_prefix, .ltype = 0, .offset = 0,                             },
+        };
+
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *label = NULL;
+        Manager *manager = NULL;
+        Network *network = NULL;
+        int r;
+
+        assert(filename);
+
+        if (FLAGS_SET(ltype, IPV6_ADDRESS_LABEL_BY_MANAGER))
+                manager = ASSERT_PTR(userdata);
+        else
+                network = ASSERT_PTR(userdata);
+
+        ltype &= IPV6_ADDRESS_LABEL_SECTION_MASK;
+
+        r = address_label_new_static(manager, network, filename, section_line, &label);
+        if (r < 0)
+                return log_oom();
+
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, label);
+        if (r <= 0)
+                return r;
+
+        TAKE_PTR(label);
         return 0;
 }
