@@ -159,13 +159,23 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 
 void link_mark_addresses(Link *link, NetworkConfigSource source);
 
+typedef enum AddressConfParserType {
+        ADDRESS_HOME_ADDRESS,
+        ADDRESS_MANAGE_TEMPORARY_ADDRESS,
+        ADDRESS_PREFIX_ROUTE,
+        ADDRESS_ADD_PREFIX_ROUTE,
+        ADDRESS_AUTO_JOIN,
+        ADDRESS_ROUTE_METRIC,
+        ADDRESS_NET_LABEL,
+        ADDRESS_NFT_SET,
+        _ADDRESS_CONF_PARSER_MAX,
+        _ADDRESS_CONF_PARSER_INVALID = -EINVAL,
+} AddressConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_address_section);
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);
 CONFIG_PARSER_PROTOTYPE(config_parse_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_lifetime);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_ip_nft_set);
