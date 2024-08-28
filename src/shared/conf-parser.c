@@ -1056,6 +1056,31 @@ int config_parse_uint32_flag(
         return 1;
 }
 
+int config_parse_uint32_invert_flag(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *flags = ASSERT_PTR(data);
+        int r;
+
+        assert(ltype != 0);
+
+        r = isempty(rvalue) ? 0 : parse_boolean(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        SET_FLAG(*flags, ltype, !r);
+        return 1;
+}
+
 int config_parse_id128(
                 const char *unit,
                 const char *filename,
