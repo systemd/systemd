@@ -844,6 +844,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         int read_only, make_file_or_directory;
         const char *dest, *src, *propagate_directory;
         Machine *m = ASSERT_PTR(userdata);
+        MountInNamespaceFlags flags = 0;
         uid_t uid;
         int r;
 
@@ -889,14 +890,18 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
+        if (read_only)
+                flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (make_file_or_directory)
+                flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
+
         propagate_directory = strjoina("/run/systemd/nspawn/propagate/", m->name);
         r = bind_mount_in_namespace(
                         &m->leader,
                         propagate_directory,
                         "/run/host/incoming/",
                         src, dest,
-                        read_only,
-                        make_file_or_directory);
+                        flags);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in machine's namespace: %m", src, dest);
 
