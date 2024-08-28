@@ -384,7 +384,7 @@ int curl_parse_http_time(const char *t, usec_t *ret) {
         _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
         const char *e;
         struct tm tm;
-        time_t v;
+        int r;
 
         assert(t);
         assert(ret);
@@ -404,10 +404,9 @@ int curl_parse_http_time(const char *t, usec_t *ret) {
         if (!e || *e != 0)
                 return -EINVAL;
 
-        v = timegm(&tm);
-        if (v == (time_t) -1)
-                return -EINVAL;
+        r = mktime_or_timegm_usec(&tm, /* usec= */ true, ret);
+        if (r < 0)
+                return r;
 
-        *ret = (usec_t) v * USEC_PER_SEC;
         return 0;
 }
