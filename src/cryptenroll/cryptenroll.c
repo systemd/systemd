@@ -885,6 +885,8 @@ static int run(int argc, char *argv[]) {
                 slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
+                        assert(slot != slot_to_wipe);
+
                         /* Updating PIN on an existing enrollment */
                         r = wipe_slots(
                                         cd,
