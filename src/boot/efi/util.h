@@ -5,6 +5,9 @@
 #include "log.h"
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
+#include "efi-string.h"
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -30,6 +33,13 @@ static inline void freep(void *p) {
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 void *xmalloc(size_t size);
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+static inline void *xmalloc(size_t size) {
+        void *t = xmalloc(size);
+        memset(t, 0, size);
+        return t;
+}
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
