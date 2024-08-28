@@ -251,6 +251,26 @@ static inline int run_test_table(void) {
                 }                                                                                               \
          })
 
+#define ASSERT_OK_EQ(expr1, expr2)                                                                              \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                \
+                typeof(expr2) _expr2 = (expr2);                                                              \
+                if (_expr1 < 0) {                                                                              \
+                        log_error_errno(_expr1, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr1);                                        \
+                        abort();                                                                                \
+                }                                                                                               \
+                if (_expr1 != _expr2) {                                                                     \
+                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
+                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
+                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                    \
+                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                  \
+                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", but %s != %s",           \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
 #define ASSERT_OK_ERRNO(expr)                                                                                   \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -360,7 +380,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", but \"%s != %s\"",           \
+                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", but %s != %s",               \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -375,7 +395,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s >= %s\", but \"%s < %s\"",            \
+                        log_error("%s:%i: Assertion failed: expected \"%s >= %s\", but %s < %s",                \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -390,7 +410,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s <= %s\", but \"%s > %s\"",            \
+                        log_error("%s:%i: Assertion failed: expected \"%s <= %s\", but %s > %s",                \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -405,7 +425,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s != %s\", but \"%s == %s\"",           \
+                        log_error("%s:%i: Assertion failed: expected \"%s != %s\", but %s == %s",               \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -420,7 +440,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s > %s\", but \"%s <= %s\"",            \
+                        log_error("%s:%i: Assertion failed: expected \"%s > %s\", but %s <= %s",                \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -435,7 +455,7 @@ static inline int run_test_table(void) {
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
                         xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_error("%s:%i: Assertion failed: expected \"%s < %s\", but \"%s >= %s\"",            \
+                        log_error("%s:%i: Assertion failed: expected \"%s < %s\", but %s >= %s",                \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
                         abort();                                                                                \
                 }                                                                                               \
@@ -470,7 +490,7 @@ static inline int run_test_table(void) {
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
                 if (!sd_id128_equal(_expr1, _expr2)) {                                                          \
-                        log_error("%s:%i: Assertion failed: \"%s == %s\", but \"%s != %s\"",                    \
+                        log_error("%s:%i: Assertion failed: \"%s == %s\", but %s != %s",                        \
                                   PROJECT_FILE, __LINE__,                                                       \
                                   #expr1, #expr2,                                                               \
                                   SD_ID128_TO_STRING(_expr1), SD_ID128_TO_STRING(_expr2));                      \
@@ -483,7 +503,7 @@ static inline int run_test_table(void) {
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
                 if (sd_id128_equal(_expr1, _expr2)) {                                                           \
-                        log_error("%s:%i: Assertion failed: \"%s != %s\", but \"%s == %s\"",                    \
+                        log_error("%s:%i: Assertion failed: \"%s != %s\", but %s == %s",                        \
                                   PROJECT_FILE, __LINE__,                                                       \
                                   #expr1, #expr2,                                                               \
                                   SD_ID128_TO_STRING(_expr1), SD_ID128_TO_STRING(_expr2));                      \
