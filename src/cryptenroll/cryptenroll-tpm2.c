@@ -443,7 +443,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 slot_to_wipe = r;
         } else {
                 log_info("This PCR set is already enrolled, executing no operation.");
-                *ret_slot_to_wipe = slot_to_wipe;
+                *ret_slot_to_wipe = -1;
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
