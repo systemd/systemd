@@ -131,6 +131,22 @@ _public_ int sd_device_monitor_get_fd(sd_device_monitor *m) {
         return m->sock;
 }
 
+_public_ int sd_device_monitor_get_events(sd_device_monitor *m) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
+
+        return EPOLLIN;
+}
+
+_public_ int sd_device_monitor_get_timeout(sd_device_monitor *m, uint64_t *ret) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sock >= 0, -ESTALE);
+
+        if (ret)
+                *ret = USEC_INFINITY;
+        return 0;
+}
+
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_close_ int sock = -EBADF;

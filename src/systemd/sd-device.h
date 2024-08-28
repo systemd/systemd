@@ -143,6 +143,8 @@ sd_device_monitor *sd_device_monitor_ref(sd_device_monitor *m);
 sd_device_monitor *sd_device_monitor_unref(sd_device_monitor *m);
 
 int sd_device_monitor_get_fd(sd_device_monitor *m);
+int sd_device_monitor_get_events(sd_device_monitor *m);
+int sd_device_monitor_get_timeout(sd_device_monitor *m, uint64_t *ret);
 int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size);
 int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event);
 int sd_device_monitor_detach_event(sd_device_monitor *m);

@@ -1569,7 +1569,7 @@ static void handle_revents(sd_varlink *v, int revents) {
         }
 }
 
-_public_ int sd_varlink_wait(sd_varlink *v, usec_t timeout) {
+_public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
         int r, events;
         usec_t t;
 
@@ -1683,7 +1683,7 @@ _public_ int sd_varlink_get_events(sd_varlink *v) {
         return ret;
 }
 
-_public_ int sd_varlink_get_timeout(sd_varlink *v, usec_t *ret) {
+_public_ int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
@@ -2817,7 +2817,7 @@ _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         return v->peer_pidfd;
 }
 
-_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, usec_t timeout) {
+_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
         assert_return(v, -EINVAL);
         assert_return(timeout > 0, -EINVAL);
 

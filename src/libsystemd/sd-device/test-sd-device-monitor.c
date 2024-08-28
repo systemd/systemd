@@ -48,7 +48,7 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
         const char *s, *syspath = userdata;
 
         ASSERT_OK(sd_device_get_syspath(d, &s));
-        ASSERT_TRUE(streq(s, syspath));
+        ASSERT_STREQ(s, syspath);
 
         return sd_event_exit(sd_device_monitor_get_event(m), 100);
 }
@@ -104,14 +104,14 @@ static void send_by_enumerator(
 TEST(sd_device_monitor_is_running) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
 
-        ASSERT_EQ(sd_device_monitor_is_running(NULL), 0);
+        ASSERT_OK_ZERO(sd_device_monitor_is_running(NULL));
 
         ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -1));
-        ASSERT_EQ(sd_device_monitor_is_running(m), 0);
+        ASSERT_OK_ZERO(sd_device_monitor_is_running(m));
         ASSERT_OK(sd_device_monitor_start(m, NULL, NULL));
-        ASSERT_EQ(sd_device_monitor_is_running(m), 1);
+        ASSERT_OK_POSITIVE(sd_device_monitor_is_running(m));
         ASSERT_OK(sd_device_monitor_stop(m));
-        ASSERT_EQ(sd_device_monitor_is_running(m), 0);
+        ASSERT_OK_ZERO(sd_device_monitor_is_running(m));
 }
 
 TEST(sd_device_monitor_start_stop) {
@@ -377,20 +377,29 @@ TEST(sd_device_monitor_receive) {
         ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
 
         ASSERT_OK(fd = sd_device_monitor_get_fd(monitor_client));
+
         for (;;) {
-                r = fd_wait_for_event(fd, POLLIN, 10 * USEC_PER_SEC);
+                usec_t timeout;
+                int events;
+
+                ASSERT_OK(events = sd_device_monitor_get_events(monitor_client));
+                ASSERT_EQ(events, (int) EPOLLIN);
+                ASSERT_OK(sd_device_monitor_get_timeout(monitor_client, &timeout));
+                ASSERT_EQ(timeout, USEC_INFINITY);
+
+                r = fd_wait_for_event(fd, events, MAX(10 * USEC_PER_SEC, timeout));
                 if (r == -EINTR)
                         continue;
-                ASSERT_GT(r, 0);
+                ASSERT_OK_POSITIVE(r);
                 break;
         }
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        ASSERT_GT(sd_device_monitor_receive(monitor_client, &dev), 0);
+        ASSERT_OK_POSITIVE(sd_device_monitor_receive(monitor_client, &dev));
 
         const char *s;
         ASSERT_OK(sd_device_get_syspath(dev, &s));
-        ASSERT_TRUE(streq(s, syspath));
+        ASSERT_STREQ(s, syspath);
 }
 
 static int intro(void) {
