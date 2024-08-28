@@ -341,6 +341,9 @@ evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV54x_6x_TU:*
  KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
  KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
 
+evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV5xTNC_TND_TNE:*
+ KEYBOARD_KEY_81=f20                                    # Fn+4; Mic Mute
+
 ###########################################################
 # Compal
 ###########################################################
