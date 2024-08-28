@@ -470,6 +470,7 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
         strv_free(p->subvolumes);
+        free(p->default_subvolume);
         free(p->verity_match_key);
 
         iovec_done(&p->roothash);
@@ -505,6 +506,7 @@ static void partition_foreignize(Partition *p) {
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
         p->subvolumes = strv_free(p->subvolumes);
+        p->default_subvolume = mfree(p->default_subvolume);
         p->verity_match_key = mfree(p->verity_match_key);
 
         p->priority = 0;
