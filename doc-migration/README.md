@@ -44,7 +44,7 @@ Use the `db2rst.py` script to convert a single Docbook file to `rst`:
 
 ```sh
 # in the `doc-migration` folder:
-$ python3 db2rst.py ../man/busctl.xml > source/busctl.rst
+$ python3 db2rst.py ../man/busctl.xml >source/busctl.rst
 ```
 
 This file parses Docbook elements, does some string transformation to the contents of each, and glues them all back together again. It will also output info on unhandled elements, so we know whether our converter is feature complete and can achieve parity with the old docs.
