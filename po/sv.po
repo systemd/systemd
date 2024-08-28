@@ -12,9 +12,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-28 19:46+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"PO-Revision-Date: 2024-08-28 19:48+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -369,7 +368,7 @@ msgstr "Importera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr "Autentisering krävs för att importera en avbild"
+msgstr "Autentisering krävs för att importera en avbild."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
@@ -377,7 +376,7 @@ msgstr "Exportera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr "Autentisering krävs för att exportera en diskavbild"
+msgstr "Autentisering krävs för att exportera en diskavbild."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
@@ -385,7 +384,7 @@ msgstr "Hämta en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr "Autentisering krävs för att hämta en diskavbild"
+msgstr "Autentisering krävs för att hämta en diskavbild."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -395,7 +394,7 @@ msgstr "Avbryt överföringen av en diskavbild"
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
-"Autentisering krävs för att avbryta en pågående överföring av en diskavbild"
+"Autentisering krävs för att avbryta en pågående överföring av en diskavbild."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -789,7 +788,7 @@ msgstr "Ange ett väggmeddelande"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
-msgstr "Autentisering krävs för att ställa in ett väggmeddelande"
+msgstr "Autentisering krävs för att ställa in ett väggmeddelande."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -1067,7 +1066,7 @@ msgstr "Registrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Autentisering krävs för att registrera en DNS-SD-tjänst"
+msgstr "Autentisering krävs för att registrera en DNS-SD-tjänst."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
