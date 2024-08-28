@@ -55,7 +55,7 @@ static int print_status_info(const StatusInfo *i) {
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
-        time_t sec;
+        usec_t t;
         size_t n;
         int r;
 
@@ -84,22 +84,38 @@ static int print_status_info(const StatusInfo *i) {
                 tzset();
 
         if (i->time != 0) {
-                sec = (time_t) (i->time / USEC_PER_SEC);
+                t = i->time;
                 have_time = true;
         } else if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
-                sec = time(NULL);
+                t = now(CLOCK_REALTIME);
                 have_time = true;
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
-        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) : 0;
+        if (have_time) {
+                r = localtime_or_gmtime_usec(t, /* utc= */ false, &tm);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to convert system time to local time, ignoring: %m");
+                        n = 0;
+                } else
+                        n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", &tm);
+        } else
+                n = 0;
         r = table_add_many(table,
                            TABLE_FIELD, "Local time",
                            TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
-        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) : 0;
+        if (have_time) {
+                r = localtime_or_gmtime_usec(t, /* utc= */ true, &tm);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to convert system time to universal time, ignoring: %m");
+                        n = 0;
+                } else
+                        n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", &tm);
+        } else
+                n = 0;
         r = table_add_many(table,
                            TABLE_FIELD, "Universal time",
                            TABLE_STRING, n > 0 ? a : "n/a");
@@ -107,10 +123,12 @@ static int print_status_info(const StatusInfo *i) {
                 return table_log_add_error(r);
 
         if (i->rtc_time > 0) {
-                time_t rtc_sec;
-
-                rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
-                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
+                r = localtime_or_gmtime_usec(i->rtc_time, /* utc= */ true, &tm);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to convert RTC time to universal time, ignoring: %m");
+                        n = 0;
+                } else
+                        n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", &tm);
         } else
                 n = 0;
         r = table_add_many(table,
@@ -122,8 +140,14 @@ static int print_status_info(const StatusInfo *i) {
         r = table_add_cell(table, NULL, TABLE_FIELD, "Time zone");
         if (r < 0)
                 return table_log_add_error(r);
-
-        n = have_time ? strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm)) : 0;
+        if (have_time) {
+                r = localtime_or_gmtime_usec(t, /* utc= */ false, &tm);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to determine timezone from system time, ignoring: %m");
+                        n = 0;
+                } else
+                        n = strftime(a, sizeof a, "%Z, %z", &tm);
+        }
         r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
