@@ -957,12 +957,18 @@ int encrypt_credential_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
+                struct iovec *blobs = NULL;
+                size_t n_blobs = 0;
+                CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
                 r = tpm2_seal(tpm2_context,
                               /* seal_key_handle= */ 0,
                               &tpm2_policy,
+                              1,
                               /* pin= */ NULL,
                               &tpm2_key,
-                              &tpm2_blob,
+                              &blobs,
+                              &n_blobs,
                               &tpm2_primary_alg,
                               /* ret_srk= */ NULL);
                 if (r < 0) {
@@ -976,6 +982,9 @@ int encrypt_credential_and_warn(
 
                 if (!iovec_memdup(&IOVEC_MAKE(tpm2_policy.buffer, tpm2_policy.size), &tpm2_policy_hash))
                         return log_oom();
+
+                assert(n_blobs == 1);
+                tpm2_blob = TAKE_STRUCT(blobs[0]);
 
                 assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                 assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
@@ -1341,7 +1350,9 @@ int decrypt_credential_and_warn(
                                 /* pcrlock_policy= */ NULL,
                                 le16toh(t->primary_alg),
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
+                                1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
+                                1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r < 0)
