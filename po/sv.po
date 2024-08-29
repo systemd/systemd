@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-28 19:48+0000\n"
+"PO-Revision-Date: 2024-08-29 13:33+0000\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
@@ -1074,7 +1074,7 @@ msgstr "Avregistrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Autentisering krävs för att avregistrera en DNS-SD-tjänst"
+msgstr "Autentisering krävs för att avregistrera en DNS-SD-tjänst."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1086,86 +1086,79 @@ msgstr "Autentisering krävs för att återställa namnuppslagningsinställninga
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Prenumerera på frågesvar"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "Autentisering krävs för att försätta system i vänteläge."
+msgstr "Autentisering krävs för att prenumerera på frågesvar."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Dumpa cachen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "Autentisering krävs för att ange domäner."
+msgstr "Autentisering krävs för att dumpa cachen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Dumpa servertillståndet"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "Autentisering krävs för ställa in NTP-servrar."
+msgstr "Autentisering krävs för att dumpa servertillståndet."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Dumpa statistik"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "Autentisering krävs för att ange domäner."
+msgstr "Autentisering krävs för att dumpa statistik."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Återställ statistik"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "Autentisering krävs för att återställa NTP-inställningar."
+msgstr "Autentisering krävs för att återställa statistik."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Kontrollera systemuppgraderingar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Autentisering krävs för ställa in systemtiden."
+msgstr "Autentisering krävs för att kontrollera systemuppgraderingar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Installera systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Autentisering krävs för ställa in systemtiden."
+msgstr "Autentisering krävs för att installera systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Installera en specifik systemversion"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "Autentisering krävs för att ställa in systemets tidszon."
+msgstr ""
+"Autentisering krävs för att uppdatera systemet till en specifik (eventuellt "
+"gammal) version."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Rensa gamla systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Autentisering krävs för ställa in systemtiden."
+msgstr "Autentisering krävs för att ränsa gamla systemuppdateringar."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
