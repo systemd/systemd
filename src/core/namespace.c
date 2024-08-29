@@ -2016,7 +2016,8 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
-                p->proc_subset != PROC_SUBSET_ALL;
+                p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_pids != PRIVATE_PIDS_NO;
 }
 
 /* Walk all mount entries and dropping any unused mounts. This affects all
@@ -3321,3 +3322,10 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
+
+static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
+        [PRIVATE_PIDS_NO]  = "no",
+        [PRIVATE_PIDS_YES] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
