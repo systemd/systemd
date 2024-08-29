@@ -254,6 +254,12 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParame
         return IN_SET(exec_get_protect_control_groups(context, params), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
+bool exec_needs_pid_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_pids != PRIVATE_PIDS_NO && ns_type_supported(NAMESPACE_PID);
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -306,7 +312,8 @@ bool exec_needs_mount_namespace(
             exec_needs_cgroup_mount(context, params) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
-            exec_needs_ipc_namespace(context))
+            exec_needs_ipc_namespace(context) ||
+            exec_needs_pid_namespace(context))
                 return true;
 
         if (context->root_directory) {
@@ -1021,6 +1028,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
+                "%sPrivatePIDs: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sMountAPIVFS: %s\n"
@@ -1047,6 +1055,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_control_groups_to_string(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, private_users_to_string(c->private_users),
+                prefix, private_pids_to_string(c->private_pids),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(exec_context_get_effective_mount_apivfs(c)),
