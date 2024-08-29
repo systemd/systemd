@@ -288,6 +288,9 @@ struct Manager {
         int handoff_timestamp_fds[2];
         sd_event_source *handoff_timestamp_event_source;
 
+        int pidref_fds[2];
+        sd_event_source *pidref_event_source;
+
         RuntimeScope runtime_scope;
 
         LookupPaths lookup_paths;
@@ -661,12 +664,13 @@ void unit_defaults_done(UnitDefaults *defaults);
 
 enum {
         /* most important … */
-        EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-11,
-        EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-10,
-        EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-10,
-        EVENT_PRIORITY_CGROUP_AGENT      = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv1 */
-        EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv2 */
-        EVENT_PRIORITY_CGROUP_OOM        = SD_EVENT_PRIORITY_NORMAL-8,
+        EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-12,
+        EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-11,
+        EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-11,
+        EVENT_PRIORITY_CGROUP_AGENT      = SD_EVENT_PRIORITY_NORMAL-10, /* cgroupv1 */
+        EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-10, /* cgroupv2 */
+        EVENT_PRIORITY_CGROUP_OOM        = SD_EVENT_PRIORITY_NORMAL-9,
+        EVENT_PRIORITY_PIDREF            = SD_EVENT_PRIORITY_NORMAL-8,
         EVENT_PRIORITY_HANDOFF_TIMESTAMP = SD_EVENT_PRIORITY_NORMAL-7,
         EVENT_PRIORITY_EXEC_FD           = SD_EVENT_PRIORITY_NORMAL-6,
         EVENT_PRIORITY_NOTIFY            = SD_EVENT_PRIORITY_NORMAL-5,

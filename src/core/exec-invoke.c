@@ -3508,7 +3508,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 16];
+        int dont_close[n_fds + 17];
 
         assert(params);
 
@@ -3546,6 +3546,9 @@ static int close_remaining_fds(
 
         if (params->handoff_timestamp_fd >= 0)
                 dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        if (params->pidref_fd >= 0)
+                dont_close[n_dont_close++] = params->pidref_fd;
 
         assert(n_dont_close <= ELEMENTSOF(dont_close));
 
@@ -4011,6 +4014,25 @@ static int send_handoff_timestamp(
                 if (reterr_exit_status)
                         *reterr_exit_status = EXIT_EXEC;
                 return log_exec_error_errno(c, p, errno, "Failed to send handoff timestamp: %m");
+        }
+
+        return 1;
+}
+
+static int send_pidref(const ExecContext *c, ExecParameters *p, const PidRef *pidref, int *reterr_exit_status) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (p->pidref_fd < 0)
+                return 0;
+
+        r = send_one_fd_iov(p->pidref_fd, pidref->fd, &IOVEC_MAKE(&pidref->pid, sizeof(pidref->pid)), 1, 0);
+        if (r < 0) {
+                if (reterr_exit_status)
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                return log_exec_error_errno(c, p, r, "Failed to send pidref: %m");
         }
 
         return 1;
@@ -4831,6 +4853,30 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
                                                     error_path ? ": " : "", strempty(error_path));
                 }
+        }
+
+        if (context->private_pids) {
+                if (ns_type_supported(NAMESPACE_PID)) {
+                        PidRef pidref;
+
+                        r = pidref_safe_fork(NULL, FORK_NEW_PIDNS, &pidref);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivatePIDs=yes is configured, but pid namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to fork child process into new pid namespace: %m");
+                        }
+                        if (r > 0) {
+                                /* In the parent process, we send the child pidref to the manager and exit. */
+                                r = send_pidref(context, params, &pidref, exit_status);
+                                if (r < 0)
+                                        return r;
+
+                                return 0;
+                        }
+                } else
+                        log_exec_warning(context, params, "PrivatePIDs=yes is configured, but the kernel does not support pid namespaces, ignoring.");
         }
 
         if (needs_sandboxing) {
