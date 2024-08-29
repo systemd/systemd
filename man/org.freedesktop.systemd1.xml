@@ -3249,6 +3249,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivatePIDs = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -3863,6 +3865,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
+
+    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -4557,6 +4561,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -5384,6 +5390,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivatePIDs = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -6010,6 +6018,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
+
+    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -6678,6 +6688,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -7369,6 +7381,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivatePIDs = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -7921,6 +7935,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
+
+    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -8501,6 +8517,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -9315,6 +9333,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivatePIDs = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -9853,6 +9873,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
+
+    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -10419,6 +10441,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -12149,8 +12173,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>StatusBusError</varname>,
       <varname>StatusVarlinkError</varname>,
       <varname>LiveMountResult</varname>,
-      <varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname> and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12187,8 +12212,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>, and
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname> and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12222,8 +12248,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname> and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12257,8 +12284,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname> and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
