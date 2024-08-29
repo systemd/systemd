@@ -5247,20 +5247,20 @@ fail:
         return r;
 }
 
-static int service_can_live_mount(const Unit *u, sd_bus_error *error) {
+static bool service_can_live_mount(const Unit *u, sd_bus_error *error) {
         assert(u);
 
         /* Ensure that the unit runs in a private mount namespace */
         if (!exec_needs_mount_namespace(unit_get_exec_context(u), /* params= */ NULL, unit_get_exec_runtime(u))) {
-                log_unit_debug(u, "Unit not running in private mount namespace, cannot live mount");
-                return sd_bus_error_setf(
+                sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Live mounting for unit '%s' cannot be scheduled: unit not running in private mount namespace",
                                 u->id);
+                return false;
         }
 
-        return 0;
+        return true;
 }
 
 static const char* service_finished_job(Unit *u, JobType t, JobResult result) {
