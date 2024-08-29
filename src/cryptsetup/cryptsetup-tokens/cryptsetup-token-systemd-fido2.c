@@ -167,22 +167,22 @@ _public_ int cryptsetup_token_validate(
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 
         w = sd_json_variant_by_key(v, "fido2-credential");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "FIDO2 token data lacks 'fido2-credential' field.");
                 return 1;
         }
 
-        r = unbase64mem(sd_json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'fido2-credential' field: %m");
 
         w = sd_json_variant_by_key(v, "fido2-salt");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "FIDO2 token data lacks 'fido2-salt' field.");
                 return 1;
         }
 
-        r = unbase64mem(sd_json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded salt: %m.");
 
