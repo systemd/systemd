@@ -174,25 +174,24 @@ int acquire_fido2_key_auto(
                 }
 
                 w = sd_json_variant_by_key(v, "fido2-credential");
-                if (!w || !sd_json_variant_is_string(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "FIDO2 token data lacks 'fido2-credential' field.");
 
-                r = unbase64mem(sd_json_variant_string(w), &cid, &cid_size);
+                r = sd_json_variant_unbase64(w, &cid, &cid_size);
                 if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid base64 data in 'fido2-credential' field.");
+                        return log_error_errno(r, "Invalid base64 data in 'fido2-credential' field: %m");
 
                 w = sd_json_variant_by_key(v, "fido2-salt");
-                if (!w || !sd_json_variant_is_string(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "FIDO2 token data lacks 'fido2-salt' field.");
 
                 assert(!salt);
                 assert(salt_size == 0);
-                r = unbase64mem(sd_json_variant_string(w), &salt, &salt_size);
+                r = sd_json_variant_unbase64(w, &salt, &salt_size);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 encoded salt.");
+                        return log_error_errno(r, "Failed to decode base64 encoded salt: %m");
 
                 w = sd_json_variant_by_key(v, "fido2-rp");
                 if (w) {
