@@ -82,3 +82,24 @@ void iovec_array_free(struct iovec *iovec, size_t n_iovec) {
 
         free(iovec);
 }
+
+struct iovec *iovec_append(struct iovec *iovec, const struct iovec *append) {
+        assert(iovec);
+
+        if (!iovec_is_set(append))
+                return iovec;
+
+        if (append->iov_len > SIZE_MAX - iovec->iov_len) /* Overflow check */
+                return NULL;
+
+        void *p = realloc(iovec->iov_base, iovec->iov_len + append->iov_len);
+        if (!p)
+                return NULL;
+
+        memcpy((uint8_t*) p + iovec->iov_len, append->iov_base, append->iov_len);
+
+        iovec->iov_base = p;
+        iovec->iov_len += append->iov_len;
+
+        return iovec;
+}
