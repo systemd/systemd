@@ -43,7 +43,7 @@ if [[ ! -e "pkg/$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" 
         # --no-cone is needed to check out only one top-level directory
         git -C "pkg/$PKG_SUBDIR" sparse-checkout set --no-cone "${GIT_SUBDIR:-}"
     fi
-else
+elif ! git -C "pkg/$PKG_SUBDIR" cat-file -e "$GIT_COMMIT^{commit}"; then
     git -C "pkg/$PKG_SUBDIR" remote set-url origin "$GIT_URL"
     git -C "pkg/$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
 fi
