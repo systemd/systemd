@@ -194,7 +194,7 @@ def test_parse_args_many_deprecated():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -240,7 +240,7 @@ def test_parse_args_many():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -347,7 +347,7 @@ def test_config_priority(tmp_path):
                            pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
