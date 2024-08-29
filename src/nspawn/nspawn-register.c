@@ -147,16 +147,16 @@ int register_machine(
                 int kill_signal,
                 char **properties,
                 sd_bus_message *properties_message,
-                bool keep_unit,
                 const char *service,
-                StartMode start_mode) {
+                StartMode start_mode,
+                RegisterMachineFlags flags) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
 
-        if (keep_unit) {
+        if (FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT)) {
                 r = bus_call_method(
                                 bus,
                                 bus_machine_mgr,
@@ -262,8 +262,8 @@ int allocate_scope(
                 int kill_signal,
                 char **properties,
                 sd_bus_message *properties_message,
-                bool allow_pidfd,
-                StartMode start_mode) {
+                StartMode start_mode,
+                AllocateScopeFlags flags) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -302,7 +302,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PID reference: %m");
 
-        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
+        r = bus_append_scope_pidref(m, &pidref, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -354,9 +354,21 @@ int allocate_scope(
         if (r < 0) {
                 /* If this failed with a property we couldn't write, this is quite likely because the server
                  * doesn't support PIDFDs yet, let's try without. */
-                if (allow_pidfd &&
-                    sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                        return allocate_scope(bus, machine_name, pid, slice, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false, start_mode);
+                if (FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD) &&
+                    sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY)) {
+                        return allocate_scope(
+                                        bus,
+                                        machine_name,
+                                        pid,
+                                        slice,
+                                        mounts,
+                                        n_mounts,
+                                        kill_signal,
+                                        properties,
+                                        properties_message,
+                                        start_mode,
+                                        flags & ~ALLOCATE_SCOPE_ALLOW_PIDFD);
+                }
 
                 return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
         }
