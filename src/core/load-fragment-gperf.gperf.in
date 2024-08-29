@@ -133,6 +133,7 @@
 {{type}}.PrivateUsers,                     config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.private_users)
 {{type}}.PrivateMounts,                    config_parse_tristate,                       0,                                  offsetof({{type}}, exec_context.private_mounts)
 {{type}}.PrivateIPC,                       config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.private_ipc)
+{{type}}.PrivatePIDs,                      config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.private_pids)
 {{type}}.ProtectSystem,                    config_parse_protect_system,                 0,                                  offsetof({{type}}, exec_context.protect_system)
 {{type}}.ProtectHome,                      config_parse_protect_home,                   0,                                  offsetof({{type}}, exec_context.protect_home)
 {{type}}.MountFlags,                       config_parse_exec_mount_propagation_flag,    0,                                  offsetof({{type}}, exec_context.mount_propagation_flag)
