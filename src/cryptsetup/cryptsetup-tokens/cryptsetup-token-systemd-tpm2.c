@@ -308,22 +308,22 @@ _public_ int cryptsetup_token_validate(
         }
 
         w = sd_json_variant_by_key(v, "tpm2-blob");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-blob' field.");
                 return 1;
         }
 
-        r = unbase64mem(sd_json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
 
         w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-policy-hash' field.");
                 return 1;
         }
 
-        r = unhexmem(sd_json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unhex(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
 

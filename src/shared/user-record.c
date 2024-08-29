@@ -752,10 +752,7 @@ static int dispatch_pkcs11_key_data(const char *name, sd_json_variant *variant, 
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -819,10 +816,7 @@ static int dispatch_fido2_hmac_credential(const char *name, sd_json_variant *var
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -845,14 +839,11 @@ static int dispatch_fido2_hmac_credential_array(const char *name, sd_json_varian
                 size_t l;
                 void *b;
 
-                if (!sd_json_variant_is_string(e))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
-
                 array = reallocarray(h->fido2_hmac_credential, h->n_fido2_hmac_credential + 1, sizeof(Fido2HmacCredential));
                 if (!array)
                         return log_oom();
 
-                r = unbase64mem(sd_json_variant_string(e), &b, &l);
+                r = sd_json_variant_unbase64(e, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -879,10 +870,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, sd_json_variant *var
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 

@@ -51,14 +51,13 @@ static int search_policy_hash(
                 }
 
                 w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-                if (!w || !sd_json_variant_is_string(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-                r = unhexmem(sd_json_variant_string(w), &thash, &thash_size);
+                r = sd_json_variant_unhex(w, &thash, &thash_size);
                 if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid base64 data in 'tpm2-policy-hash' field.");
+                        return log_error_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
 
                 if (memcmp_nn(hash, hash_size, thash, thash_size) == 0)
                         return keyslot; /* Found entry with same hash. */
