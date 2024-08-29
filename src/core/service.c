@@ -951,7 +951,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sResult: %s\n"
                 "%sReload Result: %s\n"
                 "%sClean Result: %s\n"
-                "%sMount Result: %s\n"
+                "%sLiveMount Result: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
