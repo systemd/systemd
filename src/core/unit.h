@@ -587,7 +587,7 @@ typedef struct UnitVTable {
 
         /* Add a bind/image mount into the unit namespace while it is running. */
         int (*live_mount)(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
-        int (*can_live_mount)(const Unit *u, sd_bus_error *error);
+        bool (*can_live_mount)(const Unit *u, sd_bus_error *error);
 
         /* Serialize state and file descriptors that should be carried over into the new
          * instance after reexecution. */
@@ -1046,7 +1046,7 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_ne
 void unit_set_freezer_state(Unit *u, FreezerState state);
 void unit_freezer_complete(Unit *u, FreezerState kernel_state);
 
-int unit_can_live_mount(const Unit *u, sd_bus_error *error);
+bool unit_can_live_mount(const Unit *u, sd_bus_error *error);
 int unit_live_mount(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
 
 Condition *unit_find_failed_condition(Unit *u);

@@ -135,12 +135,12 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
-
-        r = unit_can_live_mount(u, error);
-        if (r < 0)
-                return r;
+        if (!unit_can_live_mount(u, error))
+                return log_unit_debug_errno(
+                                u,
+                                error ? sd_bus_error_get_errno(error) : SYNTHETIC_ERRNO(EINVAL),
+                                "Unit does not support live mounting: %s",
+                                bus_error_message(error, EINVAL));
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
