@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <linux/fuse.h>
 #include <linux/loop.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -2146,19 +2147,79 @@ static int setup_boot_id(void) {
         return mount_nofollow_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
-static int copy_devnodes(const char *dest) {
-        static const char devnodes[] =
-                "null\0"
-                "zero\0"
-                "full\0"
-                "random\0"
-                "urandom\0"
-                "tty\0"
-                "net/tun\0";
+static int get_fuse_version(uint32_t *ret_major, uint32_t *ret_minor) {
+        /* Must be called with mount privileges, either via arg_privileged or by being uid=0 in new
+         * CLONE_NEWUSER/CLONE_NEWNS namespaces. This is true when called from outer_child(). */
+        ssize_t n;
+        _cleanup_close_ int fuse_fd = -EBADF, mnt_fd = -EBADF;
+        _cleanup_free_ char *opts = NULL;
+        union {
+                char unstructured[FUSE_MIN_READ_BUFFER];
+                struct {
+                        struct fuse_in_header header;
+                        /* Don't use <linux/fuse.h>:`struct fuse_init_in` because a newer fuse.h might give
+                         * us a bigger struct than what an older kernel actually gives us, and that would
+                         * break our .header.len check. */
+                        struct {
+                                uint32_t major;
+                                uint32_t minor;
+                        } body;
+                } structured;
+        } request;
 
+        assert(ret_major);
+        assert(ret_minor);
+
+        /* Get a FUSE handle. */
+        fuse_fd = open("/dev/fuse", O_CLOEXEC|O_RDWR);
+        if (fuse_fd < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
+                        *ret_major = *ret_minor = 0;
+                        return errno;
+                }
+                return log_debug_errno(errno, "Failed to open /dev/fuse: %m");
+        }
+        if (asprintf(&opts, "fd=%i,rootmode=40000,user_id=0,group_id=0", fuse_fd) < 0)
+                return log_oom_debug();
+        mnt_fd = make_fsmount(LOG_DEBUG, "nspawn-fuse", "fuse.nspawn", 0, opts, -EBADF);
+        if (mnt_fd < 0)
+                return mnt_fd;
+
+        /* Read a request from the FUSE handle. */
+        n = read(fuse_fd, &request.unstructured, sizeof request);
+        if (n < 0)
+                return log_debug_errno(errno, "Failed to read /dev/fuse: %m");
+        if ((size_t) n < sizeof request.structured.header ||
+            (size_t) n < request.structured.header.len)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to read /dev/fuse: Short read");
+
+        /* Assume that the request is a FUSE_INIT request, and return the version information from it. */
+        if (request.structured.header.opcode != FUSE_INIT)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Initial request from /dev/fuse should have opcode=%i (FUSE_INIT), but has opcode=%"PRIu32,
+                                   FUSE_INIT, request.structured.header.opcode);
+        if (request.structured.header.len < sizeof request.structured)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Initial FUSE_INIT request from /dev/fuse is too short");
+        *ret_major = request.structured.body.major;
+        *ret_minor = request.structured.body.minor;
+        return 0;
+}
+
+static int copy_devnodes(const char *dest, bool enable_fuse) {
+        _cleanup_strv_free_ char **devnodes = NULL;
         int r = 0;
 
         assert(dest);
+
+        devnodes = strv_new("null",
+                            "zero",
+                            "full",
+                            "random",
+                            "urandom",
+                            "tty",
+                            STRV_IFNOTNULL(enable_fuse ? "fuse" : NULL),
+                            "net/tun");
+        if (!devnodes)
+                return log_oom();
 
         BLOCK_WITH_UMASK(0000);
 
@@ -2166,11 +2227,11 @@ static int copy_devnodes(const char *dest) {
         if (userns_mkdir(dest, "/dev/net", 0755, 0, 0) < 0)
                 return log_error_errno(r, "Failed to create /dev/net directory: %m");
 
-        NULSTR_FOREACH(d, devnodes) {
+        STRV_FOREACH(d, devnodes) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
 
-                from = path_join("/dev/", d);
+                from = path_join("/dev/", *d);
                 if (!from)
                         return log_oom();
 
@@ -3805,16 +3866,25 @@ static int outer_child(
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         _cleanup_close_ int fd = -EBADF, mntns_fd = -EBADF;
         bool idmap = false;
+        bool enable_fuse = false;
         const char *p;
         pid_t pid;
         ssize_t l;
         int r;
 
-        /* This is the "outer" child process, i.e the one forked off by the container manager itself. It
-         * already has its own CLONE_NEWNS namespace (which was created by the clone()). It still lives in
-         * the host's CLONE_NEWPID, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER and CLONE_NEWNET
-         * namespaces. After it completed a number of initializations a second child (the "inner" one) is
-         * forked off it, and it exits. */
+        /* This is the "outer" child process, i.e the one forked off by the container manager itself.  Its
+         * namespace situation is:
+         *
+         *  - CLONE_NEWNS   : already has its own (created by clone() if arg_privileged, or unshare() if !arg_unprivileged)
+         *  - CLONE_NEWUSER : if  arg_privileged: still in the host's
+         *                    if !arg_privileged: already has its own (created by nsresource_allocate_userns()->setns(userns_fd))
+         *  - CLONE_NEWPID  : still in the host's
+         *  - CLONE_NEWUTS  : still in the host's
+         *  - CLONE_NEWIPC  : still in the host's
+         *  - CLONE_NEWNET  : still in the host's
+         *
+         * After it completed a number of initializations a second child (the "inner" one) is forked off it,
+         * and it exits. */
 
         assert(barrier);
         assert(directory);
@@ -4079,7 +4149,24 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = copy_devnodes(directory);
+        /* FUSE is only userns-safe in FUSE version 7.27 and later.
+         * https://github.com/torvalds/linux/commit/da315f6e03988a7127680bbc26e1028991b899b8 */
+        uint32_t fuse_major, fuse_minor;
+        r = get_fuse_version(&fuse_major, &fuse_minor);
+        if (r < 0)
+                log_warning("Disabling FUSE: Failed to determine FUSE version");
+        else if (r > 0)
+                log_debug("Disabling FUSE: FUSE appears to be disabled on the host");
+        else if (fuse_major < 7 || (fuse_major == 7 && fuse_minor < 27))
+                log_debug("Disabling FUSE: FUSE version %" PRIu32 ".%" PRIu32 " is too old to support user namespaces",
+                          fuse_major, fuse_minor);
+        else
+                enable_fuse = true;
+        l = send(fd_outer_socket, &enable_fuse, sizeof enable_fuse, 0);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to send whether to enable FUSE: %m");
+
+        r = copy_devnodes(directory, enable_fuse);
         if (r < 0)
                 return r;
 
@@ -5037,6 +5124,7 @@ static int run_container(
         ssize_t l;
         sigset_t mask_chld;
         _cleanup_close_ int child_netns_fd = -EBADF;
+        bool enable_fuse;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -5223,6 +5311,12 @@ static int run_container(
                                                l, l == 0 ? " The child is most likely dead." : "");
         }
 
+        l = recv(fd_outer_socket_pair[0], &enable_fuse, sizeof enable_fuse, 0);
+        if (l < 0)
+                return log_error_errno(errno, "Failed to read whether to enable FUSE: %m");
+        if (l != sizeof enable_fuse)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading whether to enable FUSE.");
+
         /* Wait for the outer child. */
         r = wait_for_terminate_and_check("(sd-namespace)", *pid, WAIT_LOG_ABNORMAL);
         if (r < 0)
@@ -5381,6 +5475,7 @@ static int run_container(
                                 arg_uuid,
                                 ifi,
                                 arg_slice,
+                                enable_fuse,
                                 arg_custom_mounts, arg_n_custom_mounts,
                                 arg_kill_signal,
                                 arg_property,
@@ -5397,6 +5492,7 @@ static int run_container(
                                 arg_machine,
                                 *pid,
                                 arg_slice,
+                                enable_fuse,
                                 arg_custom_mounts, arg_n_custom_mounts,
                                 arg_kill_signal,
                                 arg_property,

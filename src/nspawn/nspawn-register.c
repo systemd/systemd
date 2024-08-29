@@ -15,6 +15,7 @@
 
 static int append_machine_properties(
                 sd_bus_message *m,
+                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -47,6 +48,16 @@ static int append_machine_properties(
                                   "char-pts", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
+        if (enable_fuse) {
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
+                                          /* Allow the container to
+                                           * use FUSE, if
+                                           * copy_devnodes() included
+                                           * it. */
+                                          "/dev/fuse", "rw");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         for (j = 0; j < n_mounts; j++) {
                 CustomMount *cm = mounts + j;
@@ -142,6 +153,7 @@ int register_machine(
                 sd_id128_t uuid,
                 int local_ifindex,
                 const char *slice,
+                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -207,6 +219,7 @@ int register_machine(
 
                 r = append_machine_properties(
                                 m,
+                                enable_fuse,
                                 mounts,
                                 n_mounts,
                                 kill_signal,
@@ -257,6 +270,7 @@ int allocate_scope(
                 const char *machine_name,
                 pid_t pid,
                 const char *slice,
+                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -327,6 +341,7 @@ int allocate_scope(
 
         r = append_machine_properties(
                         m,
+                        enable_fuse,
                         mounts,
                         n_mounts,
                         kill_signal,
@@ -356,7 +371,7 @@ int allocate_scope(
                  * doesn't support PIDFDs yet, let's try without. */
                 if (allow_pidfd &&
                     sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                        return allocate_scope(bus, machine_name, pid, slice, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false, start_mode);
+                        return allocate_scope(bus, machine_name, pid, slice, enable_fuse, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false, start_mode);
 
                 return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
         }
