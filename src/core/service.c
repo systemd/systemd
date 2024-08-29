@@ -4769,6 +4769,22 @@ static void service_handoff_timestamp(
         unit_add_to_dbus_queue(u);
 }
 
+static void service_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_pidref) {
+        Service *s = ASSERT_PTR(SERVICE(u));
+
+        assert(parent_pidref);
+        assert(child_pidref);
+
+        if (pidref_equal(&s->main_pid, parent_pidref)) {
+                s->main_pid = TAKE_PIDREF(*child_pidref);
+        } else if (pidref_equal(&s->control_pid, parent_pidref))
+                s->control_pid = TAKE_PIDREF(*child_pidref);
+        else
+                return;
+
+        unit_add_to_dbus_queue(u);
+}
+
 static int service_get_timeout(Unit *u, usec_t *timeout) {
         Service *s = ASSERT_PTR(SERVICE(u));
         uint64_t t;
@@ -5516,6 +5532,7 @@ const UnitVTable service_vtable = {
         .notify_cgroup_oom = service_notify_cgroup_oom_event,
         .notify_message = service_notify_message,
         .notify_handoff_timestamp = service_handoff_timestamp,
+        .notify_pidref = service_notify_pidref,
 
         .main_pid = service_main_pid,
         .control_pid = service_control_pid,
