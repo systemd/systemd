@@ -4952,7 +4952,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
         struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || !pid_is_valid(ucred->pid)) {
-                log_warning("Received notify message without valid credentials. Ignoring.");
+                log_warning("Received handoff timestamp message without valid credentials. Ignoring.");
                 return 0;
         }
 
