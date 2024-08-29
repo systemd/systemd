@@ -320,6 +320,7 @@ struct ExecContext {
         bool private_devices;
         PrivateUsers private_users;
         bool private_ipc;
+        bool private_pids;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
@@ -456,6 +457,7 @@ struct ExecParameters {
         char **files_env;
         int user_lookup_fd;
         int handoff_timestamp_fd;
+        int pidref_transport_fd;
 
         int bpf_restrict_fs_map_fd;
 
