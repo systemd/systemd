@@ -1391,6 +1391,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_fd(f, fds, "exec-parameters-pidref-transport-fd", p->pidref_transport_fd);
+        if (r < 0)
+                return r;
+
         if (c && exec_context_restrict_filesystems_set(c)) {
                 r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_restrict_fs_map_fd);
                 if (r < 0)
@@ -1660,6 +1664,14 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         close_and_replace(p->handoff_timestamp_fd, fd);
+                } else if ((val = startswith(l, "exec-parameters-pidref-transport-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                continue;
+
+                        close_and_replace(p->pidref_transport_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
                         int fd;
 
@@ -1923,6 +1935,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 
         r = serialize_bool_elide(f, "exec-context-private-ipc", c->private_ipc);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-context-private-pids", c->private_pids);
         if (r < 0)
                 return r;
 
@@ -2810,6 +2826,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->private_ipc = r;
+                } else if ((val = startswith(l, "exec-context-private-pids="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->private_pids = r;
                 } else if ((val = startswith(l, "exec-context-remove-ipc="))) {
                         r = parse_boolean(val);
                         if (r < 0)
