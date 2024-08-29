@@ -20,6 +20,7 @@
 
 static bool job_matters_to_anchor(Job *job);
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
+static void transaction_find_jobs_that_matter_to_anchor(Transaction *tr, unsigned generation);
 
 static void transaction_delete_job(Transaction *tr, Job *j, bool delete_dependencies) {
         assert(tr);
@@ -28,6 +29,7 @@ static void transaction_delete_job(Transaction *tr, Job *j, bool delete_dependen
         /* Deletes one job from the transaction. */
 
         transaction_unlink_job(tr, j, delete_dependencies);
+        (void) set_remove(tr->anchor_jobs, j);
 
         job_free(j);
 }
@@ -52,7 +54,7 @@ static void transaction_abort(Transaction *tr) {
         assert(hashmap_isempty(tr->jobs));
 }
 
-static void transaction_find_jobs_that_matter_to_anchor(Job *j, unsigned generation) {
+static void transaction_find_jobs_that_matter_to_anchor_one(Job *j, unsigned generation) {
         assert(j);
 
         /* A recursive sweep through the graph that marks all units that matter to the anchor job, i.e. are
@@ -72,8 +74,20 @@ static void transaction_find_jobs_that_matter_to_anchor(Job *j, unsigned generat
                 if (l->object->generation == generation)
                         continue;
 
-                transaction_find_jobs_that_matter_to_anchor(l->object, generation);
+                transaction_find_jobs_that_matter_to_anchor_one(l->object, generation);
         }
+}
+
+static void transaction_find_jobs_that_matter_to_anchor(Transaction *tr, unsigned generation) {
+        Job *j;
+
+        assert(tr);
+
+        /* All anchor jobs (and reachable jobs) get marked in the same generation. The recursion uses the
+         * generation only to avoid re-traversing already-visited nodes, so reusing the generation across
+         * anchors is correct: nodes already marked by a previous anchor are skipped. */
+        SET_FOREACH(j, tr->anchor_jobs)
+                transaction_find_jobs_that_matter_to_anchor_one(j, generation);
 }
 
 static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other, JobType t) {
@@ -275,7 +289,7 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
 
                 Job *k;
                 while ((k = j->transaction_next)) {
-                        if (tr->anchor_job == k) {
+                        if (set_contains(tr->anchor_jobs, k)) {
                                 transaction_merge_and_delete_job(tr, k, j, t);
                                 j = k;
                         } else
@@ -306,7 +320,7 @@ static void transaction_drop_redundant(Transaction *tr) {
                         bool keep = false;
 
                         LIST_FOREACH(transaction, k, j)
-                                if (tr->anchor_job == k ||
+                                if (set_contains(tr->anchor_jobs, k) ||
                                     !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
                                     (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type))) {
                                         keep = true;
@@ -524,7 +538,7 @@ static void transaction_collect_garbage(Transaction *tr) {
                 again = false;
 
                 HASHMAP_FOREACH(j, tr->jobs) {
-                        if (tr->anchor_job == j)
+                        if (set_contains(tr->anchor_jobs, j))
                                 continue;
 
                         if (!j->object_list) {
@@ -557,11 +571,20 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 assert(!j->transaction_next);
 
                 if (j->unit->job && (IN_SET(mode, JOB_FAIL, JOB_LENIENT) || j->unit->job->irreversible) &&
-                    job_type_is_conflicting(j->unit->job->type, j->type))
+                    job_type_is_conflicting(j->unit->job->type, j->type)) {
+                        _cleanup_free_ char *anchors = NULL;
+                        Job *a;
+
+                        SET_FOREACH(a, tr->anchor_jobs)
+                                if (strextendf_with_separator(&anchors, ", ", "%s/%s",
+                                                              a->unit->id, job_type_to_string(a->type)) < 0)
+                                        return -ENOMEM;
+
                         return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
-                                                 "Transaction for %s/%s is destructive (%s has '%s' job queued, but '%s' is included in transaction).",
-                                                 tr->anchor_job->unit->id, job_type_to_string(tr->anchor_job->type),
+                                                 "Transaction for %s is destructive (%s has '%s' job queued, but '%s' is included in transaction).",
+                                                 strna(anchors),
                                                  j->unit->id, job_type_to_string(j->unit->job->type), job_type_to_string(j->type));
+                }
         }
 
         return 0;
@@ -680,8 +703,16 @@ static int transaction_apply(
                 installed_job = job_install(j);
                 if (installed_job != j) {
                         /* j has been merged into a previously installed job. */
-                        if (tr->anchor_job == j)
-                                tr->anchor_job = installed_job;
+                        if (set_contains(tr->anchor_jobs, j)) {
+                                r = set_remove_and_put(tr->anchor_jobs, j, installed_job);
+                                if (r == -EEXIST)
+                                        /* installed_job is already an anchor; just drop the
+                                         * about-to-be-freed key so it doesn't linger. */
+                                        (void) set_remove(tr->anchor_jobs, j);
+                                else
+                                        /* Old key was present and remove -> put cannot fail */
+                                        assert(r >= 0);
+                        }
 
                         hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
                         free_and_replace_full(j, installed_job, job_free);
@@ -731,7 +762,7 @@ int transaction_activate(
                 j->generation = 0;
 
         /* First step: figure out which jobs matter. */
-        transaction_find_jobs_that_matter_to_anchor(tr->anchor_job, generation++);
+        transaction_find_jobs_that_matter_to_anchor(tr, generation++);
 
         /* Second step: Try not to stop any running services if we don't have to. Don't try to reverse
          * running jobs if we don't have to. */
@@ -1024,9 +1055,10 @@ int transaction_add_job_and_dependencies(
                 if (!job_dependency_new(by, job, FLAGS_SET(flags, TRANSACTION_MATTERS), FLAGS_SET(flags, TRANSACTION_CONFLICTS)))
                         return -ENOMEM;
         } else {
-                /* If the job has no parent job, it is the anchor job. */
-                assert(!tr->anchor_job);
-                tr->anchor_job = job;
+                /* If the job has no parent job, it is an anchor job. */
+                r = set_put(tr->anchor_jobs, job);
+                if (r < 0 && r != -EEXIST)
+                        return r;
 
                 if (FLAGS_SET(flags, TRANSACTION_REENQUEUE_ANCHOR))
                         job->refuse_late_merge = true;
@@ -1210,6 +1242,7 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
 
         assert(tr);
         assert(m);
+        assert(set_size(tr->anchor_jobs) == 1);
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
@@ -1225,7 +1258,9 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
                 if (!shall_stop_on_isolate(tr, u))
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, TRANSACTION_MATTERS, &e);
+                /* JOB_ISOLATE only ever has a single anchor (we reject multi-anchor isolate in the
+                 * manager) so picking the first anchor is correct. */
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, set_first(tr->anchor_jobs), TRANSACTION_MATTERS, &e);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Cannot add isolate job, ignoring: %s", bus_error_message(&e, r));
         }
@@ -1235,10 +1270,16 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
 
 int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         Unit *trigger;
+        Job *by;
         int r;
 
         assert(tr);
         assert(u);
+
+        /* The unit's own anchor job is the head of the list in tr->jobs. We pull in JOB_STOP for all
+         * triggers and link them to that anchor, so they are correctly grouped per anchor when there are
+         * multiple anchors in the transaction. */
+        by = ASSERT_PTR(hashmap_get(tr->jobs, u));
 
         UNIT_FOREACH_DEPENDENCY_SAFE(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
@@ -1251,7 +1292,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
                 if (hashmap_contains(tr->jobs, trigger))
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, TRANSACTION_MATTERS, &e);
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, by, TRANSACTION_MATTERS, &e);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Cannot add triggered by job, ignoring: %s", bus_error_message(&e, r));
         }
@@ -1270,11 +1311,15 @@ Transaction* transaction_new(bool irreversible, uint64_t id) {
 
         *tr = (Transaction) {
                 .jobs = hashmap_new(NULL),
+                .anchor_jobs = set_new(NULL),
                 .irreversible = irreversible,
                 .id = id,
         };
-        if (!tr->jobs)
+        if (!tr->jobs || !tr->anchor_jobs) {
+                hashmap_free(tr->jobs);
+                set_free(tr->anchor_jobs);
                 return NULL;
+        }
 
         return TAKE_PTR(tr);
 }
@@ -1284,6 +1329,9 @@ Transaction* transaction_free(Transaction *tr) {
                 return NULL;
 
         assert(hashmap_isempty(tr->jobs));
+        assert(set_isempty(tr->anchor_jobs));
+
+        set_free(tr->anchor_jobs);
         hashmap_free(tr->jobs);
 
         return mfree(tr);
