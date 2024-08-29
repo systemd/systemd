@@ -54,4 +54,17 @@ TEST(iovec_set_and_valid) {
         assert_se(!iovec_is_valid(&invalid));
 }
 
+TEST(iovec_append) {
+        _cleanup_(iovec_done) struct iovec iov = {};
+
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("")) == &iov);
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("waldo")) == &iov);
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("quux")) == &iov);
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("")) == &iov);
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("p")) == &iov);
+        assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("")) == &iov);
+
+        assert_se(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("waldoquuxp")) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
