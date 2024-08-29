@@ -78,6 +78,13 @@ typedef enum ProtectControlGroups {
         _PROTECT_CONTROL_GROUPS_INVALID = -EINVAL,
 } ProtectControlGroups;
 
+typedef enum PrivatePIDs {
+        PRIVATE_PIDS_NO,
+        PRIVATE_PIDS_YES,
+        _PRIVATE_PIDS_MAX,
+        _PRIVATE_PIDS_INVALID = -EINVAL,
+} PrivatePIDs;
+
 struct BindMount {
         char *source;
         char *destination;
@@ -179,6 +186,7 @@ struct NamespaceParameters {
         ProtectProc protect_proc;
         ProcSubset proc_subset;
         PrivateTmp private_tmp;
+        PrivatePIDs private_pids;
 };
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
@@ -221,6 +229,9 @@ PrivateUsers private_users_from_string(const char *s) _pure_;
 
 const char* protect_control_groups_to_string(ProtectControlGroups i) _const_;
 ProtectControlGroups protect_control_groups_from_string(const char *s) _pure_;
+
+const char* private_pids_to_string(PrivatePIDs i) _const_;
+PrivatePIDs private_pids_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);

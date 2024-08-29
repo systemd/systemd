@@ -1122,11 +1122,6 @@ EOF
 }
 
 testcase_unpriv() {
-    if ! can_do_rootless_nspawn; then
-        echo "Skipping rootless test..."
-        return 0
-    fi
-
     local tmpdir name
     tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
     name="unpriv-${tmpdir##*.}"
@@ -1186,10 +1181,6 @@ testcase_unpriv_fuse() {
 
     if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
         echo "FUSE is not supported, skipping the test..."
-        return 0
-    fi
-    if ! can_do_rootless_nspawn; then
-        echo "Skipping rootless test..."
         return 0
     fi
 
