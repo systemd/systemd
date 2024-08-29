@@ -138,9 +138,9 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (!unit_can_live_mount(u, error))
                 return log_unit_debug_errno(
                                 u,
-                                error ? sd_bus_error_get_errno(error) : SYNTHETIC_ERRNO(EINVAL),
+                                error ? sd_bus_error_get_errno(error) : SYNTHETIC_ERRNO(EOPNOTSUPP),
                                 "Unit does not support live mounting: %s",
-                                bus_error_message(error, EINVAL));
+                                bus_error_message(error, EOPNOTSUPP));
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
