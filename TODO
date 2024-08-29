@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
+  policy bits into one structure, i.e. public key info, pcr masks, pcrlock
+  stuff, pin and so on. Then pass that around in tpm2_seal() and tpm2_unseal().
+
 * look at nsresourced, mountfsd, homed, importd, and try to come up with a way
   how the forked off worker processes can be moved into transient services with
   sandboxing, without breaking notify socket stuff and so on.
