@@ -301,7 +301,7 @@ static void format_active_state(const char *active_state, const char **active_on
         if (streq_ptr(active_state, "failed")) {
                 *active_on = ansi_highlight_red();
                 *active_off = ansi_normal();
-        } else if (STRPTR_IN_SET(active_state, "active", "reloading")) {
+        } else if (STRPTR_IN_SET(active_state, "active", "reloading", "refreshing")) {
                 *active_on = ansi_highlight_green();
                 *active_off = ansi_normal();
         } else
@@ -440,10 +440,10 @@ static void print_status_info(
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
 
-        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading") ? i->active_enter_timestamp :
-                    STRPTR_IN_SET(i->active_state, "inactive", "failed")  ? i->inactive_enter_timestamp :
-                    STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
-                                                                            i->active_exit_timestamp;
+        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading", "refreshing") ? i->active_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "inactive", "failed")                ? i->inactive_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "activating")                        ? i->inactive_exit_timestamp :
+                                                                                          i->active_exit_timestamp;
 
         if (timestamp_is_set(timestamp)) {
                 printf(" since %s; %s\n",
@@ -2199,7 +2199,7 @@ static int show_one(
         if (show_mode == SYSTEMCTL_SHOW_STATUS) {
                 print_status_info(bus, &info, ellipsized);
 
-                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
+                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading", "refreshing"))
                         return EXIT_PROGRAM_NOT_RUNNING;
 
                 return EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;

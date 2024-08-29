@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
@@ -31,6 +32,7 @@
 #include "log.h"
 #include "manager.h"
 #include "missing_audit.h"
+#include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -77,6 +79,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
@@ -107,6 +110,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -122,6 +126,7 @@ static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
                       SERVICE_START, SERVICE_START_POST,
                       SERVICE_RUNNING,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL);
 }
@@ -133,7 +138,7 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                      SERVICE_CLEANING);
+                      SERVICE_CLEANING, SERVICE_MOUNTING);
 }
 
 static void service_init(Unit *u) {
@@ -505,6 +510,8 @@ static void service_done(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_fd_store(s);
+
+        s->mount_request = sd_bus_message_unref(s->mount_request);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -944,6 +951,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sResult: %s\n"
                 "%sReload Result: %s\n"
                 "%sClean Result: %s\n"
+                "%sMount Result: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
@@ -958,6 +966,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
                 prefix, service_result_to_string(s->clean_result),
+                prefix, service_result_to_string(s->live_mount_result),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
@@ -1252,6 +1261,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
+                    SERVICE_MOUNTING,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
@@ -1277,7 +1287,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-        if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
+        if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_stop_watchdog(s);
 
         if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(u->manager)) {
@@ -1300,6 +1310,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 if (start_only)
                         unit_destroy_runtime_data(u, &s->exec_context);
         }
+
+        if (state != SERVICE_MOUNTING) /* Just in case */
+                s->mount_request = sd_bus_message_unref(s->mount_request);
 
         if (old_state != state)
                 log_unit_debug(u, "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
@@ -1341,6 +1354,9 @@ static usec_t service_coldplug_timeout(Service *s) {
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
+
+        case SERVICE_MOUNTING:
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_start_usec);
 
         default:
                 return USEC_INFINITY;
@@ -1386,7 +1402,7 @@ static int service_coldplug(Unit *u) {
                 (void) unit_setup_exec_runtime(u);
         }
 
-        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
+        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
@@ -2853,6 +2869,32 @@ static int service_start(Unit *u) {
         return 1;
 }
 
+static void service_mount_request_reply(Service *s, bool success, const char *error) {
+        assert(s);
+        assert(error);
+
+        if (!s->mount_request)
+                return;
+
+        if (success) {
+                (void) sd_bus_reply_method_return(s->mount_request, NULL);
+                log_unit_debug(UNIT(s),
+                               "'%s' method succeeded",
+                               strna(sd_bus_message_get_member(s->mount_request)));
+        } else {
+                (void) sd_bus_reply_method_errorf(s->mount_request, error,
+                                                  "method '%s' for unit '%s' failed",
+                                                  strna(sd_bus_message_get_member(s->mount_request)),
+                                                  UNIT(s)->id);
+                log_unit_debug(UNIT(s),
+                               "'%s' method failed: %s",
+                               strna(sd_bus_message_get_member(s->mount_request)),
+                               error);
+        }
+
+        s->mount_request = sd_bus_message_unref(s->mount_request);
+}
+
 static int service_stop(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
@@ -2877,6 +2919,10 @@ static int service_stop(Unit *u) {
                 service_set_state(s, service_determine_dead_state(s));
                 return 0;
 
+        case SERVICE_MOUNTING:
+                service_kill_control_process(s);
+                service_mount_request_reply(s, /* success= */ false, BUS_ERROR_UNIT_INACTIVE);
+                _fallthrough_;
         case SERVICE_CONDITION:
         case SERVICE_START_PRE:
         case SERVICE_START:
@@ -3860,6 +3906,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 case SERVICE_RELOAD:
                                 case SERVICE_RELOAD_SIGNAL:
                                 case SERVICE_RELOAD_NOTIFY:
+                                case SERVICE_MOUNTING:
                                         /* If neither main nor control processes are running then the current
                                          * state can never exit cleanly, hence immediately terminate the
                                          * service. */
@@ -3974,7 +4021,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success,
                                 code, status);
 
-                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
+                if (!IN_SET(s->state, SERVICE_RELOAD, SERVICE_MOUNTING) && s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->control_command &&
@@ -4114,6 +4161,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 service_enter_dead(s, SERVICE_SUCCESS, false);
                                 break;
 
+                        case SERVICE_MOUNTING:
+                                s->live_mount_result = f;
+
+                                service_mount_request_reply(s, f == SERVICE_SUCCESS, SD_BUS_ERROR_FAILED);
+
+                                service_enter_running(s, SERVICE_SUCCESS);
+                                break;
+
                         default:
                                 assert_not_reached();
                         }
@@ -4184,6 +4239,14 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_process(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
+                service_enter_running(s, SERVICE_SUCCESS);
+                break;
+
+        case SERVICE_MOUNTING:
+                log_unit_warning(UNIT(s), "Mount operation timed out. Killing mount process.");
+                service_kill_control_process(s);
+                s->live_mount_result = SERVICE_FAILURE_TIMEOUT;
+                service_mount_request_reply(s, /* success= */ false, SD_BUS_ERROR_TIMEOUT);
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
@@ -4743,7 +4806,8 @@ static bool pick_up_pid_from_bus_name(Service *s) {
                        SERVICE_RUNNING,
                        SERVICE_RELOAD,
                        SERVICE_RELOAD_SIGNAL,
-                       SERVICE_RELOAD_NOTIFY);
+                       SERVICE_RELOAD_NOTIFY,
+                       SERVICE_MOUNTING);
 }
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
@@ -4892,6 +4956,7 @@ static void service_reset_failed(Unit *u) {
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
+        s->live_mount_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
 
         service_set_debug_invocation(s, /* enable= */ false);
@@ -4928,6 +4993,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_RELOAD,
                       SERVICE_RELOAD_SIGNAL,
                       SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING,
                       SERVICE_STOP,
                       SERVICE_STOP_WATCHDOG,
                       SERVICE_STOP_SIGTERM,
@@ -5032,6 +5098,168 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
                 mask |= EXEC_CLEAN_FDSTORE;
 
         *ret = mask;
+        return 0;
+}
+
+static int service_live_mount(Unit *u,
+                const char *src,
+                const char *dst,
+                sd_bus_message *message,
+                MountInNamespaceFlags flags,
+                const MountOptions *options,
+                sd_bus_error *error) {
+
+        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
+        Service *s = ASSERT_PTR(SERVICE(u));
+        const char *propagate_directory;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+        assert(src);
+        assert(dst);
+        assert(message);
+        assert(!s->mount_request);
+
+        if (s->state != SERVICE_RUNNING || !pidref_is_set(&s->main_pid)) {
+                log_unit_warning(u, "Service is not running, cannot live mount");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_UNIT_INACTIVE,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: service not running",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dst)) {
+                log_unit_warning(u, "Refusing to live mount over credential mount '%s'", dst);
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: cannot mount over credential mount",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (path_startswith_strv(dst, s->exec_context.inaccessible_paths)) {
+                log_unit_warning(u, "%s is not accessible to this unit, cannot live mount", dst);
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: destination is not accessible to this unit",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        service_unwatch_control_pid(s);
+        s->live_mount_result = SERVICE_SUCCESS;
+        s->control_command = NULL;
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install timer: %m");
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to install timer",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+
+        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
+
+        /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
+         * directly, and instead fork a worker process. We record the D-Bus message, so that we can reply
+         * after the operation has finished. This way callers can wait on the message and know that the new
+         * resource is available (or the operation failed) once they receive the response. */
+        r = unit_fork_helper_process(u, "(sd-mount-in-ns)", /* into_cgroup= */ false, &worker);
+        if (r < 0) {
+                log_unit_warning_errno(
+                                u,
+                                r,
+                                "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
+                                src,
+                                dst);
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to fork process",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+        if (r == 0) {
+                if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
+                        r = mount_image_in_namespace(
+                                        &s->main_pid,
+                                        propagate_directory,
+                                        "/run/systemd/incoming/",
+                                        src, dst,
+                                        flags,
+                                        options,
+                                        s->exec_context.mount_image_policy ?: &image_policy_service);
+                else
+                        r = bind_mount_in_namespace(
+                                        &s->main_pid,
+                                        propagate_directory,
+                                        "/run/systemd/incoming/",
+                                        src, dst,
+                                        flags);
+                if (r < 0)
+                        log_unit_warning_errno(
+                                        u,
+                                        r,
+                                        "Failed to mount '%s' on '%s' in unit's namespace: %m",
+                                        src,
+                                        dst);
+                else
+                        log_unit_debug(u, "Mounted '%s' on '%s' in unit's namespace", src, dst);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        r = unit_watch_pidref(u, &worker, /* exclusive= */ true);
+        if (r < 0) {
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' failed: failed to watch worker process",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+
+        s->mount_request = sd_bus_message_ref(message);
+        s->control_pid = TAKE_PIDREF(worker);
+        service_set_state(s, SERVICE_MOUNTING);
+        return 0;
+
+fail:
+        s->live_mount_result = SERVICE_FAILURE_RESOURCES;
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        return r;
+}
+
+static int service_can_live_mount(const Unit *u, sd_bus_error *error) {
+        assert(u);
+
+        /* Ensure that the unit runs in a private mount namespace */
+        if (!exec_needs_mount_namespace(unit_get_exec_context(u), /* params= */ NULL, unit_get_exec_runtime(u))) {
+                log_unit_debug(u, "Unit not running in private mount namespace, cannot live mount");
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting for unit '%s' cannot be scheduled: unit not running in private mount namespace",
+                                u->id);
+        }
+
         return 0;
 }
 
@@ -5264,6 +5492,9 @@ const UnitVTable service_vtable = {
 
         .clean = service_clean,
         .can_clean = service_can_clean,
+
+        .live_mount = service_live_mount,
+        .can_live_mount = service_can_live_mount,
 
         .freezer_action = unit_cgroup_freezer_action,
 
