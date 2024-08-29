@@ -141,6 +141,9 @@ struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
+        /* Enable/Disable IPv6 AAAA record query */
+        bool disable_aaaa_query;
+
         OrderedSet *dns_extra_stub_listeners;
 
         /* Local DNS stub on 127.0.0.53:53 */
