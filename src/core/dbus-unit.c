@@ -103,7 +103,7 @@ static int property_get_can_live_mount(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", unit_can_live_mount(u, /* error= */ NULL) >= 0);
+        return sd_bus_message_append(reply, "b", unit_can_live_mount(u, /* error= */ NULL));
 }
 
 static int property_get_names(
