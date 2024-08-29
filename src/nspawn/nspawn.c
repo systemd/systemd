@@ -5383,6 +5383,8 @@ static int run_container(
         }
 
         if (arg_register) {
+                RegisterMachineFlags flags = 0;
+                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit);
                 r = register_machine(
                                 bus,
                                 arg_machine,
@@ -5395,13 +5397,14 @@ static int run_container(
                                 arg_kill_signal,
                                 arg_property,
                                 arg_property_message,
-                                arg_keep_unit,
                                 arg_container_service_name,
-                                arg_start_mode);
+                                arg_start_mode,
+                                flags);
                 if (r < 0)
                         return r;
 
         } else if (!arg_keep_unit) {
+                AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
                 r = allocate_scope(
                                 bus,
                                 arg_machine,
@@ -5411,8 +5414,8 @@ static int run_container(
                                 arg_kill_signal,
                                 arg_property,
                                 arg_property_message,
-                                /* allow_pidfds= */ true,
-                                arg_start_mode);
+                                arg_start_mode,
+                                flags);
                 if (r < 0)
                         return r;
 
