@@ -3263,6 +3263,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -4584,6 +4586,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -4866,6 +4870,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Unlike boolean <varname>ProtectControlGroups</varname>, <varname>ProtectControlGroupsEx</varname>
       is a string type.</para>
+
+      <para><varname>PrivatePIDs</varname> implements the destination parameter of the
+      unit file setting <varname>PrivatePIDs=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note <varname>PrivatePIDs</varname> is a string type to allow adding more values in the future.</para>
     </refsect2>
   </refsect1>
 
@@ -5434,6 +5443,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6740,6 +6751,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -7437,6 +7450,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8581,6 +8596,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -9407,6 +9424,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -10522,6 +10541,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -12277,8 +12298,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExtraFileDescriptorNames</varname>,
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>BindLogSockets</varname>,
-      <varname>ProtectControlGroupsEx</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>ProtectControlGroupsEx</varname>,
+      <varname>PrivateUsersEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12319,8 +12341,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
-      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12358,8 +12381,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
-      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12397,8 +12421,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
-      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
