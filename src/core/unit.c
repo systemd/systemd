@@ -6379,30 +6379,40 @@ Condition *unit_find_failed_condition(Unit *u) {
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
 }
 
-int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
+bool unit_can_live_mount(const Unit *u, sd_bus_error *error) {
         assert(u);
+        assert(u->manager);
+
+        if (!MANAGER_IS_SYSTEM(u->manager)) {
+                sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_NOT_SUPPORTED,
+                                "Live mounting for unit '%s' cannot be scheduled: only supported by system manager",
+                                u->id);
+                return false;
+        }
 
         if (!UNIT_VTABLE(u)->live_mount) {
-                log_unit_debug(u, "Live mounting not supported for unit type '%s'", unit_type_to_string(u->type));
-                return sd_bus_error_setf(
+                sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Live mounting for unit '%s' cannot be scheduled: live mounting not supported for unit type '%s'",
                                 u->id,
                                 unit_type_to_string(u->type));
+                return false;
         }
 
         if (u->load_state != UNIT_LOADED) {
-                log_unit_debug(u, "Unit not loaded");
-                return sd_bus_error_setf(
+                sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_NO_SUCH_UNIT,
                                 "Live mounting for unit '%s' cannot be scheduled: unit not loaded",
                                 u->id);
+                return false;
         }
 
         if (!UNIT_VTABLE(u)->can_live_mount)
-                return 0;
+                return true;
 
         return UNIT_VTABLE(u)->can_live_mount(u, error);
 }
