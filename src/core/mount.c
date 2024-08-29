@@ -1916,6 +1916,18 @@ static void mount_handoff_timestamp(
         }
 }
 
+static void mount_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_pidref) {
+        Mount *m = ASSERT_PTR(MOUNT(u));
+
+        assert(parent_pidref);
+        assert(child_pidref);
+
+        if (pidref_equal(&m->control_pid, parent_pidref)) {
+                m->control_pid = TAKE_PIDREF(*child_pidref);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         usec_t t;
@@ -2421,6 +2433,7 @@ const UnitVTable mount_vtable = {
         .reset_failed = mount_reset_failed,
 
         .notify_handoff_timestamp = mount_handoff_timestamp,
+        .notify_pidref = mount_notify_pidref,
 
         .control_pid = mount_control_pid,
 
