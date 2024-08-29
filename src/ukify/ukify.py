@@ -948,7 +948,15 @@ def make_uki(opts):
         ('.profile', opts.profile,    True ),
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
-        *(('.dtb', dtb, True) for dtb in opts.devicetree),
+    ]
+
+    # This ugly hack is an attempt to fix unit tests
+    if hasattr(opts.devicetree, '__iter__'):
+        sections += [('.dtb', dtb, True) for dtb in opts.devicetree]
+    elif opts.devicetree is not None:
+        sections += [('.dtb', opts.devicetree, True)]
+
+    sections += [
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
