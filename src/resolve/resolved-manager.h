@@ -141,6 +141,9 @@ struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
+        /* List of refused DNS Record Types*/
+        char *refuse_record_types;
+
         OrderedSet *dns_extra_stub_listeners;
 
         /* Local DNS stub on 127.0.0.53:53 */
