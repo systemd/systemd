@@ -148,15 +148,15 @@ int find_pkcs11_auto_data(
                                                "PKCS#11 token data contains invalid PKCS#11 URI.");
 
                 w = sd_json_variant_by_key(v, "pkcs11-key");
-                if (!w || !sd_json_variant_is_string(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "PKCS#11 token data lacks 'pkcs11-key' field.");
 
                 assert(!key);
                 assert(key_size == 0);
-                r = unbase64mem(sd_json_variant_string(w), &key, &key_size);
+                r = sd_json_variant_unbase64(w, &key, &key_size);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 encoded key.");
+                        return log_error_errno(r, "Failed to decode base64 encoded key: %m");
         }
 
         if (!uri)
