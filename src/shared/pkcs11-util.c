@@ -526,7 +526,7 @@ int pkcs11_token_find_x509_certificate(
                                        "Failed to find objects: %s", sym_p11_kit_strerror(rv));
         if (rv2 != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv2));
         if (n_objects == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Failed to find selected X509 certificate on token.");
