@@ -255,6 +255,13 @@ evdev:input:b0003v0ED1p7821*
 # Dell
 #########################################
 
+# Dell AlpsPS/2 ALPS DualPoint TouchPad
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*:svnDellInc.*:pnLatitudeE7440*:
+ EVDEV_ABS_00=:::28
+ EVDEV_ABS_01=:::28
+ EVDEV_ABS_35=:::28
+ EVDEV_ABS_36=:::28
+
 # Dell Vostro 1510
 evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510:*
  EVDEV_ABS_00=::14
