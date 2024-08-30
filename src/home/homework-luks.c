@@ -2378,6 +2378,8 @@ int home_create_luks(
                             user_record_luks_discard(h),
                             /* quiet = */ true,
                             /* sector_size = */ 0,
+                            /* compression = */ NULL,
+                            /* compression_level= */ NULL,
                             extra_mkfs_options);
         if (r < 0)
                 return r;
