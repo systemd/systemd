@@ -1313,6 +1313,36 @@ testcase_list_devices() {
     systemd-repart --list-devices
 }
 
+testcase_compression() {
+    local workdir image defs
+
+    workdir="$(mktemp --directory "/tmp/test-repart.compression.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    image="$workdir/image.img"
+    defs="$workdir/defs"
+    mkdir "$defs"
+
+    # TODO: add btrfs once btrfs-progs v6.11 is available in distributions.
+    # TODO: add erofs once it runs properly under sanitizers (https://github.com/systemd/systemd/pull/34190#issuecomment-2323039923).
+    if ! command -v mksquashfs >/dev/null; then
+        return
+    fi
+
+    tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=squashfs
+Compression=zstd
+CompressionLevel=3
+CopyFiles=$defs:/def
+SizeMinBytes=48M
+EOF
+
+    systemd-repart --empty=create --size=auto --pretty=yes --dry-run=no --definitions="$defs" "$image"
+}
+
 OFFLINE="yes"
 run_testcases
 
