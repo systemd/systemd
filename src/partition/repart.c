@@ -4820,7 +4820,6 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
 }
 
 static int make_subvolumes_set(
-                Context *context,
                 const Partition *p,
                 const char *source,
                 const char *target,
@@ -4828,7 +4827,6 @@ static int make_subvolumes_set(
         _cleanup_set_free_ Set *subvolumes = NULL;
         int r;
 
-        assert(context);
         assert(p);
         assert(target);
         assert(ret);
@@ -4918,7 +4916,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                r = make_subvolumes_set(context, p, *source, *target, &subvolumes_by_source_inode);
+                r = make_subvolumes_set(p, *source, *target, &subvolumes_by_source_inode);
                 if (r < 0)
                         return r;
 
