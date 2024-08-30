@@ -1549,39 +1549,42 @@ int server_process_datagram(
         iovec = IOVEC_MAKE(s->buffer, MALLOC_ELEMENTSOF(s->buffer) - 1); /* Leave room for trailing NUL we add later */
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                if (n == -EXFULL) {
-                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
-                                              "Got message with truncated control data (too many fds sent?), ignoring.");
-                        return 0;
-                }
-                return log_ratelimit_error_errno(n, JOURNAL_LOG_RATELIMIT, "recvmsg() failed: %m");
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -ECHRNG) {
+                log_ratelimit_warning_errno(n, JOURNAL_LOG_RATELIMIT,
+                                            "Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
         }
+        if (n == -EXFULL) {
+                log_ratelimit_warning_errno(n, JOURNAL_LOG_RATELIMIT, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return log_ratelimit_error_errno(n, JOURNAL_LOG_RATELIMIT, "Failed to receive message: %m");
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                         cmsg->cmsg_type == SCM_SECURITY) {
+                } else if (cmsg->cmsg_type == SCM_SECURITY) {
                         assert(!label);
                         label = CMSG_TYPED_DATA(cmsg, char);
                         label_len = cmsg->cmsg_len - CMSG_LEN(0);
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SCM_TIMESTAMP &&
+                } else if (cmsg->cmsg_type == SCM_TIMESTAMP &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
                         assert(!tv);
                         tv = memcpy(&tv_buf, CMSG_DATA(cmsg), sizeof(struct timeval));
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                         cmsg->cmsg_type == SCM_RIGHTS) {
+                } else if (cmsg->cmsg_type == SCM_RIGHTS) {
                         assert(!fds);
                         fds = CMSG_TYPED_DATA(cmsg, int);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 }
+        }
 
         /* And a trailing NUL, just in case */
         s->buffer[n] = 0;
