@@ -1179,7 +1179,7 @@ static int check_calculate_seal(Tpm2Context *c) {
         int r;
 
         if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
-                log_notice("Skipping slow calculate seal TPM2 tests. Physical system detected, and slow tests disabled.");
+                log_notice("Skipping slow calculate seal TPM2 tests. Physical system detected, and slow tests disabled. (To enable, run again with $SYSTEMD_SLOW_TESTS=1.)");
                 return 0;
         }
 
@@ -1257,7 +1257,7 @@ static void check_seal_unseal(Tpm2Context *c) {
         assert(c);
 
         if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
-                log_notice("Skipping slow seal/unseal TPM2 tests. Physical system detected, and slow tests disabled.");
+                log_notice("Skipping slow seal/unseal TPM2 tests. Physical system detected, and slow tests disabled. (To enable, run again with $SYSTEMD_SLOW_TESTS=1.)");
                 return;
         }
 
