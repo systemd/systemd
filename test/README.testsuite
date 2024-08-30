@@ -136,7 +136,7 @@ To run the extended testsuite do the following:
 
 ```shell
 $ ninja -C build  # Avoid building anything as root later
-$ sudo test/run-integration-tests.sh
+$ sudo test/integration-test/run-integration-tests.sh
 ninja: Entering directory `/home/zbyszek/src/systemd/build'
 ninja: no work to do.
 --x-- Running TEST-01-BASIC --x--

@@ -112,7 +112,7 @@ EOF
     certtool --generate-self-signed \
       --load-privkey="pkcs11:token=TestToken;object=RSATestKey;type=private" \
       --load-pubkey="pkcs11:token=TestToken;object=RSATestKey;type=public" \
-      --template "$TEST_BASE_DIR/$TESTNAME/template.cfg" \
+      --template "$TEST_BASE_DIR/integration-test/$TESTNAME/template.cfg" \
       --outder --outfile "/tmp/rsa_test.crt"
 
     pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --write-object "/tmp/rsa_test.crt" --type cert --label "RSATestKey"
@@ -124,7 +124,7 @@ EOF
     certtool --generate-self-signed \
       --load-privkey="pkcs11:token=TestToken;object=ECTestKey;type=private" \
       --load-pubkey="pkcs11:token=TestToken;object=ECTestKey;type=public" \
-      --template "$TEST_BASE_DIR/$TESTNAME/template.cfg" \
+      --template "$TEST_BASE_DIR/integration-test/$TESTNAME/template.cfg" \
       --outder --outfile "/tmp/ec_test.crt"
 
     pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --write-object "/tmp/ec_test.crt" --type cert --label "ECTestKey"

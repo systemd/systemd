@@ -280,7 +280,7 @@ REQUIREMENTS:
         - python             (test-udev which is installed is in python)
         - python-pyparsing
         - python-evdev       (used by hwdb parsing tests)
-        - strace             (used by test/test-functions)
+        - strace             (used by test/integration-test/test-functions)
         - capsh              (optional, used by test-execute)
 
 POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:

@@ -56,7 +56,7 @@ declare -A TIMES
 
 if [[ "${NO_BUILD:-0}" =~ ^(1|yes|true)$ ]]; then
     BUILD_DIR=""
-elif BUILD_DIR="$("$(dirname "$0")/../tools/find-build-dir.sh")"; then
+elif BUILD_DIR="$("$(dirname "$0")/../../tools/find-build-dir.sh")"; then
     ninja -C "$BUILD_DIR"
 else
     echo >&2 "No build found, please set BUILD_DIR or NO_BUILD"
