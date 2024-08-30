@@ -2234,6 +2234,37 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         return 0;
 }
 
+static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r, q;
+
+        if (unshare(CLONE_NEWPID) < 0)
+                return log_exec_debug_errno(c, p, errno, "Failed to unshare pid namespace: %m");
+
+        /* The first process created after unsharing a pid namespace becomes PID 1 in the pid namespace, so
+         * we have to fork after unsharing the pid namespace to become PID 1. The parent sends the child
+         * pidref to the manager and exits while the child process continues with the rest of exec_invoke()
+         * and finally executes the actual payload. */
+
+        r = pidref_safe_fork("(sd-pidfd-child)", /*flags=*/ 0, &pidref);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to fork child into new pid namespace: %m");
+
+        if (r > 0) {
+                /* In the parent process, we send the child pidref to the manager and exit. */
+
+                if (p->pidref_transport_fd >= 0) {
+                        q = send_one_fd_iov(p->pidref_transport_fd, pidref.fd, &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)), 1, 0);
+                        if (q < 0)
+                                return log_exec_debug_errno(c, p, q, "Failed to send child pidref to manager: %m");
+                }
+        }
+
+        p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
+
+        return r;
+}
+
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
         _cleanup_free_ char *src_abs = NULL;
         int r;
@@ -3508,7 +3539,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 16];
+        int dont_close[n_fds + 17];
 
         assert(params);
 
@@ -3546,6 +3577,9 @@ static int close_remaining_fds(
 
         if (params->handoff_timestamp_fd >= 0)
                 dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        if (params->pidref_transport_fd >= 0)
+                dont_close[n_dont_close++] = params->pidref_transport_fd;
 
         assert(n_dont_close <= ELEMENTSOF(dont_close));
 
@@ -4831,6 +4865,23 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
                                                     error_path ? ": " : "", strempty(error_path));
                 }
+        }
+
+        if (context->private_pids) {
+                if (ns_type_supported(NAMESPACE_PID)) {
+                        r = setup_private_pids(context, params);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivatePIDs=yes is configured, but pid namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                        }
+
+                        if (r > 0)
+                                return 0;
+                } else
+                        log_exec_warning(context, params, "PrivatePIDs=yes is configured, but the kernel does not support pid namespaces, ignoring.");
         }
 
         if (needs_sandboxing) {

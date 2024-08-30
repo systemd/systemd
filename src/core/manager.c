@@ -126,6 +126,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
@@ -904,6 +905,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .signal_fd = -EBADF,
                 .user_lookup_fds = EBADF_PAIR,
                 .handoff_timestamp_fds = EBADF_PAIR,
+                .pidref_transport_fds = EBADF_PAIR,
                 .private_listen_fd = -EBADF,
                 .dev_autofs_fd = -EBADF,
                 .cgroup_inotify_fd = -EBADF,
@@ -1296,6 +1298,53 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
                         return log_error_errno(r, "Failed to set priority of handoff timestamp event source: %m");
 
                 (void) sd_event_source_set_description(m->handoff_timestamp_event_source, "handoff-timestamp");
+        }
+
+        return 0;
+}
+
+static int manager_setup_pidref_transport_fd(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* Set up the socket pair used for passing timestamps back when the executor processes we fork
+         * off invokes execve(), i.e. when we hand off control to our payload processes. */
+
+        if (m->pidref_transport_fds[0] < 0) {
+                m->pidref_event_source = sd_event_source_disable_unref(m->pidref_event_source);
+                safe_close_pair(m->pidref_transport_fds);
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->pidref_transport_fds) < 0)
+                        return log_error_errno(errno, "Failed to allocate pidref socket: %m");
+
+                /* Make sure children never have to block */
+                (void) fd_increase_rxbuf(m->pidref_transport_fds[0], NOTIFY_RCVBUF_SIZE);
+
+                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_error_errno(r, "SO_PASSCRED failed: %m");
+
+                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSPIDFD, true);
+                if (r < 0 && r != -ENOPROTOOPT)
+                        log_warning_errno(r, "Failed to enable SO_PASSPIDFD for notify socket, ignoring: %m");
+
+                /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
+                r = fd_nonblock(m->pidref_transport_fds[0], true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make pidref socket O_NONBLOCK: %m");
+        }
+
+        if (!m->pidref_event_source) {
+                r = sd_event_add_io(m->event, &m->pidref_event_source, m->pidref_transport_fds[0], EPOLLIN, manager_dispatch_pidref_transport_fd, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate pidref event source: %m");
+
+                r = sd_event_source_set_priority(m->pidref_event_source, EVENT_PRIORITY_PIDREF);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set priority of pidref event source: %m");
+
+                (void) sd_event_source_set_description(m->pidref_event_source, "pidref");
         }
 
         return 0;
@@ -1716,6 +1765,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
         sd_event_source_unref(m->handoff_timestamp_event_source);
+        sd_event_source_unref(m->pidref_event_source);
         sd_event_source_unref(m->memory_pressure_event_source);
 
         safe_close(m->signal_fd);
@@ -1723,6 +1773,7 @@ Manager* manager_free(Manager *m) {
         safe_close(m->cgroups_agent_fd);
         safe_close_pair(m->user_lookup_fds);
         safe_close_pair(m->handoff_timestamp_fds);
+        safe_close_pair(m->pidref_transport_fds);
 
         manager_close_ask_password(m);
 
@@ -2065,6 +2116,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                         return r;
 
                 r = manager_setup_handoff_timestamp_fd(m);
+                if (r < 0)
+                        /* This shouldn't fail, except if things are really broken. */
+                        return r;
+
+                r = manager_setup_pidref_transport_fd(m);
                 if (r < 0)
                         /* This shouldn't fail, except if things are really broken. */
                         return r;
@@ -3744,6 +3800,7 @@ int manager_reload(Manager *m) {
         (void) manager_setup_cgroups_agent(m);
         (void) manager_setup_user_lookup_fd(m);
         (void) manager_setup_handoff_timestamp_fd(m);
+        (void) manager_setup_pidref_transport_fd(m);
 
         /* Third, fire things up! */
         manager_coldplug(m);
@@ -4981,6 +5038,98 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
                 UNIT_VTABLE(*u)->notify_handoff_timestamp(*u, ucred, &dt);
         }
+
+        return 0;
+}
+
+static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) * 2) control;
+        struct msghdr msghdr = {
+                .msg_iov = &IOVEC_MAKE(&child_pidref.pid, sizeof(child_pidref.pid)),
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        ssize_t n;
+        int r;
+
+        assert(source);
+
+        n = recvmsg_safe(m->pidref_transport_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0; /* Spurious wakeup, try again */
+        if (n == -EXFULL) {
+                log_warning("Got message with truncated control, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to receive pidref message: %m");
+
+        if (msghdr.msg_flags & MSG_TRUNC) {
+                log_warning("Got truncated pidref message, ignoring.");
+                return 0;
+        }
+        if (n != sizeof(child_pidref.pid)) {
+                log_warning("Got pidref message of unexpected size %zi (expected %zu), ignoring.", n, sizeof(child_pidref.pid));
+                return 0;
+        }
+
+        struct cmsghdr *cmsg;
+        struct ucred *ucred = NULL;
+        _cleanup_close_ int pidfd = -EBADF;
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_CREDENTIALS && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        assert(!ucred);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                } else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(pidfd < 0);
+                        pidfd = *CMSG_TYPED_DATA(cmsg, int);
+                }
+        }
+
+        if (!ucred || !pid_is_valid(ucred->pid)) {
+                log_warning("Received pidref message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        if (pidfd >= 0)
+                r = pidref_set_pidfd_consume(&pidref, TAKE_FD(pidfd));
+        else
+                r = pidref_set_pid(&pidref, ucred->pid);
+        if (r < 0) {
+                if (r == -ESRCH)
+                        log_debug_errno(r, "Pidref sender died before message is processed. Ignoring.");
+                else
+                        log_warning_errno(r, "Failed to pin pidref sender, ignoring message: %m");
+                return 0;
+        }
+
+        if (pidref.pid != ucred->pid) {
+                assert(pidref.fd >= 0);
+
+                log_warning("Got SCM_PIDFD for process " PID_FMT " but SCM_CREDENTIALS for process " PID_FMT ". Ignoring.",
+                            pidref.pid, ucred->pid);
+                return 0;
+        }
+
+        log_debug("Got pidref event for PID " PID_FMT ".", pidref.pid);
+
+        Unit *u = manager_get_unit_by_pidref_cgroup(m, &pidref);
+        if (!u) {
+                log_debug("Got pidref for process " PID_FMT " we are not interested in, ignoring.", pidref.pid);
+                return 0;
+        }
+
+        if (!UNIT_VTABLE(u)->notify_pidref)
+                return 0;
+
+        UNIT_VTABLE(u)->notify_pidref(u, &pidref, &child_pidref);
 
         return 0;
 }
