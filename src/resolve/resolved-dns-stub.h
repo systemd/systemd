@@ -25,6 +25,8 @@ struct DnsStubListenerExtra {
         union in_addr_union address;
         uint16_t port;
 
+        Set *refuse_record_types;
+
         sd_event_source *udp_event_source;
         sd_event_source *tcp_event_source;
 

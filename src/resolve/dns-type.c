@@ -104,12 +104,6 @@ bool dns_class_is_valid_rr(uint16_t class) {
         return class != DNS_CLASS_ANY;
 }
 
-bool dns_type_is_aaaa_rr(uint16_t type) {
-              /* Check if it is IPv6 AAAA resource record */
-
-              return type == DNS_TYPE_AAAA;
-}
-
 bool dns_type_may_redirect(uint16_t type) {
         /* The following record types should never be redirected using
          * CNAME/DNAME RRs. See

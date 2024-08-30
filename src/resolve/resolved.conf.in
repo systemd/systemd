@@ -35,4 +35,4 @@
 #ReadEtcHosts=yes
 #ResolveUnicastSingleLabel=no
 #StaleRetentionSec=0
-#DisableAAAAQuery=no
+#RefuseRecordTypes=AAAA,MX
