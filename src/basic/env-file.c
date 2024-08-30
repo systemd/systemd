@@ -79,7 +79,7 @@ static int parse_env_file_internal(
                                 n_key = 0;
                         } else if (c == '=') {
                                 state = PRE_VALUE;
-                                last_value_whitespace = SIZE_MAX;
+                                last_key_whitespace = SIZE_MAX;
                         } else {
                                 if (!strchr(WHITESPACE, c))
                                         last_key_whitespace = SIZE_MAX;
