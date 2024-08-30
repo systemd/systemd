@@ -867,8 +867,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (l <= 0)
                 return l;
 
-        assert(!(mh.msg_flags & MSG_TRUNC));
-
         p->size = (size_t) l;
 
         p->family = sa.sa.sa_family;
