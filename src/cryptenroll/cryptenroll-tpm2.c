@@ -26,7 +26,7 @@ static int search_policy_hash(
         assert(iovec_is_valid(hash));
 
         if (!iovec_is_set(hash))
-                return 0;
+                return -ENOENT;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
