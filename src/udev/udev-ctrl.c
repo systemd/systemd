@@ -170,14 +170,22 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         uctrl = udev_ctrl_ref(userdata);
 
         size = recvmsg_safe(fd, &smsg, 0);
-        if (size == -EINTR)
+        if (ERRNO_IS_NEG_TRANSIENT(size))
                 return 0;
+        if (size == -ECHRNG) {
+                log_warning_errno(size, "Got message with truncated control data (unexpected fds sent?), ignoring.");
+                return 0;
+        }
+        if (size == -EXFULL) {
+                log_warning_errno(size, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
         if (size < 0)
                 return log_error_errno(size, "Failed to receive ctrl message: %m");
 
         cmsg_close_all(&smsg);
 
-        if (size != sizeof(msg_wire) || FLAGS_SET(smsg->flags, MSG_TRUNC)) {
+        if (size != sizeof(msg_wire)) {
                 log_warning("Received message with invalid length, ignoring");
                 return 0;
         }
