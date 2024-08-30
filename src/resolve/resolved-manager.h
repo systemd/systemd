@@ -141,8 +141,8 @@ struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
-        /* Enable/Disable IPv6 AAAA record query */
-        bool disable_aaaa_query;
+        /* List of refused DNS Record Types*/
+        char *refuse_record_types;
 
         OrderedSet *dns_extra_stub_listeners;
 
