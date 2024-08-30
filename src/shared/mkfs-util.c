@@ -323,6 +323,8 @@ int make_filesystem(
                 bool discard,
                 bool quiet,
                 uint64_t sector_size,
+                char *compression,
+                uint64_t compression_level,
                 char * const *extra_mkfs_args) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
@@ -456,6 +458,20 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                if (compression) {
+                        _cleanup_free_ char *c = NULL;
+
+                        c = strdup(compression);
+                        if (!c)
+                                return log_oom();
+
+                        if (compression_level > 0 && strextendf(&c, ":%" PRIu64, compression_level) < 0)
+                                return log_oom();
+
+                        if (strv_extend_many(&argv, "--compression", c) < 0)
+                                return log_oom();
+                }
+
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
                  * isn't silenced by "-q", so let's redirect stdout to /dev/null as well. */
                 if (quiet)
@@ -570,18 +586,44 @@ int make_filesystem(
                                 root, node,
                                 "-noappend");
 
+                if (compression) {
+                        if (strv_extend_many(&argv, "-comp", compression) < 0)
+                                return log_oom();
+
+                        if (compression_level > 0) {
+                                if (strv_extend(&argv, "-Xcompression-level") < 0)
+                                        return log_oom();
+
+                                if (strv_extendf(&argv, "%"PRIu64, compression_level) < 0)
+                                        return log_oom();
+                        }
+                }
+
                 /* mksquashfs -quiet option is pretty new so let's redirect stdout to /dev/null instead. */
                 if (quiet)
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "erofs")) {
-
                 argv = strv_new(mkfs,
                                 "-U", vol_id,
                                 node, root);
 
                 if (quiet && strv_extend(&argv, "--quiet") < 0)
                         return log_oom();
+
+                if (compression) {
+                        _cleanup_free_ char *c = NULL;
+
+                        c = strjoin("-z", compression);
+                        if (!c)
+                                return log_oom();
+
+                        if (compression_level > 0 && strextendf(&c, ",level=%"PRIu64, compression_level) < 0)
+                                return log_oom();
+
+                        if (strv_extend(&argv, c) < 0)
+                                return log_oom();
+                }
 
         } else
                 /* Generic fallback for all other file systems */
