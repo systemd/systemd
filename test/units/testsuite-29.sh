@@ -67,6 +67,21 @@ busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/
 
 # Ensure we don't regress (again) when using --force
 
+mkdir -p /run/systemd/system.attached/minimal-app0.service.d/
+cat <<EOF >/run/systemd/system.attached/minimal-app0.service
+[Unit]
+Description=Minimal App 0
+EOF
+cat <<EOF >/run/systemd/system.attached/minimal-app0.service.d/10-profile.conf
+[Unit]
+Description=Minimal App 0
+EOF
+cat <<EOF >/run/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+[Unit]
+Description=Minimal App 0
+EOF
+systemctl daemon-reload
+
 portablectl "${ARGS[@]}" attach --force --now --runtime /usr/share/minimal_0.raw minimal-app0
 
 portablectl is-attached --force minimal-app0
@@ -222,6 +237,28 @@ grep . /tmp/overlay/usr/lib/extension-release.d/*
 grep . /tmp/overlay/etc/os-release
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/overlay app1
+
+systemctl is-active app1.service
+
+portablectl detach --now --runtime overlay app1
+
+# Ensure --force works also when symlinking
+mkdir -p /run/systemd/system.attached/app1.service.d
+cat <<EOF >/run/systemd/system.attached/app1.service
+[Unit]
+Description=App 1
+EOF
+cat <<EOF >/run/systemd/system.attached/app1.service.d/10-profile.conf
+[Unit]
+Description=App 1
+EOF
+cat <<EOF >/run/systemd/system.attached/app1.service.d/20-portable.conf
+[Unit]
+Description=App 1
+EOF
+systemctl daemon-reload
+
+portablectl "${ARGS[@]}" attach --force --copy=symlink --now --runtime /tmp/overlay app1
 
 systemctl is-active app1.service
 

@@ -1182,8 +1182,12 @@ static int install_profile_dropin(
                 return -ENOMEM;
 
         if (flags & PORTABLE_PREFER_COPY) {
+                CopyFlags copy_flags = COPY_REFLINK|COPY_FSYNC;
 
-                r = copy_file_atomic(from, dropin, 0644, COPY_REFLINK|COPY_FSYNC);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        copy_flags |= COPY_REPLACE;
+
+                r = copy_file_atomic(from, dropin, 0644, copy_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
@@ -1191,8 +1195,12 @@ static int install_profile_dropin(
 
         } else {
 
-                if (symlink(from, dropin) < 0)
-                        return log_debug_errno(errno, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        r = symlink_atomic(from, dropin);
+                else
+                        r = RET_NERRNO(symlink(from, dropin));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, dropin, from);
         }
@@ -1278,14 +1286,22 @@ static int attach_unit_file(
 
         if ((flags & PORTABLE_PREFER_SYMLINK) && m->source) {
 
-                if (symlink(m->source, path) < 0)
-                        return log_debug_errno(errno, "Failed to symlink unit file '%s': %m", path);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        r = symlink_atomic(m->source, path);
+                else
+                        r = RET_NERRNO(symlink(m->source, path));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to symlink unit file '%s': %m", path);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, path, m->source);
 
         } else {
+                LinkTmpfileFlags link_flags = LINK_TMPFILE_SYNC;
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -EBADF;
+
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        link_flags |= LINK_TMPFILE_REPLACE;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1301,7 +1317,7 @@ static int attach_unit_file(
                 if (fchmod(fd, 0644) < 0)
                         return log_debug_errno(errno, "Failed to change unit file access mode for '%s': %m", path);
 
-                r = link_tmpfile(fd, tmp, path, LINK_TMPFILE_SYNC);
+                r = link_tmpfile(fd, tmp, path, link_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to install unit file '%s': %m", path);
 
