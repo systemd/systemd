@@ -1130,42 +1130,37 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 
 static int service_load_pid_file(Service *s, bool may_warn) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        bool questionable_pid_file = false;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *k = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r, prio;
+        bool questionable_pid_file = false;
+        int r, prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
         assert(s);
 
         if (!s->pid_file)
                 return -ENOENT;
 
-        prio = may_warn ? LOG_INFO : LOG_DEBUG;
-
-        r = chase(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
+        r = chase_and_fopen_unlocked(s->pid_file, NULL, CHASE_SAFE, "re", NULL, &f);
         if (r == -ENOLINK) {
                 log_unit_debug_errno(UNIT(s), r,
                                      "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
-                r = chase(s->pid_file, NULL, 0, NULL, &fd);
+                r = chase_and_fopen_unlocked(s->pid_file, NULL, 0, "re", NULL, &f);
         }
         if (r < 0)
                 return log_unit_full_errno(UNIT(s), prio, r,
-                                           "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+                                           "Can't open PID file '%s' (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
-        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
-         * chase() returned us into a proper fd first. */
-        r = read_one_line_file(FORMAT_PROC_FD_PATH(fd), &k);
+        /* Let's read the PID file now that we chased it down. */
+        r = read_line(f, LINE_MAX, &k);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r,
-                                            "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",
-                                            s->pid_file);
+                return log_unit_error_errno(UNIT(s), r, "Failed to read PID file '%s': %m", s->pid_file);
 
         r = pidref_set_pidstr(&pidref, k);
         if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to create reference to PID %s from file '%s': %m", k, s->pid_file);
 
         if (s->main_pid_known && pidref_equal(&pidref, &s->main_pid))
                 return 0;
@@ -1182,14 +1177,14 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
-                if (fstat(fd, &st) < 0)
-                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
+                if (fstat(fileno(f), &st) < 0)
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file '%s': %m", s->pid_file);
 
                 if (st.st_uid != 0)
                         return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
-                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
+                                                    "New main PID "PID_FMT" from PID file does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
 
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pidref.pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, accepting anyway since PID file is owned by root.", pidref.pid);
         }
 
         if (s->main_pid_known) {
