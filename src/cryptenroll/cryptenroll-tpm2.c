@@ -26,7 +26,7 @@ static int search_policy_hash(
         assert(iovec_is_valid(hash));
 
         if (!iovec_is_set(hash))
-                return 0;
+                return -ENOENT;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -443,7 +443,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 slot_to_wipe = r;
         } else {
                 log_info("This PCR set is already enrolled, executing no operation.");
-                *ret_slot_to_wipe = slot_to_wipe;
+                *ret_slot_to_wipe = -1;
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
