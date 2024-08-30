@@ -282,9 +282,9 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                         iov[0] = IOVEC_MAKE(&family, sizeof(family));
                         iov[1] = IOVEC_MAKE(&in_addr, sizeof(in_addr));
 
-                        n = recvmsg(pair[0], &mh, 0);
+                        n = recvmsg_safe(pair[0], &mh, 0);
                         if (n < 0)
-                                return -errno;
+                                return n;
                         if ((size_t) n < sizeof(family))
                                 break;
 
