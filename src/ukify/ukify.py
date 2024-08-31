@@ -240,6 +240,7 @@ class UkifyConfig:
     devicetree: Path
     devicetree_auto: list[Path]
     efi_arch: str
+    hwids_directory: Path
     initrd: list[Path]
     join_profiles: list[Path]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
@@ -365,6 +366,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.splash':  'binary',
     '.dtb':     'binary',
     '.dtbauto': 'binary',
+    '.hwids':   'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -577,7 +579,10 @@ def check_inputs(opts: UkifyConfig) -> None:
 
         if isinstance(value, Path):
             # Open file to check that we can read it, or generate an exception
-            value.open().close()
+            if not value.is_dir():
+                value.open().close()
+            else:
+                value.iterdir()
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, Path):
@@ -923,6 +928,117 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
     )
 
 
+# Keep in sync with EFI_GUID (src/boot/efi/efi.h)
+# uint32_t Data1, uint16_t Data2, uint16_t Data3, uint8_t Data4[8]
+EFI_GUID = tuple[int, int, int, tuple[int, int, int, int, int, int, int, int]]
+EFI_GUID_STRUCT_SIZE = 4 + 2 + 2 + 1 * 8
+
+# Keep in sync with Device (src/boot/efi/chid.h)
+# uint32_t struct_size, uint32_t name_offset, uint32_t compatible_offset, EFI_GUID chid
+DEVICE_STRUCT_SIZE = 4 + 4 + 4 + EFI_GUID_STRUCT_SIZE
+NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
+
+
+def pack_device(offsets: dict[str, int], name: str, compatible: str, chids: set[EFI_GUID]) -> bytes:
+    data = b''
+
+    for data1, data2, data3, data4 in chids:
+        data += struct.pack(
+            '<IIIIHH8B', DEVICE_STRUCT_SIZE, offsets[name], offsets[compatible], data1, data2, data3, *data4
+        )
+
+    assert len(data) == DEVICE_STRUCT_SIZE * len(chids)
+    return data
+
+
+def hex_pairs_list(string: str) -> list[int]:
+    return [int(string[i : i + 2], 16) for i in range(0, len(string), 2)]
+
+
+def pack_strings(strings: set[str], base: int) -> tuple[bytes, dict[str, int]]:
+    blob = b''
+    offsets = {}
+
+    for string in sorted(strings):
+        offsets[string] = base + len(blob)
+        blob += string.encode('utf-8') + b'\00'
+
+    return (blob, offsets)
+
+
+def parse_hwid_dir(path: Path) -> bytes:
+    hwid_files = path.rglob('*.txt')
+
+    strings: set[str] = set()
+    devices: dict[tuple[str, str], set[EFI_GUID]] = dict()
+
+    uuid_regexp = re.compile(
+        '\\{[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}\\}', re.I
+    )
+
+    for hwid_file in hwid_files:
+        content = []
+        with open(hwid_file) as f:
+            content = f.readlines()
+
+        data: dict[str, str] = {
+            'Manufacturer': '',
+            'Family': '',
+            'Compatible': '',
+        }
+        uuids: set[EFI_GUID] = set()
+
+        for line in content:
+            for k in data:
+                if line.startswith(k):
+                    data[k] = line.split(':')[1].strip()
+                    break
+            else:
+                uuid = uuid_regexp.match(line)
+                if uuid is not None:
+                    d1, d2, d3, d4, d5 = uuid.group(0)[1:-1].split('-')
+
+                    data1 = int(d1, 16)
+                    data2 = int(d2, 16)
+                    data3 = int(d3, 16)
+                    data4 = cast(
+                        tuple[int, int, int, int, int, int, int, int],
+                        tuple(hex_pairs_list(d4) + hex_pairs_list(d5)),
+                    )
+
+                    uuids |= set([(data1, data2, data3, data4)])
+
+        for k, v in data.items():
+            if not v:
+                raise ValueError(f'hwid description file "{hwid_file}" does not contain "{k}"')
+
+        name = data['Manufacturer'] + ' ' + data['Family']
+        compatible = data['Compatible']
+
+        strings |= set([name, compatible])
+
+        # (compatible, name) pair uniquely identifies the device
+        key = (compatible, name)
+
+        if key not in devices:
+            devices[key] = set()
+        devices[key] |= uuids
+
+    total_device_structs = 1
+    for dev, uuids in devices.items():
+        total_device_structs += len(uuids)
+
+    strings_blob, offsets = pack_strings(strings, total_device_structs * DEVICE_STRUCT_SIZE)
+
+    devices_blob = b''
+    for (compatible, name), uuids in devices.items():
+        devices_blob += pack_device(offsets, name, compatible, uuids)
+
+    devices_blob += NULL_DEVICE
+
+    return devices_blob + strings_blob
+
+
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
@@ -936,7 +1052,6 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 
 def make_uki(opts: UkifyConfig) -> None:
     assert opts.output is not None
-
     # kernel payload signing
 
     sign_args_present = opts.sb_key or opts.sb_cert_name
@@ -994,12 +1109,18 @@ def make_uki(opts: UkifyConfig) -> None:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
+    hwids = None
+
+    if opts.hwids_directory is not None:
+        hwids = parse_hwid_dir(opts.hwids_directory)
+
     sections = [
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
         *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
+        ('.hwids',   hwids,           True),
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
@@ -1566,6 +1687,14 @@ CONFIG_ITEMS = [
         default = [],
         config_key='UKI/DeviceTreeAuto',
         config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--hwids-directory',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        help='Directory with HWID text files [.hwids section]',
+        config_key='UKI/HWIDsDirectory',
     ),
     ConfigItem(
         '--uname',
