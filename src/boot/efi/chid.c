@@ -1,0 +1,332 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2024 Nikita Travkin <nikita@trvn.ru> */
+
+/*
+ * Based on Linaro dtbloader implementation.
+ * Copyright (c) 2019, Linaro. All rights reserved.
+ *
+ * https://github.com/aarch64-laptops/edk2/blob/dtbloader-app/EmbeddedPkg/Application/ConfigTableLoader/CHID.c
+ */
+
+#include "chid.h"
+#include "efi.h"
+#include "sha1-fundamental.h"
+#include "util.h"
+#include "smbios.h"
+
+/**
+ * hash_strings() - Hash a list of strings after concatenating them.
+ * @hash:     Pointer to the result buffer.
+ * @seed:     Arbitrary data to prepend to payload.
+ * @seed_len: Size of seed.
+ * @count:    Amount of strings.
+ * @...:  One or more char16_t strings to use as message.
+ */
+static void hash_strings_sha1(uint8_t ret_hash[SHA1_DIGEST_SIZE], const void *seed, size_t seed_len, int count, ...) {
+        va_list args;
+        size_t len;
+        uint8_t *str;
+
+        struct sha1_ctx ctx = {};
+        sha1_init_ctx(&ctx);
+
+        if (seed) {
+                sha1_process_bytes(seed, &ctx, seed_len);
+        }
+
+        va_start(args, count);
+
+        for (int i = 0; i < count; ++i) {
+                str = va_arg(args, uint8_t *);
+                len = strlen16((char16_t *) str) * sizeof(char16_t);
+
+                if (len == 0)
+                        continue;
+
+                sha1_process_bytes(str, &ctx, len);
+        }
+
+        sha1_finish_ctx(&ctx, ret_hash);
+
+        va_end(args);
+}
+
+typedef struct SmbiosInfo {
+        char16_t *manufacturer;
+        char16_t *product_name;
+        char16_t *product_sku;
+        char16_t *family;
+        char16_t *baseboard_product;
+        char16_t *baseboard_manufacturer;
+} SmbiosInfo;
+
+/**
+ * smbios_to_hashable_string() - Convert ascii smbios string to stripped char16_t.
+ */
+static char16_t *smbios_to_hashable_string(const char *str) {
+        int len, i;
+        char16_t *ret;
+
+        if (!str) {
+                /* User of this function is expected to free the result. */
+                ret = xcalloc(sizeof(*ret));
+                return ret;
+        }
+
+        /*
+         * We need to strip leading and trailing spaces, leading zeroes.
+         * See fwupd/libfwupdplugin/fu-hwids-smbios.c
+         */
+        while (*str == ' ')
+                str++;
+
+        while (*str == '0')
+                str++;
+
+        len = strlen8(str);
+
+        while (len && str[len - 1] == ' ')
+                len--;
+
+        ret = xcalloc_multiply(len + 1, sizeof(*ret));
+        if (!ret)
+                return NULL;
+
+        for (i = 0; i < len; ++i)
+                ret[i] = str[i];
+
+        return ret;
+}
+
+static void smbios_info_populate(SmbiosInfo *info) {
+        RawSmbiosInfo raw;
+        smbios_raw_info_populate(&raw);
+
+        info->manufacturer = smbios_to_hashable_string(raw.manufacturer);
+        info->product_name = smbios_to_hashable_string(raw.product_name);
+        info->product_sku = smbios_to_hashable_string(raw.product_sku);
+        info->family = smbios_to_hashable_string(raw.family);
+        info->baseboard_product = smbios_to_hashable_string(raw.baseboard_product);
+        info->baseboard_manufacturer = smbios_to_hashable_string(raw.baseboard_manufacturer);
+}
+
+static void smbios_info_done(SmbiosInfo *info) {
+        assert(info);
+        info->manufacturer = mfree(info->manufacturer);
+        info->product_name = mfree(info->product_name);
+        info->product_sku = mfree(info->product_sku);
+        info->family = mfree(info->family);
+        info->baseboard_product = mfree(info->baseboard_product);
+        info->baseboard_manufacturer = mfree(info->baseboard_manufacturer);
+}
+
+static EFI_STATUS get_chid(SmbiosInfo *info, unsigned id, EFI_GUID *ret_chid) {
+        assert(info);
+        assert(ret_chid);
+        EFI_GUID namespace = { 0x12d8ff70, 0x7f4c, 0x7d4c, {} }; /* Swapped to BE */
+        uint8_t hash[SHA1_DIGEST_SIZE] = {};
+
+        switch (id) {
+        case 3:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                11,
+                                info->manufacturer,
+                                L"&",
+                                info->family,
+                                L"&",
+                                info->product_name,
+                                L"&",
+                                info->product_sku,
+                                L"&",
+                                info->baseboard_manufacturer,
+                                L"&",
+                                info->baseboard_product);
+                break;
+        case 4:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                7,
+                                info->manufacturer,
+                                L"&",
+                                info->family,
+                                L"&",
+                                info->product_name,
+                                L"&",
+                                info->product_sku);
+                break;
+        case 5:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                5,
+                                info->manufacturer,
+                                L"&",
+                                info->family,
+                                L"&",
+                                info->product_name);
+                break;
+        case 6:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                7,
+                                info->manufacturer,
+                                L"&",
+                                info->product_sku,
+                                L"&",
+                                info->baseboard_manufacturer,
+                                L"&",
+                                info->baseboard_product);
+                break;
+        case 7:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                3,
+                                info->manufacturer,
+                                L"&",
+                                info->product_sku);
+                break;
+        case 8:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                7,
+                                info->manufacturer,
+                                L"&",
+                                info->product_name,
+                                L"&",
+                                info->baseboard_manufacturer,
+                                L"&",
+                                info->baseboard_product);
+                break;
+        case 9:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                3,
+                                info->manufacturer,
+                                L"&",
+                                info->product_name);
+                break;
+        case 10:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                7,
+                                info->manufacturer,
+                                L"&",
+                                info->family,
+                                L"&",
+                                info->baseboard_manufacturer,
+                                L"&",
+                                info->baseboard_product);
+                break;
+        case 11:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                3,
+                                info->manufacturer,
+                                L"&",
+                                info->family);
+                break;
+        case 13:
+                hash_strings_sha1(
+                                hash,
+                                (uint8_t *) &namespace,
+                                sizeof(namespace),
+                                5,
+                                info->manufacturer,
+                                L"&",
+                                info->baseboard_manufacturer,
+                                L"&",
+                                info->baseboard_product);
+                break;
+        case 14:
+                hash_strings_sha1(
+                                hash, (uint8_t *) &namespace, sizeof(namespace), 1, info->manufacturer);
+                break;
+        default:
+                return EFI_SUCCESS; /* Just keep empty to prevent match. */
+        }
+
+        assert_cc(sizeof(hash) >= sizeof(*ret_chid));
+        memcpy(ret_chid, hash, sizeof(*ret_chid));
+
+        /* Convert the resulting CHID back to little-endian: */
+        ret_chid->Data1 = bswap_32(ret_chid->Data1);
+        ret_chid->Data2 = bswap_16(ret_chid->Data2);
+        ret_chid->Data3 = bswap_16(ret_chid->Data3);
+
+        /* set specific bits according to RFC4122 Section 4.1.3 */
+        ret_chid->Data3 = (ret_chid->Data3 & 0x0fff) | (5 << 12);
+        ret_chid->Data4[0] = (ret_chid->Data4[0] & 0x3f) | 0x80;
+
+        return EFI_SUCCESS;
+}
+
+/**
+ * populate_board_hwids() - Read board SMBIOS and produce an array of CHID values as described in https://github.com/fwupd/fwupd/blob/main/docs/hwids.md
+ * @hwids:  Pointer to an array of chids to be filled.
+ */
+static EFI_STATUS populate_board_hwids(EFI_GUID ret_hwids[static 15]) {
+        EFI_STATUS status;
+        _cleanup_(smbios_info_done) SmbiosInfo info = {};
+
+        if (!ret_hwids)
+                return EFI_INVALID_PARAMETER;
+
+        smbios_info_populate(&info);
+
+        for (int i = 0; i < 15; ++i) {
+                status = get_chid(&info, i, &ret_hwids[i]);
+                if (EFI_STATUS_IS_ERROR(status))
+                        return status;
+        }
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS hwid_match(const void *hwids_buffer, size_t hwids_length, const Device **ret_device) {
+        EFI_STATUS status;
+
+        const Device *devices = hwids_buffer;
+        size_t n_devices = hwids_length / sizeof(*devices);
+
+        assert(hwids_length % sizeof(*devices) == 0);
+        assert(n_devices > 0);
+        assert(devices);
+
+        EFI_GUID hwids[15] = {};
+        static const int priority[] = { 3, 6, 8, 10, 4, 5, 7, 9, 11 }; /* From most to least specific. */
+
+        status = populate_board_hwids(hwids);
+        if (EFI_STATUS_IS_ERROR(status)) {
+                log_error_status(status, "failed to populate board HWIDs");
+                return status;
+        }
+
+        FOREACH_ELEMENT(i, priority) {
+                FOREACH_ARRAY(dev, devices, n_devices)
+                        for (size_t j = 0; j < ELEMENTSOF(dev->hwids) && dev->hwids[j].Data1; j++)
+                                if (efi_guid_equal(&hwids[*i], &dev->hwids[j])) {
+                                        *ret_device = dev;
+                                        return EFI_SUCCESS;
+                                }
+        }
+
+        return EFI_NOT_FOUND;
+}
