@@ -258,13 +258,11 @@ static void job_on_ready(Job *j) {
                 log_warning_errno(r, "Failed to run callback on job ready event, ignoring: %m");
 }
 
-static void job_on_errno(Job *j, char *b) {
-        /* Take ownership of donated buffer */
-        _cleanup_free_ char *buf = TAKE_PTR(b);
+static void job_on_errno(Job *j, char *buf) {
         int r;
 
         assert(j);
-        assert_se(buf);
+        assert(buf);
 
         r = parse_errno(buf);
         if (r < 0) {
@@ -277,14 +275,12 @@ static void job_on_errno(Job *j, char *b) {
         log_debug_errno(r, "Got errno from job %" PRIu64 ": %i (%m)", j->id, r);
 }
 
-static void job_on_progress(Job *j, char *b) {
-        /* Take ownership of donated buffer */
-        _cleanup_free_ char *buf = TAKE_PTR(b);
+static void job_on_progress(Job *j, char *buf) {
         unsigned progress;
         int r;
 
         assert(j);
-        assert_se(buf);
+        assert(buf);
 
         r = safe_atou(buf, &progress);
         if (r < 0 || progress > 100) {
@@ -302,10 +298,10 @@ static void job_on_progress(Job *j, char *b) {
 
 static void job_on_version(Job *j, char *version) {
         assert(j);
-        assert_se(version);
+        assert(version);
 
-        /* Take ownership of donated memory */
-        free_and_replace(j->version, version);
+        if (free_and_strdup_warn(&j->version, version) < 0)
+                return;
 
         log_debug("Got version from job %" PRIu64 ": %s ", j->id, j->version);
 }
@@ -1450,7 +1446,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         ssize_t n;
-        char *p;
+        char *version, *progress, *errno_str, *ready;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
@@ -1487,29 +1483,22 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         buf[n] = 0;
 
-        p = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_version(j, p);
-        }
+        version = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
+        progress = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
+        errno_str = find_line_startswith(buf, "ERRNO=");
+        ready = find_line_startswith(buf, "READY=1");
 
-        p = find_line_startswith(buf, "ERRNO=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_errno(j, p);
-        }
+        if (version)
+                job_on_version(j, truncate_nl(version));
 
-        p = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_progress(j, p);
-        }
+        if (progress)
+                job_on_progress(j, truncate_nl(progress));
+
+        if (errno_str)
+                job_on_errno(j, truncate_nl(errno_str));
 
         /* Should come last, since this might actually detach the job */
-        if (find_line_startswith(buf, "READY=1"))
+        if (ready)
                 job_on_ready(j);
 
         return 0;
