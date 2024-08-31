@@ -1266,7 +1266,7 @@ int config_parse_strv(
                 const char *section,
                 unsigned section_line,
                 const char *lvalue,
-                int ltype,
+                int ltype, /* When true, duplicated entries will be filtered. */
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -1283,12 +1283,13 @@ int config_parse_strv(
                 return 0;
         }
 
+        _cleanup_strv_free_ char **strv = NULL;
         for (const char *p = rvalue;;) {
-                char *word = NULL;
+                char *word;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
-                        return 0;
+                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1296,10 +1297,16 @@ int config_parse_strv(
                         return 0;
                 }
 
-                r = strv_consume(sv, word);
+                r = strv_consume(&strv, word);
                 if (r < 0)
                         return log_oom();
         }
+
+        r = strv_extend_strv(sv, strv, /* filter_duplicates = */ ltype);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
 }
 
 int config_parse_warn_compat(
