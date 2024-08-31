@@ -6,6 +6,8 @@
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
 
