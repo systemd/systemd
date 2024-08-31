@@ -62,10 +62,10 @@ static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected
         assert_se(expected == v);
 }
 
-static void test_config_parse_strv_one(const char *rvalue, char **expected) {
+static void test_config_parse_strv_one(const char *rvalue, bool filter_duplicates, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
+        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, NULL) >= 0);
         assert_se(strv_equal(expected, strv));
 }
 
@@ -164,12 +164,19 @@ TEST(config_parse_unsigned) {
 }
 
 TEST(config_parse_strv) {
-        test_config_parse_strv_one("", STRV_MAKE_EMPTY);
-        test_config_parse_strv_one("foo", STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
-        test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
-        test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
-        test_config_parse_strv_one("\xc3\x7f", STRV_MAKE("\xc3\x7f"));
+        test_config_parse_strv_one("", false, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("foo", false, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", false, STRV_MAKE("foo", "bar", "foo"));
+        test_config_parse_strv_one("\"foo bar\" foo", false, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", false, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", false, STRV_MAKE("\xc3\x7f"));
+
+        test_config_parse_strv_one("", true, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("foo", true, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", true, STRV_MAKE("foo", "bar"));
+        test_config_parse_strv_one("\"foo bar\" foo", true, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", true, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", true, STRV_MAKE("\xc3\x7f"));
 }
 
 TEST(config_parse_mode) {
