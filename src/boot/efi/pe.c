@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "devicetree.h"
+#include "chid.h"
 #include "pe.h"
 #include "util.h"
 
@@ -106,19 +108,6 @@ typedef struct PeFileHeader {
         PeOptionalHeader OptionalHeader;
 } _packed_ PeFileHeader;
 
-typedef struct PeSectionHeader {
-        uint8_t  Name[8];
-        uint32_t VirtualSize;
-        uint32_t VirtualAddress;
-        uint32_t SizeOfRawData;
-        uint32_t PointerToRawData;
-        uint32_t PointerToRelocations;
-        uint32_t PointerToLinenumbers;
-        uint16_t NumberOfRelocations;
-        uint16_t NumberOfLinenumbers;
-        uint32_t Characteristics;
-} _packed_ PeSectionHeader;
-
 #define SECTION_TABLE_BYTES_MAX (16U * 1024U * 1024U)
 
 static bool verify_dos(const DosFileHeader *dos) {
@@ -175,7 +164,20 @@ static bool pe_section_name_equal(const char *a, const char *b) {
         return true;
 }
 
+static size_t pe_count_sections(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const char *const section_name) {
+        size_t n = 0;
+        FOREACH_ARRAY(i, section_table, n_section_table) {
+                if (pe_section_name_equal((const char*) i->Name, section_name))
+                        n++;
+        }
+        return n;
+}
+
 static void pe_locate_sections(
+                const void *base,
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
                 const char *const section_names[],
@@ -188,7 +190,8 @@ static void pe_locate_sections(
 
         /* Searches for the sections listed in 'sections[]' within the section table. Validates the resulted
          * data. If 'validate_base' is non-zero also takes base offset when loaded into memory into account for
-         * qchecking for overflows. */
+         * checking for overflows. */
+        EFI_STATUS err;
 
         for (size_t i = 0; section_names[i]; i++)
                 FOREACH_ARRAY(j, section_table, n_section_table) {
@@ -219,6 +222,51 @@ static void pe_locate_sections(
                                         continue;
                         }
 
+                        /* Special handling if multiple .dtb sections present */
+                        if (base && pe_section_name_equal(section_names[i], ".dtb") && pe_count_sections(section_table, n_section_table, ".dtb") > 1) {
+                                const uint8_t *dtb = (const uint8_t *) base + j->VirtualAddress;
+                                const size_t dtb_size = j->VirtualSize;
+
+                                err = devicetree_match(dtb, dtb_size);
+
+                                /* Firmware does not provide the devicetree, so try matching against a list from .hwids section */
+                                if (err == EFI_UNSUPPORTED) {
+                                        static const char *const hwids_section_name[] = { ".hwids", NULL };
+                                        PeSectionVector hwids_section = {};
+                                        pe_locate_sections(
+                                                        base,
+                                                        section_table,
+                                                        n_section_table,
+                                                        hwids_section_name,
+                                                        PTR_TO_SIZE(base),
+                                                        &hwids_section);
+                                        if (hwids_section.size == 0) {
+                                                log_error_status(err, "HWIDs section is missing, no DT blob will be selected");
+                                        } else {
+                                                const uint8_t *hwids = (const uint8_t *) base + hwids_section.memory_offset;
+                                                const char *compatible = NULL;
+                                                err = hwid_match(hwids, hwids_section.size, &compatible);
+                                                if (err == EFI_SUCCESS) {
+                                                        err = devicetree_match_by_compatible(dtb, dtb_size, compatible);
+                                                }
+                                        }
+                                }
+
+                                if (err == EFI_SUCCESS) {
+                                        sections[i] = (PeSectionVector) {
+                                                .size = j->VirtualSize,
+                                                .file_offset = j->PointerToRawData,
+                                                .memory_offset = j->VirtualAddress,
+                                        };
+                                        break;
+                                } else if (err == EFI_INVALID_PARAMETER) {
+                                        log_error_status(err, "Found bad DT blob in PE section %zu", i);
+                                }
+
+                                /* No matching .dtb section found, continue searching */
+                                continue;
+                        }
+
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
                                 .size = j->VirtualSize,
@@ -242,6 +290,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         static const char *const section_names[] = { ".compat", NULL };
         PeSectionVector vector = {};
         pe_locate_sections(
+                        (const uint8_t *) dos,
                         (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         section_names,
@@ -313,31 +362,50 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
         return EFI_SUCCESS;
 }
 
+EFI_STATUS pe_section_table_from_base(
+                const void *base,
+                const PeSectionHeader **ret_section_table,
+                size_t *ret_n_section_table) {
+
+        assert(base);
+        assert(ret_section_table);
+        assert(ret_n_section_table);
+
+        const DosFileHeader *dos = (const DosFileHeader*) base;
+        if (!verify_dos(dos))
+                return EFI_LOAD_ERROR;
+
+        const PeFileHeader *pe = (const PeFileHeader*) ((const uint8_t*) base + dos->ExeHeader);
+        if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
+                return EFI_LOAD_ERROR;
+
+        *ret_section_table = (const PeSectionHeader*) ((const uint8_t*) base + section_table_offset(dos, pe));
+        *ret_n_section_table = pe->FileHeader.NumberOfSections;
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,
                 const char *const section_names[],
                 PeSectionVector sections[]) {
 
-        const DosFileHeader *dos;
-        const PeFileHeader *pe;
-        size_t offset;
+        EFI_STATUS err;
 
         assert(base);
         assert(section_names);
         assert(sections);
 
-        dos = (const DosFileHeader *) base;
-        if (!verify_dos(dos))
-                return EFI_LOAD_ERROR;
+        const PeSectionHeader *section_table;
+        size_t n_section_table;
+        err = pe_section_table_from_base(base, &section_table, &n_section_table);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
-        if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
-                return EFI_LOAD_ERROR;
-
-        offset = section_table_offset(dos, pe);
         pe_locate_sections(
-                        (const PeSectionHeader *) ((const uint8_t *) base + offset),
-                        pe->FileHeader.NumberOfSections,
+                        (uint8_t *) base,
+                        section_table,
+                        n_section_table,
                         section_names,
                         PTR_TO_SIZE(base),
                         sections);
@@ -345,27 +413,19 @@ EFI_STATUS pe_memory_locate_sections(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_file_locate_sections(
-                EFI_FILE *dir,
-                const char16_t *path,
-                const char *const section_names[],
-                PeSectionVector sections[]) {
-        _cleanup_free_ PeSectionHeader *section_table = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        DosFileHeader dos;
-        PeFileHeader pe;
-        size_t len, section_table_len;
+EFI_STATUS pe_section_table_from_file(
+                EFI_FILE *handle,
+                PeSectionHeader **ret_section_table,
+                size_t *ret_n_section_table) {
+
         EFI_STATUS err;
+        size_t len;
 
-        assert(dir);
-        assert(path);
-        assert(section_names);
-        assert(sections);
+        assert(handle);
+        assert(ret_section_table);
+        assert(ret_n_section_table);
 
-        err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return err;
-
+        DosFileHeader dos;
         len = sizeof(dos);
         err = handle->Read(handle, &len, &dos);
         if (err != EFI_SUCCESS)
@@ -377,6 +437,7 @@ EFI_STATUS pe_file_locate_sections(
         if (err != EFI_SUCCESS)
                 return err;
 
+        PeFileHeader pe;
         len = sizeof(pe);
         err = handle->Read(handle, &len, &pe);
         if (err != EFI_SUCCESS)
@@ -388,10 +449,11 @@ EFI_STATUS pe_file_locate_sections(
         if ((size_t) pe.FileHeader.NumberOfSections > SIZE_MAX / sizeof(PeSectionHeader))
                 return EFI_OUT_OF_RESOURCES;
         REENABLE_WARNING;
-        section_table_len = (size_t) pe.FileHeader.NumberOfSections * sizeof(PeSectionHeader);
-        if (section_table_len > SECTION_TABLE_BYTES_MAX)
+        size_t n_section_table = (size_t) pe.FileHeader.NumberOfSections;
+        if (n_section_table * sizeof(PeSectionHeader) > SECTION_TABLE_BYTES_MAX)
                 return EFI_OUT_OF_RESOURCES;
-        section_table = xmalloc(section_table_len);
+
+        _cleanup_free_ PeSectionHeader *section_table = xnew(PeSectionHeader, n_section_table);
         if (!section_table)
                 return EFI_OUT_OF_RESOURCES;
 
@@ -399,18 +461,104 @@ EFI_STATUS pe_file_locate_sections(
         if (err != EFI_SUCCESS)
                 return err;
 
-        len = section_table_len;
+        len = n_section_table * sizeof(PeSectionHeader);
         err = handle->Read(handle, &len, section_table);
         if (err != EFI_SUCCESS)
                 return err;
-        if (len != section_table_len)
+        if (len != n_section_table * sizeof(PeSectionHeader))
                 return EFI_LOAD_ERROR;
 
+        *ret_section_table = TAKE_PTR(section_table);
+        *ret_n_section_table = n_section_table;
+        return EFI_SUCCESS;
+}
+
+static const PeSectionHeader* pe_section_table_find_profile_start(
+                const PeSectionHeader *section_table,
+                size_t n_section_table,
+                unsigned profile) {
+
+        assert(section_table || n_section_table == 0);
+
+        if (profile == UINT_MAX) /* base profile? that starts at the beginning */
+                return section_table;
+
+        unsigned current_profile = UINT_MAX;
+        for (const PeSectionHeader *p = section_table; p < section_table + n_section_table; p++) {
+
+                if (!pe_section_name_equal((const char*) p->Name, ".profile"))
+                        continue;
+
+                if (current_profile == UINT_MAX)
+                        current_profile = 0;
+                else
+                        current_profile ++;
+
+                if (current_profile == profile) /* Found our profile! */
+                        return p;
+        }
+
+        /* We reached the end of the table? Then this section does not exist */
+        return NULL;
+}
+
+static size_t pe_section_table_find_profile_length(
+                const PeSectionHeader *section_table,
+                size_t n_section_table,
+                const PeSectionHeader *start,
+                unsigned profile) {
+
+        assert(section_table);
+        assert(n_section_table > 0);
+        assert(start >= section_table);
+        assert(start < section_table + n_section_table);
+
+        /* Look for the next .profile (or the end of the table), this is where the the sections for this
+         * profile end. The base profile does not start with a .profile, the others do, hence conditionally
+         * skip over the first entry. */
+        const PeSectionHeader *e;
+        if (profile == UINT_MAX) /* Base profile */
+                e = start;
+        else {
+                assert(pe_section_name_equal((const char *) start->Name, ".profile"));
+                e = start + 1;
+        }
+
+        for (; e < section_table + n_section_table; e++)
+                if (pe_section_name_equal((const char*) e->Name, ".profile"))
+                        return e - start;
+
+        return (section_table + n_section_table) - start;
+}
+
+EFI_STATUS pe_locate_profile_sections(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const char* const section_names[],
+                unsigned profile,
+                size_t validate_base,
+                PeSectionVector sections[]) {
+
+        assert(section_table || n_section_table == 0);
+        assert(section_names);
+        assert(sections);
+
+        /* Now scan through the section table until we skipped over the right number of .profile sections */
+        const PeSectionHeader *p = pe_section_table_find_profile_start(section_table, n_section_table, profile);
+        if (!p)
+                return EFI_NOT_FOUND;
+
+        /* Look for the next .profile (or the end of the table), this is where the the sections for this
+         * profile end. */
+        size_t n = pe_section_table_find_profile_length(section_table, n_section_table, p, profile);
+
+        /* And now parse everything between the start and end of our profile */
         pe_locate_sections(
-                        section_table,
-                        pe.FileHeader.NumberOfSections,
+                        NULL,
+                        p,
+                        n,
                         section_names,
-                        /* validate_base= */ 0, /* don't validate base */
+                        validate_base,
                         sections);
 
         return EFI_SUCCESS;
