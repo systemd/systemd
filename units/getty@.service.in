@@ -63,4 +63,6 @@ UnsetEnvironment=LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETAR
 
 [Install]
 WantedBy=getty.target
+{% if ENABLE_VCONSOLE %}
 DefaultInstance=tty1
+{% endif %}
