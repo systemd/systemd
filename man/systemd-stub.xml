@@ -77,7 +77,17 @@
       <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
-      <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
+      <listitem><para>Zero or more <literal>.dtb</literal> sections. If only one such section is present, it
+      will always be passed to the kernel. If there at least two of them, stub will first try to match the
+      Devicetrees bundled into UKI by comparing the first <literal>compatible</literal> string in each bundled
+      Devicetree with the first <varname>compatible</varname> string supplied by the firmware in configuration tables. If none matches
+      and <literal>.hwids</literal> section exists, it will be used for matching process instead of the firmware Devicetree's
+      <varname>compatible</varname>. The stub will use SMBIOS data to calculate hardware IDs of the machine (as per
+      <ulink url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
+      then it will proceed to trying to find any of them in <literal>.hwids</literal> section and will use first matching entry's
+      <varname>compatible</varname> as search key among the <literal>.dtb</literal> entries, in a similar fashion as the compatible string
+      read from the firmware provided Devicetree before. The first <literal>.dtb</literal> section with matched
+      <varname>compatible</varname> will be used. In any other case, no Devicetree blob will be loaded.</para></listitem>
 
       <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
       output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
