@@ -316,6 +316,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.ucode':   'binary',
     '.splash':  'binary',
     '.dtb':     'binary',
+    '.hwids':   'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -325,7 +326,6 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.sbom':    'binary',
     '.profile': 'text',
 }  # fmt: skip
-
 
 @dataclasses.dataclass
 class Section:
@@ -453,7 +453,10 @@ def check_inputs(opts: argparse.Namespace) -> None:
 
         if isinstance(value, Path):
             # Open file to check that we can read it, or generate an exception
-            value.open().close()
+            if not value.is_dir():
+                value.open().close()
+            else:
+                value.iterdir()
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, Path):
@@ -870,6 +873,96 @@ def verify(tool: dict[str, str], opts: argparse.Namespace) -> bool:
 
     return tool['output'] in info
 
+# Keep in sync with src/fundamental/chid-fundamental.h
+# uint32_t data1, uint16_t data2, uint16_t data3, uint8_t data4[8]
+NULL_UUID = (0, 0, 0, (0, 0, 0, 0, 0, 0, 0, 0))
+UUID_SIZE = 4 + 2 + 2 + 1 * 8
+def pack_uuid(data1: int, data2: int, data3: int, data4: tuple[int, ...]) -> bytes:
+    if len(data4) != 8:
+        raise ValueError(f'incorrect data4 length: {len(data4)} != 8')
+    return struct.pack('<IHH8B', data1, data2, data3, *data4)
+
+def pack_bytes(data: bytes, count: int) -> bytes:
+    if len(data) > count:
+        raise ValueError(f'`{data}` is too long (max {count}): {len(data)}')
+    return struct.pack(f'<{count}s', data)
+
+def pack_char_string(string: str, count: int) -> bytes:
+    return pack_bytes(string.encode('utf-8'), count)
+
+# Keep in sync with src/boot/efi/chid.h
+# char name[128], char compatible[128], Uuid hwids[32]
+MAX_DEVICE_NAME = 128
+MAX_DEVICE_COMPATIBLE = 128
+MAX_DEVICE_HWIDS = 32
+DEVICE_STRUCT_SIZE = 1 * MAX_DEVICE_NAME + 1 * MAX_DEVICE_COMPATIBLE + UUID_SIZE * MAX_DEVICE_HWIDS
+
+def pack_device(name: str, compatible: str, hwids: list[int, int, int, tuple[int, ...]]) -> bytes:
+    if len(hwids) > MAX_DEVICE_HWIDS:
+        raise ValueError(f'too much UUIDs (max {MAX_DEVICE_HWIDS}): {len(hwids)}')
+
+    if len(hwids) < MAX_DEVICE_HWIDS:
+        hwids += [NULL_UUID] * (MAX_DEVICE_HWIDS - len(hwids))
+
+    data = pack_char_string(name, MAX_DEVICE_NAME)
+    data += pack_char_string(compatible, MAX_DEVICE_COMPATIBLE)
+
+    for hwid in hwids:
+        data += pack_uuid(*hwid)
+
+    assert len(data) == DEVICE_STRUCT_SIZE
+
+    return data
+
+def hex_pairs_list(string: str) -> list[int]:
+    return [int(string[i:i+2], 16) for i in range(0, len(string), 2)]
+
+def parse_hwid_dir(path: pathlib.Path) -> bytes:
+    hwid_files = path.rglob('*.txt')
+
+    hwids = b''
+
+    for hwid_file in hwid_files:
+        content = []
+        with open(hwid_file, 'r') as f:
+            content = f.readlines()
+
+        data = {
+            'Manufacturer': None,
+            'Family': None,
+            'Compatible': None,
+        }
+        uuids = []
+
+        uuid_regexp = re.compile('\\{[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}\\}', re.I)
+
+        for line in content:
+            for k in data:
+                if line.startswith(k):
+                    data[k] = line.split(":")[1].strip()
+                    break
+            else:
+                uuid = uuid_regexp.match(line)
+                if uuid is not None:
+                    d1, d2, d3, d4, d5 = uuid.group(0)[1:-1].split('-')
+
+                    data1 = int(d1, 16)
+                    data2 = int(d2, 16)
+                    data3 = int(d3, 16)
+                    data4 = tuple(hex_pairs_list(d4) + hex_pairs_list(d5))
+
+                    uuids.append((data1, data2, data3, data4))
+
+        for k, v in data.items():
+            if v is None:
+                raise ValueError(f'hwid description file "{hwid_file}" does not contain "{k}"')
+
+        name = data['Manufacturer'] + ' ' + data['Family']
+        compatible = data['Compatible']
+
+        hwids += pack_device(name, compatible, uuids)
+
+    return hwids
 
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
@@ -880,7 +973,6 @@ ADDON_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
 """
-
 
 def make_uki(opts: argparse.Namespace) -> None:
     # kernel payload signing
@@ -950,12 +1042,18 @@ def make_uki(opts: argparse.Namespace) -> None:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
+    hwids = None
+
+    if opts.hwids_directory is not None:
+        hwids = parse_hwid_dir(opts.hwids_directory)
+
     sections = [
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
         *(('.dtb', dtb, True) for dtb in opts.devicetree),
+        ('.hwids',   hwids,           True),
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
@@ -1499,6 +1597,15 @@ CONFIG_ITEMS = [
         config_key='UKI/DeviceTree',
         config_push=ConfigItem.config_list_prepend,
     ),
+    ConfigItem(
+        '--hwids-directory',
+        metavar = 'PATH',
+        type = pathlib.Path,
+        action = 'append',
+        help = 'Directory with HWID text files [.hwids section]',
+        config_key = 'UKI/HWIDsDirectory',
+    ),
+
     ConfigItem(
         '--uname',
         metavar='VERSION',
