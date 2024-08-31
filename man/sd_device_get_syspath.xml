@@ -184,7 +184,7 @@
     <function>sd_device_new_from_device_id()</function>, a new instance of the same device record will be
     gained. When a block or character device is specified, which has corresponding device node, this returns
     <literal>b</literal> or <literal>c</literal>, respectively, followed by the device node major and minor
-    numbers separated with a colon. Example: <literal>b259:1</literal> or <literal>c10:121</literal>. Whan a
+    numbers separated with a colon. Example: <literal>b259:1</literal> or <literal>c10:121</literal>. When a
     network interface device is specified, this returns <literal>n</literal> followed by the interface index,
     which can be obtained by <function>sd_device_get_ifindex()</function>. Example: <literal>n1</literal>.
     When a device in the <literal>driver</literal> subsystem is specified, this returns
