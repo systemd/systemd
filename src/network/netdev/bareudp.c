@@ -17,8 +17,7 @@ static const char* const bare_udp_protocol_table[_BARE_UDP_PROTOCOL_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(bare_udp_protocol, BareUDPProtocol);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_bare_udp_iftype, bare_udp_protocol, BareUDPProtocol,
-                         "Failed to parse EtherType=");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bare_udp_iftype, bare_udp_protocol, BareUDPProtocol);
 
 static int netdev_bare_udp_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(m);

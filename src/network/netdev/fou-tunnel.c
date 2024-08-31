@@ -21,8 +21,7 @@ static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = 
 };
 
 DEFINE_STRING_TABLE_LOOKUP(fou_encap_type, FooOverUDPEncapType);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType,
-                         "Failed to parse Encapsulation=");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType);
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message *m) {
         FouTunnel *t = FOU(netdev);
