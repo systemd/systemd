@@ -1079,7 +1079,8 @@ testcase_minimize() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    for format in ext4 vfat erofs; do
+    # TODO: Re-enable erofs once it runs properly under sanitizers (https://github.com/systemd/systemd/pull/34190#issuecomment-2323039923).
+    for format in ext4 vfat; do
         if ! command -v "mkfs.$format" >/dev/null; then
             continue
         fi
