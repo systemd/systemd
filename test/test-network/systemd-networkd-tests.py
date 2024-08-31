@@ -5734,12 +5734,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.check_ndisc_mtu(1410)
 
         check_output('ip link set dev veth99 mtu 1600')
+        check_output('ip link set dev veth-peer mtu 1600')
         self.check_ndisc_mtu(1410)
 
         check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1700')
         self.check_ndisc_mtu(1600)
 
         check_output('ip link set dev veth99 mtu 1800')
+        check_output('ip link set dev veth-peer mtu 1800')
         self.check_ndisc_mtu(1700)
 
     def test_ipv6_token_prefixstable(self):
