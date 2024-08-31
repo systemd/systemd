@@ -1712,7 +1712,7 @@ static int config_parse_default_subvolume(
         return free_and_replace(*subvol, p);
 }
 
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF);
 
 static int config_parse_gpt_flags(
                 const char *unit,
@@ -1899,8 +1899,8 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
 static int partition_finalize_fstype(Partition *p, const char *path) {
         _cleanup_free_ char *e = NULL, *upper = NULL;
