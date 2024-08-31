@@ -338,20 +338,35 @@ exit:
         return status;
 }
 
-#include "chid-devices.h"
-#include "devicetree.h"
+struct device {
+        const char16_t Name[128];
+        const char Compatible[128];
+        EFI_GUID Ids[32];
+};
 
-EFI_STATUS hwid_match(const void *dtb_buffer, size_t dtb_length) {
+EFI_STATUS hwid_match(const void *hwids_buffer, size_t hwids_length, char *const *compatible) {
         EFI_STATUS status;
 
-        static struct device *cached_dev = NULL;
+        const struct device *devices = hwids_buffer;
+        size_t n_devices = hwids_length / sizeof(*devices);
+
+        assert(hwids_length % sizeof(*devices) == 0);
+        assert(n_devices > 0);
+        assert(devices);
+
+        static const struct device *cached_devices = NULL;
+        static size_t cached_index = 0;
+
         EFI_GUID hwids[15] = { 0 };
         int priority[] = { 3, 6, 8, 10, 4, 5, 7, 9, 11 }; /* From most to least specific. */
 
-        if (cached_dev != NULL) {
-                return devicetree_match_by_compatible(dtb_buffer, dtb_length, cached_dev->Compatible);
+        if (cached_devices == devices) {
+                // TODO: Print device name somehow?
+                *compatible = cached_devices[cached_index].Compatible;
+                return EFI_SUCCESS;
         }
 
+        cached_devices = devices;
 
         status = populate_board_hwids(hwids);
         if (EFI_STATUS_IS_ERROR(status)) {
@@ -360,12 +375,14 @@ EFI_STATUS hwid_match(const void *dtb_buffer, size_t dtb_length) {
         }
 
         for (size_t i = 0; i < ARRAY_SIZE(priority); i++) {
-                for (size_t d = 0; d < ARRAY_SIZE(devices); d++) {
-                        for (size_t j = 0; j < ARRAY_SIZE(devices[d].Ids) && devices[d].Ids[j].Data1; j++) {
-                                if (efi_guid_equal(&hwids[priority[i]], &devices[d].Ids[j])) {
-                                        cached_dev = &devices[d];
-                                        return devicetree_match_by_compatible(
-                                                        dtb_buffer, dtb_length, devices[d].Compatible);
+                for (size_t d = 0; d < n_devices; d++) {
+                        const struct device *dev = &devices[d];
+                        for (size_t j = 0; j < ARRAY_SIZE(dev->Ids) && dev->Ids[j].Data1; j++) {
+                                if (efi_guid_equal(&hwids[priority[i]], &dev->Ids[j])) {
+                                        cached_index = d;
+                                        // TODO: Print device name somehow?
+                                        *compatible = cached_devices[cached_index].Compatible;
+                                        return EFI_SUCCESS;
                                 }
                         }
                 }
