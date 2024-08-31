@@ -798,8 +798,7 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
         /* We're outputting lots of small strings to STDERR, which is unbuffered by default. So let's turn
          * on full buffering, so we pass this all to the TTY in one go, to make things more efficient */
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
+        WITH_BUFFERED_STDERR;
 
         if (!terminal_is_dumb()) {
                 for (size_t i = 0; i <= n; i++)
@@ -855,8 +854,6 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
         } else if (!exiting)
                 fputs("------\n", stderr);
 
-        fflush(stderr);
-        setvbuf(stderr, NULL, _IONBF, 0); /* Disable buffering again */
         return 0;
 }
 
