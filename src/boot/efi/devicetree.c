@@ -193,17 +193,22 @@ static const char* devicetree_get_compatible(const void *dtb) {
  * it reports a mismatch.
  */
 EFI_STATUS devicetree_match(const void *dtb_buffer, size_t dtb_length) {
+        const void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
+        if (!fw_dtb)
+                return EFI_UNSUPPORTED;
+
+        const char *fw_compat = devicetree_get_compatible(fw_dtb);
+
+        return devicetree_match_by_compatible(dtb_buffer, dtb_length, fw_compat);
+}
+
+EFI_STATUS devicetree_match_by_compatible(const void *dtb_buffer, size_t dtb_length, const char *fw_compat) {
         const FdtHeader *dt_header = ASSERT_PTR(dtb_buffer);
 
         if (dtb_length < sizeof(FdtHeader) ||
             dtb_length < be32toh(dt_header->total_soze))
                 return EFI_INVALID_PARAMETER;
 
-        const void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!fw_dtb)
-                return EFI_UNSUPPORTED;
-
-        const char *fw_compat = devicetree_get_compatible(fw_dtb);
         if (!fw_compat)
                 return EFI_INVALID_PARAMETER;
 
