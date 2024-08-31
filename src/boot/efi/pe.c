@@ -164,6 +164,18 @@ static bool pe_section_name_equal(const char *a, const char *b) {
         return true;
 }
 
+static size_t pe_count_sections(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const char *const section_name) {
+        size_t n = 0;
+        FOREACH_ARRAY(i, section_table, n_section_table) {
+                if (pe_section_name_equal((const char*) i->Name, section_name))
+                        n++;
+        }
+        return n;
+}
+
 static void pe_locate_sections(
                 const void *base,
                 const PeSectionHeader section_table[],
@@ -210,13 +222,34 @@ static void pe_locate_sections(
                                         continue;
                         }
 
-                        /* Special handling of .dtb sections */
-                        if (base && pe_section_name_equal(section_names[i], ".dtb")) {
-                                err = devicetree_match((const uint8_t *) base + j->VirtualAddress, j->VirtualSize);
+                        /* Special handling if multiple .dtb sections present */
+                        if (base && pe_section_name_equal(section_names[i], ".dtb") && pe_count_sections(section_table, n_section_table, ".dtb") > 1) {
+                                const uint8_t *dtb = (const uint8_t *) base + j->VirtualAddress;
+                                const size_t dtb_size = j->VirtualSize;
 
-                                /* Firmware does not provide the devicetree, so try matching against a predefined list */
+                                err = devicetree_match(dtb, dtb_size);
+
+                                /* Firmware does not provide the devicetree, so try matching against a list from .hwids section */
                                 if (err == EFI_UNSUPPORTED) {
-                                        err = hwid_match((const uint8_t *) base + j->VirtualAddress, j->VirtualSize);
+                                        static const char *const hwids_section_name[] = { ".hwids", NULL };
+                                        PeSectionVector hwids_section = {};
+                                        pe_locate_sections(
+                                                        base,
+                                                        section_table,
+                                                        n_section_table,
+                                                        hwids_section_name,
+                                                        PTR_TO_SIZE(base),
+                                                        &hwids_section);
+                                        if (hwids_section.size == 0) {
+                                                log_error_status(err, "HWIDs section is missing, no DT blob will be selected");
+                                        } else {
+                                                const uint8_t *hwids = (const uint8_t *) base + hwids_section.memory_offset;
+                                                const char *compatible = NULL;
+                                                err = hwid_match(hwids, hwids_section.size, &compatible);
+                                                if (err == EFI_SUCCESS) {
+                                                        err = devicetree_match_by_compatible(dtb, dtb_size, compatible);
+                                                }
+                                        }
                                 }
 
                                 if (err == EFI_SUCCESS) {
@@ -226,8 +259,9 @@ static void pe_locate_sections(
                                                 .memory_offset = j->VirtualAddress,
                                         };
                                         break;
-                                } else if (err == EFI_INVALID_PARAMETER)
+                                } else if (err == EFI_INVALID_PARAMETER) {
                                         log_error_status(err, "Found bad DT blob in PE section %zu", i);
+                                }
 
                                 /* No matching .dtb section found, continue searching */
                                 continue;
