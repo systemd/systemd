@@ -45,6 +45,8 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "dns-type.h"
+#include "resolved-manager.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(config_file_hash_ops_fclose,
                                               char, path_hash_func, path_compare,
@@ -2118,4 +2120,73 @@ int config_parse_ip_protocol(
 
         *proto = r;
         return 1; /* done. */
+}
+
+int config_parse_refuse_record_types(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = ASSERT_PTR(data);
+        Manager *m = ASSERT_PTR(userdata);
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 1;
+        }
+
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains unsafe characters, ignoring: %s", strna(escaped));
+                return 0;
+        }
+
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_ASCII) && !ascii_is_valid(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains invalid ASCII characters, ignoring: %s", strna(escaped));
+                return 0;
+        }
+
+        r = free_and_strdup_warn(s, empty_to_null(rvalue));
+        if (r < 0)
+                return r;
+
+        const char *record_type_raw_string = *s; /* copy char * to const char * */
+        char* record_type_string;
+        int refused_record_type;
+
+        /* sanitize the string to exclude quotes */
+        extract_first_word(&record_type_raw_string, &record_type_string, NULL, EXTRACT_UNQUOTE);
+
+        /* Get int values of DNS type for example "AAAA" string to get int value and store in Set */
+        Set *refused_records;
+        refused_records = set_new(NULL);
+
+        STRV_FOREACH(i, strv_split(record_type_string, ",")) {
+                refused_record_type = dns_type_from_string(*i);
+                set_put(refused_records, INT_TO_PTR(refused_record_type));
+        }
+
+        m->refuse_record_types = refused_records;
+
+        return 1;
 }
