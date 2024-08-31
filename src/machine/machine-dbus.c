@@ -215,21 +215,13 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_free_ char *us = NULL, *them = NULL;
                 _cleanup_close_ int netns_fd = -EBADF;
-                const char *p;
                 pid_t child;
 
-                r = readlink_malloc("/proc/self/ns/net", &us);
+                r = in_same_namespace(0, m->leader.pid, NAMESPACE_NET);
                 if (r < 0)
                         return r;
-
-                p = procfs_file_alloca(m->leader.pid, "ns/net");
-                r = readlink_malloc(p, &them);
-                if (r < 0)
-                        return r;
-
-                if (streq(us, them))
+                if (r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
 
                 r = pidref_namespace_open(&m->leader,
