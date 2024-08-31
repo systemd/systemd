@@ -808,12 +808,15 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 int progress = PTR_TO_INT(p);
 
                 if (progress == UPDATE_PROGRESS_FAILED) {
+                        clear_progress_bar(target);
                         fprintf(stderr, "%s %s\n", RED_CROSS_MARK(), target);
                         total += 100;
                 } else if (progress == -EALREADY) {
+                        clear_progress_bar(target);
                         fprintf(stderr, "%s %s (Already up-to-date)\n", GREEN_CHECK_MARK(), target);
                         n--; /* Don't consider this target in the total */
                 } else if (progress < 0) {
+                        clear_progress_bar(target);
                         fprintf(stderr, "%s %s (%s)\n", RED_CROSS_MARK(), target, STRERROR(progress));
                         total += 100;
                 } else {
