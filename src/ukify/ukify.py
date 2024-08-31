@@ -306,6 +306,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
         '.ucode'    : 'binary',
         '.splash'   : 'binary',
         '.dtb'      : 'binary',
+        '.hwids'    : 'binary',
         '.cmdline'  : 'text',
         '.osrel'    : 'text',
         '.uname'    : 'text',
@@ -442,7 +443,10 @@ def check_inputs(opts):
 
         if isinstance(value, pathlib.Path):
             # Open file to check that we can read it, or generate an exception
-            value.open().close()
+            if not value.is_dir():
+                value.open().close()
+            else:
+                value.iterdir()
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, pathlib.Path):
@@ -875,6 +879,99 @@ def import_to_extend(uki, opts):
         print(f"Copying section '{n}' from '{opts.extend}': {section.Misc_VirtualSize} bytes")
         uki.add_section(Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=False))
 
+# Keep in sync with src/boot/efi/efi.h
+# uint32_t Data1, uint16_t Data2, uint16_t Data3, uint8_t Data4[8]
+NULL_GUID = (0, 0, 0, (0, 0, 0, 0, 0, 0, 0, 0))
+EFI_GUID_SIZE = 4 + 2 + 2 + 1 * 8
+def pack_efi_guid(data1: int, data2: int, data3: int, data4: tuple[int, ...]) -> bytes:
+    if len(data4) != 8:
+        raise ValueError(f'incorrect data4 length: {len(data4)} != 8')
+    return struct.pack('<IHH8B', data1, data2, data3, *data4)
+
+def pack_bytes(data: bytes, count: int) -> bytes:
+    if len(data) > count:
+        raise ValueError(f'`{data}` is too long (max {count}): {len(data)}')
+    return struct.pack(f'<{count}s', data)
+
+def pack_char_string(string: str, count: int) -> bytes:
+    return pack_bytes(string.encode('utf-8'), count)
+
+def pack_char16_string(string: str, count: int) -> bytes:
+    return pack_bytes(string.encode('utf-16-le'), count * 2)
+
+# Keep in sync with src/boot/efi/chid.c
+# char16_t Name[128], char Compatible[128], EFI_GUID Ids[32]
+MAX_DEVICE_HWID_NAME = 128
+MAX_DEVICE_HWID_COMPATIBLE = 128
+MAX_DEVICE_HWID_GUIDS = 32
+DEVICE_HWID_SIZE = 2 * MAX_DEVICE_HWID_NAME + 1 * MAX_DEVICE_HWID_COMPATIBLE + EFI_GUID_SIZE * MAX_DEVICE_HWID_GUIDS
+
+def pack_device_hwid(name: str, compatible: str, guids: list[int, int, int, tuple[int, ...]]) -> bytes:
+    if len(guids) > MAX_DEVICE_HWID_GUIDS:
+        raise ValueError(f'too much GUIDs (max {MAX_DEVICE_HWID_GUIDS}): {len(ids)}')
+
+    if len(guids) < MAX_DEVICE_HWID_GUIDS:
+        guids += [NULL_GUID] * (MAX_DEVICE_HWID_GUIDS - len(guids))
+
+    data = pack_char16_string(name, MAX_DEVICE_HWID_NAME)
+    data += pack_char_string(compatible, MAX_DEVICE_HWID_COMPATIBLE)
+
+    for guid in guids:
+        data += pack_efi_guid(*guid)
+
+    assert len(data) == DEVICE_HWID_SIZE
+
+    return data
+
+def hex_pairs_list(string: str) -> list[int]:
+    return [int(string[i:i+2], 16) for i in range(0, len(string), 2)]
+
+def parse_hwid_dir(path: pathlib.Path) -> bytes:
+    hwid_files = path.rglob('*.txt')
+
+    hwids = b''
+
+    for hwid_file in hwid_files:
+        content = []
+        with open(hwid_file, 'r') as f:
+            content = f.readlines()
+
+        data = {
+            'Manufacturer': None,
+            'Family': None,
+            'Compatible': None,
+        }
+        guids = []
+
+        guid_regexp = re.compile('\\{[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}\\}', re.I)
+
+        for line in content:
+            for k in data:
+                if line.startswith(k):
+                    data[k] = line.split(":")[1].strip()
+                    break
+            else:
+                guid = guid_regexp.match(line)
+                if guid is not None:
+                    d1, d2, d3, d4, d5 = guid.group(0)[1:-1].split('-')
+
+                    data1 = int(d1, 16)
+                    data2 = int(d2, 16)
+                    data3 = int(d3, 16)
+                    data4 = tuple(hex_pairs_list(d4) + hex_pairs_list(d5))
+
+                    guids.append((data1, data2, data3, data4))
+
+        for k, v in data.items():
+            if v is None:
+                raise ValueError(f'hwid description file "{hwid_file}" does not contain "{k}"')
+
+        name = data['Manufacturer'] + ' ' + data['Family']
+        compatible = data['Compatible']
+
+        hwids += pack_device_hwid(name, compatible, guids)
+
+    return hwids
 
 def make_uki(opts):
     # kernel payload signing
@@ -940,6 +1037,11 @@ def make_uki(opts):
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
+    hwids = None
+
+    if opts.hwids_directory is not None:
+        hwids = parse_hwid_dir(opts.hwids_directory)
+
     # Import an existing UKI for extension
     import_to_extend(uki, opts)
 
@@ -949,6 +1051,7 @@ def make_uki(opts):
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         *(('.dtb', dtb, True) for dtb in opts.devicetree),
+        ('.hwids',   hwids,           True ),
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
@@ -1425,6 +1528,15 @@ CONFIG_ITEMS = [
         default = [],
         config_key = 'UKI/DeviceTree',
         config_push = ConfigItem.config_list_prepend,
+    ),
+
+    ConfigItem(
+        '--hwids-directory',
+        metavar = 'PATH',
+        type = pathlib.Path,
+        action = 'append',
+        help = 'Directory with HWID text files [.hwids section]',
+        config_key = 'UKI/HWIDsDirectory',
     ),
 
     ConfigItem(
