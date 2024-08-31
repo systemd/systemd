@@ -600,15 +600,12 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
 
-        l = recvmsg_safe(s->fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(l))
-                return 0;
-        if (l == -EXFULL) {
-                log_ratelimit_warning_errno(l, JOURNAL_LOG_RATELIMIT, "Got truncated message, ignoring.");
-                return 0;
-        }
+        l = recvmsg(s->fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (l < 0) {
-                log_ratelimit_warning_errno(l, JOURNAL_LOG_RATELIMIT, "Failed to read from stream: %m");
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to read from stream: %m");
                 goto terminate;
         }
         cmsg_close_all(&msghdr);
