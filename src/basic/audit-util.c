@@ -99,7 +99,7 @@ static int try_audit_request(int fd) {
 
         n = recvmsg_safe(fd, &mh, 0);
         if (n < 0)
-                return -errno;
+                return n;
         if (n != NLMSG_LENGTH(sizeof(struct nlmsgerr)))
                 return -EIO;
 
