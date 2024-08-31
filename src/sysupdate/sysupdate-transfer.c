@@ -844,6 +844,7 @@ typedef struct CalloutContext {
         TransferProgress callback;
         PidRef pid;
         const char *name;
+        int helper_errno;
         void* userdata;
 } CalloutContext;
 
@@ -886,29 +887,34 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
 
 static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(callout_context_freep) CalloutContext *ctx = ASSERT_PTR(userdata);
-        int code;
+        int r;
 
         assert(s);
         assert(si);
         assert(ctx);
 
+        pidref_done(&ctx->pid);
+
         if (si->si_code == CLD_EXITED) {
-                code = si->si_status;
-                if (code != EXIT_SUCCESS)
-                        log_error("%s failed with exit status %i.", ctx->name, code);
-                else
+                if (si->si_status == EXIT_SUCCESS) {
+                        r = 0;
                         log_debug("%s succeeded.", ctx->name);
+                } else if (ctx->helper_errno != 0) {
+                        r = ctx->helper_errno;
+                        log_error_errno(r, "%s failed with exit status %i: %m", ctx->name, si->si_status);
+                } else {
+                        r = -EPROTO;
+                        log_error("%s failed with exit status %i.", ctx->name, si->si_status);
+                }
         } else {
-                code = -EPROTO;
+                r = -EPROTO;
                 if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
                         log_error("%s terminated by signal %s.", ctx->name, signal_to_string(si->si_status));
                 else
                         log_error("%s failed due to unknown reason.", ctx->name);
         }
 
-        pidref_done(&ctx->pid);
-
-        return sd_event_exit(sd_event_source_get_event(s), code);
+        return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -926,9 +932,10 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         };
         struct ucred *ucred;
         CalloutContext *ctx = ASSERT_PTR(userdata);
-        char* progress_str;
+        char *progress_str, *errno_str;
         int progress;
         ssize_t n;
+        int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
@@ -957,17 +964,32 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         buf[n] = 0;
 
         progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
-        if (!progress_str)
-                return 0;
+        errno_str = find_line_startswith(buf, "ERRNO=");
 
-        truncate_nl(progress_str);
-        progress = parse_percent(progress_str);
-        if (progress < 0) {
-                log_warning("Got invalid percent value '%s', ignoring.", progress_str);
-                return 0;
+        if (errno_str) {
+                truncate_nl(errno_str);
+                r = parse_errno(errno_str);
+                if (r < 0)
+                        log_warning_errno(r, "Got invalid errno value '%s', ignoring: %m", errno_str);
+                else {
+                        ctx->helper_errno = r;
+                        log_debug_errno(r, "Got errno from callout: %i (%m)", r);
+                }
         }
 
-        return ctx->callback(ctx->transfer, ctx->instance, progress);
+        if (progress_str) {
+                truncate_nl(progress_str);
+                progress = parse_percent(progress_str);
+                if (progress < 0)
+                        log_warning("Got invalid percent value '%s', ignoring.", progress_str);
+                else {
+                        r = ctx->callback(ctx->transfer, ctx->instance, progress);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int run_callout(
