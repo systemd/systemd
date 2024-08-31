@@ -2102,6 +2102,7 @@ basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
         'src/systemd',
+        'src/resolve',
         '.')
 
 libsystemd_includes = [basic_includes, include_directories(
