@@ -4553,7 +4553,7 @@ static int progress_bytes(uint64_t n_bytes, void *userdata) {
 
         p->copy_blocks_done += n_bytes;
 
-        if (asprintf(&s, "%s %s %s %s/%s ",
+        if (asprintf(&s, "%s %s %s %s/%s",
                      strna(p->copy_blocks_path),
                      special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                      strna(p->definition_path),

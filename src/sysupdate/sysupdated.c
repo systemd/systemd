@@ -4,6 +4,7 @@
 #include "sd-json.h"
 
 #include "build-path.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
@@ -1044,8 +1045,8 @@ static int target_method_update_finished_early(
         /* Called when job finishes w/ a successful exit code, but before any work begins.
          * This happens when there is no candidate (i.e. we're already up-to-date), or
          * specified update is already installed. */
-	return sd_bus_error_setf(error, "org.freedesktop.sysupdate1.NoCandidate",
-				 "Job exited successfully with no work to do, assume already updated");
+        return sd_bus_error_setf(error, BUS_ERROR_NO_UPDATE_CANDIDATE,
+                                 "Job exited successfully with no work to do, assume already updated");
 }
 
 static int target_method_update_detach(sd_bus_message *msg, const Job *j) {

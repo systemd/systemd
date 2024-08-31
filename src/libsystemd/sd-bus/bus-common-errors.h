@@ -158,4 +158,6 @@
 #define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
 #define BUS_ERROR_HOME_NOT_REFERENCED          "org.freedesktop.home1.HomeNotReferenced"
 
+#define BUS_ERROR_NO_UPDATE_CANDIDATE          "org.freedesktop.sysupdate1.NoCandidate"
+
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);
