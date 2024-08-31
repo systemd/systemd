@@ -775,8 +775,10 @@ static int verb_check(int argc, char **argv, void *userdata) {
 }
 
 #define UPDATE_PROGRESS_FAILED INT_MIN
+#define UPDATE_PROGRESS_DONE INT_MAX
 /* Make sure it doesn't overlap w/ errno values */
 assert_cc(UPDATE_PROGRESS_FAILED < -ERRNO_MAX);
+
 
 static int update_render_progress(sd_event_source *source, void *userdata) {
         OrderedHashmap *map = ASSERT_PTR(userdata);
@@ -809,15 +811,19 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
                 if (progress == UPDATE_PROGRESS_FAILED) {
                         clear_progress_bar(target);
-                        fprintf(stderr, "%s %s\n", RED_CROSS_MARK(), target);
+                        fprintf(stderr, "%s: %s Unknown failure\n", target, RED_CROSS_MARK());
                         total += 100;
                 } else if (progress == -EALREADY) {
                         clear_progress_bar(target);
-                        fprintf(stderr, "%s %s (Already up-to-date)\n", GREEN_CHECK_MARK(), target);
+                        fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
                 } else if (progress < 0) {
                         clear_progress_bar(target);
-                        fprintf(stderr, "%s %s (%s)\n", RED_CROSS_MARK(), target, STRERROR(progress));
+                        fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
+                        total += 100;
+                } else if (progress == UPDATE_PROGRESS_DONE) {
+                        clear_progress_bar(target);
+                        fprintf(stderr, "%s: %s Done\n", target, GREEN_CHECK_MARK());
                         total += 100;
                 } else {
                         draw_progress_bar(target, progress);
@@ -827,8 +833,13 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
         }
 
         if (n > 1) {
-                draw_progress_bar("TOTAL", (double) total / n);
-                fputs("\n", stderr);
+                if (exiting)
+                        clear_progress_bar(target);
+                else {
+                        draw_progress_bar("Total", (double) total / n);
+                        if (terminal_is_dumb())
+                                fputs("\n", stderr);
+                }
         }
 
         if (!terminal_is_dumb()) {
@@ -898,7 +909,7 @@ static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         if (status == 0) /* success */
-                status = 100;
+                status = UPDATE_PROGRESS_DONE;
         else if (status > 0) /* exit status without errno */
                 status = UPDATE_PROGRESS_FAILED; /* i.e. EXIT_FAILURE */
         /* else errno */
