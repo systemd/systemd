@@ -45,7 +45,7 @@ static const char* arg_format = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
 
-#define PROGRESS_PREFIX "Total: "
+#define PROGRESS_PREFIX "Total:"
 
 static int settle_image_class(void) {
 

@@ -469,12 +469,14 @@ void draw_progress_bar(const char *prefix, double percentage) {
         setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
 
         fputc('\r', stderr);
-        if (prefix)
+        if (prefix) {
                 fputs(prefix, stderr);
+                fputc(' ', stderr);
+        }
 
         if (!terminal_is_dumb()) {
                 size_t cols = columns();
-                size_t prefix_width = utf8_console_width(prefix);
+                size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;
                 size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
 
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
@@ -533,8 +535,8 @@ void clear_progress_bar(const char *prefix) {
 
         if (terminal_is_dumb())
                 fputs(strrepa(" ",
-                              prefix ? utf8_console_width(prefix) + 4 :
-                              LESS_BY(columns(), 1U)), /* 4: %3.0f%% */
+                              prefix ? utf8_console_width(prefix) + 5 : /* %3.0f%% (4 chars) + space */
+                              LESS_BY(columns(), 1U)),
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
