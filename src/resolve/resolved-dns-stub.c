@@ -950,19 +950,10 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (m->refuse_record_types) {
-                STRV_FOREACH(i, strv_split(m->refuse_record_types, ",")) {
-                        int refuse_record_type;
-                        // delete_chars is just in case the user accidentally use qoutes like "AAAA" instead of AAAA in configuration
-                        char* record_type_string = delete_chars(*i,"\"");
-
-                        refuse_record_type = dns_type_from_string(record_type_string);
-                        if (dns_question_first_key(p->question)->type == refuse_record_type) {
-                                log_debug("Got request for query %s listed in RefuseRecordTypes, refusing.", record_type_string);
-                                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
-                                return;
-                        }
-                }
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(dns_question_first_key(p->question)->type))) {
+                log_info("Got request that is refused, refusing.");
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                return;
         }
 
         if (!DNS_PACKET_RD(p))  {

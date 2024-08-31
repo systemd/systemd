@@ -138,7 +138,7 @@ struct Manager {
         bool read_etc_hosts;
 
         /* List of refused DNS Record Types*/
-        char *refuse_record_types;
+        Set *refuse_record_types;
 
         OrderedSet *dns_extra_stub_listeners;
 

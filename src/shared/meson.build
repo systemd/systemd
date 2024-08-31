@@ -204,6 +204,7 @@ shared_sources = files(
         'web-util.c',
         'wifi-util.c',
         'xml.c',
+        'dns-type.c',
 )
 
 if get_option('tests') != 'false'
