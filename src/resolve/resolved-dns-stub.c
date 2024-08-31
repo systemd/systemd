@@ -13,6 +13,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "strv.h"
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
  * IP and UDP header sizes */
@@ -945,6 +946,12 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 
         if (dns_type_is_zone_transfer(dns_question_first_key(p->question)->type)) {
                 log_debug("Got request for zone transfer, refusing.");
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                return;
+        }
+
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(dns_question_first_key(p->question)->type))) {
+                log_info("Got request that is refused, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
