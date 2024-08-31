@@ -586,11 +586,9 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         iov = IOVEC_MAKE((uint8_t *)b->rbuffer + b->rbuffer_size, n - b->rbuffer_size);
 
-        if (b->prefer_readv) {
-                k = readv(b->input_fd, &iov, 1);
-                if (k < 0)
-                        k = -errno;
-        } else {
+        if (b->prefer_readv)
+                k = RET_NERRNO(readv(b->input_fd, &iov, 1));
+        else {
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
@@ -601,9 +599,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                 k = recvmsg_safe(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (k == -ENOTSOCK) {
                         b->prefer_readv = true;
-                        k = readv(b->input_fd, &iov, 1);
-                        if (k < 0)
-                                k = -errno;
+                        k = RET_NERRNO(readv(b->input_fd, &iov, 1));
                 } else
                         handle_cmsg = true;
         }
@@ -1371,11 +1367,9 @@ int bus_socket_read_message(sd_bus *bus) {
 
         iov = IOVEC_MAKE((uint8_t *)bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
 
-        if (bus->prefer_readv) {
-                k = readv(bus->input_fd, &iov, 1);
-                if (k < 0)
-                        k = -errno;
-        } else {
+        if (bus->prefer_readv)
+                k = RET_NERRNO(readv(bus->input_fd, &iov, 1));
+        else {
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
@@ -1386,9 +1380,7 @@ int bus_socket_read_message(sd_bus *bus) {
                 k = recvmsg_safe(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (k == -ENOTSOCK) {
                         bus->prefer_readv = true;
-                        k = readv(bus->input_fd, &iov, 1);
-                        if (k < 0)
-                                k = -errno;
+                        k = RET_NERRNO(readv(bus->input_fd, &iov, 1));
                 } else
                         handle_cmsg = true;
         }
