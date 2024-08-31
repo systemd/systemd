@@ -150,7 +150,7 @@ mountfsd:
     - any-glob-to-any-file: '**/*mountfsd*'
 network:
   - changed-files:
-    - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*', 'network/*']
+    - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*', 'network/*', 'test/networkd-test.py', 'test/test-network*']
 notify:
   - changed-files:
     - any-glob-to-any-file: 'src/notify/*'
