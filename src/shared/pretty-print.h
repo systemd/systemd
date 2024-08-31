@@ -55,3 +55,5 @@ bool shall_tint_background(void);
 
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);
+void draw_progress_bar_unbuffered(const char *prefix, double percentage);
+void clear_progress_bar_unbuffered(const char *prefix);
