@@ -2178,7 +2178,7 @@ int config_parse_refuse_record_types(
         extract_first_word(&record_type_raw_string, &record_type_string, NULL, EXTRACT_UNQUOTE);
 
         /* Get int values of DNS type for example "AAAA" string to get int value and store in Set */
-        _cleanup_set_free_ Set *refused_records;
+        Set *refused_records;
         refused_records = set_new(NULL);
 
         STRV_FOREACH(i, strv_split(record_type_string, ",")) {
