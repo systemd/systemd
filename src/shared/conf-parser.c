@@ -46,6 +46,8 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "dns-type.h"
+#include "resolved-manager.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(config_file_hash_ops_fclose,
                                               char, path_hash_func, path_compare,
