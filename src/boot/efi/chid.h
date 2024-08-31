@@ -3,4 +3,4 @@
 
 #include "efi.h"
 
-EFI_STATUS hwid_match(const void *dtb_buffer, size_t dtb_length);
+EFI_STATUS hwid_match(const void *hwids_buffer, size_t hwids_length, const char **compatible);
