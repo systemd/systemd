@@ -169,12 +169,6 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
          * To avoid the object freed, let's increment the refcount. */
         uctrl = udev_ctrl_ref(userdata);
 
-        size = next_datagram_size_fd(fd);
-        if (size < 0)
-                return log_error_errno(size, "Failed to get size of message: %m");
-        if (size == 0)
-                return 0; /* Client disconnects? */
-
         size = recvmsg_safe(fd, &smsg, 0);
         if (size == -EINTR)
                 return 0;
