@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "efi-string.h"
 #include "log.h"
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
@@ -30,6 +31,19 @@ static inline void freep(void *p) {
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 void *xmalloc(size_t size);
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+static inline void *xcalloc(size_t size) {
+        void *t = xmalloc(size);
+        memzero(t, size);
+        return t;
+}
+
+_malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
+static inline void *xcalloc_multiply(size_t n, size_t size) {
+        assert_se(MUL_ASSIGN_SAFE(&size, n));
+        return xcalloc(size);
+}
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
