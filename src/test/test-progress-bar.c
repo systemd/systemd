@@ -4,7 +4,7 @@
 #include "random-util.h"
 #include "tests.h"
 
-#define PROGRESS_PREFIX "test: "
+#define PROGRESS_PREFIX "test:"
 
 TEST(progress_bar) {
 

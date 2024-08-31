@@ -13,6 +13,7 @@
 #include "bus-map-properties.h"
 #include "bus-util.h"
 #include "errno-list.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "json-util.h"
 #include "main-func.h"
@@ -775,6 +776,7 @@ static int verb_check(int argc, char **argv, void *userdata) {
 }
 
 #define UPDATE_PROGRESS_FAILED INT_MIN
+#define UPDATE_PROGRESS_DONE INT_MAX
 /* Make sure it doesn't overlap w/ errno values */
 assert_cc(UPDATE_PROGRESS_FAILED < -ERRNO_MAX);
 
@@ -794,6 +796,11 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
         if (n == 0)
                 return 0;
 
+        /* We're outputting lots of small strings to STDERR, which is unbuffered by default. So let's turn
+         * on full buffering, so we pass this all to the TTY in one go, to make things more efficient */
+        char buffer[LONG_LINE_MAX];
+        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
+
         if (!terminal_is_dumb()) {
                 for (size_t i = 0; i <= n; i++)
                         fputs("\n", stderr); /* Possibly scroll the terminal to make room (including total)*/
@@ -808,24 +815,36 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 int progress = PTR_TO_INT(p);
 
                 if (progress == UPDATE_PROGRESS_FAILED) {
-                        fprintf(stderr, "%s %s\n", RED_CROSS_MARK(), target);
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Unknown failure\n", target, RED_CROSS_MARK());
                         total += 100;
                 } else if (progress == -EALREADY) {
-                        fprintf(stderr, "%s %s (Already up-to-date)\n", GREEN_CHECK_MARK(), target);
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
                 } else if (progress < 0) {
-                        fprintf(stderr, "%s %s (%s)\n", RED_CROSS_MARK(), target, STRERROR(progress));
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
+                        total += 100;
+                } else if (progress == UPDATE_PROGRESS_DONE) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Done\n", target, GREEN_CHECK_MARK());
                         total += 100;
                 } else {
-                        draw_progress_bar(target, progress);
+                        draw_progress_bar_unbuffered(target, progress);
                         fputs("\n", stderr);
                         total += progress;
                 }
         }
 
         if (n > 1) {
-                draw_progress_bar("TOTAL", (double) total / n);
-                fputs("\n", stderr);
+                if (exiting)
+                        clear_progress_bar_unbuffered(target);
+                else {
+                        draw_progress_bar_unbuffered("Total", (double) total / n);
+                        if (terminal_is_dumb())
+                                fputs("\n", stderr);
+                }
         }
 
         if (!terminal_is_dumb()) {
@@ -837,6 +856,7 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 fputs("------\n", stderr);
 
         fflush(stderr);
+        setvbuf(stderr, NULL, _IONBF, 0); /* Disable buffering again */
         return 0;
 }
 
@@ -895,7 +915,7 @@ static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         if (status == 0) /* success */
-                status = 100;
+                status = UPDATE_PROGRESS_DONE;
         else if (status > 0) /* exit status without errno */
                 status = UPDATE_PROGRESS_FAILED; /* i.e. EXIT_FAILURE */
         /* else errno */
