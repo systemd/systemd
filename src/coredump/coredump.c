@@ -158,7 +158,7 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage, "Failed to parse storage setting");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage);
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static bool arg_compress = true;

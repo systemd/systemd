@@ -458,8 +458,7 @@ static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions,
                                         IPV6_PRIVACY_EXTENSIONS_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions, ipv6_privacy_extensions, IPv6PrivacyExtensions,
-                         "Failed to parse IPv6 privacy extensions option");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions, ipv6_privacy_extensions, IPv6PrivacyExtensions);
 
 static const char* const ip_reverse_path_filter_table[_IP_REVERSE_PATH_FILTER_MAX] = {
         [IP_REVERSE_PATH_FILTER_NO]     = "no",
@@ -468,8 +467,7 @@ static const char* const ip_reverse_path_filter_table[_IP_REVERSE_PATH_FILTER_MA
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter,
-                         "Failed to parse IP reverse path filter option");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter);
 
 int config_parse_ip_forward_deprecated(
                 const char* unit,
