@@ -1123,7 +1123,7 @@ static int process_route_one(
                                 return 0;
                         }
 
-                        /* We configure IPv6 multipath route separatedly. When the first path is configured,
+                        /* We configure IPv6 multipath route separately. When the first path is configured,
                          * the kernel does not provide the weight of the path. So, we need to adjust it here.
                          * Hopefully, the weight is assigned correctly. */
                         if (route->nexthop.weight == 0) {
