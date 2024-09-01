@@ -91,7 +91,7 @@ int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg);
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg);
 int route_remove(Route *route, Manager *manager);
 int route_remove_and_cancel(Route *route, Manager *manager);
 

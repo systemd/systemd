@@ -670,40 +670,97 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
         return 1;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg) {
+static int route_update_by_request(Route *route, Request *req) {
+        assert(route);
+        assert(req);
+
+        Route *rt = ASSERT_PTR(req->userdata);
+
+        route->provider = rt->provider;
+        route->source = rt->source;
+        route->lifetime_usec = rt->lifetime_usec;
+
+        return 0;
+}
+
+static int route_update_on_existing_one(Request *req, Route *requested) {
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(req)->manager);
+        Route *existing;
+        int r;
+
+        assert(requested);
+
+        if (route_get(manager, requested, &existing) < 0)
+                return 0;
+
+        r = route_update_by_request(existing, req);
+        if (r < 0)
+                return r;
+
+        r = route_setup_timer(existing, NULL);
+        if (r < 0)
+                return r;
+
+        /* This may be a bug in the kernel, but the MTU of an IPv6 route can be updated only when the
+         * route has an expiration timer managed by the kernel (not by us). See fib6_add_rt2node() in
+         * net/ipv6/ip6_fib.c of the kernel. */
+        if (existing->family == AF_INET6 &&
+            existing->expiration_managed_by_kernel) {
+                r = route_metric_set(&existing->metric, RTAX_MTU, route_metric_get(&requested->metric, RTAX_MTU));
+                if (r < 0)
+                        return r;
+        }
+
+        route_enter_configured(existing);
+        return 0;
+}
+
+static int route_update_on_existing(Request *req) {
+        Route *rt = ASSERT_PTR(ASSERT_PTR(req)->userdata);
+        int r;
+
+        if (rt->family == AF_INET || ordered_set_isempty(rt->nexthops))
+                return route_update_on_existing_one(req, rt);
+
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, rt->nexthops) {
+                _cleanup_(route_unrefp) Route *dup = NULL;
+
+                r = route_dup(rt, nh, &dup);
+                if (r < 0)
+                        return r;
+
+                r = route_update_on_existing_one(req, dup);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg) {
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->manager);
-        assert(route);
+        assert(req);
         assert(error_msg);
+
+        Link *link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST) {
-                Route *existing;
-
-                if (route_get(link->manager, route, &existing) >= 0) {
-                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
-                         * notification, so we need to update the timer here. */
-                        existing->lifetime_usec = route->lifetime_usec;
-                        (void) route_setup_timer(existing, NULL);
-
-                        /* This may be a bug in the kernel, but the MTU of an IPv6 route can be updated only
-                         * when the route has an expiration timer managed by the kernel (not by us).
-                         * See fib6_add_rt2node() in net/ipv6/ip6_fib.c of the kernel. */
-                        if (existing->family == AF_INET6 &&
-                            existing->expiration_managed_by_kernel) {
-                                r = route_metric_set(&existing->metric, RTAX_MTU, route_metric_get(&route->metric, RTAX_MTU));
-                                if (r < 0) {
-                                        log_oom();
-                                        link_enter_failed(link);
-                                        return 0;
-                                }
-                        }
+                /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE notification, so
+                 * here we need to update the state, provider, source, timer, and so on. */
+                r = route_update_on_existing(req);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to update existing route: %m");
+                        link_enter_failed(link);
+                        return 0;
                 }
 
-        } else if (r < 0) {
+                return 1;
+        }
+        if (r < 0) {
                 log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
@@ -930,7 +987,7 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set route");
+        r = route_configure_handler_internal(rtnl, m, req, "Could not set static route");
         if (r <= 0)
                 return r;
 
@@ -1053,11 +1110,12 @@ static int process_route_one(
 
                 /* Also update information that cannot be obtained through netlink notification. */
                 if (req && req->waiting_reply) {
-                        Route *rt = ASSERT_PTR(req->userdata);
-
-                        route->source = rt->source;
-                        route->provider = rt->provider;
-                        route->lifetime_usec = rt->lifetime_usec;
+                        r = route_update_by_request(route, req);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to update route by request: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
                 }
 
                 route_enter_configured(route);
