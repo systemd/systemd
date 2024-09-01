@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Release
-        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191
         with:
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           draft: ${{ github.repository == 'systemd/systemd' }}
