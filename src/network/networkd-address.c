@@ -2352,34 +2352,35 @@ static void address_section_adjust_broadcast(Address *address) {
         address->broadcast.s_addr = 0;
 }
 
+#define log_address_section(address, fmt, ...)                          \
+        ({                                                              \
+                const Address *_address = (address);                    \
+                log_section_warning_errno(                              \
+                                _address ? _address->section : NULL,    \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [Address] section.",     \
+                                ##__VA_ARGS__);                         \
+        })
+
 int address_section_verify(Address *address) {
+        assert(address);
+        assert(address->section);
+
         if (section_is_invalid(address->section))
                 return -EINVAL;
 
-        if (address->family == AF_UNSPEC) {
-                assert(address->section);
-
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Address section without Address= field was configured. "
-                                         "Ignoring [Address] section from line %u.",
-                                         address->section->filename, address->section->line);
-        }
+        if (address->family == AF_UNSPEC)
+                return log_address_section(address, "Address section without Address= field was configured.");
 
         if (address->family == AF_INET6 && !socket_ipv6_is_supported())
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: an IPv6 address was configured, but the kernel does not support IPv6. "
-                                         "Ignoring [Address] section from line %u.",
-                                         address->section->filename, address->section->line);
+                return log_address_section(address, "An IPv6 address was configured, but the kernel does not support IPv6.");
 
         assert(IN_SET(address->family, AF_INET, AF_INET6));
 
         address_section_adjust_broadcast(address);
 
         if (address->family == AF_INET6 && address->label) {
-                log_warning("%s: address label is set for IPv6 address in the [Address] section from line %u. "
-                            "Ignoring Label= setting.",
-                            address->section->filename, address->section->line);
-
+                log_section_warning(address->section, "Address label is set for IPv6 address, ignoring Label= setting.");
                 address->label = mfree(address->label);
         }
 
@@ -2398,11 +2399,9 @@ int address_section_verify(Address *address) {
                 else
                         address->duplicate_address_detection = ADDRESS_FAMILY_NO;
         } else if (address->duplicate_address_detection == ADDRESS_FAMILY_IPV6 && address->family == AF_INET)
-                log_warning("%s: DuplicateAddressDetection=ipv6 is specified for IPv4 address, ignoring.",
-                            address->section->filename);
+                log_section_warning(address->section, "DuplicateAddressDetection=ipv6 is specified for IPv4 address, ignoring.");
         else if (address->duplicate_address_detection == ADDRESS_FAMILY_IPV4 && address->family == AF_INET6)
-                log_warning("%s: DuplicateAddressDetection=ipv4 is specified for IPv6 address, ignoring.",
-                            address->section->filename);
+                log_section_warning(address->section, "DuplicateAddressDetection=ipv4 is specified for IPv6 address, ignoring.");
 
         if (address->family == AF_INET6 &&
             !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
@@ -2415,10 +2414,7 @@ int address_section_verify(Address *address) {
                 _cleanup_free_ char *str = NULL;
 
                 (void) address_flags_to_string_alloc(address->flags ^ filtered_flags, address->family, &str);
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: unexpected address flags \"%s\" were configured. "
-                                         "Ignoring [Address] section from line %u.",
-                                         address->section->filename, strna(str), address->section->line);
+                return log_address_section(address, "unexpected address flags \"%s\" were configured.", strna(str));
         }
 
         return 0;
