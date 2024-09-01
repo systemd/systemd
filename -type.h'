@@ -1,0 +1,20 @@
+[1mdiff --git a/meson.build b/meson.build[m
+[1mindex 725284f4c0..0ef46de7a5 100644[m
+[1m--- a/meson.build[m
+[1m+++ b/meson.build[m
+[36m@@ -694,6 +694,7 @@[m [menv = find_program('env')[m
+ rsync = find_program('rsync', required : false)[m
+ diff = find_program('diff')[m
+ find = find_program('find')[m
+[32m+[m[32mcp = find_program('cp')[m
+ [m
+ ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'[m
+ [m
+[36m@@ -2064,7 +2065,6 @@[m [mbasic_includes = include_directories([m
+         'src/basic',[m
+         'src/fundamental',[m
+         'src/systemd',[m
+[31m-        'src/resolve',[m
+         '.')[m
+ [m
+ libsystemd_includes = [basic_includes, include_directories([m
