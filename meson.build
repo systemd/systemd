@@ -2112,7 +2112,6 @@ basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
         'src/systemd',
-        'src/resolve',
         '.')
 
 libsystemd_includes = [basic_includes, include_directories(
@@ -2129,7 +2128,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-resolve',
         'src/libsystemd/sd-varlink')]
 
-includes = [libsystemd_includes, include_directories('src/shared')]
+includes = [libsystemd_includes, include_directories('src/shared','src/resolve')]
 
 subdir('po')
 subdir('catalog')
