@@ -17,9 +17,20 @@ typedef struct PortableMetadata {
         char name[];
 } PortableMetadata;
 
+static const struct {
+        const char *image_path;
+        const char *install_path;
+        const char *reloading_service;
+} portable_auxiliary_directories[] = {
+        { "/usr/share/dbus-1/system.d/",        "/etc/dbus-1/system.d/",        "dbus.service", },
+        { "/usr/share/dbus-1/system-services/", "/etc/dbus-1/system-services/", "dbus.service", },
+        { "/usr/share/polkit-1/actions/",       "/etc/polkit-1/actions/",       NULL,           }, /* polkit uses inotify, no need to reload it */
+};
+
 #define PORTABLE_METADATA_IS_OS_RELEASE(m) (streq((m)->name, "/etc/os-release"))
 #define PORTABLE_METADATA_IS_EXTENSION_RELEASE(m) (startswith_strv((m)->name, STRV_MAKE("/usr/lib/extension-release.d/extension-release.", "/etc/extension-release.d/extension-release.")))
 #define PORTABLE_METADATA_IS_UNIT(m) (!IN_SET((m)->name[0], 0, '/'))
+#define PORTABLE_METADATA_IS_AUXILIARY_FILE(m) (startswith_strv((m)->name, STRV_MAKE("/usr/share/dbus-1/system.d/", "/usr/share/dbus-1/system-services/", "/usr/share/polkit-1/actions/")))
 
 typedef enum PortableFlags {
         PORTABLE_RUNTIME         = 1 << 0, /* Public API via DBUS, do not change */
