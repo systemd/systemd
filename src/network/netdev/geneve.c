@@ -26,7 +26,7 @@ static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF);
 
 static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(m);
