@@ -789,6 +789,32 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression algorithm. </para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
+        configured compression algorithm.</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression and the <varname>Compression=</varname> setting is
+        configured explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
