@@ -269,9 +269,10 @@ static int dhcp_pd_check_ready(Link *link) {
 static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to add prefix route for DHCP delegated subnet prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to add prefix route for DHCP delegated subnet prefix");
         if (r <= 0)
                 return r;
 
@@ -662,9 +663,10 @@ void dhcp4_pd_prefix_lost(Link *uplink) {
 static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to set unreachable route for DHCPv4 delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv4 delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -678,9 +680,10 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to set unreachable route for DHCPv6 delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv6 delegated prefix");
         if (r <= 0)
                 return r;
 

@@ -478,9 +478,10 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         }
 
         if (ordered_set_isempty(route->nexthops)) {
-                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw))
-                        buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->nexthop.family, &route->nexthop.gw));
-                else if (route->gateway_from_dhcp_or_ra) {
+                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) {
+                        if (asprintf(&buf, "gw: %s:%"PRIu32, IN_ADDR_TO_STRING(route->nexthop.family, &route->nexthop.gw), route->nexthop.weight + 1) < 0)
+                                return -ENOMEM;
+                } else if (route->gateway_from_dhcp_or_ra) {
                         if (route->nexthop.family == AF_INET)
                                 buf = strdup("gw: _dhcp4");
                         else if (route->nexthop.family == AF_INET6)
