@@ -384,22 +384,14 @@ typedef enum ConfigParseStringFlags {
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
                 type **enums = ASSERT_PTR(data);                               \
                 _cleanup_free_ type *xs = NULL;                                \
-                size_t i = 0;                                                  \
+                size_t n = 0;                                                  \
                 int r;                                                         \
                                                                                \
-                assert(filename);                                              \
                 assert(lvalue);                                                \
-                assert(rvalue);                                                \
-                                                                               \
-                xs = new0(type, 1);                                            \
-                if (!xs)                                                       \
-                        return -ENOMEM;                                        \
-                                                                               \
-                *xs = invalid;                                                 \
                                                                                \
                 for (const char *p = rvalue;;) {                               \
                         _cleanup_free_ char *en = NULL;                        \
-                        type x, *new_xs;                                       \
+                        type x;                                                \
                                                                                \
                         r = extract_first_word(&p, &en, NULL, 0);              \
                         if (r < 0)                                             \
@@ -415,27 +407,33 @@ typedef enum ConfigParseStringFlags {
                                 continue;                                      \
                         }                                                      \
                                                                                \
-                        for (type *ys = xs; x != invalid && *ys != invalid; ys++) \
-                                if (*ys == x) {                                \
+                        FOREACH_ARRAY(i, xs, n)                                \
+                                if (*i == x) {                                 \
                                         log_syntax(unit, LOG_NOTICE, filename, line, 0, \
                                                    "Duplicate entry %s in %s=, ignoring.", \
                                                    en, lvalue);                \
                                         x = invalid;                           \
+                                        break;                                 \
                                 }                                              \
                                                                                \
                         if (x == invalid)                                      \
                                 continue;                                      \
                                                                                \
-                        *(xs + i) = x;                                         \
-                        new_xs = realloc(xs, (++i + 1) * sizeof(type));        \
-                        if (new_xs)                                            \
-                                xs = new_xs;                                   \
-                        else                                                   \
+                        /* Allocate one more for the trailing 'invalid'. */    \
+                        if (!GREEDY_REALLOC(xs, n + 2))                        \
                                 return log_oom();                              \
                                                                                \
-                        *(xs + i) = invalid;                                   \
+                        xs[n++] = x;                                           \
                 }                                                              \
                                                                                \
+                if (n <= 0) {                                                  \
+                        /* An empty string, or invalid values only. */         \
+                        *enums = mfree(*enums);                                \
+                        return 1;                                              \
+                }                                                              \
+                                                                               \
+                /* Terminate with 'invalid' */                                 \
+                xs[n] = invalid;                                               \
                 free_and_replace(*enums, xs);                                  \
                 return 1;                                                      \
         }
