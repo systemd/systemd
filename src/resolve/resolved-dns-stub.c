@@ -951,7 +951,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         }
 
         if (set_contains(m->refuse_record_types, INT_TO_PTR(dns_question_first_key(p->question)->type))) {
-                log_info("Got request that is refused, refusing.");
+                log_debug("Got request that is refused, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }

@@ -204,7 +204,6 @@ shared_sources = files(
         'web-util.c',
         'wifi-util.c',
         'xml.c',
-        'dns-type.c',
 )
 
 if get_option('tests') != 'false'
@@ -311,6 +310,15 @@ ethtool_link_mode_xml = custom_target(
         command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
         capture : true)
 man_page_depends += ethtool_link_mode_xml
+
+fname = 'dns-type.c'
+dns_type_c = custom_target(
+        fname,
+        input : ['../resolve/dns-type.c'],
+        output : fname,
+        command : [cp, '@INPUT0@', '@OUTPUT@'],
+        capture : false)
+shared_sources += dns_type_c
 
 libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
