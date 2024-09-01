@@ -694,7 +694,6 @@ env = find_program('env')
 rsync = find_program('rsync', required : false)
 diff = find_program('diff')
 find = find_program('find')
-cp = find_program('cp')
 
 ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
@@ -2065,6 +2064,7 @@ basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
         'src/systemd',
+        'src/resolve',
         '.')
 
 libsystemd_includes = [basic_includes, include_directories(
@@ -2080,7 +2080,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-resolve',
         'src/libsystemd/sd-varlink')]
 
-includes = [libsystemd_includes, include_directories('src/shared','src/resolve')]
+includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
