@@ -1683,7 +1683,7 @@ Manager* manager_free(Manager *m) {
         /* Keep the cgroup hierarchy in place except when we know we are going down for good */
         manager_shutdown_cgroup(m, /* delete= */ IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
 
-        lookup_paths_flush_generator(&m->lookup_paths);
+        lookup_paths_flush_generator(&m->lookup_paths, MANAGER_IS_TEST_RUN(m));
 
         bus_done(m);
         manager_varlink_done(m);
@@ -1986,7 +1986,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
         r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
-                                      MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                                      FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_GENERATORS) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                                       root);
         if (r < 0)
                 return r;
@@ -2008,7 +2008,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
 
                 /* Make sure we don't have a left-over from a previous run */
-                if (!serialization)
+                if (!serialization && !MANAGER_IS_TEST_RUN(m))
                         (void) rm_rf(m->lookup_paths.transient, 0);
 
                 /* If we will deserialize make sure that during enumeration this is already known, so we increase the
@@ -3707,7 +3707,7 @@ int manager_reload(Manager *m) {
          * it. */
 
         manager_clear_jobs_and_units(m);
-        lookup_paths_flush_generator(&m->lookup_paths);
+        lookup_paths_flush_generator(&m->lookup_paths, MANAGER_IS_TEST_RUN(m));
         lookup_paths_done(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);

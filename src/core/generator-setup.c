@@ -35,10 +35,16 @@ void lookup_paths_trim_generator(LookupPaths *p) {
                 (void) rmdir(p->generator_late);
 }
 
-void lookup_paths_flush_generator(LookupPaths *p) {
+void lookup_paths_flush_generator(LookupPaths *p, bool test) {
         assert(p);
 
         /* Flush the generated unit files in full */
+
+        if (p->temporary_dir)
+                (void) rm_rf(p->temporary_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+
+        if (test)
+                return; /* Do not remove generated units when runnint in a test mode. */
 
         if (p->generator)
                 (void) rm_rf(p->generator, REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -46,7 +52,4 @@ void lookup_paths_flush_generator(LookupPaths *p) {
                 (void) rm_rf(p->generator_early, REMOVE_ROOT|REMOVE_PHYSICAL);
         if (p->generator_late)
                 (void) rm_rf(p->generator_late, REMOVE_ROOT|REMOVE_PHYSICAL);
-
-        if (p->temporary_dir)
-                (void) rm_rf(p->temporary_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }

@@ -370,6 +370,17 @@ systemd-analyze verify /tmp/hoge@test.service
 (! systemd-analyze verify /tmp/hoge@nonexist.service)
 (! systemd-analyze verify /tmp/hoge@.service)
 
+# issue #32824
+systemd-run -u transient-sleep.service sleep 1h
+systemd-analyze verify transient-sleep.service
+systemd-analyze security transient-sleep.service
+systemctl stop transient-sleep.service
+
+systemd-run --user -M testuser@ -u transient-sleep.service sleep 1h
+runas testuser systemd-analyze --user verify transient-sleep.service
+runas testuser systemd-analyze --user security transient-sleep.service
+systemctl --user -M testuser@ stop transient-sleep.service
+
 # test that all commands are verified.
 cat <<EOF >/tmp/multi-exec-start.service
 [Service]
