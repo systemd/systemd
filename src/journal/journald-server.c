@@ -2953,7 +2953,7 @@ static const char* const storage_table[_STORAGE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage);
 
 static const char* const split_mode_table[_SPLIT_MAX] = {
         [SPLIT_LOGIN] = "login",
@@ -2962,7 +2962,7 @@ static const char* const split_mode_table[_SPLIT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode);
 
 int config_parse_line_max(
                 const char* unit,

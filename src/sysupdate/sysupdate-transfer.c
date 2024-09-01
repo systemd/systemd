@@ -377,10 +377,10 @@ static int config_parse_resource_path(
         return free_and_replace(rr->path, resolved);
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType, "Invalid resource type");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
-                                             PATH_RELATIVE_TO_ROOT, "Invalid PathRelativeTo= value");
+                                             PATH_RELATIVE_TO_ROOT);
 
 static int config_parse_resource_ptype(
                 const char *unit,
