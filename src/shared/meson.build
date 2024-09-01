@@ -311,6 +311,41 @@ ethtool_link_mode_xml = custom_target(
         capture : true)
 man_page_depends += ethtool_link_mode_xml
 
+dns_type_list_txt = custom_target(
+        'dns_type-list.txt',
+        input : ['../resolve/generate-dns_type-list.sed', '../resolve/dns-type.h'],
+        output : 'dns_type-list.txt',
+        command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+generate_dns_type_gperf = find_program('../resolve/generate-dns_type-gperf.py')
+
+gperf_file = custom_target(
+        'dns_type-from-name.gperf',
+        input : dns_type_list_txt,
+        output : 'dns_type-from-name.gperf',
+        command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
+        capture : true)
+
+shared_sources += custom_target(
+        'dns_type-from-name.h',
+        input : gperf_file,
+        output : 'dns_type-from-name.h',
+        command : [gperf,
+                   '-L', 'ANSI-C', '-t', '--ignore-case',
+                   '-N', 'lookup_dns_type',
+                   '-H', 'hash_dns_type_name',
+                   '-p', '-C',
+                   '@INPUT@'],
+        capture : true)
+
+shared_sources += custom_target(
+        'dns_type-to-name.h',
+        input : ['../resolve/dns_type-to-name.awk', dns_type_list_txt],
+        output : 'dns_type-to-name.h',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
 fname = 'dns-type.c'
 dns_type_c = custom_target(
         fname,
