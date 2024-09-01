@@ -296,6 +296,16 @@ int manager_request_static_address_labels(Manager *manager) {
         return 0;
 }
 
+#define log_label_section(label, fmt, ...)                              \
+        ({                                                              \
+                const AddressLabel *_label = (label);                   \
+                log_section_warning_errno(                              \
+                                _label ? _label->section : NULL,        \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [IPv6AddressLabel] section.", \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int address_label_section_verify(AddressLabel *label) {
         assert(label);
         assert(label->section);
@@ -304,16 +314,10 @@ static int address_label_section_verify(AddressLabel *label) {
                 return -EINVAL;
 
         if (!label->prefix_set)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [IPv6AddressLabel] section without Prefix= setting specified. "
-                                         "Ignoring [IPv6AddressLabel] section from line %u.",
-                                         label->section->filename, label->section->line);
+                return log_label_section(label, "[IPv6AddressLabel] section without Prefix= setting specified.");
 
         if (label->label == UINT32_MAX)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [IPv6AddressLabel] section without Label= setting specified. "
-                                         "Ignoring [IPv6AddressLabel] section from line %u.",
-                                         label->section->filename, label->section->line);
+                return log_label_section(label, "[IPv6AddressLabel] section without Label= setting specified.");
 
         return 0;
 }
