@@ -1588,6 +1588,7 @@ int log_syntax_invalid_utf8_internal(
                 const char *func,
                 const char *rvalue) {
 
+        PROTECT_ERRNO;
         _cleanup_free_ char *p = NULL;
 
         if (rvalue)
