@@ -55,5 +55,21 @@ bool shall_tint_background(void);
 
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);
-void draw_progress_bar_unbuffered(const char *prefix, double percentage);
-void clear_progress_bar_unbuffered(const char *prefix);
+void draw_progress_bar_impl(const char *prefix, double percentage);
+void clear_progress_bar_impl(const char *prefix);
+
+static inline void flush_and_disable_bufferingp(FILE **p) {
+        assert(p);
+
+        if (*p) {
+                fflush(*p);
+                setvbuf(*p, NULL, _IONBF, 0); /* Disable buffering again */
+        }
+}
+
+#define _WITH_BUFFERING(f, size, p)                              \
+        _cleanup_(flush_and_disable_bufferingp) FILE *p = (f);   \
+        (void) setvbuf(p, (char[size]) {}, _IOFBF, size)
+
+#define WITH_BUFFERING(f)                                        \
+        _WITH_BUFFERING(f, LONG_LINE_MAX, UNIQ_T(p, UNIQ))
