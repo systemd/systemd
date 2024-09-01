@@ -2865,6 +2865,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         ip4_null_24 = None
         output = check_output('ip -4 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
+            if 'label' not in i:
+                continue
             if i['label'] == 'subnet16':
                 ip4_null_16 = i['local']
             elif i['label'] == 'subnet24':
@@ -6435,7 +6437,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 --json address show dev veth99')
         for i in json.loads(output)[0]['addr_info']:
-            if i['label'] == 'test-label':
+            if 'label' in i and i['label'] == 'test-label':
                 address1 = i['local']
                 break
         else:
@@ -6529,7 +6531,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 --json address show dev veth99')
         for i in json.loads(output)[0]['addr_info']:
-            if i['label'] == 'test-label':
+            if 'label' in i and i['label'] == 'test-label':
                 address2 = i['local']
                 break
         else:
