@@ -460,7 +460,7 @@ bool shall_tint_background(void) {
         return cache != 0;
 }
 
-void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
+void draw_progress_bar_impl(const char *prefix, double percentage) {
         fputc('\r', stderr);
         if (prefix) {
                 fputs(prefix, stderr);
@@ -516,7 +516,7 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
 
 }
 
-void clear_progress_bar_unbuffered(const char *prefix) {
+void clear_progress_bar_impl(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
@@ -535,10 +535,10 @@ void draw_progress_bar(const char *prefix, double percentage) {
          * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
          * as a single buffer, to make things more efficient. */
         WITH_BUFFERING(stderr);
-        draw_progress_bar_unbuffered(prefix, percentage);
+        draw_progress_bar_impl(prefix, percentage);
 }
 
 void clear_progress_bar(const char *prefix) {
         WITH_BUFFERING(stderr);
-        clear_progress_bar_unbuffered(prefix);
+        clear_progress_bar_impl(prefix);
 }
