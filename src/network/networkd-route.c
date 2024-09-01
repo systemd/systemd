@@ -1104,9 +1104,15 @@ static int process_route_one(
                         route = route_ref(tmp);
                         is_new = true;
 
-                } else
+                } else {
                         /* Update remembered route with the received notification. */
-                        route->nexthop.weight = tmp->nexthop.weight;
+
+                        /* Here, update weight only when a non-zero weight is received. As the kernel does
+                         * not provide the weight of a single-path route. In such case, tmp->nexthop.weight
+                         * is zero, hence we should not overwrite the known weight of the route. */
+                        if (tmp->nexthop.weight != 0)
+                                route->nexthop.weight = tmp->nexthop.weight;
+                }
 
                 /* Also update information that cannot be obtained through netlink notification. */
                 if (req && req->waiting_reply) {
@@ -1115,6 +1121,14 @@ static int process_route_one(
                                 log_link_warning_errno(link, r, "Failed to update route by request: %m");
                                 link_enter_failed(link);
                                 return 0;
+                        }
+
+                        /* We configure IPv6 multipath route separatedly. When the first path is configured,
+                         * the kernel does not provide the weight of the path. So, we need to adjust it here.
+                         * Hopefully, the weight is assigned correctly. */
+                        if (route->nexthop.weight == 0) {
+                                Route *rt = ASSERT_PTR(req->userdata);
+                                route->nexthop.weight = rt->nexthop.weight;
                         }
                 }
 
