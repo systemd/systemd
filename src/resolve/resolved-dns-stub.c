@@ -949,6 +949,12 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(dns_question_first_key(p->question)->type))) {
+                log_debug("Got request that is refused, refusing.");
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                return;
+        }
+
         if (!DNS_PACKET_RD(p))  {
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");

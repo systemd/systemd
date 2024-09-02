@@ -258,6 +258,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_uint32_flag);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_string);
+CONFIG_PARSER_PROTOTYPE(config_parse_refuse_record_types);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_path);
