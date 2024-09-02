@@ -378,11 +378,15 @@ void link_qdisc_drop_marked(Link *link) {
         assert(link);
 
         SET_FOREACH(qdisc, link->qdiscs) {
+                Request *req;
+
                 if (!qdisc_is_marked(qdisc))
                         continue;
 
                 qdisc_unmark(qdisc);
                 qdisc_enter_removed(qdisc);
+                if (qdisc_get_request(link, qdisc, &req) >= 0)
+                        qdisc_enter_removed(req->userdata);
 
                 if (qdisc->state == 0) {
                         log_qdisc_debug(qdisc, link, "Forgetting");
@@ -483,6 +487,7 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
 }
 
 static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
+        QDisc *existing;
         int r;
 
         assert(req);
@@ -497,54 +502,56 @@ static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
                 return log_link_warning_errno(link, r, "Failed to configure QDisc: %m");
 
         qdisc_enter_configuring(qdisc);
+        if (qdisc_get(link, qdisc, &existing) >= 0)
+                qdisc_enter_configuring(existing);
+
         return 1;
 }
 
-int link_request_qdisc(Link *link, QDisc *qdisc) {
-        QDisc *existing;
+int link_request_qdisc(Link *link, const QDisc *qdisc) {
+        _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
+        QDisc *existing = NULL;
         int r;
 
         assert(link);
         assert(qdisc);
+        assert(qdisc->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
         if (qdisc_get_request(link, qdisc, NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
-        if (qdisc_get(link, qdisc, &existing) < 0) {
-                _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
+        r = qdisc_dup(qdisc, &tmp);
+        if (r < 0)
+                return r;
 
-                r = qdisc_dup(qdisc, &tmp);
-                if (r < 0)
-                        return log_oom();
+        if (qdisc_get(link, qdisc, &existing) >= 0)
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
 
-                r = qdisc_attach(link, tmp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to store QDisc: %m");
-
-                existing = tmp;
-        } else
-                existing->source = qdisc->source;
-
-        log_qdisc_debug(existing, link, "Requesting");
+        log_qdisc_debug(tmp, link, "Requesting");
         r = link_queue_request_safe(link, REQUEST_TYPE_TC_QDISC,
-                                    existing, NULL,
+                                    tmp,
+                                    qdisc_unref,
                                     qdisc_hash_func,
                                     qdisc_compare_func,
                                     qdisc_process_request,
                                     &link->tc_messages,
                                     qdisc_handler,
                                     NULL);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to request QDisc: %m");
-        if (r == 0)
-                return 0;
+        if (r <= 0)
+                return r;
 
-        qdisc_enter_requesting(existing);
+        qdisc_enter_requesting(tmp);
+        if (existing)
+                qdisc_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
 }
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
+        Request *req = NULL;
         QDisc *qdisc = NULL;
         Link *link;
         uint16_t type;
@@ -609,45 +616,49 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
         }
 
         (void) qdisc_get(link, tmp, &qdisc);
+        (void) qdisc_get_request(link, tmp, &req);
 
-        switch (type) {
-        case RTM_NEWQDISC:
-                if (qdisc) {
-                        qdisc_enter_configured(qdisc);
-                        log_qdisc_debug(qdisc, link, "Received remembered");
-                } else {
-                        qdisc_enter_configured(tmp);
-                        log_qdisc_debug(tmp, link, "Received new");
-
-                        r = qdisc_attach(link, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember QDisc, ignoring: %m");
-                                return 0;
-                        }
-
-                        qdisc = tmp;
-                }
-
-                if (!m->enumerating) {
-                        /* Some kind of QDisc (e.g. tbf) also create an implicit class under the qdisc, but
-                         * the kernel may not notify about the class. Hence, we need to enumerate classes. */
-                        r = link_enumerate_tclass(link, qdisc->handle);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to enumerate TClass, ignoring: %m");
-                }
-
-                break;
-
-        case RTM_DELQDISC:
+        if (type == RTM_DELQDISC) {
                 if (qdisc)
                         qdisc_drop(qdisc);
                 else
                         log_qdisc_debug(tmp, link, "Kernel removed unknown");
 
-                break;
+                return 0;
+        }
 
-        default:
-                assert_not_reached();
+        bool is_new = false;
+        if (!qdisc) {
+                /* If we did not know the qdisc, then save it. */
+                r = qdisc_attach(link, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to remember QDisc, ignoring: %m");
+                        return 0;
+                }
+
+                qdisc = tmp;
+                is_new = true;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                QDisc *q = ASSERT_PTR(req->userdata);
+
+                qdisc->source = q->source;
+        }
+
+        qdisc_enter_configured(qdisc);
+        if (req)
+                qdisc_enter_configured(req->userdata);
+
+        log_qdisc_debug(qdisc, link, is_new ? "Remembering" : "Received remembered");
+
+        if (!m->enumerating) {
+                /* Some kind of QDisc (e.g. tbf) also create an implicit class under the qdisc, but
+                 * the kernel may not notify about the class. Hence, we need to enumerate classes. */
+                r = link_enumerate_tclass(link, qdisc->handle);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to enumerate TClass, ignoring: %m");
         }
 
         return 1;

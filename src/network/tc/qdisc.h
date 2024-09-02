@@ -85,7 +85,7 @@ void link_qdisc_drop_marked(Link *link);
 
 int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **qdisc);
 
-int link_request_qdisc(Link *link, QDisc *qdisc);
+int link_request_qdisc(Link *link, const QDisc *qdisc);
 
 void network_drop_invalid_qdisc(Network *network);
 
