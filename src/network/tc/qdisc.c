@@ -238,6 +238,30 @@ static int qdisc_get(Link *link, const QDisc *in, QDisc **ret) {
         return 0;
 }
 
+static int qdisc_get_request(Link *link, const QDisc *qdisc, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(qdisc);
+
+        req = ordered_set_get(
+                        link->manager->request_queue,
+                        &(Request) {
+                                .link = link,
+                                .type = REQUEST_TYPE_TC_QDISC,
+                                .userdata = (void*) qdisc,
+                                .hash_func = (hash_func_t) qdisc_hash_func,
+                                .compare_func = (compare_func_t) qdisc_compare_func,
+                        });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
 static int qdisc_attach(Link *link, QDisc *qdisc) {
         int r;
 
@@ -484,6 +508,9 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
 
         assert(link);
         assert(qdisc);
+
+        if (qdisc_get_request(link, qdisc, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
         if (qdisc_get(link, qdisc, &existing) < 0) {
                 _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
