@@ -4942,6 +4942,8 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
         if (n < 0)
                 return log_error_errno(n, "Failed to receive handoff timestamp message: %m");
 
+        cmsg_close_all(&msghdr);
+
         if (msghdr.msg_flags & MSG_TRUNC) {
                 log_warning("Got truncated handoff timestamp message, ignoring.");
                 return 0;
