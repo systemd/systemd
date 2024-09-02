@@ -17,6 +17,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "strv.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
@@ -26,11 +27,22 @@
 #define MULTICAST_RESEND_TIMEOUT_MIN_USEC (100 * USEC_PER_MSEC)
 #define MULTICAST_RESEND_TIMEOUT_MAX_USEC (1 * USEC_PER_SEC)
 
-int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
+int dns_scope_new(
+                Manager *m,
+                DnsScope **ret,
+                DnsScopeOrigin origin,
+                Link *link,
+                DnsProtocol protocol,
+                int family) {
+
         DnsScope *s;
 
         assert(m);
         assert(ret);
+        assert(origin >= 0);
+        assert(origin < _DNS_SCOPE_ORIGIN_MAX);
+
+        assert(!!link == (origin == DNS_SCOPE_LINK));
 
         s = new(DnsScope, 1);
         if (!s)
@@ -38,7 +50,8 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 
         *s = (DnsScope) {
                 .manager = m,
-                .link = l,
+                .link = link,
+                .origin = origin,
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
@@ -54,9 +67,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * not update it from the on, even if the setting
                  * changes. */
 
-                if (l) {
-                        s->dnssec_mode = link_get_dnssec_mode(l);
-                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(l);
+                if (link) {
+                        s->dnssec_mode = link_get_dnssec_mode(link);
+                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(link);
                 } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
                         s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
@@ -72,7 +85,11 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_llmnr_membership(s, true);
         dns_scope_mdns_membership(s, true);
 
-        log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
+        log_debug("New scope on link %s, protocol %s, family %s, origin %s",
+                  link ? link->ifname : "*",
+                  dns_protocol_to_string(protocol),
+                  family == AF_UNSPEC ? "*" : af_to_name(family),
+                  dns_scope_origin_to_string(origin));
 
         *ret = s;
         return 0;
@@ -100,7 +117,11 @@ DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->ifname : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
+        log_debug("Removing scope on link %s, protocol %s, family %s, origin %s",
+                  s->link ? s->link->ifname : "*",
+                  dns_protocol_to_string(s->protocol),
+                  s->family == AF_UNSPEC ? "*" : af_to_name(s->family),
+                  dns_scope_origin_to_string(s->origin));
 
         dns_scope_llmnr_membership(s, false);
         dns_scope_mdns_membership(s, false);
@@ -1374,6 +1395,8 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs(af_to_name(s->family), f);
         }
 
+        fputs(" origin=", f);
+        fputs(dns_scope_origin_to_string(s->origin), f);
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1800,3 +1823,10 @@ int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protoco
 
         return false;
 }
+
+static const char* const dns_scope_origin_table[_DNS_SCOPE_ORIGIN_MAX] = {
+        [DNS_SCOPE_GLOBAL] = "global",
+        [DNS_SCOPE_LINK]   = "link",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin);
