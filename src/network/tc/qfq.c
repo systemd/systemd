@@ -62,7 +62,7 @@ int config_parse_quick_fair_queueing_weight(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(tclass_free_or_set_invalidp) TClass *tclass = NULL;
+        _cleanup_(tclass_unref_or_set_invalidp) TClass *tclass = NULL;
         QuickFairQueueingClass *qfq;
         Network *network = ASSERT_PTR(data);
         uint32_t v;
@@ -122,7 +122,7 @@ int config_parse_quick_fair_queueing_max_packet(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(tclass_free_or_set_invalidp) TClass *tclass = NULL;
+        _cleanup_(tclass_unref_or_set_invalidp) TClass *tclass = NULL;
         QuickFairQueueingClass *qfq;
         Network *network = ASSERT_PTR(data);
         uint64_t v;
