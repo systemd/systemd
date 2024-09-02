@@ -13,7 +13,6 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
-#include "strv.h"
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
  * IP and UDP header sizes */
