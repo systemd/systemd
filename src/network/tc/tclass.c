@@ -345,11 +345,15 @@ void link_tclass_drop_marked(Link *link) {
         assert(link);
 
         SET_FOREACH(tclass, link->tclasses) {
+                Request *req;
+
                 if (!tclass_is_marked(tclass))
                         continue;
 
                 tclass_unmark(tclass);
                 tclass_enter_removed(tclass);
+                if (tclass_get_request(link, tclass, &req) >= 0)
+                        tclass_enter_removed(req->userdata);
 
                 if (tclass->state == 0) {
                         log_tclass_debug(tclass, link, "Forgetting");
@@ -433,6 +437,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
 }
 
 static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
+        TClass *existing;
         int r;
 
         assert(req);
@@ -447,54 +452,56 @@ static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
                 return log_link_warning_errno(link, r, "Failed to configure TClass: %m");
 
         tclass_enter_configuring(tclass);
+        if (tclass_get(link, tclass, &existing) >= 0)
+                tclass_enter_configuring(existing);
+
         return 1;
 }
 
-int link_request_tclass(Link *link, TClass *tclass) {
-        TClass *existing;
+int link_request_tclass(Link *link, const TClass *tclass) {
+        _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        TClass *existing = NULL;
         int r;
 
         assert(link);
         assert(tclass);
+        assert(tclass->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
         if (tclass_get_request(link, tclass, NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
-        if (tclass_get(link, tclass, &existing) < 0) {
-                _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        r = tclass_dup(tclass, &tmp);
+        if (r < 0)
+                return r;
 
-                r = tclass_dup(tclass, &tmp);
-                if (r < 0)
-                        return log_oom();
+        if (tclass_get(link, tclass, &existing) >= 0)
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
 
-                r = tclass_attach(link, tmp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to store TClass: %m");
-
-                existing = tmp;
-        } else
-                existing->source = tclass->source;
-
-        log_tclass_debug(existing, link, "Requesting");
+        log_tclass_debug(tmp, link, "Requesting");
         r = link_queue_request_safe(link, REQUEST_TYPE_TC_CLASS,
-                                    existing, NULL,
+                                    tmp,
+                                    tclass_unref,
                                     tclass_hash_func,
                                     tclass_compare_func,
                                     tclass_process_request,
                                     &link->tc_messages,
                                     tclass_handler,
                                     NULL);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to request TClass: %m");
-        if (r == 0)
-                return 0;
+        if (r <= 0)
+                return r;
 
-        tclass_enter_requesting(existing);
+        tclass_enter_requesting(tmp);
+        if (existing)
+                tclass_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
 }
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        Request *req = NULL;
         TClass *tclass = NULL;
         Link *link;
         uint16_t type;
@@ -559,39 +566,42 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         }
 
         (void) tclass_get(link, tmp, &tclass);
+        (void) tclass_get_request(link, tmp, &req);
 
-        switch (type) {
-        case RTM_NEWTCLASS:
-                if (tclass) {
-                        tclass_enter_configured(tclass);
-                        log_tclass_debug(tclass, link, "Received remembered");
-                } else {
-                        tclass_enter_configured(tmp);
-                        log_tclass_debug(tmp, link, "Received new");
-
-                        r = tclass_attach(link, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember TClass, ignoring: %m");
-                                return 0;
-                        }
-
-                        tclass = tmp;
-                }
-
-                break;
-
-        case RTM_DELTCLASS:
+        if (type == RTM_DELTCLASS) {
                 if (tclass)
                         tclass_drop(tclass);
                 else
                         log_tclass_debug(tmp, link, "Kernel removed unknown");
 
-                break;
-
-        default:
-                assert_not_reached();
+                return 0;
         }
 
+        bool is_new = false;
+        if (!tclass) {
+                /* If we did not know the tclass, then save it. */
+                r = tclass_attach(link, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to remember TClass, ignoring: %m");
+                        return 0;
+                }
+
+                tclass = tmp;
+                is_new = true;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                TClass *t = ASSERT_PTR(req->userdata);
+
+                tclass->source = t->source;
+        }
+
+        tclass_enter_configured(tclass);
+        if (req)
+                tclass_enter_configured(req->userdata);
+
+        log_tclass_debug(tclass, link, is_new ? "Remembering" : "Received remembered");
         return 1;
 }
 
