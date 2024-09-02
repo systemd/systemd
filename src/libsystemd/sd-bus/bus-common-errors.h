@@ -74,6 +74,7 @@
 #define BUS_ERROR_CNAME_LOOP                   "org.freedesktop.resolve1.CNameLoop"
 #define BUS_ERROR_ABORTED                      "org.freedesktop.resolve1.Aborted"
 #define BUS_ERROR_NO_SUCH_SERVICE              "org.freedesktop.resolve1.NoSuchService"
+#define BUS_ERROR_INCONSISTENT_SERVICE_RECORDS "org.freedesktop.resolve1.InconsistentServiceRecords"
 #define BUS_ERROR_DNSSEC_FAILED                "org.freedesktop.resolve1.DnssecFailed"
 #define BUS_ERROR_NO_TRUST_ANCHOR              "org.freedesktop.resolve1.NoTrustAnchor"
 #define BUS_ERROR_RR_TYPE_UNSUPPORTED          "org.freedesktop.resolve1.ResourceRecordTypeUnsupported"
