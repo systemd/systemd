@@ -4146,35 +4146,71 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(r, "Could not get hash mask: %m");
                 }
 
-                TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+                TPM2B_DIGEST policy_hash[2] = {
+                        TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+                        TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+                };
+                size_t n_policy_hash = 1;
+
+                /* If both PCR public key unlock and pcrlock unlock is selected, then shard the encryption key. */
                 r = tpm2_calculate_sealing_policy(
                                 arg_tpm2_hash_pcr_values,
                                 arg_tpm2_n_hash_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
-                                arg_tpm2_pcrlock ? &pcrlock_policy : NULL,
-                                &policy);
+                                arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
+                                policy_hash + 0);
                 if (r < 0)
-                        return log_error_errno(r, "Could not calculate sealing policy digest: %m");
+                        return log_error_errno(r, "Could not calculate sealing policy digest for shard 0: %m");
 
-                if (arg_tpm2_device_key)
+                if (arg_tpm2_pcrlock && iovec_is_set(&pubkey)) {
+                        r = tpm2_calculate_sealing_policy(
+                                        arg_tpm2_hash_pcr_values,
+                                        arg_tpm2_n_hash_pcr_values,
+                                        /* pubkey= */ NULL,      /* Turn this one off for the 2nd shard */
+                                        /* use_pin= */ false,
+                                        &pcrlock_policy,         /* But turn this one on */
+                                        policy_hash + 1);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not calculate sealing policy digest for shard 1: %m");
+
+                        n_policy_hash++;
+                }
+
+                struct iovec *blobs = NULL;
+                size_t n_blobs = 0;
+                CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
+                if (arg_tpm2_device_key) {
+                        if (n_policy_hash > 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Combined signed PCR policies and pcrlock policies cannot be calculated offline, currently.");
+
+                        blobs = new0(struct iovec, 1);
+                        if (!blobs)
+                                return log_oom();
+
+                        n_blobs = 1;
+
                         r = tpm2_calculate_seal(
                                         arg_tpm2_seal_key_handle,
                                         &device_key_public,
                                         /* attributes= */ NULL,
                                         /* secret= */ NULL,
-                                        &policy,
+                                        policy_hash + 0,
                                         /* pin= */ NULL,
                                         &secret,
-                                        &blob,
+                                        blobs + 0,
                                         &srk);
-                else
+                } else
                         r = tpm2_seal(tpm2_context,
                                       arg_tpm2_seal_key_handle,
-                                      &policy,
+                                      policy_hash,
+                                      n_policy_hash,
                                       /* pin= */ NULL,
                                       &secret,
-                                      &blob,
+                                      &blobs,
+                                      &n_blobs,
                                       /* ret_primary_alg= */ NULL,
                                       &srk);
                 if (r < 0)
@@ -4198,6 +4234,11 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (keyslot < 0)
                         return log_error_errno(keyslot, "Failed to add new TPM2 key: %m");
 
+                struct iovec policy_hash_as_iovec[2] = {
+                        IOVEC_MAKE(policy_hash[0].buffer, policy_hash[0].size),
+                        IOVEC_MAKE(policy_hash[1].buffer, policy_hash[1].size),
+                };
+
                 r = tpm2_make_luks2_json(
                                 keyslot,
                                 hash_pcr_mask,
@@ -4205,8 +4246,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &pubkey,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
-                                &blob,
-                                &IOVEC_MAKE(policy.buffer, policy.size),
+                                blobs,
+                                n_blobs,
+                                policy_hash_as_iovec,
+                                n_policy_hash,
                                 /* salt= */ NULL, /* no salt because tpm2_seal has no pin */
                                 &srk,
                                 &pcrlock_policy.nv_handle,
