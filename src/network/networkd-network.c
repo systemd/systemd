@@ -1056,11 +1056,8 @@ int config_parse_ignore_carrier_loss(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,
-                         "Failed to parse RequiredFamilyForOnline= setting");
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration,
-                         "Failed to parse KeepConfiguration= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration);
 
 static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
         [KEEP_CONFIGURATION_NO]           = "no",
@@ -1082,4 +1079,4 @@ static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy, "Failed to parse activation policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy);
