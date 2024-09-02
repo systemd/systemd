@@ -786,7 +786,7 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
         }
 
         if (cfg->has_scope) {
-                ASSERT_OK(dns_scope_new(&env->manager, &env->scope, env->link, env->protocol, env->family));
+                ASSERT_OK(dns_scope_new(&env->manager, &env->scope, env->link ? DNS_SCOPE_LINK : DNS_SCOPE_GLOBAL, env->link, env->protocol, env->family));
                 ASSERT_NOT_NULL(env->scope);
 
                 env->server_addr.in.s_addr = htobe32(0x7f000001);
