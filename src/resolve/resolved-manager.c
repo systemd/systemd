@@ -615,7 +615,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -696,7 +696,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
 
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
