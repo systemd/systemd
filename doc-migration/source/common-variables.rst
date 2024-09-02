@@ -1,3 +1,6 @@
+:title: common-variables
+:manvolnum: 5
+
 :orphan:
 
 Environment
@@ -87,7 +90,7 @@ Environment
    A boolean. If true, messages will be prefixed with the current
    numerical thread ID (TID).
 
-   Note that the this information is attached as metadata to journal entries anyway. Including it
+   Note that the this :directive:options:const:`information` is attached as metadata to journal entries anyway. Including it
    directly in the message text can nevertheless be convenient when debugging programs.
 
 .. inclusion-end-marker-do-not-remove log-tid-body

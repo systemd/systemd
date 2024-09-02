@@ -1,8 +1,6 @@
-.. meta::
-    :title: journalctl
+:title: journalctl
 
-.. meta::
-    :manvolnum: 1
+:manvolnum: 1
 
 .. _journalctl(1):
 

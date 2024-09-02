@@ -24,6 +24,8 @@ Welcome to systemd's documentation!
    journalctl
    systemd
    os-release
+   systemD-directives
+
 
 Indices and tables
 ==================
