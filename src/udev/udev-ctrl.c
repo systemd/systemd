@@ -180,6 +180,11 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
                 return 0;
         if (size < 0)
                 return log_error_errno(size, "Failed to receive ctrl message: %m");
+        if ((size_t) size != sizeof(UdevCtrlMessageWire)) {
+                log_debug("Received unexpected size (%zi) of ctrl message, expected %zu, ignoring.",
+                          size, sizeof(UdevCtrlMessageWire));
+                return 0;
+        }
 
         cmsg_close_all(&smsg);
 
