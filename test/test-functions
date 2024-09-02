@@ -1239,7 +1239,7 @@ install_package_file() {
     # in the whole python stack in a very questionable state, making the tests fail.
     # And given we're trying to transition to mkosi-based images anyway I'm not even
     # going to bother
-    [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && return 0
+    [[ "$file" =~ /tests/.*.py$ ]] && return 0
     # If the current file is a directory, create it with the original
     # mode; if it's a symlink to a directory, copy it as-is
     if [[ -d "$file" ]]; then
