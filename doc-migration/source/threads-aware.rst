@@ -1,3 +1,5 @@
+.. SPDX-License-Identifier: LGPL-2.1-or-later
+
 :orphan:
 
 All functions listed here are thread-agnostic and only a single specific thread may operate on a
