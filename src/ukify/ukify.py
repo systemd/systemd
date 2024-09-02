@@ -1325,10 +1325,10 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        # This is a bit ugly, but --initrd is the only option which is specified
-        # with multiple args on the command line and a space-separated list in the
-        # config file.
-        if self.name == '--initrd':
+        # This is a bit ugly, but --initrd and --devicetree are the only options
+        # which are specified with multiple args on the command line and a
+        # space-separated list in the config file.
+        if self.name in ['--initrd', '--devicetree']:
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1431,6 +1431,7 @@ CONFIG_ITEMS = [
         action = 'append',
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
+        config_push = ConfigItem.config_list_prepend,
     ),
 
     ConfigItem(
