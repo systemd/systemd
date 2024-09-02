@@ -1,10 +1,5 @@
-
-
-.. meta::
-    :title: sd_journal_get_data
-
-.. meta::
-    :manvolnum: 3
+:title: sd_journal_get_data
+:manvolnum: 3
 
 .. _sd_journal_get_data(3):
 

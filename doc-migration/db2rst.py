@@ -52,6 +52,7 @@ _buffer = ""
 
 _indent_next_listItem_by = 0
 
+
 def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
 
@@ -218,7 +219,7 @@ def _get_path(el):
     return "/".join(str(i.tag) for i in reversed(t))
 
 
-def _make_title(t, level, indentLevel = 0):
+def _make_title(t, level, indentLevel=0):
     if level == 1:
         return "\n\n" + "=" * len(t) + "\n" + t + "\n" + "=" * len(t)
     char = ["#", "=", "-", "~", "^", "."]
@@ -307,7 +308,7 @@ def refnamediv(el):
 def refsynopsisdiv(el):
     # return '**Synopsis** \n\n' + _make_title(_join_children(el, ' '), 3)
     s = ""
-    s +=  '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 3, 3)
+    s += '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 3, 3)
     s += '\n\n'
     s += '.. only:: man\n\n' + _make_title('Synopsis', 3, 3)
     s += '\n\n'
@@ -578,13 +579,9 @@ def refmeta(el):
     refentrytitle = el.find('refentrytitle').text
     manvolnum = el.find('manvolnum').text
 
-    meta_title = f""".. meta::
-    :title: {refentrytitle}
-            """
+    meta_title = f":title: {refentrytitle}"
 
-    meta_manvolnum = f""".. meta::
-    :manvolnum: {manvolnum}
-            """
+    meta_manvolnum = f":manvolnum: {manvolnum}"
 
     doc_title = ".. _%s:" % _join_children(
         el, '') + '\n\n' + _make_title(_join_children(el, ''), 1)
