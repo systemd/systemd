@@ -798,8 +798,7 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
         /* We're outputting lots of small strings to STDERR, which is unbuffered by default. So let's turn
          * on full buffering, so we pass this all to the TTY in one go, to make things more efficient */
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
+        WITH_BUFFERED_STDERR;
 
         if (!terminal_is_dumb()) {
                 for (size_t i = 0; i <= n; i++)
@@ -815,23 +814,23 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 int progress = PTR_TO_INT(p);
 
                 if (progress == UPDATE_PROGRESS_FAILED) {
-                        clear_progress_bar_unbuffered(target);
+                        clear_progress_bar_impl(target);
                         fprintf(stderr, "%s: %s Unknown failure\n", target, RED_CROSS_MARK());
                         total += 100;
                 } else if (progress == -EALREADY) {
-                        clear_progress_bar_unbuffered(target);
+                        clear_progress_bar_impl(target);
                         fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
                 } else if (progress < 0) {
-                        clear_progress_bar_unbuffered(target);
+                        clear_progress_bar_impl(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
                         total += 100;
                 } else if (progress == UPDATE_PROGRESS_DONE) {
-                        clear_progress_bar_unbuffered(target);
+                        clear_progress_bar_impl(target);
                         fprintf(stderr, "%s: %s Done\n", target, GREEN_CHECK_MARK());
                         total += 100;
                 } else {
-                        draw_progress_bar_unbuffered(target, progress);
+                        draw_progress_bar_impl(target, progress);
                         fputs("\n", stderr);
                         total += progress;
                 }
@@ -839,9 +838,9 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
         if (n > 1) {
                 if (exiting)
-                        clear_progress_bar_unbuffered(target);
+                        clear_progress_bar_impl(target);
                 else {
-                        draw_progress_bar_unbuffered("Total", (double) total / n);
+                        draw_progress_bar_impl("Total", (double) total / n);
                         if (terminal_is_dumb())
                                 fputs("\n", stderr);
                 }
@@ -855,8 +854,6 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
         } else if (!exiting)
                 fputs("------\n", stderr);
 
-        fflush(stderr);
-        setvbuf(stderr, NULL, _IONBF, 0); /* Disable buffering again */
         return 0;
 }
 
