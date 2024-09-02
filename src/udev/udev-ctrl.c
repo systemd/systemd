@@ -151,8 +151,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UdevCtrl*, udev_ctrl_disconnect_and_listen_agai
 
 static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) UdevCtrl *uctrl = NULL;
-        UdevCtrlMessageWire msg_wire;
-        struct iovec iov = IOVEC_MAKE(&msg_wire, sizeof(UdevCtrlMessageWire));
+        _cleanup_free_ void *buf = NULL;
+        struct iovec iov;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         struct msghdr smsg = {
                 .msg_iov = &iov,
@@ -172,14 +172,23 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         size = next_datagram_size_fd(fd);
         if (size < 0)
                 return log_error_errno(size, "Failed to get size of message: %m");
-        if (size == 0)
-                return 0; /* Client disconnects? */
+
+        buf = new(uint8_t, size);
+        if (!buf)
+                return log_oom();
+
+        iov = IOVEC_MAKE(buf, size);
 
         size = recvmsg_safe(fd, &smsg, 0);
         if (size == -EINTR)
                 return 0;
         if (size < 0)
                 return log_error_errno(size, "Failed to receive ctrl message: %m");
+        if ((size_t) size != sizeof(UdevCtrlMessageWire)) {
+                log_debug("Received unexpected size (%zi) of ctrl message, expected %zu, ignoring.",
+                          size, sizeof(UdevCtrlMessageWire));
+                return 0;
+        }
 
         cmsg_close_all(&smsg);
 
@@ -194,16 +203,17 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
                 return 0;
         }
 
-        if (msg_wire.magic != UDEV_CTRL_MAGIC) {
-                log_error("Message magic 0x%08x doesn't match, ignoring message", msg_wire.magic);
+        UdevCtrlMessageWire *msg_wire = buf;
+        if (msg_wire->magic != UDEV_CTRL_MAGIC) {
+                log_error("Message magic 0x%08x doesn't match, ignoring message", msg_wire->magic);
                 return 0;
         }
 
-        if (msg_wire.type == _UDEV_CTRL_END_MESSAGES)
+        if (msg_wire->type == _UDEV_CTRL_END_MESSAGES)
                 return 0;
 
         if (uctrl->callback)
-                (void) uctrl->callback(uctrl, msg_wire.type, &msg_wire.value, uctrl->userdata);
+                (void) uctrl->callback(uctrl, msg_wire->type, &msg_wire->value, uctrl->userdata);
 
         /* Do not disconnect and wait for next message. */
         uctrl = udev_ctrl_unref(uctrl);
