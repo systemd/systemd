@@ -42,6 +42,8 @@ typedef struct QDisc {
         NetworkConfigSource source;
         NetworkConfigState state;
 
+        unsigned n_ref;
+
         uint32_t handle;
         uint32_t parent;
 
@@ -74,7 +76,8 @@ extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(QDisc, qdisc);
 
-QDisc* qdisc_free(QDisc *qdisc);
+QDisc* qdisc_ref(QDisc *qdisc);
+QDisc* qdisc_unref(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
 void qdisc_mark_recursive(QDisc *qdisc);
@@ -89,7 +92,7 @@ void network_drop_invalid_qdisc(Network *network);
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(QDisc, qdisc_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(QDisc, qdisc_unref);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);

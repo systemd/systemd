@@ -86,7 +86,7 @@ int config_parse_controlled_delay_u32(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
         Network *network = ASSERT_PTR(data);
         int r;
@@ -138,7 +138,7 @@ int config_parse_controlled_delay_usec(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
         Network *network = ASSERT_PTR(data);
         usec_t *p;
@@ -203,7 +203,7 @@ int config_parse_controlled_delay_bool(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
         Network *network = ASSERT_PTR(data);
         int r;
