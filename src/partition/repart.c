@@ -312,6 +312,8 @@ typedef struct Partition {
         MinimizeMode minimize;
         uint64_t verity_data_block_size;
         uint64_t verity_hash_block_size;
+        char *compression;
+        char *compression_level;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -471,6 +473,8 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->make_directories);
         strv_free(p->subvolumes);
         free(p->verity_match_key);
+        free(p->compression);
+        free(p->compression_level);
 
         iovec_done(&p->roothash);
 
@@ -506,6 +510,8 @@ static void partition_foreignize(Partition *p) {
         p->make_directories = strv_free(p->make_directories);
         p->subvolumes = strv_free(p->subvolumes);
         p->verity_match_key = mfree(p->verity_match_key);
+        p->compression = mfree(p->compression);
+        p->compression_level = mfree(p->compression_level);
 
         p->priority = 0;
         p->weight = 1000;
@@ -1965,6 +1971,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0, &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0, p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0, p                           },
+                { "Partition", "Compression",              config_parse_string,            0, &p->compression             },
+                { "Partition", "CompressionLevel",         config_parse_string,            0, &p->compression_level       },
                 {}
         };
         int r;
@@ -5256,7 +5264,8 @@ static int context_mkfs(Context *context) {
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
-                                    context->fs_sector_size, extra_mkfs_options);
+                                    context->fs_sector_size, p->compression, p->compression_level,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -6820,6 +6829,8 @@ static int context_minimize(Context *context) {
                                     fs_uuid,
                                     arg_discard, /* quiet = */ false,
                                     context->fs_sector_size,
+                                    p->compression,
+                                    p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
                         return r;
@@ -6901,6 +6912,8 @@ static int context_minimize(Context *context) {
                                     arg_discard,
                                     /* quiet = */ false,
                                     context->fs_sector_size,
+                                    p->compression,
+                                    p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
                         return r;
