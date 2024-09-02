@@ -1,8 +1,6 @@
-.. meta::
-    :title: os-release
+:title: os-release
 
-.. meta::
-    :manvolnum: 5
+:manvolnum: 5
 
 .. _os-release(5):
 
