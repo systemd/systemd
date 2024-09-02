@@ -208,6 +208,30 @@ static int tclass_get(Link *link, const TClass *in, TClass **ret) {
         return 0;
 }
 
+static int tclass_get_request(Link *link, const TClass *tclass, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(tclass);
+
+        req = ordered_set_get(
+                        link->manager->request_queue,
+                        &(Request) {
+                                .link = link,
+                                .type = REQUEST_TYPE_TC_CLASS,
+                                .userdata = (void*) tclass,
+                                .hash_func = (hash_func_t) tclass_hash_func,
+                                .compare_func = (compare_func_t) tclass_compare_func,
+                        });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
 static int tclass_attach(Link *link, TClass *tclass) {
         int r;
 
@@ -434,6 +458,9 @@ int link_request_tclass(Link *link, TClass *tclass) {
 
         assert(link);
         assert(tclass);
+
+        if (tclass_get_request(link, tclass, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
         if (tclass_get(link, tclass, &existing) < 0) {
                 _cleanup_(tclass_unrefp) TClass *tmp = NULL;
