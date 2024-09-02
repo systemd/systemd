@@ -49,7 +49,7 @@ int config_parse_heavy_hitter_filter_packet_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         HeavyHitterFilter *hhf;
         Network *network = ASSERT_PTR(data);
         int r;
