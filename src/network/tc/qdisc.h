@@ -81,7 +81,6 @@ QDisc* qdisc_unref(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
 void qdisc_mark_recursive(QDisc *qdisc);
-QDisc* qdisc_drop(QDisc *qdisc);
 void link_qdisc_drop_marked(Link *link);
 
 int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **qdisc);

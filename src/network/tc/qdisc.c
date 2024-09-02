@@ -392,7 +392,7 @@ void link_qdisc_drop_marked(Link *link) {
         }
 }
 
-QDisc* qdisc_drop(QDisc *qdisc) {
+static void qdisc_drop(QDisc *qdisc) {
         assert(qdisc);
         assert(qdisc->link);
 
@@ -401,8 +401,6 @@ QDisc* qdisc_drop(QDisc *qdisc) {
         /* link_qdisc_drop_marked() may invalidate qdisc, so run link_tclass_drop_marked() first. */
         link_tclass_drop_marked(qdisc->link);
         link_qdisc_drop_marked(qdisc->link);
-
-        return NULL;
 }
 
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {
