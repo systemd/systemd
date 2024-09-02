@@ -576,8 +576,12 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         struct tm tm;
         int r;
 
-        if (!gmtime_r(&time, &tm))
+        if ((usec_t) time > USEC_INFINITY / USEC_PER_SEC)
                 return -ERANGE;
+
+        r = localtime_or_gmtime_usec((usec_t) time * USEC_PER_SEC, /* utc= */ true, &tm);
+        if (r < 0)
+                return r;
 
         if (tm.tm_year > INT_MAX - 1900)
                 return -ERANGE;
@@ -1094,12 +1098,12 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 }
 
 static int find_end_of_month(const struct tm *tm, bool utc, int day) {
-        struct tm t = *tm;
+        struct tm t = *ASSERT_PTR(tm);
 
         t.tm_mon++;
         t.tm_mday = 1 - day;
 
-        if (mktime_or_timegm(&t, utc) < 0 ||
+        if (mktime_or_timegm_usec(&t, utc, /* ret= */ NULL) < 0 ||
             t.tm_mon != tm->tm_mon)
                 return -1;
 
@@ -1171,8 +1175,8 @@ static int find_matching_component(
 }
 
 static int tm_within_bounds(struct tm *tm, bool utc) {
-        struct tm t;
-        int cmp;
+        int r;
+
         assert(tm);
 
         /*
@@ -1183,9 +1187,10 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
         if (tm->tm_year + 1900 > MAX_YEAR)
                 return -ERANGE;
 
-        t = *tm;
-        if (mktime_or_timegm(&t, utc) < 0)
-                return negative_errno();
+        struct tm t = *tm;
+        r = mktime_or_timegm_usec(&t, utc, /* ret= */ NULL);
+        if (r < 0)
+                return r;
 
         /*
          * Did any normalization take place? If so, it was out of bounds before.
@@ -1194,6 +1199,7 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
          * out of bounds. Normalization has occurred implies find_matching_component() > 0,
          * other sub time units are already reset in find_next().
          */
+        int cmp;
         if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0)
                 t.tm_mon = 0;
         else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
@@ -1222,7 +1228,7 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
                 return true;
 
         t = *tm;
-        if (mktime_or_timegm(&t, utc) < 0)
+        if (mktime_or_timegm_usec(&t, utc, /* ret= */ NULL) < 0)
                 return false;
 
         k = t.tm_wday == 0 ? 6 : t.tm_wday - 1;
@@ -1248,7 +1254,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         for (unsigned iteration = 0; iteration < MAX_CALENDAR_ITERATIONS; iteration++) {
                 /* Normalize the current date */
-                (void) mktime_or_timegm(&c, spec->utc);
+                (void) mktime_or_timegm_usec(&c, spec->utc, /* ret= */ NULL);
                 c.tm_isdst = spec->dst;
 
                 c.tm_year += 1900;
@@ -1354,10 +1360,9 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 }
 
 static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, usec_t *ret_next) {
-        struct tm tm;
-        time_t t;
-        int r;
         usec_t tm_usec;
+        struct tm tm;
+        int r;
 
         assert(spec);
 
@@ -1365,20 +1370,22 @@ static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, u
                 return -EINVAL;
 
         usec++;
-        t = (time_t) (usec / USEC_PER_SEC);
-        assert_se(localtime_or_gmtime_r(&t, &tm, spec->utc));
+        r = localtime_or_gmtime_usec(usec, spec->utc, &tm);
+        if (r < 0)
+                return r;
         tm_usec = usec % USEC_PER_SEC;
 
         r = find_next(spec, &tm, &tm_usec);
         if (r < 0)
                 return r;
 
-        t = mktime_or_timegm(&tm, spec->utc);
-        if (t < 0)
-                return -EINVAL;
+        usec_t t;
+        r = mktime_or_timegm_usec(&tm, spec->utc, &t);
+        if (r < 0)
+                return r;
 
         if (ret_next)
-                *ret_next = (usec_t) t * USEC_PER_SEC + tm_usec;
+                *ret_next = t + tm_usec;
 
         return 0;
 }
