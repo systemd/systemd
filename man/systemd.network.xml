@@ -189,7 +189,8 @@
         <term><varname>ARP=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the ARP (low-level Address Resolution Protocol)
-          for this interface is enabled. When unset, the kernel's default will be used.</para>
+          and IPv6 NDP (Neighbor Discovery Protocol) for this interface is enabled. When unset, the
+          kernel's default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
