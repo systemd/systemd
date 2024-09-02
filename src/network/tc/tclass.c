@@ -359,7 +359,7 @@ void link_tclass_drop_marked(Link *link) {
         }
 }
 
-TClass* tclass_drop(TClass *tclass) {
+static void tclass_drop(TClass *tclass) {
         assert(tclass);
 
         tclass_mark_recursive(tclass);
@@ -367,8 +367,6 @@ TClass* tclass_drop(TClass *tclass) {
         /* link_tclass_drop_marked() may invalidate tclass, so run link_qdisc_drop_marked() first. */
         link_qdisc_drop_marked(tclass->link);
         link_tclass_drop_marked(tclass->link);
-
-        return NULL;
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {
@@ -584,7 +582,7 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
 
         case RTM_DELTCLASS:
                 if (tclass)
-                        (void) tclass_drop(tclass);
+                        tclass_drop(tclass);
                 else
                         log_tclass_debug(tmp, link, "Kernel removed unknown");
 
