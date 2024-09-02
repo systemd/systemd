@@ -66,7 +66,7 @@ void link_tclass_drop_marked(Link *link);
 
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
-int link_request_tclass(Link *link, TClass *tclass);
+int link_request_tclass(Link *link, const TClass *tclass);
 
 void network_drop_invalid_tclass(Network *network);
 
