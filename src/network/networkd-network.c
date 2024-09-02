@@ -801,7 +801,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->rules_by_section);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
-        hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
+        hashmap_free(network->qdiscs_by_section);
         hashmap_free_with_destructor(network->tclasses_by_section, tclass_free);
 
         return mfree(network);

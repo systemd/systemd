@@ -42,8 +42,54 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_TEQL]            = &teql_vtable,
 };
 
+static QDisc* qdisc_detach_impl(QDisc *qdisc) {
+        assert(qdisc);
+        assert(!qdisc->link || !qdisc->network);
+
+        if (qdisc->network) {
+                assert(qdisc->section);
+                hashmap_remove(qdisc->network->qdiscs_by_section, qdisc->section);
+
+                qdisc->network = NULL;
+                return qdisc;
+        }
+
+        if (qdisc->link) {
+                set_remove(qdisc->link->qdiscs, qdisc);
+
+                qdisc->link = NULL;
+                return qdisc;
+        }
+
+        return NULL;
+}
+
+static void qdisc_detach(QDisc *qdisc) {
+        assert(qdisc);
+
+        qdisc_unref(qdisc_detach_impl(qdisc));
+}
+
+static void qdisc_hash_func(const QDisc *qdisc, struct siphash *state);
+static int qdisc_compare_func(const QDisc *a, const QDisc *b);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        qdisc_hash_ops,
+        QDisc,
+        qdisc_hash_func,
+        qdisc_compare_func,
+        qdisc_detach);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        qdisc_section_hash_ops,
+        ConfigSection,
+        config_section_hash_func,
+        config_section_compare_func,
+        QDisc,
+        qdisc_detach);
+
 static int qdisc_new(QDiscKind kind, QDisc **ret) {
-        _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unrefp) QDisc *qdisc = NULL;
         int r;
 
         if (kind == _QDISC_KIND_INVALID) {
@@ -52,6 +98,7 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
                         return -ENOMEM;
 
                 *qdisc = (QDisc) {
+                        .n_ref = 1,
                         .parent = TC_H_ROOT,
                         .kind = kind,
                 };
@@ -61,6 +108,7 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
                 if (!qdisc)
                         return -ENOMEM;
 
+                qdisc->n_ref = 1;
                 qdisc->parent = TC_H_ROOT;
                 qdisc->kind = kind;
 
@@ -78,7 +126,7 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
 
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unrefp) QDisc *qdisc = NULL;
         QDisc *existing;
         int r;
 
@@ -113,14 +161,14 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
                 qdisc->parent = existing->parent;
                 qdisc->tca_kind = TAKE_PTR(existing->tca_kind);
 
-                qdisc_free(existing);
+                qdisc_detach(existing);
         }
 
         qdisc->network = network;
         qdisc->section = TAKE_PTR(n);
         qdisc->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->qdiscs_by_section, &config_section_hash_ops, qdisc->section, qdisc);
+        r = hashmap_ensure_put(&network->qdiscs_by_section, &qdisc_section_hash_ops, qdisc->section, qdisc);
         if (r < 0)
                 return r;
 
@@ -128,21 +176,19 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         return 0;
 }
 
-QDisc* qdisc_free(QDisc *qdisc) {
+static QDisc* qdisc_free(QDisc *qdisc) {
         if (!qdisc)
                 return NULL;
 
-        if (qdisc->network && qdisc->section)
-                hashmap_remove(qdisc->network->qdiscs_by_section, qdisc->section);
+        qdisc_detach_impl(qdisc);
 
         config_section_free(qdisc->section);
-
-        if (qdisc->link)
-                set_remove(qdisc->link->qdiscs, qdisc);
 
         free(qdisc->tca_kind);
         return mfree(qdisc);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc, qdisc_free);
 
 static const char *qdisc_get_tca_kind(const QDisc *qdisc) {
         assert(qdisc);
@@ -177,13 +223,6 @@ static int qdisc_compare_func(const QDisc *a, const QDisc *b) {
         return strcmp_ptr(qdisc_get_tca_kind(a), qdisc_get_tca_kind(b));
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        qdisc_hash_ops,
-        QDisc,
-        qdisc_hash_func,
-        qdisc_compare_func,
-        qdisc_free);
-
 static int qdisc_get(Link *link, const QDisc *in, QDisc **ret) {
         QDisc *existing;
 
@@ -199,11 +238,13 @@ static int qdisc_get(Link *link, const QDisc *in, QDisc **ret) {
         return 0;
 }
 
-static int qdisc_add(Link *link, QDisc *qdisc) {
+static int qdisc_attach(Link *link, QDisc *qdisc) {
         int r;
 
         assert(link);
         assert(qdisc);
+        assert(!qdisc->link);
+        assert(!qdisc->network);
 
         r = set_ensure_put(&link->qdiscs, &qdisc_hash_ops, qdisc);
         if (r < 0)
@@ -212,11 +253,12 @@ static int qdisc_add(Link *link, QDisc *qdisc) {
                 return -EEXIST;
 
         qdisc->link = link;
+        qdisc_ref(qdisc);
         return 0;
 }
 
 static int qdisc_dup(const QDisc *src, QDisc **ret) {
-        _cleanup_(qdisc_freep) QDisc *dst = NULL;
+        _cleanup_(qdisc_unrefp) QDisc *dst = NULL;
 
         assert(src);
         assert(ret);
@@ -228,7 +270,8 @@ static int qdisc_dup(const QDisc *src, QDisc **ret) {
         if (!dst)
                 return -ENOMEM;
 
-        /* clear all pointers */
+        /* clear the reference counter and all pointers */
+        dst->n_ref = 1;
         dst->network = NULL;
         dst->section = NULL;
         dst->link = NULL;
@@ -319,7 +362,7 @@ void link_qdisc_drop_marked(Link *link) {
 
                 if (qdisc->state == 0) {
                         log_qdisc_debug(qdisc, link, "Forgetting");
-                        qdisc_free(qdisc);
+                        qdisc_detach(qdisc);
                 } else
                         log_qdisc_debug(qdisc, link, "Removed");
         }
@@ -443,17 +486,17 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
         assert(qdisc);
 
         if (qdisc_get(link, qdisc, &existing) < 0) {
-                _cleanup_(qdisc_freep) QDisc *tmp = NULL;
+                _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
 
                 r = qdisc_dup(qdisc, &tmp);
                 if (r < 0)
                         return log_oom();
 
-                r = qdisc_add(link, tmp);
+                r = qdisc_attach(link, tmp);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to store QDisc: %m");
 
-                existing = TAKE_PTR(tmp);
+                existing = tmp;
         } else
                 existing->source = qdisc->source;
 
@@ -476,7 +519,7 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
 }
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(qdisc_freep) QDisc *tmp = NULL;
+        _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
         QDisc *qdisc = NULL;
         Link *link;
         uint16_t type;
@@ -551,13 +594,13 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         qdisc_enter_configured(tmp);
                         log_qdisc_debug(tmp, link, "Received new");
 
-                        r = qdisc_add(link, tmp);
+                        r = qdisc_attach(link, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember QDisc, ignoring: %m");
                                 return 0;
                         }
 
-                        qdisc = TAKE_PTR(tmp);
+                        qdisc = tmp;
                 }
 
                 if (!m->enumerating) {
@@ -628,7 +671,7 @@ void network_drop_invalid_qdisc(Network *network) {
 
         HASHMAP_FOREACH(qdisc, network->qdiscs_by_section)
                 if (qdisc_section_verify(qdisc, &has_root, &has_clsact) < 0)
-                        qdisc_free(qdisc);
+                        qdisc_detach(qdisc);
 }
 
 int config_parse_qdisc_parent(
@@ -643,7 +686,7 @@ int config_parse_qdisc_parent(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = ASSERT_PTR(data);
         int r;
 
@@ -702,7 +745,7 @@ int config_parse_qdisc_handle(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = ASSERT_PTR(data);
         uint16_t n;
         int r;

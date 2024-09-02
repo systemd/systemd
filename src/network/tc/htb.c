@@ -57,7 +57,7 @@ int config_parse_hierarchy_token_bucket_default_class(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         HierarchyTokenBucket *htb;
         Network *network = ASSERT_PTR(data);
         int r;
@@ -109,7 +109,7 @@ int config_parse_hierarchy_token_bucket_u32(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         HierarchyTokenBucket *htb;
         Network *network = ASSERT_PTR(data);
         int r;
