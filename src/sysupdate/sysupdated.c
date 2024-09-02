@@ -210,7 +210,7 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
         assert(ret);
 
         if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat stdout fd: %m");
+                return log_debug_errno(errno, "Failed to stat stdout fd: %m");
 
         assert(S_ISREG(st.st_mode));
 
@@ -220,15 +220,15 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
         }
 
         if (lseek(fd, SEEK_SET, 0) == (off_t) -1)
-                return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
+                return log_debug_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
         if (!f)
-                return log_error_errno(errno, "Failed to reopen memfd: %m");
+                return log_debug_errno(errno, "Failed to reopen memfd: %m");
 
         r = sd_json_parse_file(f, "stdout", 0, &v, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse JSON: %m");
+                return log_debug_errno(r, "Failed to parse JSON: %m");
 
         *ret = TAKE_PTR(v);
         return 0;
@@ -248,6 +248,8 @@ static void job_on_ready(Job *j) {
         if (!j->detach_cb)
                 return;
 
+        log_debug("Got READY=1 from job %" PRIu64", detaching.", j->id);
+
         assert(j->dbus_msg);
         msg = TAKE_PTR(j->dbus_msg);
 
@@ -255,20 +257,18 @@ static void job_on_ready(Job *j) {
 
         r = j->detach_cb(msg, j);
         if (r < 0)
-                log_warning_errno(r, "Failed to run callback on job ready event, ignoring: %m");
+                log_warning_errno(r, "Failed to detach job %" PRIu64 ", ignoring: %m", j->id);
 }
 
-static void job_on_errno(Job *j, char *b) {
-        /* Take ownership of donated buffer */
-        _cleanup_free_ char *buf = TAKE_PTR(b);
+static void job_on_errno(Job *j, const char *buf) {
         int r;
 
         assert(j);
-        assert_se(buf);
+        assert(buf);
 
         r = parse_errno(buf);
         if (r < 0) {
-                log_warning_errno(r, "Got invalid errno value, ignoring: %m");
+                log_warning_errno(r, "Got invalid errno value from job %" PRIu64 ", ignoring: %m", j->id);
                 return;
         }
 
@@ -277,14 +277,12 @@ static void job_on_errno(Job *j, char *b) {
         log_debug_errno(r, "Got errno from job %" PRIu64 ": %i (%m)", j->id, r);
 }
 
-static void job_on_progress(Job *j, char *b) {
-        /* Take ownership of donated buffer */
-        _cleanup_free_ char *buf = TAKE_PTR(b);
+static void job_on_progress(Job *j, const char *buf) {
         unsigned progress;
         int r;
 
         assert(j);
-        assert_se(buf);
+        assert(buf);
 
         r = safe_atou(buf, &progress);
         if (r < 0 || progress > 100) {
@@ -300,12 +298,12 @@ static void job_on_progress(Job *j, char *b) {
         log_debug("Got percentage from job %" PRIu64 ": %u%%", j->id, j->progress_percent);
 }
 
-static void job_on_version(Job *j, char *version) {
+static void job_on_version(Job *j, const char *version) {
         assert(j);
-        assert_se(version);
+        assert(version);
 
-        /* Take ownership of donated memory */
-        free_and_replace(j->version, version);
+        if (free_and_strdup_warn(&j->version, version) < 0)
+                return;
 
         log_debug("Got version from job %" PRIu64 ": %s ", j->id, j->version);
 }
@@ -340,7 +338,7 @@ static int job_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) 
         else {
                 r = job_parse_child_output(TAKE_FD(j->stdout_fd), &json);
                 if (r < 0)
-                        sd_bus_error_set_errnof(&error, r, "Failed to parse JSON: %m");
+                        sd_bus_error_set_errnof(&error, r, "Failed to parse job worker output: %m");
         }
 
         /* Only send notification of exit if the job was actually detached */
@@ -355,17 +353,23 @@ static int job_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) 
                                 j->object_path,
                                 j->status_errno != 0 ? -j->status_errno : si->si_status);
                 if (r < 0)
-                        log_warning_errno(r, "Cannot emit JobRemoved message, ignoring: %m");
+                        log_warning_errno(r,
+                                          "Cannot emit JobRemoved message for job %" PRIu64 ", ignoring: %m",
+                                          j->id);
         }
 
         if (j->dbus_msg && j->complete_cb) {
                 if (sd_bus_error_is_set(&error)) {
-                        log_warning("Bus error occurred, ignoring callback for job: %s", error.message);
+                        log_warning("Job %" PRIu64 " failed with bus error, ignoring callback: %s",
+                                    j->id, error.message);
                         sd_bus_reply_method_error(j->dbus_msg, &error);
                 } else {
                         r = j->complete_cb(j->dbus_msg, j, json, &error);
                         if (r < 0) {
-                                log_warning_errno(r, "Error during execution of job callback: %s", bus_error_message(&error, r));
+                                log_warning_errno(r,
+                                                  "Error during execution of job callback for job %" PRIu64 ": %s",
+                                                  j->id,
+                                                  bus_error_message(&error, r));
                                 sd_bus_reply_method_errno(j->dbus_msg, r, &error);
                         }
                 }
@@ -509,6 +513,9 @@ static int job_start(Job *j) {
                 log_error_errno(r, "Failed to execute systemd-sysupdate: %m");
                 _exit(EXIT_FAILURE);
         }
+
+        log_info("Started job %" PRIu64 " with worker PID " PID_FMT,
+                 j->id, pid.pid);
 
         r = event_add_child_pidref(j->manager->event, &j->child, &pid, WEXITED, job_on_exit, j);
         if (r < 0)
@@ -1450,7 +1457,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         ssize_t n;
-        char *p;
+        char *version, *progress, *errno_str, *ready;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
@@ -1487,29 +1494,22 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         buf[n] = 0;
 
-        p = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_version(j, p);
-        }
+        version = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
+        progress = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
+        errno_str = find_line_startswith(buf, "ERRNO=");
+        ready = find_line_startswith(buf, "READY=1");
 
-        p = find_line_startswith(buf, "ERRNO=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_errno(j, p);
-        }
+        if (version)
+                job_on_version(j, truncate_nl(version));
 
-        p = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
-        if (p) {
-                p = strdupcspn(p, "\n");
-                if (p)
-                        job_on_progress(j, p);
-        }
+        if (progress)
+                job_on_progress(j, truncate_nl(progress));
+
+        if (errno_str)
+                job_on_errno(j, truncate_nl(errno_str));
 
         /* Should come last, since this might actually detach the job */
-        if (find_line_startswith(buf, "READY=1"))
+        if (ready)
                 job_on_ready(j);
 
         return 0;
