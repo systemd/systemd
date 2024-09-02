@@ -88,7 +88,7 @@ int config_parse_ets_u8(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         EnhancedTransmissionSelection *ets;
         Network *network = ASSERT_PTR(data);
         uint8_t v, *p;
@@ -154,7 +154,7 @@ int config_parse_ets_quanta(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         EnhancedTransmissionSelection *ets;
         Network *network = ASSERT_PTR(data);
         int r;
@@ -237,7 +237,7 @@ int config_parse_ets_prio(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         EnhancedTransmissionSelection *ets;
         Network *network = ASSERT_PTR(data);
         int r;

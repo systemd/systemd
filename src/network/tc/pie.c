@@ -49,7 +49,7 @@ int config_parse_pie_packet_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         ProportionalIntegralControllerEnhanced *pie;
         Network *network = ASSERT_PTR(data);
         int r;

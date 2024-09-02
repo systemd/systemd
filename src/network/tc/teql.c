@@ -50,7 +50,7 @@ int config_parse_trivial_link_equalizer_id(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         TrivialLinkEqualizer *teql;
         Network *network = ASSERT_PTR(data);
         unsigned id;
