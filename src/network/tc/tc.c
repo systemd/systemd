@@ -26,7 +26,7 @@ int link_request_traffic_control(Link *link) {
         HASHMAP_FOREACH(tclass, link->network->tclasses_by_section) {
                 r = link_request_tclass(link, tclass);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(link, r, "Failed to request TClass: %m");
         }
 
         if (link->tc_messages == 0) {
