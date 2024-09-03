@@ -22,7 +22,6 @@ typedef enum InhibitMode {
         INHIBIT_BLOCK,
         INHIBIT_BLOCK_WEAK,
         INHIBIT_DELAY,
-        INHIBIT_DELAY_WEAK,
         _INHIBIT_MODE_MAX,
         _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
