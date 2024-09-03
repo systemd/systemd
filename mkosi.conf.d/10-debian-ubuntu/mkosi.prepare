@@ -8,9 +8,19 @@ fi
 
 mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
 
-apt-cache depends "${PACKAGES[@]}" |
-    grep --invert-match --regexp "<" --regexp "|" --regexp systemd | # Remove e.g. <python3:any> and |dbus-broker like results
-    grep --extended-regexp "Depends|Suggests|Recommends" |
-    sed --quiet 's/.*: //p' | # Get every line with ": " in it and strip it at the same time.
+# Get all the dependencies of the systemd packages including recommended and suggested dependencies.
+apt-get install \
+    -o Debug::pkgDPkgPm=true \
+    -o "DPkg::Pre-Install-Pkgs::=cat >/depends" \
+    -o APT::Install-Recommends=true \
+    -o APT::Install-Suggests=true \
+    "${PACKAGES[@]}"
+
+# The dependencies are returned as paths in /var/cache/apt/archives. We first filter out dependencies between
+# systemd packages as we only want to install external dependencies, then we do the following transformation
+# for each dependency: /var/cache/apt/archives/sysvinit-utils_3.10-1_amd64.deb => sysvinit-utils.
+grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" /depends |
+    sed 's/.*\///' |
+    sed 's/_.*//' |
     sort --unique |
     xargs --delimiter '\n' --no-run-if-empty mkosi-install
