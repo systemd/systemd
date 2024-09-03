@@ -679,6 +679,8 @@ void sd_radv_remove_prefix(
         if (!prefix)
                 return;
 
+        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(prefix, prefixlen);
+
         LIST_FOREACH(prefix, cur, ra->prefixes) {
                 if (prefixlen != cur->opt.prefixlen)
                         continue;
@@ -686,9 +688,36 @@ void sd_radv_remove_prefix(
                 if (!in6_addr_equal(prefix, &cur->opt.in6_addr))
                         continue;
 
+                /* "Fade out" IPv6 prefix, i.e. informing clients about its sudden invalidity.
+                 * Realized by announcing the prefix with preferred=0 & valid=2h.
+                 * This makes clients rotating to a newer prefix if some is already defined.
+                */
+
+                // TODO is copying required here? (& does it do anything at all?)
+                sd_radv_prefix *p = cur;
+
+                // TODO replace hacky way to get current time
+                uint64_t current_time = cur->valid_until - cur->lifetime_valid_usec;
+                // TODO replace constant with setting (valid lifetime) ?
+                uint64_t two_hours_usec = (uint64_t) 2 * 60 * 60 * 1000000;
+                sd_radv_prefix_set_preferred_lifetime(p, 0, current_time);
+                sd_radv_prefix_set_valid_lifetime(p, two_hours_usec, current_time + two_hours_usec);
+
+                // TODO is full replacement procedure required or can we just edit the stored prefix without this?
+                // procedure cloned from sd_radv_add_prefix, if found. I do not call this here because of the duplicated search in the list & because of the different logging message
+                sd_radv_prefix_ref(p);
                 LIST_REMOVE(prefix, ra->prefixes, cur);
-                ra->n_prefixes--;
                 sd_radv_prefix_unref(cur);
+                LIST_APPEND(prefix, ra->prefixes, p);
+
+                log_radv(ra, "Fade out IPv6 prefix %s (preferred: %s, valid: %s)",
+                         addr_p,
+                         FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
+                         FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
+
+                log_radv(ra, "Trigger advertisement now");
+                sd_radv_send(ra);
+                // TODO error handling for this method?
                 return;
         }
 }
