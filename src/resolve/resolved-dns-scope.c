@@ -55,7 +55,9 @@ int dns_scope_new(
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
-                .mdns_goodbye_event_source = NULL,
+
+                /* Enforce ratelimiting for the multicast protocols */
+                .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {
@@ -88,9 +90,6 @@ int dns_scope_new(
                   dns_protocol_to_string(protocol),
                   family == AF_UNSPEC ? "*" : af_to_name(family),
                   dns_scope_origin_to_string(origin));
-
-        /* Enforce ratelimiting for the multicast protocols */
-        s->ratelimit = (const RateLimit) { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST };
 
         *ret = s;
         return 0;
