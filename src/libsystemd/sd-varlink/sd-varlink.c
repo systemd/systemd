@@ -870,23 +870,25 @@ static int varlink_read(sd_varlink *v) {
                 bool prefer_read = v->prefer_read;
                 if (!prefer_read) {
                         n = recv(v->input_fd, p, rs, MSG_DONTWAIT);
-                        if (n < 0 && errno == ENOTSOCK)
+                        if (n < 0)
+                                n = -errno;
+                        if (n == -ENOTSOCK)
                                 prefer_read = v->prefer_read = true;
                 }
-                if (prefer_read)
+                if (prefer_read) {
                         n = read(v->input_fd, p, rs);
-        }
-        if (n < 0) {
-                if (errno == EAGAIN)
-                        return 0;
-
-                if (ERRNO_IS_DISCONNECT(errno)) {
-                        v->read_disconnected = true;
-                        return 1;
+                        if (n < 0)
+                                n = -errno;
                 }
-
-                return -errno;
         }
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (ERRNO_IS_NEG_DISCONNECT(n)) {
+                v->read_disconnected = true;
+                return 1;
+        }
+        if (n < 0)
+                return n;
         if (n == 0) { /* EOF */
 
                 if (v->allow_fd_passing_input)
@@ -897,7 +899,7 @@ static int varlink_read(sd_varlink *v) {
         }
 
         if (v->allow_fd_passing_input) {
-                struct cmsghdr* cmsg;
+                struct cmsghdr *cmsg;
 
                 cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
                 if (cmsg) {
