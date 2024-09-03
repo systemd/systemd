@@ -6,9 +6,11 @@ if [[ "$1" == "build" ]]; then
     exit 0
 fi
 
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
 DEPS=""
 
-while read -r PACKAGE; do
+for PACKAGE in "${PACKAGES[@]}"; do
     DEPS="$DEPS $(
         pacman --sync --info "$PACKAGE" |
             sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
@@ -23,11 +25,11 @@ while read -r PACKAGE; do
             sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
             tr '\n' ' ' # Transform newlines to whitespace.
     )"
-done < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+done
 
 echo "$DEPS" |
     xargs | # Remove extra whitespace.
     tr ' ' '\n' |
-    grep --invert-match --regexp systemd --regexp None | # systemd packages will be installed later on.
+    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp None | # systemd packages will be installed later on.
     sort --unique |
     xargs --delimiter '\n' --no-run-if-empty mkosi-install
