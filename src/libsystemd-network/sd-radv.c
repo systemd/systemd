@@ -714,6 +714,10 @@ void sd_radv_remove_prefix(
                          addr_p,
                          FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
                          FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
+
+                log_radv(ra, "Trigger advertisement now");
+                sd_radv_send(ra);
+                // TODO error handling for this method?
                 return;
         }
 }
