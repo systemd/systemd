@@ -793,6 +793,32 @@ bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
         return true;
 }
 
+int config_section_parse(
+                const ConfigSectionParser *parsers,
+                size_t n_parsers,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *userdata) {
+
+        assert(parsers);
+        assert(n_parsers > 0);
+        assert(ltype >= 0);
+        assert((size_t) ltype < n_parsers);
+        assert(userdata);
+
+        const ConfigSectionParser *e = parsers + ltype;
+        assert(e->parser);
+
+        return e->parser(unit, filename, line, section, section_line, lvalue, e->ltype, rvalue,
+                         (uint8_t*) userdata + e->offset, userdata);
+}
+
 void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
         siphash24_compress_string(c->filename, state);
         siphash24_compress_typesafe(c->line, state);
@@ -1027,6 +1053,31 @@ int config_parse_uint32_flag(
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         SET_FLAG(*flags, ltype, r);
+        return 1;
+}
+
+int config_parse_uint32_invert_flag(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *flags = ASSERT_PTR(data);
+        int r;
+
+        assert(ltype != 0);
+
+        r = isempty(rvalue) ? 0 : parse_boolean(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        SET_FLAG(*flags, ltype, !r);
         return 1;
 }
 
