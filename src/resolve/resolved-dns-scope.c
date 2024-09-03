@@ -11,6 +11,7 @@
 #include "missing_network.h"
 #include "random-util.h"
 #include "resolved-dnssd.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-zone.h"
@@ -32,6 +33,7 @@ int dns_scope_new(
                 DnsScope **ret,
                 DnsScopeOrigin origin,
                 Link *link,
+                DnsDelegate *delegate,
                 DnsProtocol protocol,
                 int family) {
 
@@ -43,6 +45,7 @@ int dns_scope_new(
         assert(origin < _DNS_SCOPE_ORIGIN_MAX);
 
         assert(!!link == (origin == DNS_SCOPE_LINK));
+        assert(!!delegate == (origin == DNS_SCOPE_DELEGATE));
 
         s = new(DnsScope, 1);
         if (!s)
@@ -51,6 +54,7 @@ int dns_scope_new(
         *s = (DnsScope) {
                 .manager = m,
                 .link = link,
+                .delegate = delegate,
                 .origin = origin,
                 .protocol = protocol,
                 .family = family,
@@ -85,11 +89,12 @@ int dns_scope_new(
         dns_scope_llmnr_membership(s, true);
         dns_scope_mdns_membership(s, true);
 
-        log_debug("New scope on link %s, protocol %s, family %s, origin %s",
+        log_debug("New scope on link %s, protocol %s, family %s, origin %s, delegate %s",
                   link ? link->ifname : "*",
                   dns_protocol_to_string(protocol),
                   family == AF_UNSPEC ? "*" : af_to_name(family),
-                  dns_scope_origin_to_string(origin));
+                  dns_scope_origin_to_string(origin),
+                  s->delegate ? s->delegate->id : "n/a");
 
         *ret = s;
         return 0;
@@ -117,11 +122,12 @@ DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s, origin %s",
+        log_debug("Removing scope on link %s, protocol %s, family %s, origin %s, delegate %s",
                   s->link ? s->link->ifname : "*",
                   dns_protocol_to_string(s->protocol),
                   s->family == AF_UNSPEC ? "*" : af_to_name(s->family),
-                  dns_scope_origin_to_string(s->origin));
+                  dns_scope_origin_to_string(s->origin),
+                  s->delegate ? s->delegate->id : "n/a");
 
         dns_scope_llmnr_membership(s, false);
         dns_scope_mdns_membership(s, false);
@@ -154,6 +160,8 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s) {
 
         if (s->link)
                 return link_get_dns_server(s->link);
+        else if (s->delegate)
+                return dns_delegate_get_dns_server(s->delegate);
         else
                 return manager_get_dns_server(s->manager);
 }
@@ -166,6 +174,8 @@ unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
 
         if (s->link)
                 return s->link->n_dns_servers;
+        else if (s->delegate)
+                return s->delegate->n_dns_servers;
         else
                 return s->manager->n_dns_servers;
 }
@@ -181,6 +191,8 @@ void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
 
         if (s->link)
                 link_next_dns_server(s->link, if_current);
+        else if (s->delegate)
+                dns_delegate_next_dns_server(s->delegate, if_current);
         else
                 manager_next_dns_server(s->manager, if_current);
 }
@@ -288,6 +300,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
+                assert(s->link);
                 r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, LLMNR_PORT, NULL, p);
                 if (r < 0)
                         return r;
@@ -319,6 +332,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
+                assert(s->link);
                 r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, p->destination_port ?: MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
@@ -1397,6 +1411,12 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
 
         fputs(" origin=", f);
         fputs(dns_scope_origin_to_string(s->origin), f);
+
+        if (s->delegate) {
+                fputs(" id=", f);
+                fputs(s->delegate->id, f);
+        }
+
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1418,6 +1438,8 @@ DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
 
         if (s->link)
                 return s->link->search_domains;
+        if (s->delegate)
+                return s->delegate->search_domains;
 
         return s->manager->search_domains;
 }
@@ -1703,6 +1725,8 @@ static bool dns_scope_has_route_only_domains(DnsScope *scope) {
 
         if (scope->link)
                 first = scope->link->search_domains;
+        else if (scope->delegate)
+                first = scope->delegate->search_domains;
         else
                 first = scope->manager->search_domains;
 
@@ -1728,18 +1752,27 @@ bool dns_scope_is_default_route(DnsScope *scope) {
         if (scope->protocol != DNS_PROTOCOL_DNS)
                 return false;
 
-        /* The global DNS scope is always suitable as default route */
-        if (!scope->link)
+        if (scope->link) {
+
+                /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
+                 * automatic logic. */
+                if (scope->link->default_route >= 0)
+                        return scope->link->default_route;
+
+                /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
+                 * volunteer as default route. */
+                return !dns_scope_has_route_only_domains(scope);
+
+        } else  if (scope->delegate) {
+
+                if (scope->delegate->default_route >= 0)
+                        return scope->delegate->default_route;
+
+                /* Delegates are by default not used as default route */
+                return false;
+        } else
+                /* The global DNS scope is always suitable as default route */
                 return true;
-
-        /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
-         * automatic logic. */
-        if (scope->link->default_route >= 0)
-                return scope->link->default_route;
-
-        /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
-         * volunteer as default route. */
-        return !dns_scope_has_route_only_domains(scope);
 }
 
 int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
@@ -1825,8 +1858,9 @@ int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protoco
 }
 
 static const char* const dns_scope_origin_table[_DNS_SCOPE_ORIGIN_MAX] = {
-        [DNS_SCOPE_GLOBAL] = "global",
-        [DNS_SCOPE_LINK]   = "link",
+        [DNS_SCOPE_GLOBAL]   = "global",
+        [DNS_SCOPE_LINK]     = "link",
+        [DNS_SCOPE_DELEGATE] = "delegate",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin);
