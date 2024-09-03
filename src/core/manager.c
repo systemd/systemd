@@ -2750,11 +2750,15 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
-        if (n == -EXFULL) {
+        if (n == -ECHRNG) {
                 log_warning_errno(n, "Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
+        }
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
                 return 0;
         }
         if (n < 0)
@@ -2826,11 +2830,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                 log_warning("Got SCM_PIDFD for process " PID_FMT " but SCM_CREDENTIALS for process " PID_FMT ". Ignoring.",
                             pidref.pid, ucred->pid);
-                return 0;
-        }
-
-        if ((size_t) n >= sizeof(buf) || (msghdr.msg_flags & MSG_TRUNC)) {
-                log_warning("Received notify message exceeded maximum size. Ignoring.");
                 return 0;
         }
 
@@ -4932,20 +4931,22 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
         assert(source);
 
-        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
+        if (n == -ECHRNG) {
+                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
+                return 0;
+        }
         if (n == -EXFULL) {
-                log_warning("Got message with truncated control, ignoring.");
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
                 return 0;
         }
         if (n < 0)
                 return log_error_errno(n, "Failed to receive handoff timestamp message: %m");
 
-        if (msghdr.msg_flags & MSG_TRUNC) {
-                log_warning("Got truncated handoff timestamp message, ignoring.");
-                return 0;
-        }
+        cmsg_close_all(&msghdr);
+
         if (n != sizeof(ts)) {
                 log_warning("Got handoff timestamp message of unexpected size %zi (expected %zu), ignoring.", n, sizeof(ts));
                 return 0;
