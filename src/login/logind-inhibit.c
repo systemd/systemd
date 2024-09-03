@@ -371,7 +371,7 @@ InhibitWhat manager_inhibit_what(Manager *m, bool block) {
 
         HASHMAP_FOREACH(i, m->inhibitors)
                 if (i->started &&
-                    ((!block && IN_SET(i->mode, INHIBIT_DELAY, INHIBIT_DELAY_WEAK)) ||
+                    ((!block && i->mode == INHIBIT_DELAY) ||
                      (block && IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK))))
                         what |= i->what;
 
@@ -424,13 +424,13 @@ bool manager_is_inhibited(
                         continue;
 
                 if ((block && !IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK)) ||
-                    (!block && !IN_SET(i->mode, INHIBIT_DELAY, INHIBIT_DELAY_WEAK)))
+                    (!block && i->mode != INHIBIT_DELAY))
                         continue;
 
                 if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
-                if (IN_SET(i->mode, INHIBIT_BLOCK_WEAK, INHIBIT_DELAY_WEAK) && ignore_uid && i->uid == uid)
+                if (i->mode == INHIBIT_BLOCK_WEAK && ignore_uid && i->uid == uid)
                         continue;
 
                 if (!inhibited ||
@@ -531,7 +531,6 @@ static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
         [INHIBIT_BLOCK]      = "block",
         [INHIBIT_BLOCK_WEAK] = "block-weak",
         [INHIBIT_DELAY]      = "delay",
-        [INHIBIT_DELAY_WEAK] = "delay-weak"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);
