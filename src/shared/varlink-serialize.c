@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "parse-util.h"
+#include "path-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
 
@@ -82,4 +83,15 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
+}
+
+int varlink_server_contains_socket(sd_varlink_server *s, const char *address) {
+        assert(s);
+        assert(address);
+
+        LIST_FOREACH(sockets, ss, s->sockets)
+                if (path_equal(ss->address, address))
+                        return true;
+
+        return false;
 }
