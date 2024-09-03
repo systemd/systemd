@@ -42,7 +42,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
-                .mdns_goodbye_event_source = NULL,
+
+                /* Enforce ratelimiting for the multicast protocols */
+                .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {
@@ -71,9 +73,6 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_mdns_membership(s, true);
 
         log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
-
-        /* Enforce ratelimiting for the multicast protocols */
-        s->ratelimit = (const RateLimit) { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST };
 
         *ret = s;
         return 0;
