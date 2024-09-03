@@ -405,7 +405,7 @@ static int dns_scope_socket(
                 assert(family != AF_UNSPEC);
                 assert(address);
 
-                ifindex = s->link ? s->link->ifindex : 0;
+                ifindex = dns_scope_ifindex(s);
 
                 switch (family) {
                 case AF_INET:
@@ -1465,6 +1465,15 @@ int dns_scope_ifindex(DnsScope *s) {
         return 0;
 }
 
+const char* dns_scope_ifname(DnsScope *s) {
+        assert(s);
+
+        if (s->link)
+                return s->link->ifname;
+
+        return NULL;
+}
+
 static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsScope *scope = userdata;
 
@@ -1748,8 +1757,8 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         ret,
                         SD_JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
                         SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
 }
 
