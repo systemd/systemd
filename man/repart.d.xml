@@ -789,6 +789,68 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression algorithm.</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs). Here's an incomplete list
+        of compression algorithms supported by the filesystems known to
+        <command>systemd-repart</command>:</para>
+
+        <table>
+          <title>File System Compression Algorithms</title>
+
+          <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+            <colspec colname="filesystem" />
+            <colspec colname="algorithms" />
+            <colspec colname="manpage" />
+
+            <thead>
+              <row>
+                <entry>File System</entry>
+                <entry>Compression Algorithms</entry>
+                <entry>Documentation</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry><constant>squashfs</constant></entry>
+                <entry>gzip, lzo, lz4, xz, zstd, lzma</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mksquashfs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+
+              <row>
+                <entry><constant>erofs</constant></entry>
+                <entry>lz4, lz4hc, lzma, deflate, libdeflate, zstd</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mkfs.erofs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
+        configured compression algorithm. The possible compression levels and their meaning are filesystem
+        specific (refer to the filesystem's documentation for the exact meaning of a particular compression
+        level).</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression and the <varname>Compression=</varname> setting is
+        configured explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
