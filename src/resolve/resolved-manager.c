@@ -34,6 +34,7 @@
 #include "resolved-bus.h"
 #include "resolved-conf.h"
 #include "resolved-dns-answer.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-question.h"
@@ -577,6 +578,10 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, server, l->dns_servers)
                         dns_server_dump(server, f);
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(servers, server, delegate->dns_servers)
+                        dns_server_dump(server, f);
 
         return memstream_dump(LOG_INFO, &ms);
 }
@@ -655,6 +660,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
         dnssd_service_clear_on_reload(m->dnssd_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
+        m->delegates = hashmap_free(m->delegates);
 
         dns_trust_anchor_flush(&m->trust_anchor);
 
@@ -672,9 +678,11 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         if (r < 0)
                 log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
 
+        manager_load_delegates(m);
+
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
-        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -755,7 +763,9 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
 
-        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        manager_load_delegates(m);
+
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -824,7 +834,6 @@ int manager_start(Manager *m) {
 
 Manager *manager_free(Manager *m) {
         Link *l;
-        DnssdService *s;
 
         if (!m)
                 return NULL;
@@ -836,12 +845,13 @@ Manager *manager_free(Manager *m) {
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
+        m->delegates = hashmap_free(m->delegates);
+
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
         m->stub_queries_by_packet = hashmap_free(m->stub_queries_by_packet);
-
-        dns_scope_free(m->unicast_scope);
+        m->unicast_scope = dns_scope_free(m->unicast_scope);
 
         /* At this point only orphaned streams should remain. All others should have been freed already by their
          * owners */
@@ -894,6 +904,7 @@ Manager *manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
+        DnssdService *s;
         while ((s = hashmap_first(m->dnssd_services)))
                dnssd_service_free(s);
         hashmap_free(m->dnssd_services);
@@ -1621,7 +1632,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         }
 
         /* Then, add the per-link servers */
-        HASHMAP_FOREACH(l, m->links) {
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = ordered_set_put(*dns, s);
                         if (r == -EEXIST)
@@ -1629,7 +1640,17 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
                         if (r < 0)
                                 return r;
                 }
-        }
+
+        /* Third, add the delegate servers and domains */
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                LIST_FOREACH(servers, s, d->dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
 
         /* If we found nothing, add the fallback servers */
         if (ordered_set_isempty(*dns)) {
@@ -1651,7 +1672,6 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
  *   > 0 or true: return only domains which are for routing only
  */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
-        Link *l;
         int r;
 
         assert(m);
@@ -1674,8 +1694,23 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links) {
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(domains, d, delegate->search_domains) {
 
+                        if (filter_route >= 0 &&
+                            d->route_only != !!filter_route)
+                                continue;
+
+                        r = ordered_set_put(*domains, d->name);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
+        Link *l;
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(domains, d, l->search_domains) {
 
                         if (filter_route >= 0 &&
@@ -1688,7 +1723,6 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return 0;
 }
@@ -1771,13 +1805,17 @@ void manager_flush_caches(Manager *m, int log_level) {
 }
 
 void manager_reset_server_features(Manager *m) {
-        Link *l;
 
         dns_server_reset_features_all(m->dns_servers);
         dns_server_reset_features_all(m->fallback_dns_servers);
 
+        Link *l;
         HASHMAP_FOREACH(l, m->links)
                 dns_server_reset_features_all(l->dns_servers);
+
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                dns_server_reset_features_all(d->dns_servers);
 
         log_info("Resetting learnt feature levels on all servers.");
 }
