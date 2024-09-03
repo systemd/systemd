@@ -29,6 +29,7 @@ typedef enum DnsScopeMatch {
 typedef enum DnsScopeOrigin {
         DNS_SCOPE_GLOBAL,
         DNS_SCOPE_LINK,
+        DNS_SCOPE_DELEGATE,
         _DNS_SCOPE_ORIGIN_MAX,
         _DNS_SCOPE_ORIGIN_INVALID = -EINVAL,
 } DnsScopeOrigin;
@@ -46,6 +47,7 @@ struct DnsScope {
         DnsOverTlsMode dns_over_tls_mode;
 
         Link *link;
+        DnsDelegate *delegate;
 
         DnsCache cache;
         DnsZone zone;
@@ -78,7 +80,7 @@ struct DnsScope {
         bool announced;
 };
 
-int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeOrigin origin, Link *link, DnsProtocol protocol, int family);
+int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeOrigin origin, Link *link, DnsDelegate *delegate, DnsProtocol protocol, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
