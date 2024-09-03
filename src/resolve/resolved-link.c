@@ -139,7 +139,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->unicast_scope) {
                         dns_server_reset_features_all(l->dns_servers);
 
-                        r = dns_scope_new(l->manager, &l->unicast_scope, DNS_SCOPE_LINK, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
+                        r = dns_scope_new(l->manager, &l->unicast_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate DNS scope, ignoring: %m");
                 }
@@ -149,7 +149,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET, true) &&
             link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
-                        r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, DNS_SCOPE_LINK, l, DNS_PROTOCOL_LLMNR, AF_INET);
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv4 scope, ignoring: %m");
                 }
@@ -159,7 +159,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET6, true) &&
             link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv6_scope) {
-                        r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, DNS_SCOPE_LINK, l, DNS_PROTOCOL_LLMNR, AF_INET6);
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv6 scope, ignoring: %m");
                 }
@@ -169,7 +169,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET, true) &&
             link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
-                        r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, DNS_PROTOCOL_MDNS, AF_INET);
+                        r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
                 }
@@ -179,7 +179,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET6, true) &&
             link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
-                        r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, DNS_PROTOCOL_MDNS, AF_INET6);
+                        r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
                 }
@@ -279,7 +279,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -502,7 +502,7 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
         if (r > 0)
                 dns_search_domain_move_back_and_unmark(d);
         else {
-                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
+                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                 if (r < 0)
                         return r;
         }
