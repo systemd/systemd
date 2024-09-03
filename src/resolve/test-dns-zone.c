@@ -27,7 +27,7 @@ TEST(dns_zone_put_simple) {
         DnsZoneItem *item = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-        ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET));
+        ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET));
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -51,7 +51,7 @@ TEST(dns_zone_put_any_class_is_invalid) {
         DnsZone *zone = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -69,7 +69,7 @@ TEST(dns_zone_put_any_type_is_invalid) {
         DnsZone *zone = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -91,7 +91,7 @@ TEST(dns_zone_remove_rr_match) {
         DnsZone *zone = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -116,7 +116,7 @@ TEST(dns_zone_remove_rr_match_one) {
         DnsZone *zone = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -149,7 +149,7 @@ TEST(dns_zone_remove_rr_different_payload) {
         DnsZone *zone = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -179,7 +179,7 @@ TEST(dns_zone_remove_rrs_by_key) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL;
         DnsResourceKey *key = NULL;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         zone = &scope->zone;
 
@@ -249,7 +249,7 @@ TEST(dns_zone_lookup_match_a) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
@@ -271,7 +271,7 @@ TEST(dns_zone_lookup_match_cname) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
@@ -294,7 +294,7 @@ TEST(dns_zone_lookup_match_any) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
@@ -325,7 +325,7 @@ TEST(dns_zone_lookup_match_any_apex) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
@@ -350,7 +350,7 @@ TEST(dns_zone_lookup_match_nothing) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
@@ -371,7 +371,7 @@ TEST(dns_zone_lookup_match_nothing_with_soa) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
-        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
+        dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
         add_zone_rrs(scope);
 
