@@ -461,6 +461,20 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                if (compression) {
+                        _cleanup_free_ char *c = NULL;
+
+                        c = strdup(compression);
+                        if (!c)
+                                return log_oom();
+
+                        if (compression_level && !strextend(&c, ":", compression_level))
+                                return log_oom();
+
+                        if (strv_extend_many(&argv, "--compress", c) < 0)
+                                return log_oom();
+                }
+
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
                  * isn't silenced by "-q", so let's redirect stdout to /dev/null as well. */
                 if (quiet)
