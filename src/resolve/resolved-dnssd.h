@@ -66,3 +66,5 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
 int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);
 int dnssd_update_rrs(DnssdService *s);
 int dnssd_signal_conflict(Manager *manager, const char *name);
+
+const struct ConfigPerfItem* resolved_dnssd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
