@@ -115,6 +115,9 @@ node /org/freedesktop/resolve1 {
       ResetStatistics();
       FlushCaches();
       ResetServerFeatures();
+      GetDelegate(in  s id,
+                  out o path);
+      ListDelegates(out a(so) delegates);
     properties:
       readonly s LLMNRHostname = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -201,6 +204,10 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-method" generated="True" extra-ref="FlushCaches()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetServerFeatures()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetDelegate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListDelegates()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LLMNRHostname"/>
 
@@ -423,13 +430,13 @@ node /org/freedesktop/resolve1 {
       <para>The <function>RevertLink()</function> method may be used to revert all per-link settings
       described above to the defaults.</para>
 
-      <para>The <function>FlushCaches()</function> flushes all resource record caches maintained by the
+      <para>The <function>FlushCaches()</function> method flushes all resource record caches maintained by the
       resolver, and ensures that any subsequent lookups re-request their responses from their sources.</para>
 
-      <para>The <function>ResetServerFeatures()</function> flushes any feature information learned about
-      remote DNS servers. This ensures that subsequent lookups will be initially attempted at the highest DNS
-      protocol feature level again, possibly requiring a (potentially slow) downgrade cycle to recognize the
-      supported feature level again.</para>
+      <para>The <function>ResetServerFeatures()</function> method flushes any feature information learned
+      about remote DNS servers. This ensures that subsequent lookups will be initially attempted at the
+      highest DNS protocol feature level again, possibly requiring a (potentially slow) downgrade cycle to
+      recognize the supported feature level again.</para>
 
       <para>The <function>RegisterService()</function> method may be used to register a DNS-SD service on the
       host. This functionality is closely related to the functionality provided by
@@ -446,6 +453,12 @@ node /org/freedesktop/resolve1 {
       <para>The <function>UnregisterService()</function> method undoes the effect of
       <function>RegisterService()</function> and deletes a DNS-SD service previously created via IPC
       again.</para>
+
+      <para>The <function>GetDelegate()</function> method returns the D-Bus object path for the specified DNS
+      delegate ID.</para>
+
+      <para>The <function>ListDelegates()</function> method returns a list of the IDs and D-Bus object paths
+      of the currently configured DNS delegates.</para>
 
       <refsect3>
         <title>The Flags Parameter</title>
@@ -935,6 +948,15 @@ $ gdbus introspect --system \
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+
+      <para><function>GetDelegate()</function> and <function>ListDelegates()</function> were added in version 258.</para>
+    </refsect2>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>
