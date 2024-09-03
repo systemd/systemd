@@ -1067,11 +1067,6 @@ EOF
 testcase_minimize() {
     local defs imgs output
 
-    if systemd-detect-virt --quiet --container; then
-        echo "Skipping minimize test in container."
-        return
-    fi
-
     echo "*** minimization ***"
 
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
@@ -1113,6 +1108,11 @@ EOF
                             "$imgs/zzz")
 
     # Check that we can dissect, mount and unmount a minimized image.
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping minimize dissect, mount and unmount test in container."
+        return
+    fi
 
     systemd-dissect "$imgs/zzz"
     systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
@@ -1310,6 +1310,41 @@ testcase_urandom() {
 
 testcase_list_devices() {
     systemd-repart --list-devices
+}
+
+testcase_compression() {
+    local workdir image defs
+
+    workdir="$(mktemp --directory "/tmp/test-repart.compression.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    image="$workdir/image.img"
+    defs="$workdir/defs"
+    mkdir "$defs"
+
+    # TODO: add btrfs once btrfs-progs v6.11 is available in distributions.
+    for format in squashfs erofs; do
+        if ! command -v "mkfs.$format" && ! command -v mksquashfs >/dev/null; then
+            continue
+        fi
+
+        [[ "$format" == "squashfs" ]] && compression=zstd
+        [[ "$format" == "erofs" ]] && compression=lz4hc
+
+        tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=$format
+Compression=$compression
+CompressionLevel=3
+CopyFiles=$defs:/def
+SizeMinBytes=48M
+EOF
+
+        rm -f "$image"
+        systemd-repart --empty=create --size=auto --pretty=yes --dry-run=no --definitions="$defs" "$image"
+    done
 }
 
 OFFLINE="yes"
