@@ -1726,7 +1726,6 @@ void manager_cleanup_saved_user(Manager *m) {
         }
 
         FOREACH_DIRENT_ALL(de, d, log_error_errno(errno, "Failed to read interface directory: %m")) {
-                _cleanup_free_ char *p = NULL;
                 int ifindex;
                 Link *l;
 
@@ -1750,13 +1749,8 @@ void manager_cleanup_saved_user(Manager *m) {
                 continue;
 
         rm:
-                p = path_join("/run/systemd/resolve/netif", de->d_name);
-                if (!p) {
-                        log_oom();
-                        return;
-                }
-
-                (void) unlink(p);
+                if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                        log_warning_errno(errno, "Failed to remove left-over interface configuration file '%s', ignoring: %m", de->d_name);
         }
 }
 
