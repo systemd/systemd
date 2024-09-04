@@ -4837,6 +4837,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[ClassfulMultiQueueing] Section Options</title>
+    <para>The [ClassfulMultiQueueing] section manages the queueing discipline (qdisc) of Classful Multi Queueing (mq).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BandMultiQueueing] Section Options</title>
     <para>The [BandMultiQueueing] section manages the queueing discipline (qdisc) of Band Multi Queueing (multiq).</para>
 

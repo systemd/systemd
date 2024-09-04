@@ -540,6 +540,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "HeavyHitterFilter\0"
                         "HierarchyTokenBucket\0"
                         "HierarchyTokenBucketClass\0"
+                        "ClassfulMultiQueueing\0"
                         "BandMultiQueueing\0"
                         "NetworkEmulator\0"
                         "PFIFO\0"
