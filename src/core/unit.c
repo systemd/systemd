@@ -5839,14 +5839,27 @@ void unit_unlink_state_files(Unit *u) {
         }
 }
 
-int unit_overwrite_log_level_max(Unit *u, int log_level_max) {
+int unit_set_debug_invocation(Unit *u, bool enable) {
+        int r;
+
         assert(u);
 
-        if (!u->exported_log_level_max)
+        if (u->debug_invocation == enable)
                 return 0; /* Nothing to do */
 
+        u->debug_invocation = enable;
+
         /* Ensure that the new log level is exported for the journal, in place of the previous one */
-        return unit_export_log_level_max(u, log_level_max, /* overwrite= */ true);
+        if (u->exported_log_level_max) {
+                const ExecContext *ec = unit_get_exec_context(u);
+                if (ec) {
+                        r = unit_export_log_level_max(u, enable ? LOG_PRI(LOG_DEBUG) : ec->log_level_max, /* overwrite= */ true);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 1;
 }
 
 int unit_prepare_exec(Unit *u) {
