@@ -189,6 +189,26 @@ typedef struct {
 
 typedef struct {
         SmbiosHeader header;
+        uint8_t manufacturer;
+        uint8_t product_name;
+        uint8_t version;
+        uint8_t serial_number;
+        EFI_GUID uuid;
+        uint8_t wake_up_type;
+        uint8_t sku_number;
+        uint8_t family;
+} _packed_ SmbiosTableType1;
+
+typedef struct {
+        SmbiosHeader header;
+        uint8_t manufacturer;
+        uint8_t product_name;
+        uint8_t version;
+        uint8_t serial_number;
+} _packed_ SmbiosTableType2;
+
+typedef struct {
+        SmbiosHeader header;
         uint8_t count;
         char contents[];
 } _packed_ SmbiosTableType11;
@@ -317,6 +337,54 @@ const char* smbios_find_oem_string(const char *name) {
         }
 
         return NULL;
+}
+
+static const char* smbios_get_string(const SmbiosHeader *header, uint16_t string, uint64_t left) {
+        const char *s = (const void *) header;
+
+        s += header->length;
+        left -= header->length;
+
+        uint16_t index = 1;
+        for (const char *p = s; index <= string && p < s + left; index++) {
+                if (index == string)
+                    return s;
+
+                const char *e = memchr(p, 0, s + left - p);
+
+                if (!e || e == p) /* Double NUL byte means we've reached the end of the strings. */
+                        break;
+
+                p = e + 1;
+        }
+        return NULL;
+}
+
+EFI_STATUS smbios_raw_info_populate(RawSmbiosInfo *info) {
+        uint64_t left;
+        assert(info);
+
+        const SmbiosTableType1 *type1 = (const SmbiosTableType1 *) get_smbios_table(1, &left);
+        if (!type1 || type1->header.length < sizeof(SmbiosTableType1))
+                return EFI_BUFFER_TOO_SMALL;
+
+        assert(left >= type1->header.length);
+
+        info->manufacturer = smbios_get_string(&type1->header, type1->manufacturer, left);
+        info->product_name = smbios_get_string(&type1->header, type1->product_name, left);
+        info->product_sku = smbios_get_string(&type1->header, type1->sku_number, left);
+        info->family = smbios_get_string(&type1->header, type1->family, left);
+
+        const SmbiosTableType2 *type2 = (const SmbiosTableType2 *) get_smbios_table(2, &left);
+        if (!type2 || type2->header.length < sizeof(SmbiosTableType2))
+                return EFI_BUFFER_TOO_SMALL;
+
+        assert(left >= type2->header.length);
+
+        info->baseboard_manufacturer = smbios_get_string(&type2->header, type2->manufacturer, left);
+        info->baseboard_product = smbios_get_string(&type2->header, type2->product_name, left);
+
+        return EFI_SUCCESS;
 }
 
 #if defined(__i386__) || defined(__x86_64__)
