@@ -552,6 +552,10 @@ HierarchyTokenBucketClass.Rate,              config_parse_hierarchy_token_bucket
 HierarchyTokenBucketClass.CeilRate,          config_parse_hierarchy_token_bucket_class_rate,           TCLASS_KIND_HTB,               0
 HierarchyTokenBucketClass.BufferBytes,       config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
 HierarchyTokenBucketClass.CeilBufferBytes,   config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
+ClassfulMultiQueueing.Parent,                config_parse_qdisc_parent,                                QDISC_KIND_MQ,                 0
+ClassfulMultiQueueing.Handle,                config_parse_qdisc_handle,                                QDISC_KIND_MQ,                 0
+BandMultiQueueing.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_MULTIQ,             0
+BandMultiQueueing.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_MULTIQ,             0
 NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
