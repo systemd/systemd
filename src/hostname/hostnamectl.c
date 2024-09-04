@@ -31,7 +31,7 @@
 
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
@@ -738,6 +738,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        if (!machine_spec_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
