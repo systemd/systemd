@@ -2641,23 +2641,9 @@ static int compile_bind_mounts(
                 return -ENOMEM;
 
         FOREACH_ARRAY(item, context->bind_mounts, context->n_bind_mounts) {
-                _cleanup_free_ char *s = NULL, *d = NULL;
-
-                s = strdup(item->source);
-                if (!s)
-                        return -ENOMEM;
-
-                d = strdup(item->destination);
-                if (!d)
-                        return -ENOMEM;
-
-                bind_mounts[h++] = (BindMount) {
-                        .source = TAKE_PTR(s),
-                        .destination = TAKE_PTR(d),
-                        .read_only = item->read_only,
-                        .recursive = item->recursive,
-                        .ignore_enoent = item->ignore_enoent,
-                };
+                r = bind_mount_add(&bind_mounts, &n, item);
+                if (r < 0)
+                        return r;
         }
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
