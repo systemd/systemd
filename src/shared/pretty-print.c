@@ -460,7 +460,7 @@ bool shall_tint_background(void) {
         return cache != 0;
 }
 
-void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
+void draw_progress_bar_impl(const char *prefix, double percentage) {
         fputc('\r', stderr);
         if (prefix) {
                 fputs(prefix, stderr);
@@ -516,7 +516,7 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
 
 }
 
-void clear_progress_bar_unbuffered(const char *prefix) {
+void clear_progress_bar_impl(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
@@ -531,28 +531,14 @@ void clear_progress_bar_unbuffered(const char *prefix) {
 }
 
 void draw_progress_bar(const char *prefix, double percentage) {
-
         /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
          * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
          * as a single buffer, to make things more efficient. */
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
-
-        draw_progress_bar_unbuffered(prefix, percentage);
-
-        fflush(stderr);
-
-        /* Disable buffering again */
-        setvbuf(stderr, NULL, _IONBF, 0);
+        WITH_BUFFERED_STDERR;
+        draw_progress_bar_impl(prefix, percentage);
 }
 
 void clear_progress_bar(const char *prefix) {
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
-
-        clear_progress_bar_unbuffered(prefix);
-
-        fflush(stderr);
-
-        setvbuf(stderr, NULL, _IONBF, 0);
+        WITH_BUFFERED_STDERR;
+        clear_progress_bar_impl(prefix);
 }
