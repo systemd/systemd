@@ -121,9 +121,9 @@ typedef struct MountList {
 } MountList;
 
 static const BindMount bind_journal_sockets_table[] = {
-        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .ignore_enoent = true },
-        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .ignore_enoent = true },
-        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
 };
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
@@ -447,6 +447,7 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
                         .mode = b->recursive ? MOUNT_BIND_RECURSIVE : MOUNT_BIND,
                         .read_only = b->read_only,
                         .nosuid = b->nosuid,
+                        .noexec = b->noexec,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
@@ -2796,6 +2797,7 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
                                            .destination = TAKE_PTR(d),
                                            .read_only = item->read_only,
                                            .nosuid = item->nosuid,
+                                           .noexec = item->noexec,
                                            .recursive = item->recursive,
                                            .ignore_enoent = item->ignore_enoent,
                                    }), 1))
