@@ -1130,42 +1130,37 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 
 static int service_load_pid_file(Service *s, bool may_warn) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        bool questionable_pid_file = false;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *k = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r, prio;
+        bool questionable_pid_file = false;
+        int r, prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
         assert(s);
 
         if (!s->pid_file)
                 return -ENOENT;
 
-        prio = may_warn ? LOG_INFO : LOG_DEBUG;
-
-        r = chase(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
+        r = chase_and_fopen_unlocked(s->pid_file, NULL, CHASE_SAFE, "re", NULL, &f);
         if (r == -ENOLINK) {
                 log_unit_debug_errno(UNIT(s), r,
                                      "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
-                r = chase(s->pid_file, NULL, 0, NULL, &fd);
+                r = chase_and_fopen_unlocked(s->pid_file, NULL, 0, "re", NULL, &f);
         }
         if (r < 0)
                 return log_unit_full_errno(UNIT(s), prio, r,
-                                           "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+                                           "Can't open PID file '%s' (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
-        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
-         * chase() returned us into a proper fd first. */
-        r = read_one_line_file(FORMAT_PROC_FD_PATH(fd), &k);
+        /* Let's read the PID file now that we chased it down. */
+        r = read_line(f, LINE_MAX, &k);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r,
-                                            "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",
-                                            s->pid_file);
+                return log_unit_error_errno(UNIT(s), r, "Failed to read PID file '%s': %m", s->pid_file);
 
         r = pidref_set_pidstr(&pidref, k);
         if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to create reference to PID from file '%s': %m", s->pid_file);
 
         if (s->main_pid_known && pidref_equal(&pidref, &s->main_pid))
                 return 0;
@@ -1182,14 +1177,14 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
-                if (fstat(fd, &st) < 0)
-                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
+                if (fstat(fileno(f), &st) < 0)
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file '%s': %m", s->pid_file);
 
                 if (st.st_uid != 0)
                         return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
-                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
+                                                    "New main PID "PID_FMT" from PID file does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
 
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pidref.pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, accepting anyway since PID file is owned by root.", pidref.pid);
         }
 
         if (s->main_pid_known) {
@@ -1456,10 +1451,9 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                Unit *u;
-
                 /* Pass all our configured sockets for singleton services */
 
+                Unit *u;
                 UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         int cn_fds;
@@ -1472,8 +1466,7 @@ static int service_collect_fds(
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
                                 return cn_fds;
-
-                        if (cn_fds <= 0)
+                        if (cn_fds == 0)
                                 continue;
 
                         if (!rfds) {
@@ -2029,22 +2022,6 @@ static ServiceState service_determine_dead_state(Service *s) {
         return s->fd_store && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
 }
 
-static void service_set_debug_invocation(Service *s, bool enable) {
-        assert(s);
-
-        if (s->restart_mode != SERVICE_RESTART_MODE_DEBUG)
-                return;
-
-        if (enable == UNIT(s)->debug_invocation)
-                return; /* Nothing to do */
-
-        UNIT(s)->debug_invocation = enable;
-        unit_overwrite_log_level_max(UNIT(s), enable ? LOG_PRI(LOG_DEBUG) : s->exec_context.log_level_max);
-
-        if (enable)
-                log_unit_notice(UNIT(s), "Service failed, subsequent restarts will be executed with debug level logging.");
-}
-
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         ServiceState end_state, restart_state;
         int r;
@@ -2108,13 +2085,19 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
                 }
 
-                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
-
                 /* If the relevant option is set, and the unit doesn't already have logging level set to
                  * debug, enable it now. Make sure to overwrite the state in /run/systemd/units/ too, to
                  * ensure journald doesn't prune the messages. The previous state is saved and restored
                  * once the auto-restart flow ends. */
-                service_set_debug_invocation(s, /* enable= */ true);
+                if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG) {
+                        r = unit_set_debug_invocation(UNIT(s), true);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to enable debug invocation, ignoring: %m");
+                        if (r > 0)
+                                log_unit_notice(UNIT(s), "Service dead, subsequent restarts will be executed with debug level logging.");
+                }
+
+                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else {
@@ -2123,7 +2106,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * can still introspect the counter. */
                 service_set_state(s, end_state);
 
-                service_set_debug_invocation(s, /* enable= */ false);
+                (void) unit_set_debug_invocation(UNIT(s), false);
         }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
@@ -4959,7 +4942,7 @@ static void service_reset_failed(Unit *u) {
         s->live_mount_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
 
-        service_set_debug_invocation(s, /* enable= */ false);
+        (void) unit_set_debug_invocation(u, /* enable= */ false);
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
