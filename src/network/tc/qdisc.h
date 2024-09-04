@@ -21,6 +21,7 @@ typedef enum QDiscKind {
         QDISC_KIND_GRED,
         QDISC_KIND_HHF,
         QDISC_KIND_HTB,
+        QDISC_KIND_MULTIQ,
         QDISC_KIND_NETEM,
         QDISC_KIND_PFIFO,
         QDISC_KIND_PFIFO_FAST,
@@ -106,6 +107,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 #include "gred.h"
 #include "hhf.h"
 #include "htb.h"
+#include "multiq.h"
 #include "pie.h"
 #include "qfq.h"
 #include "netem.h"
