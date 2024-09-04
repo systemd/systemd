@@ -2777,7 +2777,6 @@ void bind_mount_free_many(BindMount *b, size_t n) {
 
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
-        BindMount *c;
 
         assert(b);
         assert(n);
@@ -2791,20 +2790,15 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         if (!d)
                 return -ENOMEM;
 
-        c = reallocarray(*b, *n + 1, sizeof(BindMount));
-        if (!c)
-                return -ENOMEM;
-
-        *b = c;
-
-        c[(*n)++] = (BindMount) {
-                .source = TAKE_PTR(s),
-                .destination = TAKE_PTR(d),
-                .read_only = item->read_only,
-                .nosuid = item->nosuid,
-                .recursive = item->recursive,
-                .ignore_enoent = item->ignore_enoent,
-        };
+        if (!GREEDY_REALLOC_APPEND(*b, *n,
+                                   (&(BindMount) {
+                                           .source = TAKE_PTR(s),
+                                           .destination = TAKE_PTR(d),
+                                           .read_only = item->read_only,
+                                           .nosuid = item->nosuid,
+                                           .recursive = item->recursive,
+                                           .ignore_enoent = item->ignore_enoent,
+                                   }), 1))
 
         return 0;
 }
