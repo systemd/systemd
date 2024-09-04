@@ -650,7 +650,16 @@ static int get_pci_slot_specifiers(
                  * where the slot makes up the upper 5 bits. */
                 func += slot * 8;
 
-        if (domain > 0 && asprintf(&domain_spec, "P%u", domain) < 0)
+        /* Include the PCI domain in the name if the ID_NET_NAME_INCLUDE_DOMAIN property says so, if it is
+         * set. If it is not set, include it if the domain is non-zero. */
+        r = device_get_property_bool(dev, "ID_NET_NAME_INCLUDE_DOMAIN");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_warning_errno(dev, r, "Failed to read property \"ID_NET_NAME_INCLUDE_DOMAIN\", ignoring: %m");
+
+                r = domain > 0;
+        }
+        if (r > 0 && asprintf(&domain_spec, "P%u", domain) < 0)
                 return log_oom_debug();
 
         if (asprintf(&bus_and_slot_spec, "p%us%u", bus, slot) < 0)
