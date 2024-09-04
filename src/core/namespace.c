@@ -120,10 +120,10 @@ typedef struct MountList {
         size_t n_mounts;
 } MountList;
 
-static const BindMount bind_journal_sockets_table[] = {
-        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .ignore_enoent = true },
-        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .ignore_enoent = true },
-        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .ignore_enoent = true },
+static const BindMount bind_log_sockets_table[] = {
+        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
 };
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
@@ -447,6 +447,7 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
                         .mode = b->recursive ? MOUNT_BIND_RECURSIVE : MOUNT_BIND,
                         .read_only = b->read_only,
                         .nosuid = b->nosuid,
+                        .noexec = b->noexec,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
@@ -1146,7 +1147,9 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         FOREACH_STRING(d, "/dev/mqueue", "/dev/hugepages")
                 (void) bind_mount_device_dir(temporary_mount, d);
 
-        if ((!p->root_image && !p->root_directory) || p->bind_journal_sockets) {
+        /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
+         * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
+        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -2597,8 +2600,8 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .source_malloc = TAKE_PTR(q),
                 };
 
-        } else if (p->bind_journal_sockets) {
-                r = append_bind_mounts(&ml, bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table));
+        } else if (p->bind_log_sockets) {
+                r = append_bind_mounts(&ml, bind_log_sockets_table, ELEMENTSOF(bind_log_sockets_table));
                 if (r < 0)
                         return r;
         }
@@ -2777,7 +2780,6 @@ void bind_mount_free_many(BindMount *b, size_t n) {
 
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
-        BindMount *c;
 
         assert(b);
         assert(n);
@@ -2791,20 +2793,16 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         if (!d)
                 return -ENOMEM;
 
-        c = reallocarray(*b, *n + 1, sizeof(BindMount));
-        if (!c)
-                return -ENOMEM;
-
-        *b = c;
-
-        c[(*n)++] = (BindMount) {
-                .source = TAKE_PTR(s),
-                .destination = TAKE_PTR(d),
-                .read_only = item->read_only,
-                .nosuid = item->nosuid,
-                .recursive = item->recursive,
-                .ignore_enoent = item->ignore_enoent,
-        };
+        if (!GREEDY_REALLOC_APPEND(*b, *n,
+                                   (&(BindMount) {
+                                           .source = TAKE_PTR(s),
+                                           .destination = TAKE_PTR(d),
+                                           .read_only = item->read_only,
+                                           .nosuid = item->nosuid,
+                                           .noexec = item->noexec,
+                                           .recursive = item->recursive,
+                                           .ignore_enoent = item->ignore_enoent,
+                                   }), 1))
 
         return 0;
 }
