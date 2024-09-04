@@ -611,7 +611,7 @@ Some of the variables understood by ``systemd``:
                     :start-after: .. inclusion-marker-do-not-remove log-level-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-level-body
 
-This can be overridden with ``--log-level=``.
+This can be overridden with :directive:environment-variables:option:`--log-level=`.
 
 ``$SYSTEMD_LOG_COLOR``
 ----------------------
@@ -620,7 +620,7 @@ This can be overridden with ``--log-level=``.
                     :start-after: .. inclusion-marker-do-not-remove log-color-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-color-body
 
-This can be overridden with ``--log-color=``.
+This can be overridden with :directive:environment-variables:option:`--log-color=`.
 
 ``$SYSTEMD_LOG_TIME``
 ---------------------
@@ -629,7 +629,7 @@ This can be overridden with ``--log-color=``.
                     :start-after: .. inclusion-marker-do-not-remove log-time-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-time-body
 
-This can be overridden with ``--log-time=``.
+This can be overridden with :directive:environment-variables:option:`--log-time=`.
 
 .. only:: html
 
@@ -642,7 +642,7 @@ This can be overridden with ``--log-time=``.
                     :start-after: .. inclusion-marker-do-not-remove log-location-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-location-body
 
-This can be overridden with ``--log-location=``.
+This can be overridden with :directive:environment-variables:option:`--log-location=`.
 
 ``$SYSTEMD_LOG_TID``
 --------------------
@@ -662,7 +662,7 @@ This can be overridden with ``--log-location=``.
                     :start-after: .. inclusion-marker-do-not-remove log-target-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-target-body
 
-This can be overridden with ``--log-target=``.
+This can be overridden with :directive:environment-variables:option:`--log-target=`.
 
 ``$SYSTEMD_LOG_RATELIMIT_KMSG``
 -------------------------------
@@ -809,7 +809,7 @@ Takes one of ``freeze``, ``reboot`` or
 If set to ``reboot``, the system manager (PID 1) will reboot the machine automatically
 when it crashes, after a 10s delay. If set to ``poweroff``, the system manager (PID 1)
 will power off the machine immediately when it crashes. If combined with
-``systemd.crash_shell``, the configured crash action is executed after the shell
+:directive:kernel-commandline-options:var:`systemd.crash_shell`, the configured crash action is executed after the shell
 exits.
 
 .. only:: html
@@ -823,7 +823,7 @@ Takes a boolean argument or a path to the virtual console
 where the confirmation messages should be emitted. Can be also specified
 without an argument, with the same effect as a positive boolean. If enabled,
 the system manager (PID 1) asks for confirmation when spawning processes
-using ``/dev/console``. If a path or a console name (such as
+using :directive:kernel-commandline-options:option:`/dev/console`. If a path or a console name (such as
 ``ttyS0``) is provided, the virtual console pointed to by this
 path or described by the give name will be used instead. Defaults to disabled.
 
@@ -835,8 +835,8 @@ path or described by the give name will be used instead. Defaults to disabled.
 ------------------------------
 
 Takes a boolean argument. If disabled, all service runtime
-watchdogs (``WatchdogSec=``) and emergency actions (e.g.
-``OnFailure=`` or ``StartLimitAction=``) are
+watchdogs (:directive:kernel-commandline-options:option:`WatchdogSec=`) and emergency actions (e.g.
+:directive:kernel-commandline-options:option:`OnFailure=` or :directive:kernel-commandline-options:option:`StartLimitAction=`) are
 ignored by the system manager (PID 1); see
 :ref:`systemd.service(5)`.
 Defaults to enabled, i.e. watchdogs and failure actions are processed
@@ -850,14 +850,14 @@ option.
 ``systemd.show_status``
 -----------------------
 
-Takes a boolean argument or the constants ``error`` and
-``auto``. Can be also specified without an argument, with the same effect as a
+Takes a boolean argument or the constants :directive:kernel-commandline-options:constant:`error` and
+:directive:kernel-commandline-options:constant:`auto`. Can be also specified without an argument, with the same effect as a
 positive boolean. If enabled, the systemd manager (PID 1) shows terse service status updates on the
-console during bootup. With ``error``, only messages about failures are shown, but
-boot is otherwise quiet. ``auto`` behaves like ``false`` until there is
-a significant delay in boot. Defaults to enabled, unless ``quiet`` is passed as kernel
-command line option, in which case it defaults to ``error``. If specified overrides
-the system manager configuration file option ``ShowStatus=``, see
+console during bootup. With :directive:kernel-commandline-options:constant:`error`, only messages about failures are shown, but
+boot is otherwise quiet. :directive:kernel-commandline-options:constant:`auto` behaves like :directive:kernel-commandline-options:option:`false` until there is
+a significant delay in boot. Defaults to enabled, unless :directive:kernel-commandline-options:option:`quiet` is passed as kernel
+command line option, in which case it defaults to :directive:kernel-commandline-options:constant:`error`. If specified overrides
+the system manager configuration file option :directive:kernel-commandline-options:option:`ShowStatus=`, see
 :ref:`systemd-system.conf(5)`.
 
 .. only:: html
@@ -867,11 +867,11 @@ the system manager configuration file option ``ShowStatus=``, see
 ``systemd.status_unit_format=``
 -------------------------------
 
-Takes ``name``, ``description`` or
-``combined`` as the value. If ``name``, the system manager will use unit
-names in status messages. If ``combined``, the system manager will use unit names and
+Takes :directive:kernel-commandline-options:option:`name`, :directive:kernel-commandline-options:option:`description` or
+:directive:kernel-commandline-options:option:`combined` as the value. If :directive:kernel-commandline-options:option:`name`, the system manager will use unit
+names in status messages. If :directive:kernel-commandline-options:option:`combined`, the system manager will use unit names and
 description in status messages. When specified, overrides the system manager configuration file
-option ``StatusUnitFormat=``, see
+option :directive:kernel-commandline-options:option:`StatusUnitFormat=`, see
 :ref:`systemd-system.conf(5)`.
 
 .. only:: html
@@ -882,26 +882,26 @@ option ``StatusUnitFormat=``, see
 ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 Controls log output, with the same effect as the
-``$SYSTEMD_LOG_COLOR``, ``$SYSTEMD_LOG_LEVEL``,
-``$SYSTEMD_LOG_LOCATION``, ``$SYSTEMD_LOG_TARGET``,
-``$SYSTEMD_LOG_TIME``, ``$SYSTEMD_LOG_TID`` and
-``$SYSTEMD_LOG_RATELIMIT_KMSG`` environment variables described above.
-``systemd.log_color``, ``systemd.log_location``,
-``systemd.log_time``, ``systemd.log_tid`` and
-``systemd.log_ratelimit_kmsg`` can be specified without
+:directive:kernel-commandline-options:var:`$SYSTEMD_LOG_COLOR`, :directive:kernel-commandline-options:var:`$SYSTEMD_LOG_LEVEL`,
+:directive:kernel-commandline-options:var:`$SYSTEMD_LOG_LOCATION`, :directive:kernel-commandline-options:var:`$SYSTEMD_LOG_TARGET`,
+:directive:kernel-commandline-options:var:`$SYSTEMD_LOG_TIME`, :directive:kernel-commandline-options:var:`$SYSTEMD_LOG_TID` and
+:directive:kernel-commandline-options:var:`$SYSTEMD_LOG_RATELIMIT_KMSG` environment variables described above.
+:directive:kernel-commandline-options:var:`systemd.log_color`, :directive:kernel-commandline-options:var:`systemd.log_location`,
+:directive:kernel-commandline-options:var:`systemd.log_time`, :directive:kernel-commandline-options:var:`systemd.log_tid` and
+:directive:kernel-commandline-options:var:`systemd.log_ratelimit_kmsg` can be specified without
 an argument, with the same effect as a positive boolean.
 
 ``systemd.default_standard_output=, systemd.default_standard_error=``
 ---------------------------------------------------------------------
 
 Controls default standard output and error output for services and sockets. That is,
-controls the default for ``StandardOutput=`` and ``StandardError=`` (see
+controls the default for :directive:kernel-commandline-options:option:`StandardOutput=` and :directive:kernel-commandline-options:option:`StandardError=` (see
 :ref:`systemd.exec(5)` for
-details). Takes one of ``inherit``, ``null``, ``tty``,
-``journal``, ``journal+console``, ``kmsg``,
-``kmsg+console``. If the argument is omitted
-``systemd.default-standard-output=`` defaults to ``journal`` and
-``systemd.default-standard-error=`` to ``inherit``.
+details). Takes one of :directive:kernel-commandline-options:option:`inherit`, :directive:kernel-commandline-options:option:`null`, :directive:kernel-commandline-options:option:`tty`,
+:directive:kernel-commandline-options:option:`journal`, :directive:kernel-commandline-options:option:`journal+console`, :directive:kernel-commandline-options:option:`kmsg`,
+:directive:kernel-commandline-options:option:`kmsg+console`. If the argument is omitted
+:directive:kernel-commandline-options:var:`systemd.default-standard-output=` defaults to :directive:kernel-commandline-options:option:`journal` and
+:directive:kernel-commandline-options:var:`systemd.default-standard-error=` to :directive:kernel-commandline-options:option:`inherit`.
 
 ``systemd.setenv=``
 -------------------
@@ -927,11 +927,11 @@ for every boot.
 -----------------------------------------------------------
 
 Sets a system credential, which can then be propagated to system services using the
-``ImportCredential=`` or ``LoadCredential=`` setting, see
+:directive:kernel-commandline-options:var:`ImportCredential=` or :directive:kernel-commandline-options:var:`LoadCredential=` setting, see
 :ref:`systemd.exec(5)` for
 details. Takes a pair of credential name and value, separated by a colon. The
-``systemd.set_credential=`` parameter expects the credential value in literal text
-form, the ``systemd.set_credential_binary=`` parameter takes binary data encoded in
+:directive:kernel-commandline-options:var:`systemd.set_credential=` parameter expects the credential value in literal text
+form, the :directive:kernel-commandline-options:var:`systemd.set_credential_binary=` parameter takes binary data encoded in
 Base64. Note that the kernel command line is typically accessible by unprivileged programs in
 ``/proc/cmdline``. Thus, this mechanism is not suitable for transferring sensitive
 data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
@@ -959,7 +959,7 @@ stub.
 ---------
 
 Turn off status output at boot, much like
-``systemd.show_status=no`` would. Note that
+:directive:kernel-commandline-options:var:`systemd.show_status=no` would. Note that
 this option is also read by the kernel itself and disables
 kernel log output. Passing this option hence turns off the
 usual output from both the system manager and the kernel.
@@ -972,7 +972,7 @@ usual output from both the system manager and the kernel.
 ---------
 
 Turn on debugging output. This is equivalent
-to ``systemd.log_level=debug``. Note that this
+to :directive:kernel-commandline-options:var:`systemd.log_level=debug`. Note that this
 option is also read by the kernel itself and enables kernel
 debug output. Passing this option hence turns on the debug
 output from both the system manager and the
@@ -986,8 +986,8 @@ kernel.
 -------------------------------
 
 Boot into emergency mode. This is equivalent
-to ``systemd.unit=emergency.target`` or
-``rd.systemd.unit=emergency.target``, respectively, and
+to :directive:kernel-commandline-options:var:`systemd.unit=emergency.target` or
+:directive:kernel-commandline-options:var:`rd.systemd.unit=emergency.target`, respectively, and
 provided for compatibility reasons and to be easier to type.
 
 .. only:: html
@@ -998,8 +998,8 @@ provided for compatibility reasons and to be easier to type.
 --------------------------------------
 
 Boot into rescue mode. This is equivalent to
-``systemd.unit=rescue.target`` or
-``rd.systemd.unit=rescue.target``, respectively, and
+:directive:kernel-commandline-options:var:`systemd.unit=rescue.target` or
+:directive:kernel-commandline-options:var:`rd.systemd.unit=rescue.target`, respectively, and
 provided for compatibility reasons and to be easier to type.
 
 .. only:: html
@@ -1011,10 +1011,10 @@ provided for compatibility reasons and to be easier to type.
 
 Boot into the specified legacy SysV runlevel.
 These are equivalent to
-``systemd.unit=runlevel2.target``,
-``systemd.unit=runlevel3.target``,
-``systemd.unit=runlevel4.target``, and
-``systemd.unit=runlevel5.target``,
+:directive:kernel-commandline-options:var:`systemd.unit=runlevel2.target`,
+:directive:kernel-commandline-options:var:`systemd.unit=runlevel3.target`,
+:directive:kernel-commandline-options:var:`systemd.unit=runlevel4.target`, and
+:directive:kernel-commandline-options:var:`systemd.unit=runlevel5.target`,
 respectively, and provided for compatibility reasons and to be
 easier to type.
 
@@ -1077,14 +1077,14 @@ The service manager when run as PID 1 consumes the following system credentials:
 ``vmm.notify_socket``
 ---------------------
 
-Contains a ``AF_VSOCK`` or ``AF_UNIX`` address where to
-send a ``READY=1`` notification message when the service manager has completed
+Contains a :directive:system-credentials:constant:`AF_VSOCK` or :directive:system-credentials:constant:`AF_UNIX` address where to
+send a :directive:system-credentials:constant:`READY=1` notification message when the service manager has completed
 booting. See
 :ref:`sd_notify(3)` and
 the next section for more information. Note that in case the hypervisor does not support
-``SOCK_DGRAM`` over ``AF_VSOCK``,
-``SOCK_SEQPACKET`` will be tried instead. The credential payload for
-``AF_VSOCK`` should be a string in the form
+:directive:system-credentials:constant:`SOCK_DGRAM` over :directive:system-credentials:constant:`AF_VSOCK`,
+:directive:system-credentials:constant:`SOCK_SEQPACKET` will be tried instead. The credential payload for
+:directive:system-credentials:constant:`AF_VSOCK` should be a string in the form
 ``vsock:CID:PORT``. ``vsock-stream``, ``vsock-dgram``
 and ``vsock-seqpacket`` can be used instead of ``vsock`` to force
 usage of the corresponding socket type.

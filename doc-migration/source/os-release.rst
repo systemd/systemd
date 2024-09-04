@@ -158,13 +158,13 @@ General information identifying the operating system
 .. option:: ID_LIKE=
 
    A space-separated list of operating system identifiers in the same syntax as the
-   ``ID=`` setting. It should list identifiers of operating systems that are closely
+   :directive:environment-variables:var:`ID=` setting. It should list identifiers of operating systems that are closely
    related to the local operating system in regards to packaging and programming interfaces, for
    example listing one or more OS identifiers the local OS is a derivative from.  An OS should
    generally only list other OS identifiers it itself is a derivative of, and not any OSes that are
    derived from it, though symmetric relationships are possible. Build scripts and similar should
    check this variable if they need to identify the local operating system and the value of
-   ``ID=`` is not recognized. Operating systems should be listed in order of how
+   :directive:environment-variables:var:`ID=` is not recognized. Operating systems should be listed in order of how
    closely the local operating system relates to the listed ones, starting with the closest. This
    field is optional.
 
@@ -197,7 +197,7 @@ General information identifying the operating system
    Examples: ``VARIANT="Server Edition"``, ``VARIANT="Smart Refrigerator
    Edition"``.
 
-   Note: this field is for display purposes only. The ``VARIANT_ID`` field should
+   Note: this field is for display purposes only. The :directive:environment-variables:var:`VARIANT_ID` field should
    be used for making programmatic decisions.
 
    .. only:: html
@@ -254,11 +254,11 @@ Information about the version of the operating system
 .. option:: BUILD_ID=
 
    A string uniquely identifying the system image originally used as the installation
-   base. In most cases, ``VERSION_ID`` or
-   ``IMAGE_ID``+``IMAGE_VERSION`` are updated when the entire system
-   image is replaced during an update. ``BUILD_ID`` may be used in distributions where
-   the original installation image version is important: ``VERSION_ID`` would change
-   during incremental system updates, but ``BUILD_ID`` would not. This field is
+   base. In most cases, :directive:environment-variables:var:`VERSION_ID` or
+   :directive:environment-variables:var:`IMAGE_ID`+:directive:environment-variables:var:`IMAGE_VERSION` are updated when the entire system
+   image is replaced during an update. :directive:environment-variables:var:`BUILD_ID` may be used in distributions where
+   the original installation image version is important: :directive:environment-variables:var:`VERSION_ID` would change
+   during incremental system updates, but :directive:environment-variables:var:`BUILD_ID` would not. This field is
    optional.
 
    Examples: ``BUILD_ID="2013-03-20.3"``, ``BUILD_ID=201303203``.
@@ -287,7 +287,7 @@ Information about the version of the operating system
 
    A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
    a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
-   ``IMAGE_ID`` described above, to discern different versions of the same image.
+   :directive:environment-variables:var:`IMAGE_ID` described above, to discern different versions of the same image.
 
    Examples: ``IMAGE_VERSION=33``, ``IMAGE_VERSION=47.1rc1``.
 
@@ -308,14 +308,14 @@ Presentation information and links
 .. option:: HOME_URL=, DOCUMENTATION_URL=, SUPPORT_URL=, BUG_REPORT_URL=, PRIVACY_POLICY_URL=
 
    Links to resources on the Internet related to the operating system.
-   ``HOME_URL=`` should refer to the homepage of the operating system, or alternatively
+   :directive:environment-variables:var:`HOME_URL=` should refer to the homepage of the operating system, or alternatively
    some homepage of the specific version of the operating system.
-   ``DOCUMENTATION_URL=`` should refer to the main documentation page for this
-   operating system.  ``SUPPORT_URL=`` should refer to the main support page for the
+   :directive:environment-variables:var:`DOCUMENTATION_URL=` should refer to the main documentation page for this
+   operating system.  :directive:environment-variables:var:`SUPPORT_URL=` should refer to the main support page for the
    operating system, if there is any. This is primarily intended for operating systems which vendors
-   provide support for. ``BUG_REPORT_URL=`` should refer to the main bug reporting page
+   provide support for. :directive:environment-variables:var:`BUG_REPORT_URL=` should refer to the main bug reporting page
    for the operating system, if there is any. This is primarily intended for operating systems that
-   rely on community QA. ``PRIVACY_POLICY_URL=`` should refer to the main privacy
+   rely on community QA. :directive:environment-variables:var:`PRIVACY_POLICY_URL=` should refer to the main privacy
    policy page for the operating system, if there is any. These settings are optional, and providing
    only some of these settings is common. These URLs are intended to be exposed in "About this system"
    UIs behind links with captions such as "About this Operating System", "Obtain Support", "Report a
@@ -383,7 +383,7 @@ Presentation information and links
 .. option:: VENDOR_URL=
 
    The homepage of the OS vendor. This field is optional. The
-   ``VENDOR_NAME=`` field should be set if this one is, although clients must be
+   :directive:environment-variables:var:`VENDOR_NAME=` field should be set if this one is, although clients must be
    robust against either field not being set.
 
    The value should be in `RFC3986 format <https://tools.ietf.org/html/rfc3986>`_, and should be
@@ -422,7 +422,7 @@ Distribution-level defaults and metadata
 .. option:: ARCHITECTURE=
 
    A string that specifies which CPU architecture the userspace binaries require.
-   The architecture identifiers are the same as for ``ConditionArchitecture=``
+   The architecture identifiers are the same as for :directive:environment-variables:var:`ConditionArchitecture=`
    described in :ref:`systemd.unit(5)`.
    The field is optional and should only be used when just single architecture is supported.
    It may provide redundant information when used in a GPT partition with a GUID type that already
@@ -450,7 +450,7 @@ Distribution-level defaults and metadata
 
 .. option:: CONFEXT_LEVEL=
 
-   Semantically the same as ``SYSEXT_LEVEL=`` but for confext images.
+   Semantically the same as :directive:environment-variables:var:`SYSEXT_LEVEL=` but for confext images.
    See ``/etc/extension-release.d/extension-release.<IMAGE>``
    for more information.
 
@@ -476,7 +476,7 @@ Distribution-level defaults and metadata
 
 .. option:: CONFEXT_SCOPE=
 
-   Semantically the same as ``SYSEXT_SCOPE=`` but for confext images.
+   Semantically the same as :directive:environment-variables:var:`SYSEXT_SCOPE=` but for confext images.
 
    .. only:: html
 
