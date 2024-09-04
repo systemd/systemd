@@ -284,7 +284,7 @@ bool exec_needs_mount_namespace(
              context->directories[EXEC_DIRECTORY_LOGS].n_items > 0))
                 return true;
 
-        if (exec_context_get_effective_bind_journal_sockets(context))
+        if (exec_context_get_effective_bind_log_sockets(context))
                 return true;
 
         return false;
@@ -539,7 +539,7 @@ void exec_context_init(ExecContext *c) {
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
                 .mount_apivfs = -1,
-                .bind_journal_sockets = -1,
+                .bind_log_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
         };
@@ -980,7 +980,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sMountAPIVFS: %s\n"
-                "%sBindJournalSockets: %s\n"
+                "%sBindLogSockets: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n"
@@ -1006,7 +1006,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(exec_context_get_effective_mount_apivfs(c)),
-                prefix, yes_no(exec_context_get_effective_bind_journal_sockets(c)),
+                prefix, yes_no(exec_context_get_effective_bind_log_sockets(c)),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime),
@@ -1489,16 +1489,16 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
         return false;
 }
 
-bool exec_context_get_effective_bind_journal_sockets(const ExecContext *c) {
+bool exec_context_get_effective_bind_log_sockets(const ExecContext *c) {
         assert(c);
 
         /* If log namespace is specified, "/run/systemd/journal.namespace/" would be bind mounted to
-         * "/run/systemd/journal/", which effectively means BindJournalSockets=yes */
+         * "/run/systemd/journal/", which effectively means BindLogSockets=yes */
         if (c->log_namespace)
                 return true;
 
-        if (c->bind_journal_sockets >= 0)
-                return c->bind_journal_sockets > 0;
+        if (c->bind_log_sockets >= 0)
+                return c->bind_log_sockets > 0;
 
         if (exec_context_get_effective_mount_apivfs(c))
                 return true;
