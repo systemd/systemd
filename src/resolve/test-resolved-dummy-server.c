@@ -53,8 +53,6 @@ static int server_recv(int fd, DnsPacket **ret) {
         if (l <= 0)
                 return l;
 
-        assert(!(mh.msg_flags & MSG_TRUNC));
-
         p->size = (size_t) l;
 
         p->family = sa.sa.sa_family;

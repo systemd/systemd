@@ -938,18 +938,20 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                return (int) n;
-        }
-
-        cmsg_close_all(&msghdr);
-
-        if (msghdr.msg_flags & MSG_TRUNC) {
-                log_warning("Got overly long notification datagram, ignoring.");
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -ECHRNG) {
+                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
                 return 0;
         }
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return (int) n;
+
+        cmsg_close_all(&msghdr);
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid <= 0) {
