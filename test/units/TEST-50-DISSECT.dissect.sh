@@ -74,9 +74,9 @@ fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
 
-# Test BindJournalSockets=
+# Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
-(! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindJournalSockets=no ls /run/systemd/journal/socket)
+(! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
 
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
@@ -86,7 +86,7 @@ systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.raw" \
             -p RootHash="$MINIMAL_IMAGE.foohash" \
             -p RootVerity="$MINIMAL_IMAGE.fooverity" \
-            -p BindJournalSockets=yes \
+            -p BindLogSockets=yes \
             cat /usr/lib/os-release | grep -q -F "MARKER=1"
 # Let's use the long option name just here as a test
 systemd-run -P \
