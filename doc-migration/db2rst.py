@@ -374,11 +374,60 @@ def command(el):
     return "``%s``" % _concat(el).strip()
 
 
-option = command
+def varname(el):
+    isInsideTerm = False
+    for term in el.iterancestors(tag='term'):
+        isInsideTerm = True
+
+    if isInsideTerm:
+        return _concat(el).strip()
+
+    classname = ''
+    for varlist in el.iterancestors(tag='variablelist'):
+        if varlist.attrib.get('class', '') != '':
+            classname = varlist.attrib['class']
+    if len(classname) > 0:
+        return f":directive:{classname}:var:`%s`" % _concat(el).strip()
+    return _concat(el).strip()
+
+
+def option(el):
+    isInsideTerm = False
+    for term in el.iterancestors(tag='term'):
+        isInsideTerm = True
+
+    if isInsideTerm:
+        return _concat(el).strip()
+
+    classname = ''
+    for varlist in el.iterancestors(tag='variablelist'):
+        if varlist.attrib.get('class', '') != '':
+            classname = varlist.attrib['class']
+    if len(classname) > 0:
+        return f":directive:{classname}:option:`%s`" % _concat(el).strip()
+    return _concat(el).strip()
+
+
+def constant(el):
+    isInsideTerm = False
+    for term in el.iterancestors(tag='term'):
+        isInsideTerm = True
+
+    if isInsideTerm:
+        return _concat(el).strip()
+
+    classname = ''
+    for varlist in el.iterancestors(tag='variablelist'):
+        if varlist.attrib.get('class', '') != '':
+            classname = varlist.attrib['class']
+    if len(classname) > 0:
+        return f":directive:{classname}:constant:`%s`" % _concat(el).strip()
+    return _concat(el).strip()
+
+
 filename = command
 constant = command
 literal = command
-varname = command
 function = command
 
 
