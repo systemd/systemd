@@ -120,7 +120,7 @@ typedef struct MountList {
         size_t n_mounts;
 } MountList;
 
-static const BindMount bind_journal_sockets_table[] = {
+static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
         { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .ignore_enoent = true },
@@ -1149,7 +1149,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory) || p->bind_journal_sockets) {
+        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -2600,8 +2600,8 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .source_malloc = TAKE_PTR(q),
                 };
 
-        } else if (p->bind_journal_sockets) {
-                r = append_bind_mounts(&ml, bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table));
+        } else if (p->bind_log_sockets) {
+                r = append_bind_mounts(&ml, bind_log_sockets_table, ELEMENTSOF(bind_log_sockets_table));
                 if (r < 0)
                         return r;
         }
