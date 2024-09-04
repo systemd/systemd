@@ -386,7 +386,7 @@ class UKI:
             if self.sections[i].name == ".profile":
                 start = i+1
 
-        if section.name in [s.name for s in self.sections[start:]]:
+        if section.name in [s.name for s in self.sections[start:]] and section.name != '.dtb':
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -730,7 +730,7 @@ def pe_add_sections(uki: UKI, output: str):
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name:
+            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtb':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -942,7 +942,7 @@ def make_uki(opts):
         ('.profile', opts.profile,    True ),
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
-        ('.dtb',     opts.devicetree, True ),
+        *(('.dtb', dtb, True) for dtb in opts.devicetree),
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
@@ -1311,10 +1311,10 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        # This is a bit ugly, but --initrd is the only option which is specified
-        # with multiple args on the command line and a space-separated list in the
-        # config file.
-        if self.name == '--initrd':
+        # This is a bit ugly, but --initrd and --devicetree are the only options
+        # which are specified with multiple args on the command line and a
+        # space-separated list in the config file.
+        if self.name in ['--initrd', '--devicetree']:
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1414,8 +1414,11 @@ CONFIG_ITEMS = [
         '--devicetree',
         metavar = 'PATH',
         type = pathlib.Path,
+        action = 'append',
         help = 'Device Tree file [.dtb section]',
+        default = [],
         config_key = 'UKI/DeviceTree',
+        config_push = ConfigItem.config_list_prepend,
     ),
 
     ConfigItem(
