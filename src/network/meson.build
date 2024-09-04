@@ -93,6 +93,8 @@ sources = files(
         'tc/gred.c',
         'tc/hhf.c',
         'tc/htb.c',
+        'tc/mq.c',
+        'tc/multiq.c',
         'tc/netem.c',
         'tc/pie.c',
         'tc/qdisc.c',

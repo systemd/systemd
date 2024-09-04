@@ -4648,6 +4648,25 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'qdisc ingress')
 
+    def test_qdisc_mq(self):
+        copy_network_unit('25-tun.netdev', '25-tap.netdev', '25-qdisc-mq.network')
+        start_networkd()
+        self.wait_online('testtun99:degraded', 'testtap99:degraded')
+
+        output = check_output('tc qdisc show dev testtun99')
+        print(output)
+        self.assertIn(output, 'qdisc mq 2: root')
+
+    @expectedFailureIfModuleIsNotAvailable('sch_multiq')
+    def test_qdisc_multiq(self):
+        copy_network_unit('25-tun.netdev', '25-tap.netdev', '25-qdisc-multiq.network')
+        start_networkd()
+        self.wait_online('testtun99:degraded', 'testtap99:degraded')
+
+        output = check_output('tc qdisc show dev testtun99')
+        print(output)
+        self.assertIn(output, 'qdisc multiq 2: root')
+
     @expectedFailureIfModuleIsNotAvailable('sch_netem')
     def test_qdisc_netem(self):
         copy_network_unit('25-qdisc-netem.network', '12-dummy.netdev',
