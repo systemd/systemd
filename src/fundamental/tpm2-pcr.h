@@ -52,3 +52,6 @@ enum {
 
 /* The tag used for EV_EVENT_TAG event log records covering ucode addons (effectively initrds) */
 #define UCODE_ADDON_EVENT_TAG_ID UINT32_C(0xdac08e1a)
+
+/* The tag used for EV_EVENT_TAG event log records covering the selected UKI profile */
+#define UKI_PROFILE_EVENT_TAG_ID UINT32_C(0x13aed6db)
