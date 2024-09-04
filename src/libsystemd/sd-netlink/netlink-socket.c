@@ -176,14 +176,19 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         assert(fd >= 0);
         assert(peek || (buf && buf_size > 0));
 
-        n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (n == -ENOBUFS)
-                return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-        else if (ERRNO_IS_NEG_TRANSIENT(n)) {
+        n = recvmsg_safe(fd, &msg, peek ? (MSG_PEEK|MSG_TRUNC) : 0);
+        if (ERRNO_IS_NEG_TRANSIENT(n)) {
                 if (ret_mcast_group)
                         *ret_mcast_group = 0;
                 return 0;
-        } else if (n < 0)
+        }
+        if (n == -ENOBUFS)
+                return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
+        if (n == -ECHRNG)
+                return log_debug_errno(n, "sd-netlink: got truncated control message");
+        if (n == -EXFULL)
+                return log_debug_errno(n, "sd-netlink: got truncated payload message");
+        if (n < 0)
                 return (int) n;
 
         if (sender.nl.nl_pid != 0) {
@@ -201,9 +206,6 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                         *ret_mcast_group = 0;
                 return 0;
         }
-
-        if (!peek && (size_t) n > buf_size) /* message did not fit in read buffer */
-                return -EIO;
 
         if (ret_mcast_group) {
                 struct nl_pktinfo *pi;

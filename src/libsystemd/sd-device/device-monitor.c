@@ -600,16 +600,15 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
 
         iov = IOVEC_MAKE(message.buf, n);
 
-        n = recvmsg(m->sock, &smsg, 0);
+        n = recvmsg_safe(m->sock, &smsg, 0);
         if (n < 0) {
-                if (!ERRNO_IS_TRANSIENT(errno))
-                        log_monitor_errno(m, errno, "Failed to receive message: %m");
-                return -errno;
+                if (!ERRNO_IS_NEG_TRANSIENT(n))
+                        log_monitor_errno(m, n, "Failed to receive message: %s",
+                                          n == -ECHRNG ? "got truncated control data" :
+                                          n == -EXFULL ? "got truncated payload data" :
+                                          STRERROR((int) n));
+                return n;
         }
-
-        if (smsg.msg_flags & MSG_TRUNC)
-                return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Received truncated message, ignoring message.");
-
         if (n < 32)
                 return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Invalid message length (%zi), ignoring message.", n);
 
