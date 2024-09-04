@@ -1854,7 +1854,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_item_tristate(f, "exec-context-bind-journal-sockets", c->bind_journal_sockets);
+        r = serialize_item_tristate(f, "exec-context-bind-log-sockets", c->bind_log_sockets);
         if (r < 0)
                 return r;
 
@@ -2730,8 +2730,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = safe_atoi(val, &c->mount_apivfs);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-context-bind-journal-sockets="))) {
-                        r = safe_atoi(val, &c->bind_journal_sockets);
+                } else if ((val = startswith(l, "exec-context-bind-log-sockets="))) {
+                        r = safe_atoi(val, &c->bind_log_sockets);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-memory-ksm="))) {
