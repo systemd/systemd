@@ -388,7 +388,7 @@ def varname(el):
             classname = varlist.attrib['class']
     if len(classname) > 0:
         return f":directive:{classname}:var:`%s`" % _concat(el).strip()
-    return _concat(el).strip()
+    return "``%s``" % _concat(el).strip()
 
 
 def option(el):
@@ -405,7 +405,7 @@ def option(el):
             classname = varlist.attrib['class']
     if len(classname) > 0:
         return f":directive:{classname}:option:`%s`" % _concat(el).strip()
-    return _concat(el).strip()
+    return "``%s``" % _concat(el).strip()
 
 
 def constant(el):
@@ -422,11 +422,10 @@ def constant(el):
             classname = varlist.attrib['class']
     if len(classname) > 0:
         return f":directive:{classname}:constant:`%s`" % _concat(el).strip()
-    return _concat(el).strip()
+    return "``%s``" % _concat(el).strip()
 
 
 filename = command
-constant = command
 literal = command
 function = command
 
