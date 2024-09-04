@@ -154,7 +154,7 @@ struct NamespaceParameters {
         bool private_ipc;
 
         bool mount_apivfs;
-        bool bind_journal_sockets;
+        bool bind_log_sockets;
         bool mount_nosuid;
 
         ProtectHome protect_home;

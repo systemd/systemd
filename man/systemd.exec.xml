@@ -367,7 +367,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>BindJournalSockets=</varname></term>
+        <term><varname>BindLogSockets=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sockets from <citerefentry>
         <refentrytitle>systemd-journald.socket</refentrytitle><manvolnum>8</manvolnum></citerefentry>
