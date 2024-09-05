@@ -424,13 +424,17 @@ int make_filesystem(
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 "-b", "4096",
-                                "-T", "default",
-                                node);
+                                "-T", "default");
+                if (!argv)
+                        return log_oom();
 
                 if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
+                        return log_oom();
+
+                if (strv_extend(&argv, node) < 0)
                         return log_oom();
 
                 if (sector_size > 0) {
@@ -444,8 +448,7 @@ int make_filesystem(
         } else if (streq(fstype, "btrfs")) {
                 argv = strv_new(mkfs,
                                 "-L", label,
-                                "-U", vol_id,
-                                node);
+                                "-U", vol_id);
                 if (!argv)
                         return log_oom();
 
@@ -467,14 +470,18 @@ int make_filesystem(
                 if (sector_size > 0 && strv_extendf(&argv, "--sectorsize=%"PRIu64, MAX(sector_size, 4 * U64_KB)) < 0)
                         return log_oom();
 
+                if (strv_extend(&argv, node) < 0)
+                        return log_oom();
+
         } else if (streq(fstype, "f2fs")) {
                 argv = strv_new(mkfs,
                                 "-g",  /* "default options" */
                                 "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
                                 "-l", label,
                                 "-U", vol_id,
-                                "-t", one_zero(discard),
-                                node);
+                                "-t", one_zero(discard));
+                if (!argv)
+                        return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
@@ -487,6 +494,9 @@ int make_filesystem(
                                 return log_oom();
                 }
 
+                if (strv_extend(&argv, node) < 0)
+                        return log_oom();
+
         } else if (streq(fstype, "xfs")) {
                 const char *j;
 
@@ -495,8 +505,7 @@ int make_filesystem(
                 argv = strv_new(mkfs,
                                 "-L", label,
                                 "-m", j,
-                                "-m", "reflink=1",
-                                node);
+                                "-m", "reflink=1");
                 if (!argv)
                         return log_oom();
 
@@ -535,13 +544,17 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                if (strv_extend(&argv, node) < 0)
+                        return log_oom();
+
         } else if (streq(fstype, "vfat")) {
 
                 argv = strv_new(mkfs,
                                 "-i", vol_id,
                                 "-n", label,
-                                "-F", "32",  /* yes, we force FAT32 here */
-                                node);
+                                "-F", "32");  /* yes, we force FAT32 here */
+                if (!argv)
+                        return log_oom();
 
                 if (sector_size > 0) {
                         if (strv_extend(&argv, "-S") < 0)
@@ -550,6 +563,9 @@ int make_filesystem(
                         if (strv_extendf(&argv, "%"PRIu64, sector_size) < 0)
                                 return log_oom();
                 }
+
+                if (strv_extend(&argv, node) < 0)
+                        return log_oom();
 
                 /* mkfs.vfat does not have a --quiet option so let's redirect stdout to /dev/null instead. */
                 if (quiet)
@@ -562,6 +578,8 @@ int make_filesystem(
                                 "-L", label,
                                 "-U", vol_id,
                                 node);
+                if (!argv)
+                        return log_oom();
 
                 if (quiet)
                         stdio_fds[1] = -EBADF;
@@ -569,8 +587,10 @@ int make_filesystem(
         } else if (streq(fstype, "squashfs")) {
 
                 argv = strv_new(mkfs,
-                                root, node,
+                                root, node, /* mksquashfs expects the sources before the options. */
                                 "-noappend");
+                if (!argv)
+                        return log_oom();
 
                 if (compression) {
                         if (strv_extend_many(&argv, "-comp", compression) < 0)
@@ -586,8 +606,9 @@ int make_filesystem(
 
         } else if (streq(fstype, "erofs")) {
                 argv = strv_new(mkfs,
-                                "-U", vol_id,
-                                node, root);
+                                "-U", vol_id);
+                if (!argv)
+                        return log_oom();
 
                 if (quiet && strv_extend(&argv, "--quiet") < 0)
                         return log_oom();
@@ -606,12 +627,15 @@ int make_filesystem(
                                 return log_oom();
                 }
 
-        } else
+                if (strv_extend_many(&argv, node, root) < 0)
+                        return log_oom();
+
+        } else {
                 /* Generic fallback for all other file systems */
                 argv = strv_new(mkfs, node);
-
-        if (!argv)
-                return log_oom();
+                if (!argv)
+                        return log_oom();
+        }
 
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
