@@ -161,7 +161,7 @@ $imgs/zzz1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844
 $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
 
     systemd-repart --offline="$OFFLINE" \
-                    --definitions="$defs" \
+                   --definitions="$defs" \
                    --empty=create \
                    --size=50M \
                    --seed="$seed" \
