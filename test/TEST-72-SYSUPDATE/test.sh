@@ -10,7 +10,7 @@ TEST_DESCRIPTION="test sysupdate"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    inst_binary sha256sum
+    image_install sha256sum rename
 }
 
 do_test "$@"
