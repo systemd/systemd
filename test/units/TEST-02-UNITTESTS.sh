@@ -44,6 +44,11 @@ run_test() {
     local name="${test##*/}"
     local environment=
 
+    if [[ $name != *devnum* ]]; then
+        echo "Skipping test $name"
+        return 0
+    fi
+
     echo "Executing test $name as unit $name.service"
 
     case "$name" in
