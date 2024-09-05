@@ -2291,6 +2291,18 @@ evdev:input:b0003v05FEp1010*
 #
 # Presence of a LED is implicit when the property is absent.
 
+# Apple Wireless keyboards
+evdev:input:b0005v05aCp022C*
+evdev:input:b0005v05aCp022D*
+evdev:input:b0005v05aCp022E*
+evdev:input:b0005v05aCp0239*
+evdev:input:b0005v05aCp023A*
+evdev:input:b0005v05aCp023B*
+evdev:input:b0005v05aCp0255*
+evdev:input:b0005v05aCp0256*
+evdev:input:b0005v05aCp0257*
+ KEYBOARD_LED_NUMLOCK=0
+
 # Logitech K750
 evdev:input:b0003v046Dp4002*
  KEYBOARD_LED_NUMLOCK=0
