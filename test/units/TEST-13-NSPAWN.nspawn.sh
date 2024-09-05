@@ -141,6 +141,37 @@ testcase_sanity() {
     test ! -e "$root/var/also-nope"
     test ! -e "$root/usr/nope-too"
 
+    # --volatile= with -U
+    touch "$root/usr/has-usr"
+    # volatile(=yes): rootfs is tmpfs, /usr/ from the OS tree is mounted read only
+    systemd-nspawn --directory="$root"\
+                   --volatile \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+    test ! -e "$root/nope"
+    test ! -e "$root/usr/read-only"
+    systemd-nspawn --directory="$root"\
+                   --volatile=yes \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+    test ! -e "$root/nope"
+    test ! -e "$root/usr/read-only"
+    # volatile=state: rootfs is read-only, /var/ is tmpfs
+    systemd-nspawn --directory="$root" \
+                   --volatile=state \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
+    test ! -e "$root/read-only"
+    test ! -e "$root/var/nope"
+    # volatile=overlay: tmpfs overlay is mounted over rootfs
+    systemd-nspawn --directory="$root" \
+                   --volatile=overlay \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
+    test ! -e "$root/nope"
+    test ! -e "$root/var/also-nope"
+    test ! -e "$root/usr/nope-too"
+
     # --machine=, --hostname=
     systemd-nspawn --directory="$root" \
                    --machine="foo-bar.baz" \
