@@ -7493,6 +7493,10 @@ static int run(int argc, char *argv[]) {
         if (!context)
                 return log_oom();
 
+        r = context_read_seed(context, arg_root);
+        if (r < 0)
+                return r;
+
         r = context_copy_from(context);
         if (r < 0)
                 return r;
@@ -7554,10 +7558,6 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
         }
-
-        r = context_read_seed(context, arg_root);
-        if (r < 0)
-                return r;
 
         /* Make sure each partition has a unique UUID and unique label */
         r = context_acquire_partition_uuids_and_labels(context);
