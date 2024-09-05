@@ -4,6 +4,8 @@
 
 #include "vcan.h"
 
+#include "missing_arphrd.h"
+
 const NetDevVTable vcan_vtable = {
         .object_size = sizeof(VCan),
         .sections = NETDEV_COMMON_SECTIONS,

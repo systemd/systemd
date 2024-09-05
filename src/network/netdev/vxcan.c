@@ -3,6 +3,7 @@
 #include <net/if_arp.h>
 #include <linux/can/vxcan.h>
 
+#include "missing_arphrd.h"
 #include "vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

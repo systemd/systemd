@@ -4,6 +4,7 @@
 #include <linux/if.h>
 
 #include "in-addr-util.h"
+#include "missing_arphrd.h"
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"

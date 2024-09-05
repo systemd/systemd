@@ -12,6 +12,7 @@
 
 #include "event-util.h"
 #include "missing_network.h"
+#include "missing_arphrd.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"

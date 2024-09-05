@@ -10,6 +10,7 @@
 #include "af-list.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
+#include "missing_arphrd.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
