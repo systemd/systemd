@@ -97,8 +97,7 @@ static bool press_any_key(void) {
         char k = 0;
         bool need_nl = true;
 
-        printf("-- Press any key to proceed --");
-        fflush(stdout);
+        puts("-- Press any key to proceed --");
 
         (void) read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
 
@@ -210,7 +209,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
-                        log_warning("No data entered, skipping.");
+                        log_info("No data entered, skipping.");
                         return 0;
                 }
 
@@ -560,8 +559,8 @@ static int process_keymap(int rfd) {
         return 1;
 }
 
-static bool timezone_is_valid_log_error(const char *name) {
-        return timezone_is_valid(name, LOG_ERR);
+static bool timezone_is_valid_log_debug(const char *name) {
+        return timezone_is_valid(name, LOG_DEBUG);
 }
 
 static int prompt_timezone(int rfd) {
@@ -593,7 +592,7 @@ static int prompt_timezone(int rfd) {
         print_welcome(rfd);
 
         r = prompt_loop("Please enter timezone name or number",
-                        zones, 30, timezone_is_valid_log_error, &arg_timezone);
+                        zones, 30, timezone_is_valid_log_debug, &arg_timezone);
         if (r < 0)
                 return r;
 
@@ -682,7 +681,7 @@ static int prompt_hostname(int rfd) {
                         return log_error_errno(r, "Failed to query hostname: %m");
 
                 if (isempty(h)) {
-                        log_warning("No hostname entered, skipping.");
+                        log_info("No hostname entered, skipping.");
                         break;
                 }
 
@@ -809,7 +808,7 @@ static int prompt_root_password(int rfd) {
                                                "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
-                        log_warning("No password entered, skipping.");
+                        log_info("No password entered, skipping.");
                         break;
                 }
 
@@ -889,7 +888,7 @@ static int prompt_root_shell(int rfd) {
                         return log_error_errno(r, "Failed to query root shell: %m");
 
                 if (isempty(s)) {
-                        log_warning("No shell entered, skipping.");
+                        log_info("No shell entered, skipping.");
                         break;
                 }
 
