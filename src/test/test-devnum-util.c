@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "devnum-util.h"
 #include "path-util.h"
@@ -59,6 +60,36 @@ TEST(device_major_minor_valid) {
         assert_se(DEVICE_MINOR_VALID(minor(0)));
 }
 
+static void log_dev(const char *path) {
+        pid_t pid;
+
+        pid = fork();
+        switch (pid) {
+        case -1:
+                log_error_errno(errno, "fork: %m");
+                return;
+        case 0:
+                execlp("systemd-detect-virt", "systemd-detect-virt", NULL);
+                log_error_errno(errno, "execlp: systemd-detect-virt: %m");
+                return;
+        default:
+                waitpid(pid, NULL, 0);
+        }
+
+        pid = fork();
+        switch (pid) {
+        case -1:
+                log_error_errno(errno, "fork: %m");
+                return;
+        case 0:
+                execlp("ls", "ls", "-l", path, NULL);
+                log_error_errno(errno, "execlp: ls: %m");
+                return;
+        default:
+                waitpid(pid, NULL, 0);
+        }
+}
+
 static void test_device_path_make_canonical_one(const char *path) {
         _cleanup_free_ char *resolved = NULL, *raw = NULL;
         struct stat st;
@@ -71,6 +102,7 @@ static void test_device_path_make_canonical_one(const char *path) {
         if (stat(path, &st) < 0) {
                 assert_se(errno == ENOENT);
                 log_notice("Path %s not found, skipping test", path);
+                log_dev(path);
                 return;
         }
 
@@ -83,6 +115,10 @@ static void test_device_path_make_canonical_one(const char *path) {
         }
 
         assert_se(r >= 0);
+        if (!path_equal(path, resolved)) {
+                log_warning("path:%s != resolved:%s", path, resolved);
+                log_dev(path);
+        }
         assert_se(path_equal(path, resolved));
 
         assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);
