@@ -3995,11 +3995,14 @@ static int outer_child(
             arg_uid_shift != 0) {
                 _cleanup_strv_free_ char **dirs = NULL;
 
-                r = strv_extend(&dirs, directory);
-                if (r < 0)
-                        return log_oom();
+                if (arg_volatile_mode != VOLATILE_YES) {
+                        r = strv_extend(&dirs, directory);
+                        if (r < 0)
+                                return log_oom();
+                }
 
-                if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
+                if ((dissected_image && dissected_image->partitions[PARTITION_USR].found) ||
+                    arg_volatile_mode == VOLATILE_YES) {
                         char *s = path_join(directory, "/usr");
                         if (!s)
                                 return log_oom();
@@ -4027,6 +4030,14 @@ static int outer_child(
                         idmap = true;
                 }
         }
+
+        r = setup_volatile_mode_after_remount_idmap(
+                        directory,
+                        arg_volatile_mode,
+                        arg_uid_shift,
+                        arg_selinux_apifs_context);
+        if (r < 0)
+                return r;
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
