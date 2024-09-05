@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <linux/genetlink.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "batadv.h"
 #include "fileio.h"

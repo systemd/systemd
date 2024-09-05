@@ -2,7 +2,7 @@
 
 #include <netinet/in.h>
 #include <linux/fou.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/if_tunnel.h>
 #include <linux/ip.h>
 #include <linux/ip6_tunnel.h>

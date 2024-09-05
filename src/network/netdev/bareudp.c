@@ -2,7 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "bareudp.h"
 #include "netlink-util.h"

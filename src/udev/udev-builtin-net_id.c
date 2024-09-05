@@ -19,7 +19,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/pci_regs.h>
 

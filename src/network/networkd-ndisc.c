@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "sd-ndisc.h"
 

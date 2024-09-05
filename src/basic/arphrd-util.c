@@ -2,7 +2,7 @@
 
 #include <errno.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/if_infiniband.h>
 #include <string.h>
 
