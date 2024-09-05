@@ -53,12 +53,6 @@ if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
 fi
 
-# Hack to work around https://github.com/rpm-software-management/rpm/issues/3216.
-# TODO: Remove when rpm 4.20 gets into Rawhide.
-mkdir -p "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build"
-mkdir -p "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build/SPECPARTS"
-ln -s /work/src "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build/systemd-$VERSION"
-
 IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
