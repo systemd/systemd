@@ -16,12 +16,20 @@ typedef struct CalendarComponent {
         struct CalendarComponent *next;
 } CalendarComponent;
 
+typedef struct WeekdaySpec {
+        int index;
+        int period;
+
+        struct WeekdaySpec *next;
+} WeekdaySpec;
+
 typedef struct CalendarSpec {
-        int weekdays_bits;
         bool end_of_month:1;
         bool utc:1;
         signed int dst:2;
         char *timezone;
+
+        WeekdaySpec *weekday;
 
         CalendarComponent *year;
         CalendarComponent *month;

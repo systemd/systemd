@@ -140,6 +140,7 @@ TEST(calendar_spec_one) {
         test_one("daily", "*-*-* 00:00:00");
         test_one("monthly", "*-*-01 00:00:00");
         test_one("weekly", "Mon *-*-* 00:00:00");
+        test_one("fortnightly", "Mon/14 *-*-* 00:00:00");
         test_one("minutely", "*-*-* *:*:00");
         test_one("quarterly", "*-01,04,07,10-01 00:00:00");
         test_one("semi-annually", "*-01,07-01 00:00:00");
@@ -164,6 +165,8 @@ TEST(calendar_spec_one) {
         test_one("*-*~* 00:00:00", "*-*-* 00:00:00");
         test_one("Monday", "Mon *-*-* 00:00:00");
         test_one("Monday *-*-*", "Mon *-*-* 00:00:00");
+        test_one("Monday/7", "Mon *-*-* 00:00:00");
+        test_one("Monday/14", "Mon/14 *-*-* 00:00:00");
         test_one("*-*-*", "*-*-* 00:00:00");
         test_one("*:*:*", "*-*-* *:*:*");
         test_one("*:*", "*-*-* *:*:00");
@@ -201,6 +204,7 @@ TEST(calendar_spec_next) {
         test_next("2016-02~01 UTC", "", 12345, 1456704000000000);
         test_next("Mon 2017-05~01..07 UTC", "", 12345, 1496016000000000);
         test_next("Mon 2017-05~07/1 UTC", "", 12345, 1496016000000000);
+        test_next("Mon/14 2017-05~21/1 UTC", "", 12345, 1495411200000000);
         test_next("*-*-01/5 04:00:00 UTC", "", 1646010000000000, 1646107200000000);
         test_next("*-01/7-01 04:00:00 UTC", "", 1664607600000000, 1672545600000000);
         test_next("2017-08-06 9,11,13,15,17:00 UTC", "", 1502029800000000, 1502031600000000);
@@ -238,6 +242,7 @@ TEST(calendar_spec_from_string) {
         assert_se(calendar_spec_from_string("*-*~5/5", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("Monday.. 12:00", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("Monday..", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("Monday/15", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("-00:+00/-5", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("00:+00/-5", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) == -EINVAL);
