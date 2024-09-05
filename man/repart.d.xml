@@ -76,16 +76,7 @@
         <term><varname>Type=</varname></term>
 
         <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
-        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.
-        Architecture specific partition types can use one of these architecture identifiers:
-        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
-        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
-        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
-        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
-        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
-        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
-        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).
-        </para>
+        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.</para>
 
         <para>The supported identifiers are:</para>
 
@@ -237,7 +228,14 @@
           </tgroup>
         </table>
 
-        <para>This setting defaults to <constant>linux-generic</constant>.</para>
+        <para>Architecture specific partition types can use one of these architecture identifiers:
+        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
+        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
+        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
+        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
+        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
+        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
+        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
@@ -870,6 +868,59 @@
         <para>Note that this setting is only taken into account when the filesystem configured with
         <varname>Format=</varname> supports compression and the <varname>Compression=</varname> setting is
         configured explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SupplementFor=</varname></term>
+
+        <listitem><para>Takes a partition definition name, such as <literal>10-esp</literal>. If specified,
+        <command>systemd-repart</command> will avoid creating this partition and instead prefer to partially
+        merge the two definitions. However, depending on the existing layout of partitions on disk,
+        <command>systemd-repart</command> may be forced to fall back onto un-merging the definitions and
+        using them as originally written, potentially creating this partition. Specifically,
+        <command>systemd-repart</command> will fall back if this partition is found to already exist on disk,
+        or if the target partition already exists on disk but is too small, or if it cannot allocate space
+        for the merged partition for some other reason.</para>
+
+        <para>The following fields are merged into the target definition in the specified ways:
+        <varname>Weight=</varname> and <varname>PaddingWeight=</varname> are simply overwritten;
+        <varname>SizeMinBytes=</varname> and <varname>PaddingMinBytes=</varname> use the larger of the two
+        values; <varname>SizeMaxBytes=</varname> and <varname>PaddingMaxBytes=</varname> use the smaller
+        value; and <varname>CopyFiles=</varname>, <varname>ExcludeFiles=</varname>,
+        <varname>ExcludeFilesTarget=</varname>, <varname>MakeDirectories=</varname>, and
+        <varname>Subvolumes=</varname> are concatenated.</para>
+
+        <para>Usage of this option in combination with <varname>CopyBlocks=</varname>,
+        <varname>Encrypt=</varname>, or <varname>Verity=</varname> is not supported. The target definition
+        cannot set these settings either. A definition cannot simultaneously be a supplement and act as a
+        target for some other supplement definition. A target cannot have more than one supplement partition
+        associated with it.</para>
+
+        <para>For example, distributions can use this to implement <variable>$BOOT</variable> as defined in
+        the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        Specification</ulink>. Distributions may prefer to use the ESP as <variable>$BOOT</variable> whenever
+        possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
+        two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for
+        the XBOOTLDR that's sufficiently large to hold kernels and configured as a supplement for the ESP.
+        Whenever possible, <command>systemd-repart</command> will try to merge the two definitions to create
+        one large ESP, but if that's not allowable due to the existing conditions on disk a small ESP and a
+        large XBOOTLDR will be created instead.</para>
+
+        <para>As another example, distributions can also use this to seamlessly share a single
+        <filename>/home</filename> partition in a multi-boot scenario, while preferring to keep
+        <filename>/home</filename> on the root partition by default. Having a <filename>/home</filename>
+        partition separated from the root partition entails some extra complexity: someone has to decide how
+        to split the space between the two partitions. On the other hand, it allows a user to share their
+        home area between multiple installed OSs (i.e. via <citerefentry><refentrytitle>systemd-homed.service
+        </refentrytitle><manvolnum>8</manvolnum></citerefentry>). Distributions should create two definitions:
+        the first for a root partition that takes up some relatively small percentage of the disk, and the
+        second as a supplement for the first to create a <filename>/home</filename> partition that takes up
+        all the remaining free space. On first boot, if <command>systemd-repart</command> finds an existing
+        <filename>/home</filename> partition on disk, it'll un-merge the definitions and create just a small
+        root partition. Otherwise, the definitions will be merged and a single large root partition will be
+        created.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
