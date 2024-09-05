@@ -9,6 +9,7 @@
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
 #include "fd-util.h"
+#include "missing_arphrd.h"
 #include "fileio.h"
 #include "network-common.h"
 #include "networkd-address.h"

@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
+#include "missing_arphrd.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"

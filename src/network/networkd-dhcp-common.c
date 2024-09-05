@@ -10,6 +10,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
+#include "missing_arphrd.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

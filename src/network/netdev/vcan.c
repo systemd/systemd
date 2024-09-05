@@ -2,6 +2,7 @@
 
 #include <net/if_arp.h>
 
+#include "missing_arphrd.h"
 #include "vcan.h"
 
 const NetDevVTable vcan_vtable = {

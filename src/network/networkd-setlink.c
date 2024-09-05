@@ -6,6 +6,7 @@
 #include <linux/if_bridge.h>
 
 #include "missing_network.h"
+#include "missing_arphrd.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
