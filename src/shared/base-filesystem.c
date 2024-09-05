@@ -136,23 +136,23 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
 
         /* The "root" parameter is decoration only – it's only used as part of log messages */
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
-                if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+        FOREACH_ELEMENT(i, table) {
+                if (faccessat(fd, i->dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
 
-                if (table[i].target) { /* Create as symlink? */
+                if (i->target) { /* Create as symlink? */
                         const char *target = NULL;
 
                         /* check if one of the targets exists */
-                        NULSTR_FOREACH(s, table[i].target) {
+                        NULSTR_FOREACH(s, i->target) {
                                 if (faccessat(fd, s, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
                                         continue;
 
                                 /* check if a specific file exists at the target path */
-                                if (table[i].exists) {
+                                if (i->exists) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        p = path_join(s, table[i].exists);
+                                        p = path_join(s, i->exists);
                                         if (!p)
                                                 return log_oom();
 
@@ -167,16 +167,16 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
                         if (!target)
                                 continue;
 
-                        r = RET_NERRNO(symlinkat(target, fd, table[i].dir));
+                        r = RET_NERRNO(symlinkat(target, fd, i->dir));
                 } else {
                         /* Create as directory. */
                         WITH_UMASK(0000)
-                                r = RET_NERRNO(mkdirat(fd, table[i].dir, table[i].mode));
+                                r = RET_NERRNO(mkdirat(fd, i->dir, i->mode));
                 }
                 if (r < 0) {
-                        bool ignore = IN_SET(r, -EEXIST, -EROFS) || table[i].ignore_failure;
+                        bool ignore = IN_SET(r, -EEXIST, -EROFS) || i->ignore_failure;
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to create %s/%s: %m", root, table[i].dir);
+                                       "Failed to create %s/%s: %m", root, i->dir);
                         if (ignore)
                                 continue;
 
@@ -184,8 +184,8 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
                 }
 
                 if (uid_is_valid(uid) || gid_is_valid(gid))
-                        if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
-                                return log_error_errno(errno, "Failed to chown %s/%s: %m", root, table[i].dir);
+                        if (fchownat(fd, i->dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
+                                return log_error_errno(errno, "Failed to chown %s/%s: %m", root, i->dir);
         }
 
         return 0;
