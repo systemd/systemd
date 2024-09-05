@@ -2194,7 +2194,7 @@ static int copy_devnodes(const char *dest) {
                                 /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
                                         log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
-                                if (errno != EPERM)
+                                if (errno != EPERM || arg_uid_shift != 0)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
                                 /* Some systems abusively restrict mknod but allow bind mounts. */
