@@ -2207,7 +2207,7 @@ static int copy_devnodes(const char *dest) {
                                 /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
                                         log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
-                                if (errno != EPERM)
+                                if (!ERRNO_IS_PRIVILEGE(errno) || arg_uid_shift != 0)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
                                 /* Some systems abusively restrict mknod but allow bind mounts. */
@@ -2217,11 +2217,11 @@ static int copy_devnodes(const char *dest) {
                                 r = mount_nofollow_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
+                        } else {
+                                r = userns_lchown(to, 0, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "chown() of device node %s failed: %m", to);
                         }
-
-                        r = userns_lchown(to, 0, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "chown() of device node %s failed: %m", to);
 
                         dn = path_join("/dev", S_ISCHR(st.st_mode) ? "char" : "block");
                         if (!dn)
