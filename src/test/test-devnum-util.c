@@ -97,8 +97,8 @@ static void log_dev(const char *path) {
                 log_error_errno(errno, "fork: %m");
                 return;
         case 0:
-                log_warning("+ ls -l %s", path);
-                execlp("ls", "ls", "-l", path, NULL);
+                log_warning("+ ls -l -- %s /dev/char/ /dev/block/", path);
+                execlp("ls", "ls", "-l", "--", path, "/dev/char/", "/dev/block/", NULL);
                 log_error_errno(errno, "execlp: ls: %m");
                 return;
         default:
@@ -127,7 +127,7 @@ static void test_device_path_make_canonical_one(const char *path) {
                 /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
                  * run in a container or so? */
                 log_notice("Device %s cannot be resolved, skipping test", path);
-                log_warning("mode=%d rdev=%d", (int) st.st_mode, (int) st.st_rdev);
+                log_warning("mode=%ho rdev=" FORMAT_DEVNUM_STR, st.st_mode, FORMAT_DEVNUM_VAL(st.st_rdev));
                 log_dev(path);
                 return;
         }
