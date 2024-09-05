@@ -200,3 +200,23 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
         return base_filesystem_create_fd(fd, root, uid, gid);
 }
+
+int base_filesystem_get_list(const char *root, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(ret);
+
+        FOREACH_ELEMENT(i, table) {
+                char *p = path_join(empty_to_root(root), i->dir);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_consume(&l, p);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}

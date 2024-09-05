@@ -3999,7 +3999,8 @@ static int outer_child(
                 if (r < 0)
                         return log_oom();
 
-                if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
+                if ((dissected_image && dissected_image->partitions[PARTITION_USR].found) ||
+                    arg_volatile_mode == VOLATILE_YES) {
                         char *s = path_join(directory, "/usr");
                         if (!s)
                                 return log_oom();
@@ -4007,6 +4008,36 @@ static int outer_child(
                         r = strv_consume(&dirs, s);
                         if (r < 0)
                                 return log_oom();
+                }
+
+                if (arg_volatile_mode == VOLATILE_STATE) {
+                        char *s = path_join(directory, "/var");
+                        if (!s)
+                                return log_oom();
+
+                        r = strv_consume(&dirs, s);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (arg_volatile_mode == VOLATILE_YES) {
+                        _cleanup_close_ int root_fd = -EBADF;
+
+                        /* After remount_idmap() we cannot buld base filesystem. */
+
+                        root_fd = open(directory, O_DIRECTORY|O_CLOEXEC);
+                        if (root_fd < 0)
+                                return log_error_errno(errno, "Failed to open %s: %m", directory);
+
+                        r = base_filesystem_create_fd(root_fd, directory, 0, 0);
+                        if (r < 0)
+                                return r;
+
+                        /* base_filesystem_create_fd() does not create /tmp. Hence, we need to create it
+                         * explicitly here. See comments in base-filesystem.c. */
+                        r = RET_NERRNO(mkdirat(root_fd, "tmp", 01555));
+                        if (r < 0 && r != -EEXIST)
+                                return log_error_errno(r, "Failed to create %s/tmp: %m", directory);
                 }
 
                 r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
@@ -4025,6 +4056,31 @@ static int outer_child(
                 else {
                         log_debug("ID mapped mounts available, making use of them.");
                         idmap = true;
+                }
+
+                if (arg_volatile_mode == VOLATILE_YES) {
+                        _cleanup_strv_free_ char **base_dirs = NULL;
+
+                        r = base_filesystem_get_list(directory, &base_dirs);
+                        if (r < 0)
+                                return log_oom();
+
+                        char *q = path_join(directory, "/tmp");
+                        if (!q)
+                                return log_oom();
+
+                        r = strv_consume(&base_dirs, TAKE_PTR(q));
+                        if (r < 0)
+                                return log_oom();
+
+                        STRV_FOREACH(s, dirs) {
+                                if (strv_contains(dirs, *s))
+                                        continue;
+
+                                r = userns_lchown(*s, 0, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to chown %s: %m", *s);
+                        }
                 }
         }
 
