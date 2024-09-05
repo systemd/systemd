@@ -3993,21 +3993,52 @@ static int outer_child(
         if (arg_userns_mode != USER_NAMESPACE_NO &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
-                _cleanup_free_ char *usr_subtree = NULL;
-                char *dirs[3];
-                size_t i = 0;
+                _cleanup_strv_free_ char **dirs = NULL;
 
-                dirs[i++] = (char*) directory;
+                r = strv_extend(&dirs, directory);
+                if (r < 0)
+                        return log_oom();
 
-                if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
-                        usr_subtree = path_join(directory, "/usr");
-                        if (!usr_subtree)
+                if ((dissected_image && dissected_image->partitions[PARTITION_USR].found) ||
+                    arg_volatile_mode == VOLATILE_YES) {
+                        char *s = path_join(directory, "/usr");
+                        if (!s)
                                 return log_oom();
 
-                        dirs[i++] = usr_subtree;
+                        r = strv_consume(&dirs, s);
+                        if (r < 0)
+                                return log_oom();
                 }
 
-                dirs[i] = NULL;
+                if (arg_volatile_mode == VOLATILE_STATE) {
+                        char *s = path_join(directory, "/var");
+                        if (!s)
+                                return log_oom();
+
+                        r = strv_consume(&dirs, s);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (arg_volatile_mode == VOLATILE_YES) {
+                        _cleanup_close_ int root_fd = -EBADF;
+
+                        /* After remount_idmap() we cannot buld base filesystem. */
+
+                        root_fd = open(directory, O_DIRECTORY|O_CLOEXEC);
+                        if (root_fd < 0)
+                                return log_error_errno(errno, "Failed to open %s: %m", directory);
+
+                        r = base_filesystem_create_fd(root_fd, directory, arg_uid_shift, (gid_t) arg_uid_shift);
+                        if (r < 0)
+                                return r;
+
+                        /* base_filesystem_create_fd() does not create /tmp. Hence, we need to create it
+                         * explicitly here. See comments in base-filesystem.c. */
+                        r = RET_NERRNO(mkdirat(root_fd, "tmp", 01555));
+                        if (r < 0 && r != -EEXIST)
+                                return log_error_errno(r, "Failed to create %s/tmp: %m", directory);
+                }
 
                 r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
@@ -4067,7 +4098,7 @@ static int outer_child(
                 return r;
 
         if (arg_read_only && arg_volatile_mode == VOLATILE_NO &&
-                !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
+            !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
                 r = bind_remount_recursive(directory, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
