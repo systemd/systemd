@@ -8,6 +8,7 @@
 
 #include "arphrd-util.h"
 #include "macro.h"
+#include "missing_arphrd.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);
 
