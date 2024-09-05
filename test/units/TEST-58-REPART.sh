@@ -1288,6 +1288,49 @@ testcase_dropped_partitions() {
     [[ "$(sfdisk -q -l "$image" | grep -c "$image")" -eq 2 ]]
 }
 
+testcase_random_seed() {
+    local defs imgs output
+
+    # For issue #34257
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+EOF
+
+    tee "$defs/home.conf" <<EOF
+[Partition]
+Type=home
+Label=home-first
+EOF
+
+    tee "$defs/swap.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+PaddingMinBytes=92M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --seed=random \
+                   --offline="$OFFLINE" \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    sfdisk -d "$imgs/zzz"
+    [[ "$(sfdisk -d "$imgs/zzz" | grep -F 'uuid=' | awk '{ print $8 }' | sort -u | wc -l)" == "3" ]]
+}
+
 OFFLINE="yes"
 run_testcases
 
