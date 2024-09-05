@@ -3993,21 +3993,21 @@ static int outer_child(
         if (arg_userns_mode != USER_NAMESPACE_NO &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
-                _cleanup_free_ char *usr_subtree = NULL;
-                char *dirs[3];
-                size_t i = 0;
+                _cleanup_strv_free_ char **dirs = NULL;
 
-                dirs[i++] = (char*) directory;
+                r = strv_extend(&dirs, directory);
+                if (r < 0)
+                        return log_oom();
 
                 if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
-                        usr_subtree = path_join(directory, "/usr");
-                        if (!usr_subtree)
+                        char *s = path_join(directory, "/usr");
+                        if (!s)
                                 return log_oom();
 
-                        dirs[i++] = usr_subtree;
+                        r = strv_consume(&dirs, s);
+                        if (r < 0)
+                                return log_oom();
                 }
-
-                dirs[i] = NULL;
 
                 r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
