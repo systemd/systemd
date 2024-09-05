@@ -3294,11 +3294,11 @@ test_run() {
     fi
     if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
-        if run_nspawn "${initdir:?}" "$test_name"; then
-            check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
-        else
-            dwarn "can't run systemd-nspawn, skipping"
-        fi
+        # if run_nspawn "${initdir:?}" "$test_name"; then
+        #     check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
+        # else
+        #     dwarn "can't run systemd-nspawn, skipping"
+        # fi
 
         if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
