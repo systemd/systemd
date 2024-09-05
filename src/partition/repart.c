@@ -974,14 +974,23 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                 uint64_t required;
                 FreeArea *a = NULL;
 
-                /* Skip partitions we already dropped or that already exist */
-                if (p->dropped || PARTITION_EXISTS(p))
+                /* Skip partitions we already dropped */
+                if (p->dropped)
                         continue;
 
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(context, p);
                 assert(required % context->grain_size == 0);
 
+                /* For existing partitions, we should verify that they'll actually fit */
+                if (PARTITION_EXISTS(p)) {
+                        if (p->current_size + p->current_padding < required)
+                                return false; /* 😢 We won't be able to grow to the required min size! */
+
+                        continue;
+                }
+
+                /* For new partitions, see if there's a free area big enough */
                 for (size_t i = 0; i < context->n_free_areas; i++) {
                         a = context->free_areas[i];
 
