@@ -65,7 +65,9 @@ struct BindMount {
         char *source;
         char *destination;
         bool read_only;
+        bool nodev;
         bool nosuid;
+        bool noexec;
         bool recursive;
         bool ignore_enoent;
 };
@@ -152,7 +154,7 @@ struct NamespaceParameters {
         bool private_ipc;
 
         bool mount_apivfs;
-        bool bind_journal_sockets;
+        bool bind_log_sockets;
         bool mount_nosuid;
 
         ProtectHome protect_home;
