@@ -2290,7 +2290,7 @@ static int copy_devnodes(const char *dest, bool enable_fuse) {
                         if (!prefixed)
                                 return log_oom();
 
-                        t = path_join("..", d);
+                        t = path_join("..", *d);
                         if (!t)
                                 return log_oom();
 
