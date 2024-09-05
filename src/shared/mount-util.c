@@ -1445,7 +1445,14 @@ int remount_idmap_fd(
         return 0;
 }
 
-int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner,RemountIdmapping idmapping) {
+int remount_idmap(
+                char **p,
+                uid_t uid_shift,
+                uid_t uid_range,
+                uid_t source_owner,
+                uid_t dest_owner,
+                RemountIdmapping idmapping) {
+
         _cleanup_close_ int userns_fd = -EBADF;
 
         userns_fd = make_userns(uid_shift, uid_range, source_owner, dest_owner, idmapping);
@@ -1500,6 +1507,7 @@ static int get_sub_mounts(
                 const char *prefix,
                 SubMount **ret_mounts,
                 size_t *ret_n_mounts) {
+
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         SubMount *mounts = NULL;
