@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
 #include <linux/can/vxcan.h>
-#include <linux/if_arp.h>
 
 #include "vxcan.h"
 

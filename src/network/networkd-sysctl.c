@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
 
 #include "af-list.h"
 #include "missing_network.h"

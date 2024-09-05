@@ -5,10 +5,10 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
-#include <linux/ipv6_route.h>
+#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
+#include <linux/ipv6_route.h>
 
 #include "sd-resolve.h"
 

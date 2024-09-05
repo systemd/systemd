@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
+#include <net/if_arp.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "bareudp.h"
 #include "netlink-util.h"
