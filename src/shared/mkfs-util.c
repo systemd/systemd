@@ -426,6 +426,8 @@ int make_filesystem(
                                 "-b", "4096",
                                 "-T", "default",
                                 node);
+                if (!argv)
+                        return log_oom();
 
                 if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
@@ -475,6 +477,8 @@ int make_filesystem(
                                 "-U", vol_id,
                                 "-t", one_zero(discard),
                                 node);
+                if (!argv)
+                        return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
@@ -542,6 +546,8 @@ int make_filesystem(
                                 "-n", label,
                                 "-F", "32",  /* yes, we force FAT32 here */
                                 node);
+                if (!argv)
+                        return log_oom();
 
                 if (sector_size > 0) {
                         if (strv_extend(&argv, "-S") < 0)
@@ -562,6 +568,8 @@ int make_filesystem(
                                 "-L", label,
                                 "-U", vol_id,
                                 node);
+                if (!argv)
+                        return log_oom();
 
                 if (quiet)
                         stdio_fds[1] = -EBADF;
@@ -571,6 +579,8 @@ int make_filesystem(
                 argv = strv_new(mkfs,
                                 root, node,
                                 "-noappend");
+                if (!argv)
+                        return log_oom();
 
                 if (compression) {
                         if (strv_extend_many(&argv, "-comp", compression) < 0)
@@ -588,6 +598,8 @@ int make_filesystem(
                 argv = strv_new(mkfs,
                                 "-U", vol_id,
                                 node, root);
+                if (!argv)
+                        return log_oom();
 
                 if (quiet && strv_extend(&argv, "--quiet") < 0)
                         return log_oom();
@@ -606,12 +618,12 @@ int make_filesystem(
                                 return log_oom();
                 }
 
-        } else
+        } else {
                 /* Generic fallback for all other file systems */
                 argv = strv_new(mkfs, node);
-
-        if (!argv)
-                return log_oom();
+                if (!argv)
+                        return log_oom();
+        }
 
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
