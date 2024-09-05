@@ -2,6 +2,8 @@
 #pragma once
 
 #include <fcntl.h>
+/* Include here so consumers have LOCK_{EX,SH,NB} available. */
+#include <sys/file.h>
 
 typedef struct LockFile {
         int dir_fd;
