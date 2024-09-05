@@ -210,8 +210,20 @@ int dlopen_tpm2(void) {
 }
 
 void Esys_Freep(void *p) {
+        assert(p);
+
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
+}
+
+static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) {
+        assert(p);
+
+        if (!*p)
+                return;
+
+        explicit_bzero_safe((*p)->buffer, (*p)->size);
+        sym_Esys_Free(*p);
 }
 
 /* Get a specific TPM capability (or capabilities).
@@ -5804,7 +5816,7 @@ int tpm2_unseal(Tpm2Context *c,
 
                         log_debug("Unsealing HMAC key for shard %zu.", shard);
 
-                        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+                        _cleanup_(tpm2b_sensitive_data_erase_and_esys_freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
                         rc = sym_Esys_Unseal(
                                         c->esys_context,
                                         hmac_key->esys_handle,
@@ -5823,8 +5835,6 @@ int tpm2_unseal(Tpm2Context *c,
 
                         if (!iovec_append(&secret, &IOVEC_MAKE(unsealed->buffer, unsealed->size)))
                                 return log_oom_debug();
-
-                        explicit_bzero_safe(unsealed->buffer, unsealed->size);
                 }
 
                 if (!retry)
@@ -6105,7 +6115,7 @@ int tpm2_unseal_data(
         if (r < 0)
                 return r;
 
-        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+        _cleanup_(tpm2b_sensitive_data_erase_and_esys_freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         rc = sym_Esys_Unseal(
                         c->esys_context,
                         what->esys_handle,
@@ -6120,11 +6130,10 @@ int tpm2_unseal_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_(iovec_done) struct iovec d = {};
-        d = IOVEC_MAKE(memdup(unsealed->buffer, unsealed->size), unsealed->size);
-
-        explicit_bzero_safe(unsealed->buffer, unsealed->size);
-
+        _cleanup_(iovec_done) struct iovec d = {
+                .iov_base = memdup(unsealed->buffer, unsealed->size),
+                .iov_len = unsealed->size,
+        };
         if (!d.iov_base)
                 return log_oom_debug();
 
