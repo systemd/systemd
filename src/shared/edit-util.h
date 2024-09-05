@@ -15,7 +15,7 @@ typedef struct EditFileContext {
         const char *marker_end;
         bool remove_parent;
         bool overwrite_with_origin; /* Always overwrite target with original file. */
-        bool stdin;                 /* Read contents from stdin instead of launching an editor. */
+        bool read_from_stdin;       /* Read contents from stdin instead of launching an editor. */
 } EditFileContext;
 
 void edit_file_context_done(EditFileContext *context);
