@@ -42,7 +42,7 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
                 return 0;
         }
 
-        if (utmpxname(_PATH_UTMPX) < 0)
+        if (utmpxname(UTMPX_FILE) < 0)
                 return -errno;
 
         utmpx = utxent_start();
@@ -91,7 +91,7 @@ static int write_entry_utmp(const struct utmpx *store) {
          * each entry type resp. user; i.e. basically a key/value
          * table. */
 
-        if (utmpxname(_PATH_UTMPX) < 0)
+        if (utmpxname(UTMPX_FILE) < 0)
                 return -errno;
 
         utmpx = utxent_start();
