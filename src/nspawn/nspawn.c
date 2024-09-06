@@ -4067,7 +4067,7 @@ static int outer_child(
                 return r;
 
         if (arg_read_only && arg_volatile_mode == VOLATILE_NO &&
-                !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
+            !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
                 r = bind_remount_recursive(directory, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
