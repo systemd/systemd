@@ -50,6 +50,7 @@ ImportCredential=tty.serial.%I.agetty.*:agetty.
 ImportCredential=tty.serial.%I.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=shell.*
 
 [Install]
 WantedBy=getty.target
