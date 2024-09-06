@@ -9,7 +9,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 
 #include "sd-messages.h"
 
@@ -802,7 +802,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                         return false;
                 if (l > NAME_MAX) /* must fit in a filename: 255 */
                         return false;
-                if (l > UT_NAMESIZE - 1) /* must fit in utmp: 31 */
+                if (l > sizeof_field(struct utmpx, ut_user) - 1) /* must fit in utmp: 31 */
                         return false;
         }
 
