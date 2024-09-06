@@ -29,21 +29,14 @@ static int append_machine_properties(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device policies in
-         * sync regardless if we are run with or without the --keep-unit switch. */
+        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device
+         * policies in sync regardless if we are run with or without the --keep-unit switch. */
         r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 2,
-                                  /* Allow the container to
-                                   * access and create the API
-                                   * device nodes, so that
-                                   * PrivateDevices= in the
-                                   * container can work
-                                   * fine */
+                                  /* Allow the container to access and create the API device nodes, so that
+                                   * PrivateDevices= in the container can work fine */
                                   "/dev/net/tun", "rwm",
-                                  /* Allow the container
-                                   * access to ptys. However,
-                                   * do not permit the
-                                   * container to ever create
-                                   * these device nodes. */
+                                  /* Allow the container access to ptys. However, do not permit the container
+                                   * to ever create these device nodes. */
                                   "char-pts", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
