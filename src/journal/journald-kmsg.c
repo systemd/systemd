@@ -386,20 +386,17 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
 }
 
 int server_open_dev_kmsg(Server *s) {
-        mode_t mode;
         int r;
 
         assert(s);
 
-        if (s->read_kmsg)
-                mode = O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
-        else
-                mode = O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|
+                (s->read_kmsg ? O_RDWR : O_WRONLY);
 
         s->dev_kmsg_fd = open("/dev/kmsg", mode);
         if (s->dev_kmsg_fd < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                               errno, "Failed to open /dev/kmsg, ignoring: %m");
+                               errno, "Failed to open /dev/kmsg for %s access, ignoring: %m", accmode_to_string(mode));
                 return 0;
         }
 
@@ -408,6 +405,7 @@ int server_open_dev_kmsg(Server *s) {
 
         r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
         if (r == -EPERM) { /* This will fail with EPERM on older kernels where /dev/kmsg is not readable. */
+                log_debug_errno(r, "Not reading from /dev/kmsg since that's not supported, apparently.");
                 r = 0;
                 goto finish;
         }
