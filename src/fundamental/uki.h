@@ -17,6 +17,7 @@ typedef enum UnifiedSection {
         UNIFIED_SECTION_SBAT,
         UNIFIED_SECTION_PCRSIG,
         UNIFIED_SECTION_PCRPKEY,
+        UNIFIED_SECTION_PROFILE,
         _UNIFIED_SECTION_MAX,
 } UnifiedSection;
 
