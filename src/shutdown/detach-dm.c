@@ -99,15 +99,7 @@ static int delete_dm(DeviceMapper *m) {
         assert(major(m->devnum) != 0);
         assert(m->path);
 
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        r = fsync_path_at(AT_FDCWD, m->path);
-        if (r < 0)
-                log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
-
-        return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
+        struct dm_ioctl dminfo = {
                 .version = {
                         DM_VERSION_MAJOR,
                         DM_VERSION_MINOR,
@@ -115,7 +107,23 @@ static int delete_dm(DeviceMapper *m) {
                 },
                 .data_size = sizeof(struct dm_ioctl),
                 .dev = m->devnum,
-        }));
+        };
+
+        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = ioctl(fd, DM_DEV_STATUS, &dminfo);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get DM block device %s status, ignoring: %m", m->path);
+
+        if (dminfo.target_count) {
+                r = fsync_path_at(AT_FDCWD, m->path);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
+        }
+
+        return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &dminfo));
 }
 
 static int dm_points_list_detach(DeviceMapper **head, bool *changed, bool last_try) {
