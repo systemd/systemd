@@ -2667,8 +2667,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <title>Security</title>
 
       <para>Similarly to methods on the <interfacename>Manager</interfacename> object, read-only access is
-      allowed for everyone. All operations are allowed for clients with the
-      <constant>CAP_SYS_ADMIN</constant> capability or when the
+      allowed for everyone. All operations are allowed for clients when the
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename> privilege is granted by
       polkit.</para>
     </refsect2>
