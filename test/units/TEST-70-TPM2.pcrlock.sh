@@ -146,7 +146,18 @@ mkdir /tmp/fakexbootldr
 SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
 mv /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
 
-systemd-creds decrypt /tmp/fakexbootldr/loader/credentials/pcrlock.*.cred
+ls -al /tmp/fakexbootldr/loader/credentials
+
+CREDENTIAL_FILE="$(echo /tmp/fakexbootldr/loader/credentials/pcrlock.*.cred)"
+test -f "$CREDENTIAL_FILE"
+
+# Strip dir and .cred suffix from file name.
+CREDENTIAL_NAME=${CREDENTIAL_FILE#/tmp/fakexbootldr/loader/credentials/}
+CREDENTIAL_NAME=${CREDENTIAL_NAME%.cred}
+
+systemd-creds decrypt --name="$CREDENTIAL_NAME" "$CREDENTIAL_FILE"
+ln -s "$CREDENTIAL_FILE" /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
+test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 
 SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
 systemd-cryptsetup detach pcrlock
