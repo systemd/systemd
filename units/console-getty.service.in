@@ -40,6 +40,7 @@ ImportCredential=tty.console.agetty.*:agetty.
 ImportCredential=tty.console.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=shell.*
 
 [Install]
 WantedBy=getty.target
