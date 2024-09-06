@@ -56,6 +56,7 @@ ImportCredential=tty.virtual.%I.agetty.*:agetty.
 ImportCredential=tty.virtual.%I.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=shell.*
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.

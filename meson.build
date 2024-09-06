@@ -188,7 +188,7 @@ mimepackagesdir = prefixdir / 'share/mime/packages'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
-        configfiledir= sysconfdir
+        configfiledir = sysconfdir
 endif
 pkgconfigfiledir = configfiledir / 'systemd'
 
@@ -226,6 +226,11 @@ conf.set('SSHDPRIVSEPDIR', sshdprivsepdir, description : 'SSH privilege separati
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
 if libcryptsetup_plugins_dir == ''
         libcryptsetup_plugins_dir = libdir / 'cryptsetup'
+endif
+
+profiledir = get_option('profiledir')
+if profiledir == ''
+        profiledir = sysconfdir / 'profile.d'
 endif
 
 memory_accounting_default = get_option('memory-accounting-default')
@@ -2708,6 +2713,7 @@ subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
 subdir('units')
+subdir('profile.d')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
@@ -2924,6 +2930,7 @@ summary({
         'ssh server privilege separation directory' : sshdprivsepdir,
         'ssh client configuration directory' : sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
+        'Shell profile directory' :         profiledir,
         'RPM macros directory' :            rpmmacrosdir,
         'modprobe.d directory' :            modprobedir,
         'D-Bus policy directory' :          dbuspolicydir,
