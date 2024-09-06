@@ -26,6 +26,7 @@ static sd_varlink_method_flags_t arg_method_flags = 0;
 static bool arg_collect = false;
 static bool arg_quiet = false;
 static char **arg_graceful = NULL;
+static usec_t arg_timeout = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 
@@ -65,6 +66,8 @@ static int help(void) {
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "  -q --quiet             Do not output method reply\n"
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
+               "     --timeout=SECS      Maximum time to wait for method call completion\n"
+               "  -E                     Short for --more --timeout=infinity\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -90,6 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_COLLECT,
                 ARG_GRACEFUL,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -102,6 +106,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",  no_argument,       NULL, ARG_COLLECT  },
                 { "quiet",    no_argument,       NULL, 'q'          },
                 { "graceful", required_argument, NULL, ARG_GRACEFUL },
+                { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
                 {},
         };
 
@@ -110,7 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hjq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjqE", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -123,6 +128,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                case 'E':
+                        arg_timeout = USEC_INFINITY;
+                        _fallthrough_;
 
                 case ARG_MORE:
                         arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
@@ -163,6 +172,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TIMEOUT:
+                        if (isempty(optarg)) {
+                                arg_timeout = USEC_INFINITY;
+                                break;
+                        }
+
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+
+                        if (arg_timeout == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -185,6 +209,8 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         assert(ret);
         assert(where);
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
         if (STARTSWITH_SET(where, "/", "./")) { /* If the string starts with a slash or dot slash we use it as a file system path */
                 _cleanup_close_ int fd = -EBADF;
                 struct stat st;
@@ -196,32 +222,35 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", where);
 
-                /* Is this a socket in the fs? Then connect() to it. */
                 if (S_ISSOCK(st.st_mode)) {
-                        r = sd_varlink_connect_address(ret, FORMAT_PROC_FD_PATH(fd));
+                        /* Is this a socket in the fs? Then connect() to it. */
+
+                        r = sd_varlink_connect_address(&vl, FORMAT_PROC_FD_PATH(fd));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to '%s': %m", where);
 
-                        return 0;
-                }
+                } else if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
+                        /* Is this an executable binary? Then fork it off. */
 
-                /* Is this an executable binary? Then fork it off. */
-                if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
-                        r = sd_varlink_connect_exec(ret, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
+                        r = sd_varlink_connect_exec(&vl, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to spawn '%s' process: %m", where);
-
-                        return 0;
-                }
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.", where);
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.", where);
+        } else {
+                /* Otherwise assume this is an URL */
+                r = sd_varlink_connect_url(&vl, where);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
         }
 
-        /* Otherwise assume this is an URL */
-        r = sd_varlink_connect_url(ret, where);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
+        if (arg_timeout != 0) {
+                r = sd_varlink_set_relative_timeout(vl, arg_timeout);
+                if (r < 0)
+                        log_error_errno(r, "Failed to set Varlink timeout: %m");
+        }
 
+        *ret = TAKE_PTR(vl);
         return 0;
 }
 
