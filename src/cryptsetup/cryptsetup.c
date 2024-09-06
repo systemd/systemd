@@ -1862,8 +1862,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data,
+                                        key_data, /* n_blobs= */ 1,
                                         /* policy_hash= */ NULL, /* we don't know the policy hash */
+                                        /* n_policy_hash= */ 0,
                                         /* salt= */ NULL,
                                         /* srk= */ NULL,
                                         /* pcrlock_nv= */ NULL,
@@ -1911,10 +1912,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         for (;;) {
                                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-                                _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {};
+                                struct iovec *blobs = NULL, *policy_hash = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
+                                size_t n_blobs = 0, n_policy_hash = 0;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
+
+                                CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+                                CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
 
                                 r = find_tpm2_auto_data(
                                                 cd,
@@ -1925,8 +1930,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &pubkey,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
-                                                &blob,
+                                                &blobs,
+                                                &n_blobs,
                                                 &policy_hash,
+                                                &n_policy_hash,
                                                 &salt,
                                                 &srk,
                                                 &pcrlock_nv,
@@ -1960,8 +1967,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 arg_tpm2_pcrlock,
                                                 primary_alg,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
-                                                &blob,
-                                                &policy_hash,
+                                                blobs,
+                                                n_blobs,
+                                                policy_hash,
+                                                n_policy_hash,
                                                 &salt,
                                                 &srk,
                                                 &pcrlock_nv,

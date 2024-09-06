@@ -10,9 +10,10 @@ export SYSTEMD_LOG_LEVEL=debug
 export PAGER=
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 SD_PCRLOCK="/usr/lib/systemd/systemd-pcrlock"
+SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
-if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] ; then
-    echo "$SD_PCREXTEND or $SD_PCRLOCK not found, skipping pcrlock tests"
+if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] ; then
+    echo "$SD_PCREXTEND or $SD_PCRLOCK or $SD_MEASURE not found, skipping pcrlock tests"
     exit 0
 fi
 
@@ -126,6 +127,17 @@ echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/92
 
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
+
+# Now combined pcrlock and signed PCR
+# Generate key pair
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$img".private.pem
+openssl rsa -pubout -in "$img".private.pem -out "$img".public.pem
+systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key="$img".public.pem --wipe-slot=tpm2 "$img"
+"$SD_MEASURE" sign --current --bank=sha256 --private-key="$img".private.pem --public-key="$img".public.pem --phase=: | tee "$img".pcrsign
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach pcrlock "$img" - "tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,tpm2-signature=$img.pcrsign,headless"
+systemd-cryptsetup detach pcrlock
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --wipe-slot=tpm2 "$img"
+rm "$img".public.pem "$img".private.pem "$img".pcrsign
 
 # Now use the root fs support, i.e. make the tool write a copy of the pcrlock
 # file as service credential to some temporary dir and remove the local copy, so that
