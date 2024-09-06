@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "json-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
@@ -18,20 +19,20 @@
 
 static int search_policy_hash(
                 struct crypt_device *cd,
-                const struct iovec *hash) {
+                const struct iovec policy_hash[],
+                size_t n_policy_hash) {
 
         int r;
 
         assert(cd);
-        assert(iovec_is_valid(hash));
 
-        if (!iovec_is_set(hash))
+        /* Searches among the already enrolled TPM2 tokens for one that matches the exact set of policies specified */
+
+        if (n_policy_hash == 0)
                 return -ENOENT;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                _cleanup_free_ void *thash = NULL;
-                size_t thash_size = 0;
                 int keyslot;
                 sd_json_variant *w;
 
@@ -54,12 +55,45 @@ static int search_policy_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-                r = sd_json_variant_unhex(w, &thash, &thash_size);
-                if (r < 0)
-                        return log_error_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
+                /* This is either an array of strings (for sharded enrollments), or a single string */
+                if (sd_json_variant_is_array(w)) {
 
-                if (memcmp_nn(hash->iov_base, hash->iov_len, thash, thash_size) == 0)
-                        return keyslot; /* Found entry with same hash. */
+                        if (sd_json_variant_elements(w) == n_policy_hash) {
+                                sd_json_variant *i;
+                                bool match = true;
+                                size_t j = 0;
+
+                                JSON_VARIANT_ARRAY_FOREACH(i, w) {
+                                        _cleanup_(iovec_done) struct iovec thash = {};
+
+                                        r = sd_json_variant_unhex(i, &thash.iov_base, &thash.iov_len);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field item : %m");
+
+                                        if (iovec_memcmp(policy_hash + j, &thash) != 0) {
+                                                match = false;
+                                                break;
+                                        }
+
+                                        j++;
+                                }
+
+                                assert(j == n_policy_hash);
+
+                                if (match) /* Found entry with the exact same set of hashes */
+                                        return keyslot;
+                        }
+
+                } else if (n_policy_hash == 1) {
+                        _cleanup_(iovec_done) struct iovec thash = {};
+
+                        r = sd_json_variant_unhex(w, &thash.iov_base, &thash.iov_len);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+
+                        if (iovec_memcmp(policy_hash + 0, &thash) == 0)
+                                return keyslot; /* Found entry with same hash. */
+                }
         }
 
         return -ENOENT; /* Not found */
@@ -154,7 +188,8 @@ int load_volume_key_tpm2(
 
         for (;;) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-                _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {};
+                struct iovec *blobs = NULL, *policy_hash = NULL;
+                size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags tpm2_flags;
@@ -169,8 +204,10 @@ int load_volume_key_tpm2(
                                 &pubkey,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
-                                &blob,
+                                &blobs,
+                                &n_blobs,
                                 &policy_hash,
+                                &n_policy_hash,
                                 &salt,
                                 &srk,
                                 &pcrlock_nv,
@@ -202,8 +239,10 @@ int load_volume_key_tpm2(
                                 /* pcrlock_path= */ NULL,
                                 primary_alg,
                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
-                                &blob,
-                                &policy_hash,
+                                blobs,
+                                n_blobs,
+                                policy_hash,
+                                n_policy_hash,
                                 &salt,
                                 &srk,
                                 &pcrlock_nv,
@@ -257,7 +296,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(iovec_done) struct iovec srk = {}, blob = {}, pubkey = {};
+        _cleanup_(iovec_done) struct iovec srk = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec secret = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
@@ -304,10 +343,7 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
-        /* Load the PCR public key if specified explicitly, or if no pcrlock policy was specified and
-         * automatic loading of PCR public keys wasn't disabled explicitly. The reason we turn this off when
-         * pcrlock is configured is simply that we currently not support both in combination. */
-        if (pcr_pubkey_path || (load_pcr_pubkey && !pcrlock_path)) {
+        if (pcr_pubkey_path || load_pcr_pubkey) {
                 r = tpm2_load_pcr_public_key(pcr_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
                         if (pcr_pubkey_path || signature_path || r != -ENOENT)
@@ -398,42 +434,88 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(r, "Failed to determine best PCR bank: %m");
         }
 
-        TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        /* Unfortunately TPM2 policy semantics make it very hard to combine PolicyAuthorize (which we need
+         * for signed PCR policies) and PolicyAuthorizeNV (which we need for pcrlock policies). Hence, let's
+         * use a "sharded" secret, and lock the first shard to the signed PCR policy, and the 2nd to the
+         * pcrlock – if both are requested. */
+
+        TPM2B_DIGEST policy_hash[2] = {
+                TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+                TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+        };
+        size_t n_policy_hash = 1;
+
+        /* If both PCR public key unlock and pcrlock unlock is selected, then we create the one for PCR public key unlock first. */
         r = tpm2_calculate_sealing_policy(
                         hash_pcr_values,
                         n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
                         use_pin,
-                        pcrlock_path ? &pcrlock_policy : NULL,
-                        &policy);
+                        pcrlock_path && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
+                        policy_hash + 0);
         if (r < 0)
                 return r;
 
-        if (device_key)
+        if (pcrlock_path && iovec_is_set(&pubkey)) {
+                r = tpm2_calculate_sealing_policy(
+                                hash_pcr_values,
+                                n_hash_pcr_values,
+                                /* public= */ NULL, /* This one is off now */
+                                use_pin,
+                                &pcrlock_policy,    /* And this one on instead. */
+                                policy_hash + 1);
+                if (r < 0)
+                        return r;
+
+                n_policy_hash ++;
+        }
+
+        struct iovec *blobs = NULL;
+        size_t n_blobs = 0;
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
+        if (device_key) {
+                if (n_policy_hash > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Combined signed PCR policies and pcrlock policies cannot be calculated offline, currently.");
+
+                blobs = new0(struct iovec, 1);
+                if (!blobs)
+                        return log_oom();
+
+                n_blobs = 1;
+
                 r = tpm2_calculate_seal(
                                 seal_key_handle,
                                 &device_key_public,
                                 /* attributes= */ NULL,
                                 /* secret= */ NULL,
-                                &policy,
+                                policy_hash + 0,
                                 pin_str,
                                 &secret,
-                                &blob,
+                                blobs + 0,
                                 &srk);
-        else
+        } else
                 r = tpm2_seal(tpm2_context,
                               seal_key_handle,
-                              &policy,
+                              policy_hash,
+                              n_policy_hash,
                               pin_str,
                               &secret,
-                              &blob,
+                              &blobs,
+                              &n_blobs,
                               /* ret_primary_alg= */ NULL,
                               &srk);
         if (r < 0)
                 return log_error_errno(r, "Failed to seal to TPM2: %m");
 
+        struct iovec policy_hash_as_iovec[2] = {
+                IOVEC_MAKE(policy_hash[0].buffer, policy_hash[0].size),
+                IOVEC_MAKE(policy_hash[1].buffer, policy_hash[1].size),
+        };
+
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
-        r = search_policy_hash(cd, &IOVEC_MAKE(policy.buffer, policy.size));
+        r = search_policy_hash(cd, policy_hash_as_iovec, n_policy_hash);
         if (r == -ENOENT)
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
@@ -461,8 +543,10 @@ int enroll_tpm2(struct crypt_device *cd,
                                 pin_str,
                                 pcrlock_path ? &pcrlock_policy : NULL,
                                 /* primary_alg= */ 0,
-                                &blob,
-                                &IOVEC_MAKE(policy.buffer, policy.size),
+                                blobs,
+                                n_blobs,
+                                policy_hash_as_iovec,
+                                n_policy_hash,
                                 &srk,
                                 &secret2);
                 if (r < 0)
@@ -498,8 +582,10 @@ int enroll_tpm2(struct crypt_device *cd,
                         &pubkey,
                         pubkey_pcr_mask,
                         /* primary_alg= */ 0,
-                        &blob,
-                        &IOVEC_MAKE(policy.buffer, policy.size),
+                        blobs,
+                        n_blobs,
+                        policy_hash_as_iovec,
+                        n_policy_hash,
                         use_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
                         &srk,
                         pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
