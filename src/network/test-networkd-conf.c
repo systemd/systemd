@@ -194,7 +194,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         assert_se(network->filename = strdup("hogehoge.network"));
 
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
-        assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
+        assert_se(config_parse_address_section("network", "filename", 1, "section", 1, "Address", ADDRESS_ADDRESS, rvalue, network, network) == 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == n_addresses);
