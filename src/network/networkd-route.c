@@ -719,6 +719,13 @@ static int route_update_on_existing(Request *req) {
         Route *rt = ASSERT_PTR(ASSERT_PTR(req)->userdata);
         int r;
 
+        if (!req->manager)
+                /* Already detached? At least there are two posibilities then.
+                 * 1) The interface is removed, and all queued requests for the interface are cancelled.
+                 * 2) networkd is now stopping, hence all queued requests are cancelled.
+                 * Anyway, we can ignore the request, and there is nothing we can do. */
+                return 0;
+
         if (rt->family == AF_INET || ordered_set_isempty(rt->nexthops))
                 return route_update_on_existing_one(req, rt);
 
