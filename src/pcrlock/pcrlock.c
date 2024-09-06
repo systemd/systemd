@@ -4291,21 +4291,22 @@ static int remove_policy_file(const char *path) {
         return 1;
 }
 
-static int determine_boot_policy_file(char **ret) {
-        _cleanup_free_ char *path = NULL, *fn = NULL, *joined = NULL;
-        sd_id128_t machine_id;
+static int determine_boot_policy_file(char **ret_path, char **ret_credential_name) {
         int r;
 
-        assert(ret);
-
+        _cleanup_free_ char *path = NULL;
         r = get_global_boot_credentials_path(&path);
         if (r < 0)
                 return r;
         if (r == 0) {
-                *ret = NULL;
+                if (ret_path)
+                        *ret_path = NULL;
+                if (ret_credential_name)
+                        *ret_credential_name = NULL;
                 return 0; /* not found! */
         }
 
+        sd_id128_t machine_id;
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to read machine ID: %m");
@@ -4320,28 +4321,48 @@ static int determine_boot_policy_file(char **ret) {
         if (r < 0)
                 return r;
 
-        fn = strjoin("pcrlock.", arg_entry_token, ".cred");
+        _cleanup_free_ char *fn = strjoin("pcrlock.", arg_entry_token, ".cred");
         if (!fn)
                 return log_oom();
 
         if (!filename_is_valid(fn))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fn);
 
-        joined = path_join(path, fn);
-        if (!joined)
-                return log_oom();
+        _cleanup_free_ char *joined = NULL;
+        if (ret_path) {
+                joined = path_join(path, fn);
+                if (!joined)
+                        return log_oom();
+        }
 
-        *ret = TAKE_PTR(joined);
+        _cleanup_free_ char *cn = NULL;
+        if (ret_credential_name) {
+                /* The .cred suffix of the file is stripped when PID 1 imports the credential, hence exclude it from
+                 * the embedded credential name. */
+                cn = strjoin("pcrlock.", arg_entry_token);
+                if (!cn)
+                        return log_oom();
+
+                ascii_strlower(cn); /* lowercase this file, no matter what, since stored on VFAT, and we don't want
+                                     * to run into case change incompatibilities */
+        }
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(joined);
+
+        if (ret_credential_name)
+                *ret_credential_name = TAKE_PTR(cn);
+
         return 1; /* found! */
 }
 
 static int write_boot_policy_file(const char *json_text) {
-        _cleanup_free_ char *boot_policy_file = NULL;
+        _cleanup_free_ char *boot_policy_file = NULL, *credential_name = NULL;
         int r;
 
         assert(json_text);
 
-        r = determine_boot_policy_file(&boot_policy_file);
+        r = determine_boot_policy_file(&boot_policy_file, &credential_name);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -4349,18 +4370,10 @@ static int write_boot_policy_file(const char *json_text) {
                 return 0;
         }
 
-        _cleanup_free_ char *c = NULL;
-        r = path_extract_filename(boot_policy_file, &c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from %s: %m", boot_policy_file);
-
-        ascii_strlower(c); /* lowercase this file, no matter what, since stored on VFAT, and we don't want to
-                            * run into case change incompatibilities */
-
         _cleanup_(iovec_done) struct iovec encoded = {};
         r = encrypt_credential_and_warn(
                         CRED_AES256_GCM_BY_NULL,
-                        c,
+                        credential_name,
                         now(CLOCK_REALTIME),
                         /* not_after= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
@@ -4887,7 +4900,7 @@ static int remove_policy(void) {
         }
 
         _cleanup_free_ char *boot_policy_file = NULL;
-        r = determine_boot_policy_file(&boot_policy_file);
+        r = determine_boot_policy_file(&boot_policy_file, /* ret_credential_name= */ NULL);
         if (r == 0)
                 log_info("Did not find XBOOTLDR/ESP partition, not removing boot policy file.");
         else if (r > 0) {
