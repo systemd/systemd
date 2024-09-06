@@ -168,7 +168,16 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
         if (r < 0)
                 return r;
 
-        return retrieve_key(serial, ret);
+        _cleanup_strv_free_erase_ char **l = NULL;
+        r = retrieve_key(serial, &l);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Found an empty password from keyring.");
+
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 static int backspace_chars(int ttyfd, size_t p) {
@@ -955,8 +964,8 @@ finish:
 
 static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret) {
         _cleanup_(erase_and_freep) char *buffer = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         size_t size;
-        char **l;
         int r;
 
         assert(req);
@@ -971,7 +980,10 @@ static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFla
         if (!l)
                 return -ENOMEM;
 
-        *ret = l;
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Found an empty password in credential.");
+
+        *ret = TAKE_PTR(l);
         return 0;
 }
 
