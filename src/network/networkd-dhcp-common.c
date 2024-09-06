@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <net/if.h>
 #include <net/if_arp.h>
 
 #include "bus-error.h"
