@@ -3079,6 +3079,7 @@ int dissected_image_decrypt_interactively(
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 
+                assert(!strv_isempty(z));
                 passphrase = z[0];
         }
 }
