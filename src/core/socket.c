@@ -3400,6 +3400,18 @@ static void socket_handoff_timestamp(
         }
 }
 
+static void socket_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_pidref) {
+        Socket *s = ASSERT_PTR(SOCKET(u));
+
+        assert(parent_pidref);
+        assert(child_pidref);
+
+        if (pidref_equal(&s->control_pid, parent_pidref)) {
+                s->control_pid = TAKE_PIDREF(*child_pidref);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         usec_t t;
@@ -3608,6 +3620,7 @@ const UnitVTable socket_vtable = {
         .reset_failed = socket_reset_failed,
 
         .notify_handoff_timestamp = socket_handoff_timestamp,
+        .notify_pidref = socket_notify_pidref,
 
         .control_pid = socket_control_pid,
 

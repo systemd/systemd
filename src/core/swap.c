@@ -1434,6 +1434,18 @@ static void swap_handoff_timestamp(
         }
 }
 
+static void swap_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_pidref) {
+        Swap *s = ASSERT_PTR(SWAP(u));
+
+        assert(parent_pidref);
+        assert(child_pidref);
+
+        if (pidref_equal(&s->control_pid, parent_pidref)) {
+                s->control_pid = TAKE_PIDREF(*child_pidref);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = ASSERT_PTR(SWAP(u));
         usec_t t;
@@ -1621,6 +1633,7 @@ const UnitVTable swap_vtable = {
         .reset_failed = swap_reset_failed,
 
         .notify_handoff_timestamp = swap_handoff_timestamp,
+        .notify_pidref = swap_notify_pidref,
 
         .control_pid = swap_control_pid,
 
