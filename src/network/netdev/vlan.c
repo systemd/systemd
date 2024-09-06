@@ -3,7 +3,7 @@
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <errno.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/if_vlan.h>
 
 #include "parse-util.h"

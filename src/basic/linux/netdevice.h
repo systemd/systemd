@@ -32,7 +32,8 @@
 #include <linux/if_link.h>
 
 
-#define MAX_ADDR_LEN	32		/* Largest hardware address length */
+/* Naming collisions with net/if_arp.h */
+#define HW_ADDR_MAX_SIZE	32		/* Largest hardware address length */
 
 /* Initial net device group. All devices belong to group 0 by default. */
 #define INIT_NETDEV_GROUP	0

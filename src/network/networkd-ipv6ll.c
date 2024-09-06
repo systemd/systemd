@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "in-addr-util.h"
+#include "missing_arphrd.h"
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"

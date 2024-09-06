@@ -2,10 +2,11 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/if_bridge.h>
 
 #include "missing_network.h"
+#include "missing_arphrd.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"

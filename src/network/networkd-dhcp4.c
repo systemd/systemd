@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"

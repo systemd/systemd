@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
+#include "missing_arphrd.h"
 #include "vcan.h"
 
 const NetDevVTable vcan_vtable = {

@@ -2,11 +2,13 @@
 
 #include <errno.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
+#include <net/ethernet.h>
 #include <linux/if_infiniband.h>
 #include <string.h>
 
 #include "arphrd-util.h"
+#include "missing_arphrd.h"
 #include "macro.h"
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);

@@ -2,10 +2,11 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "af-list.h"
 #include "missing_network.h"
+#include "missing_arphrd.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"

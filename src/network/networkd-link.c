@@ -2,9 +2,9 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <linux/if_arp.h>
 #include <linux/if_link.h>
 #include <linux/netdevice.h>
 #include <sys/socket.h>
@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
+#include "missing_arphrd.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"

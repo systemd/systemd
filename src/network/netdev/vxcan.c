@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/can/vxcan.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
+#include "missing_arphrd.h"
 #include "vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
