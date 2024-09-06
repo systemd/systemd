@@ -263,9 +263,7 @@ static int process_one_password_file(const char *filename) {
                         return log_error_errno(r, "Failed to query password: %m");
                 }
 
-                if (strv_isempty(passwords))
-                        return -ECANCELED;
-
+                assert(!strv_isempty(passwords));
                 r = send_passwords(socket_name, passwords);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send: %m");
