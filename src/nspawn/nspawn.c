@@ -4028,6 +4028,14 @@ static int outer_child(
                 }
         }
 
+        r = setup_volatile_mode_after_remount_idmap(
+                        directory,
+                        arg_volatile_mode,
+                        arg_uid_shift,
+                        arg_selinux_apifs_context);
+        if (r < 0)
+                return r;
+
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount_and_warn(
