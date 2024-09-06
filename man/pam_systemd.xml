@@ -268,6 +268,21 @@
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
+        <term><varname>$SHELL_PROMPT_SUFFIX</varname></term>
+        <term><varname>$SHELL_WELCOME</varname></term>
+
+        <listitem><para>These environment variables are initialized from the service credentials
+        <literal>shell.prompt.prefix</literal>, <literal>shell.prompt.suffix</literal> and
+        <literal>shell.welcome</literal> if set. They are passed to the invoked session processes, where they
+        are imported into any shell prompt (specifically <varname>$SHELL_PROMPT_PREFIX</varname> is added as
+        prefix to <varname>$PS1</varname>, and <varname>$SHELL_PROMPT_SUFFIX</varname> as suffix) or printed
+        on screen when a shell first initializes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>The following environment variables are read by the module and may be used by the PAM service to pass
