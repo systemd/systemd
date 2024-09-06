@@ -127,7 +127,7 @@ static void test_device_path_make_canonical_one(const char *path) {
                 /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
                  * run in a container or so? */
                 log_notice("Device %s cannot be resolved, skipping test", path);
-                log_warning("mode=%ho rdev=" FORMAT_DEVNUM_STR, st.st_mode, FORMAT_DEVNUM_VAL(st.st_rdev));
+                log_warning("mode=%o rdev=" DEVNUM_FORMAT_STR, (unsigned int)st.st_mode, DEVNUM_FORMAT_VAL(st.st_rdev));
                 log_dev(path);
                 return;
         }
