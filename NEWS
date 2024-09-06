@@ -530,9 +530,20 @@ CHANGES WITH 256:
 
         SSH Integration:
 
-        * An sshd config drop-in to allow ssh keys acquired via userdbctl (for
+        * An sshd_config drop-in to allow ssh keys acquired via userdbctl (for
           example expose by homed accounts) to be used for authorization of
-          incoming SSH connections.
+          incoming SSH connections. This uses the AuthorizedKeysCommand stanza
+          of sshd_config. Note that sshd only allows a single command to be
+          configured this way, hence this drop-in might conflict with other
+          uses of the logic. It is possible to chainload another, similar tool
+          of another subystem via the --chain switch of userdbctl, to support
+          both in parallel. See the "INTEGRATION WITH SSH" section in
+          userdbctl(1) for details on this. Our recommendation how to combine
+          other subsystem's use of the SSH authroized keys logic with systemd's
+          userbctl functionality however is to implement the APIs described
+          here: https://systemd.io/USER_GROUP_API – in that case this newly
+          added sshd_config integration would just work and do the right thing
+          for all backends.
 
         * A small new unit generator "systemd-ssh-generator" has been added. It
           checks if the sshd binary is installed. If so, it binds it via
