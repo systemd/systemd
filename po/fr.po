@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-25 11:38+0000\n"
+"PO-Revision-Date: 2024-09-06 09:38+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.7.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -98,12 +98,12 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr "Retirer un espace personnel"
+msgstr "Supprimer un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
 msgstr ""
-"Une authentification est requise pour retirer l'espace personnel d'un "
+"Une authentification est requise pour supprimer l'espace personnel d'un "
 "utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:33
@@ -114,7 +114,7 @@ msgstr "Vérifier les identifiants d'un espace personnel"
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Une authentification est requise pour vérifier les identifiants de l'espace "
+"Une authentification est requise pour essayer des identifiants sur l'espace "
 "personnel d'un utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:43
@@ -134,7 +134,8 @@ msgstr "Redimensionner un espace personnel"
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
-"Une authentification est requise pour redimensionner un espace personnel."
+"Une authentification est requise pour redimensionner l'espace personnel d'un "
+"utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
@@ -202,7 +203,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr "Désolé, entrez à nouveau la clé de récupération : "
+msgstr "Désolé, saisissez à nouveau la clé de récupération : "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
@@ -261,7 +262,7 @@ msgstr "PIN de la clé de sécurité incorrect pour l'utilisateur %s."
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr "Désolé, entrez à nouveau le PIN de la clé de sécurité : "
+msgstr "Désolé, saisissez à nouveau le PIN de la clé de sécurité : "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
