@@ -1027,7 +1027,7 @@ clear:
         return r;
 }
 
-bool manager_is_connected(Manager *m) {
+static bool manager_is_connected(Manager *m) {
         assert(m);
 
         /* Return true when the manager is sending a request, resolving a server name, or
